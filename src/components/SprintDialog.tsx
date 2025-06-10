@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,7 +84,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     }
   };
 
-  // Fetch available tasks
+  // Fetch available tasks - only show "Not Started" tasks
   const { data: tasks = [] } = useQuery({
     queryKey: ['available-tasks'],
     queryFn: async () => {
@@ -103,6 +102,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
             )
           )
         `)
+        .eq('status', 'Not Started')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -317,10 +317,10 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Select Tasks</Label>
+            <Label>Select Tasks (Not Started Only)</Label>
             <div className="border rounded-md p-4 max-h-60 overflow-y-auto">
               {tasks.length === 0 ? (
-                <p className="text-sm text-gray-500">No tasks available</p>
+                <p className="text-sm text-gray-500">No "Not Started" tasks available</p>
               ) : (
                 <div className="space-y-2">
                   {tasks.map((task) => (
