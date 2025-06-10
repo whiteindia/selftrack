@@ -76,6 +76,26 @@ export const useInvitations = () => {
       }
 
       console.log('User created successfully via edge function with role:', userData.role, response);
+
+      // After creating the auth user, assign the correct role in user_roles table
+      if (response.user) {
+        console.log('Assigning role to user in user_roles table:', userData.role);
+        
+        const { data: userRoleData, error: roleError } = await supabase
+          .from('user_roles')
+          .insert([{
+            user_id: response.user.id,
+            role: userData.role
+          }]);
+
+        if (roleError) {
+          console.error('Failed to assign role in user_roles table:', roleError);
+          // Don't throw here as the user was created successfully
+        } else {
+          console.log('Role assigned successfully in user_roles table:', userData.role);
+        }
+      }
+
       return { user: response.user, error: null };
       
     } catch (error) {
