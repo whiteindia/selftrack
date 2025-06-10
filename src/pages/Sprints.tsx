@@ -29,7 +29,7 @@ interface Task {
   hours: number;
   projects?: {
     name: string;
-    type: string;
+    service: string;
     clients: {
       name: string;
     };
@@ -170,7 +170,7 @@ const Sprints = () => {
                 hours,\
                 projects (\
                   name,\
-                  type,\
+                  service,\
                   clients (\
                     name\
                   )\
@@ -248,7 +248,7 @@ const Sprints = () => {
     // Global service filter - check project service type
     if (globalServiceFilter !== 'all') {
       const hasMatchingService = sprint.tasks.some(task => 
-        task.projects?.type === globalServiceFilter
+        task.projects?.service === globalServiceFilter
       );
       if (!hasMatchingService && sprint.tasks.length > 0) {
         return false;
@@ -304,7 +304,7 @@ const Sprints = () => {
       }
 
       if (selectedService !== 'all') {
-        if (task.projects?.type !== selectedService) {
+        if (task.projects?.service !== selectedService) {
           return false;
         }
       }
