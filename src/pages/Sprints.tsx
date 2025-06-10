@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,15 +57,22 @@ const Sprints = () => {
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
   const queryClient = useQueryClient();
 
+  console.log('Sprints component rendered');
+
   // Fetch clients for filter
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
+      console.log('Fetching clients...');
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
         .order('name');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+      console.log('Clients fetched:', data);
       return data || [];
     }
   });
@@ -74,11 +80,16 @@ const Sprints = () => {
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
+      console.log('Fetching projects...');
       const { data, error } = await supabase
         .from('projects')
         .select('id, name, client_id')
         .order('name');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+      console.log('Projects fetched:', data);
       return data || [];
     }
   });
@@ -86,11 +97,16 @@ const Sprints = () => {
   const { data: employees = [] } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
+      console.log('Fetching employees...');
       const { data, error } = await supabase
         .from('employees')
         .select('id, name')
         .order('name');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching employees:', error);
+        throw error;
+      }
+      console.log('Employees fetched:', data);
       return data || [];
     }
   });
@@ -98,97 +114,131 @@ const Sprints = () => {
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
+      console.log('Fetching services...');
       const { data, error } = await supabase
         .from('services')
         .select('id, name')
         .order('name');
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching services:', error);
+        throw error;
+      }
+      console.log('Services fetched:', data);
       return data || [];
     }
   });
 
   // Fetch sprints with their tasks
-  const { data: sprints = [], isLoading } = useQuery({
+  const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
     queryKey: ['sprints'],
     queryFn: async () => {
-      const { data: sprintsData, error: sprintsError } = await supabase
-        .from('sprints')
-        .select('*')
-        .order('deadline', { ascending: true });
+      console.log('Fetching sprints...');
+      try {
+        const { data: sprintsData, error: sprintsError } = await supabase
+          .from('sprints')
+          .select('*')
+          .order('deadline', { ascending: true });
 
-      if (sprintsError) throw sprintsError;
+        if (sprintsError) {
+          console.error('Error fetching sprints:', sprintsError);
+          throw sprintsError;
+        }
 
-      const sprintsWithTasks: SprintWithTasks[] = [];
-      
-      for (const sprint of sprintsData || []) {
-        const { data: sprintTasks, error: tasksError } = await supabase
-          .from('sprint_tasks')
-          .select(`
-            task_id,
-            tasks (
-              id,
-              name,
-              status,
-              project_id,
-              assignee_id,
-              deadline,
-              hours,
-              projects (
+        console.log('Sprints data fetched:', sprintsData);
+
+        if (!sprintsData || sprintsData.length === 0) {
+          console.log('No sprints found');
+          return [];
+        }
+
+        const sprintsWithTasks: SprintWithTasks[] = [];
+        
+        for (const sprint of sprintsData) {
+          console.log('Processing sprint:', sprint.id, sprint.title);
+          
+          const { data: sprintTasks, error: tasksError } = await supabase
+            .from('sprint_tasks')
+            .select(`
+              task_id,
+              tasks (
+                id,
                 name,
-                type,
-                clients (
-                  name
+                status,
+                project_id,
+                assignee_id,
+                deadline,
+                hours,
+                projects (
+                  name,
+                  type,
+                  clients (
+                    name
+                  )
                 )
               )
-            )
-          `)
-          .eq('sprint_id', sprint.id);
+            `)
+            .eq('sprint_id', sprint.id);
 
-        if (tasksError) throw tasksError;
-
-        const tasks: Task[] = [];
-        
-        for (const st of sprintTasks || []) {
-          if (st.tasks) {
-            const task = st.tasks as any;
-            let employeeData = null;
-            
-            if (task.assignee_id) {
-              const { data: employee } = await supabase
-                .from('employees')
-                .select('name')
-                .eq('id', task.assignee_id)
-                .single();
-              
-              if (employee) {
-                employeeData = { name: employee.name };
-              }
-            }
-            
-            tasks.push({
-              id: task.id,
-              name: task.name,
-              status: task.status as 'Not Started' | 'In Progress' | 'Completed',
-              project_id: task.project_id,
-              assignee_id: task.assignee_id,
-              deadline: task.deadline,
-              hours: task.hours,
-              projects: task.projects,
-              employees: employeeData
-            });
+          if (tasksError) {
+            console.error('Error fetching sprint tasks:', tasksError);
+            throw tasksError;
           }
-        }
-        
-        sprintsWithTasks.push({
-          ...sprint,
-          status: sprint.status as 'Not Started' | 'In Progress' | 'Completed',
-          tasks
-        });
-      }
 
-      return sprintsWithTasks;
+          console.log('Sprint tasks for', sprint.title, ':', sprintTasks);
+
+          const tasks: Task[] = [];
+          
+          for (const st of sprintTasks || []) {
+            if (st.tasks) {
+              const task = st.tasks as any;
+              let employeeData = null;
+              
+              if (task.assignee_id) {
+                const { data: employee } = await supabase
+                  .from('employees')
+                  .select('name')
+                  .eq('id', task.assignee_id)
+                  .single();
+                
+                if (employee) {
+                  employeeData = { name: employee.name };
+                }
+              }
+              
+              tasks.push({
+                id: task.id,
+                name: task.name,
+                status: task.status as 'Not Started' | 'In Progress' | 'Completed',
+                project_id: task.project_id,
+                assignee_id: task.assignee_id,
+                deadline: task.deadline,
+                hours: task.hours,
+                projects: task.projects,
+                employees: employeeData
+              });
+            }
+          }
+          
+          sprintsWithTasks.push({
+            ...sprint,
+            status: sprint.status as 'Not Started' | 'In Progress' | 'Completed',
+            tasks
+          });
+        }
+
+        console.log('Final sprints with tasks:', sprintsWithTasks);
+        return sprintsWithTasks;
+      } catch (error) {
+        console.error('Error in sprints query:', error);
+        throw error;
+      }
     }
   });
+
+  // Log any query errors
+  if (sprintsError) {
+    console.error('Sprints query error:', sprintsError);
+  }
 
   // Generate available years from sprints
   const availableYears = [...new Set(sprints.map(sprint => new Date(sprint.deadline).getFullYear()))].sort((a, b) => b - a);
@@ -266,13 +316,17 @@ const Sprints = () => {
   // Delete sprint mutation
   const deleteSprint = useMutation({
     mutationFn: async (sprintId: string) => {
+      console.log('Deleting sprint:', sprintId);
       // First delete sprint_tasks relationships
       const { error: sprintTasksError } = await supabase
         .from('sprint_tasks')
         .delete()
         .eq('sprint_id', sprintId);
       
-      if (sprintTasksError) throw sprintTasksError;
+      if (sprintTasksError) {
+        console.error('Error deleting sprint tasks:', sprintTasksError);
+        throw sprintTasksError;
+      }
 
       // Then delete the sprint
       const { error } = await supabase
@@ -280,7 +334,11 @@ const Sprints = () => {
         .delete()
         .eq('id', sprintId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting sprint:', error);
+        throw error;
+      }
+      console.log('Sprint deleted successfully');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
@@ -289,7 +347,8 @@ const Sprints = () => {
         description: "Sprint deleted successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Delete sprint error:', error);
       toast({
         title: "Error",
         description: "Failed to delete sprint",
@@ -301,12 +360,17 @@ const Sprints = () => {
   // Update task status mutation
   const updateTaskStatus = useMutation({
     mutationFn: async ({ taskId, status }: { taskId: string; status: 'Not Started' | 'In Progress' | 'Completed' }) => {
+      console.log('Updating task status:', taskId, status);
       const { error } = await supabase
         .from('tasks')
         .update({ status })
         .eq('id', taskId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating task status:', error);
+        throw error;
+      }
+      console.log('Task status updated successfully');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
@@ -315,7 +379,8 @@ const Sprints = () => {
         description: "Task status updated successfully",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('Update task status error:', error);
       toast({
         title: "Error",
         description: "Failed to update task status",
@@ -326,12 +391,17 @@ const Sprints = () => {
 
   const updateSprintStatus = useMutation({
     mutationFn: async ({ sprintId, status }: { sprintId: string; status: string }) => {
+      console.log('Updating sprint status:', sprintId, status);
       const { error } = await supabase
         .from('sprints')
         .update({ status })
         .eq('id', sprintId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating sprint status:', error);
+        throw error;
+      }
+      console.log('Sprint status updated successfully');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints'] });
@@ -339,6 +409,7 @@ const Sprints = () => {
   });
 
   const handleTaskStatusChange = (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed', sprintId: string) => {
+    console.log('Handle task status change:', taskId, newStatus, sprintId);
     updateTaskStatus.mutate({ taskId, status: newStatus });
     
     const sprint = sprints.find(s => s.id === sprintId);
@@ -361,11 +432,13 @@ const Sprints = () => {
   };
 
   const handleEditSprint = (sprint: Sprint) => {
+    console.log('Edit sprint:', sprint);
     setEditingSprint(sprint);
     setDialogOpen(true);
   };
 
   const handleDeleteSprint = (sprintId: string) => {
+    console.log('Delete sprint requested:', sprintId);
     if (confirm('Are you sure you want to delete this sprint? This action cannot be undone.')) {
       deleteSprint.mutate(sprintId);
     }
@@ -408,9 +481,14 @@ const Sprints = () => {
   const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedService !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
 
   const handleCreateSprint = () => {
+    console.log('Create sprint requested');
     setEditingSprint(null);
     setDialogOpen(true);
   };
+
+  console.log('Sprints loading:', isLoading);
+  console.log('Sprints data:', sprints);
+  console.log('Filtered sprints:', filteredSprints);
 
   if (isLoading) {
     return (
@@ -418,6 +496,20 @@ const Sprints = () => {
         <div className="container mx-auto p-6">
           <div className="flex justify-center items-center h-64">
             <div className="text-lg">Loading sprints...</div>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (sprintsError) {
+    return (
+      <Navigation>
+        <div className="container mx-auto p-6">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-lg text-red-500">
+              Error loading sprints: {sprintsError.message}
+            </div>
           </div>
         </div>
       </Navigation>
@@ -489,6 +581,7 @@ const Sprints = () => {
           onOpenChange={setDialogOpen}
           editingSprint={editingSprint}
           onSuccess={() => {
+            console.log('Sprint dialog success callback');
             queryClient.invalidateQueries({ queryKey: ['sprints'] });
             setDialogOpen(false);
             setEditingSprint(null);
@@ -500,3 +593,5 @@ const Sprints = () => {
 };
 
 export default Sprints;
+
+</edits_to_apply>
