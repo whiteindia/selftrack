@@ -25,6 +25,7 @@ interface Task {
   project_id: string;
   assignee_id?: string;
   assigner_id?: string;
+  invoiced: boolean;
   projects?: {
     name: string;
     clients: {
@@ -34,7 +35,7 @@ interface Task {
   employees?: {
     name: string;
   };
-  assigners?: {
+  assigner?: {
     name: string;
   };
 }
@@ -43,7 +44,7 @@ const ITEMS_PER_PAGE = 20;
 
 const Tasks = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Not Started' | 'In Progress' | 'Completed' | ''>('');
   const [projectFilter, setProjectFilter] = useState('');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
@@ -89,25 +90,25 @@ const Tasks = () => {
         query = query.eq('project_id', projectFilter);
       }
 
-      // Get total count for pagination
-      const { count } = await supabase
+      // Get total count for pagination - build the count query separately
+      let countQuery = supabase
         .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .apply((builder) => {
-          if (!showCompleted) {
-            builder = builder.neq('status', 'Completed');
-          }
-          if (searchTerm) {
-            builder = builder.ilike('name', `%${searchTerm}%`);
-          }
-          if (statusFilter) {
-            builder = builder.eq('status', statusFilter);
-          }
-          if (projectFilter) {
-            builder = builder.eq('project_id', projectFilter);
-          }
-          return builder;
-        });
+        .select('*', { count: 'exact', head: true });
+
+      if (!showCompleted) {
+        countQuery = countQuery.neq('status', 'Completed');
+      }
+      if (searchTerm) {
+        countQuery = countQuery.ilike('name', `%${searchTerm}%`);
+      }
+      if (statusFilter) {
+        countQuery = countQuery.eq('status', statusFilter);
+      }
+      if (projectFilter) {
+        countQuery = countQuery.eq('project_id', projectFilter);
+      }
+
+      const { count } = await countQuery;
 
       // Apply pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -278,7 +279,7 @@ const Tasks = () => {
           </div>
           
           <div>
-            <Select value={statusFilter} onValueChange={(value) => {
+            <Select value={statusFilter} onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed' | '') => {
               setStatusFilter(value);
               setCurrentPage(1);
             }}>
@@ -387,8 +388,11 @@ const Tasks = () => {
                         <MessageSquare className="h-4 w-4" />
                       </Button>
                       
-                      {task.status !== 'Not Started' && task.status !== 'Completed' && (
-                        <TimeTrackerWithComment taskId={task.id} />
+                      {task.status === 'In Progress' && (
+                        <TimeTrackerWithComment 
+                          task={task}
+                          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                        />
                       )}
                       
                       <Select
