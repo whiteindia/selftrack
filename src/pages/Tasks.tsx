@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,7 +25,7 @@ interface Task {
   assignee_id?: string;
   assigner_id?: string;
   invoiced: boolean;
-  projects?: {
+  projects: {
     name: string;
     clients: {
       name: string;
