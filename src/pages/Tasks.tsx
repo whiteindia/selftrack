@@ -7,12 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, MessageSquare, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Pencil, Trash2, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import TaskCommentDialog from '@/components/TaskCommentDialog';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
-import TaskHistory from '@/components/TaskHistory';
-import Navigation from '@/components/Navigation';
 import { format } from 'date-fns';
 
 interface Task {
@@ -27,8 +25,7 @@ interface Task {
   project_id: string;
   assignee_id?: string;
   assigner_id?: string;
-  invoiced: boolean;
-  projects: {
+  projects?: {
     name: string;
     clients: {
       name: string;
@@ -37,7 +34,7 @@ interface Task {
   employees?: {
     name: string;
   };
-  assigner?: {
+  assigners?: {
     name: string;
   };
 }
@@ -46,12 +43,10 @@ const ITEMS_PER_PAGE = 20;
 
 const Tasks = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Not Started' | 'In Progress' | 'Completed' | 'all'>('all');
-  const [projectFilter, setProjectFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showCompleted, setShowCompleted] = useState(false);
   const queryClient = useQueryClient();
@@ -86,33 +81,33 @@ const Tasks = () => {
         query = query.ilike('name', `%${searchTerm}%`);
       }
 
-      if (statusFilter !== 'all') {
+      if (statusFilter) {
         query = query.eq('status', statusFilter);
       }
 
-      if (projectFilter !== 'all') {
+      if (projectFilter) {
         query = query.eq('project_id', projectFilter);
       }
 
-      // Get total count for pagination - build the count query separately
-      let countQuery = supabase
+      // Get total count for pagination
+      const { count } = await supabase
         .from('tasks')
-        .select('*', { count: 'exact', head: true });
-
-      if (!showCompleted) {
-        countQuery = countQuery.neq('status', 'Completed');
-      }
-      if (searchTerm) {
-        countQuery = countQuery.ilike('name', `%${searchTerm}%`);
-      }
-      if (statusFilter !== 'all') {
-        countQuery = countQuery.eq('status', statusFilter);
-      }
-      if (projectFilter !== 'all') {
-        countQuery = countQuery.eq('project_id', projectFilter);
-      }
-
-      const { count } = await countQuery;
+        .select('*', { count: 'exact', head: true })
+        .apply((builder) => {
+          if (!showCompleted) {
+            builder = builder.neq('status', 'Completed');
+          }
+          if (searchTerm) {
+            builder = builder.ilike('name', `%${searchTerm}%`);
+          }
+          if (statusFilter) {
+            builder = builder.eq('status', statusFilter);
+          }
+          if (projectFilter) {
+            builder = builder.eq('project_id', projectFilter);
+          }
+          return builder;
+        });
 
       // Apply pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -225,10 +220,6 @@ const Tasks = () => {
     setCommentDialogOpen(true);
   };
 
-  const toggleTaskHistory = (taskId: string) => {
-    setExpandedTaskId(expandedTaskId === taskId ? null : taskId);
-  };
-
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'Not Started':
@@ -248,36 +239,27 @@ const Tasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('all');
-    setProjectFilter('all');
+    setStatusFilter('');
+    setProjectFilter('');
     setCurrentPage(1);
   };
 
   if (isLoading) {
-    return (
-      <Navigation>
-        <div className="p-6">Loading tasks...</div>
-      </Navigation>
-    );
+    return <div className="p-6">Loading tasks...</div>;
   }
 
   if (error) {
-    return (
-      <Navigation>
-        <div className="p-6 text-red-500">Error loading tasks: {error.message}</div>
-      </Navigation>
-    );
+    return <div className="p-6 text-red-500">Error loading tasks: {error.message}</div>;
   }
 
   const { data: tasks = [], count = 0, totalPages = 0 } = tasksResponse || {};
 
   return (
-    <Navigation>
+    <>
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold">Tasks</h1>
-          <Button onClick={() => setShowTaskForm(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button>
             Add New Task
           </Button>
         </div>
@@ -296,7 +278,7 @@ const Tasks = () => {
           </div>
           
           <div>
-            <Select value={statusFilter} onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed' | 'all') => {
+            <Select value={statusFilter} onValueChange={(value) => {
               setStatusFilter(value);
               setCurrentPage(1);
             }}>
@@ -304,7 +286,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="">All Statuses</SelectItem>
                 <SelectItem value="Not Started">Not Started</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
@@ -321,7 +303,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
+                <SelectItem value="">All Projects</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -400,16 +382,13 @@ const Tasks = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => toggleTaskHistory(task.id)}
+                        onClick={() => handleCommentClick(task)}
                       >
                         <MessageSquare className="h-4 w-4" />
                       </Button>
                       
-                      {task.status === 'In Progress' && (
-                        <TimeTrackerWithComment 
-                          task={task}
-                          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
-                        />
+                      {task.status !== 'Not Started' && task.status !== 'Completed' && (
+                        <TimeTrackerWithComment taskId={task.id} />
                       )}
                       
                       <Select
@@ -442,16 +421,6 @@ const Tasks = () => {
                       </Button>
                     </div>
                   </div>
-
-                  {/* Task History - Expandable */}
-                  {expandedTaskId === task.id && (
-                    <div className="mt-4 pt-4 border-t">
-                      <TaskHistory 
-                        taskId={task.id} 
-                        onUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
-                      />
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))
@@ -511,29 +480,12 @@ const Tasks = () => {
 
       {selectedTask && (
         <TaskCommentDialog
-          task={selectedTask}
-          isOpen={commentDialogOpen}
+          open={commentDialogOpen}
           onOpenChange={setCommentDialogOpen}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+          task={selectedTask}
         />
       )}
-
-      {/* Task Form Dialog - Placeholder for now */}
-      {showTaskForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg">
-            <h2 className="text-lg font-semibold mb-4">Add New Task</h2>
-            <p className="text-gray-600">Task form will be implemented here.</p>
-            <Button 
-              className="mt-4" 
-              onClick={() => setShowTaskForm(false)}
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
-    </Navigation>
+    </>
   );
 };
 
