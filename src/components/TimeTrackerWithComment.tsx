@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,8 +130,9 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       });
       setElapsedTime(0);
       
-      // Invalidate dashboard running tasks query
-      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      // Immediately invalidate and refetch dashboard running tasks query
+      await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
       
       toast.success('Timer started!');
       onSuccess();
@@ -192,8 +192,9 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       await logTimeEntry(task.name, task.id, durationText, result.data.comment || undefined, result.projectName);
       await logTimerStopped(task.name, task.id, durationText, result.projectName);
       
-      // Invalidate dashboard running tasks query
-      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      // Immediately invalidate and refetch dashboard running tasks query
+      await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
       
       toast.success('Timer stopped!');
       onSuccess();
