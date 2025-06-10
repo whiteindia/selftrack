@@ -25,6 +25,7 @@ interface Task {
   project_id: string;
   assignee_id?: string;
   assigner_id?: string;
+  invoiced: boolean;
   projects?: {
     name: string;
     clients: {
@@ -90,24 +91,24 @@ const Tasks = () => {
       }
 
       // Get total count for pagination
-      const { count } = await supabase
+      let countQuery = supabase
         .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .apply((builder) => {
-          if (!showCompleted) {
-            builder = builder.neq('status', 'Completed');
-          }
-          if (searchTerm) {
-            builder = builder.ilike('name', `%${searchTerm}%`);
-          }
-          if (statusFilter) {
-            builder = builder.eq('status', statusFilter);
-          }
-          if (projectFilter) {
-            builder = builder.eq('project_id', projectFilter);
-          }
-          return builder;
-        });
+        .select('*', { count: 'exact', head: true });
+
+      if (!showCompleted) {
+        countQuery = countQuery.neq('status', 'Completed');
+      }
+      if (searchTerm) {
+        countQuery = countQuery.ilike('name', `%${searchTerm}%`);
+      }
+      if (statusFilter) {
+        countQuery = countQuery.eq('status', statusFilter);
+      }
+      if (projectFilter) {
+        countQuery = countQuery.eq('project_id', projectFilter);
+      }
+
+      const { count } = await countQuery;
 
       // Apply pagination
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -286,7 +287,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="Not Started">Not Started</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
@@ -303,7 +304,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Projects</SelectItem>
+                <SelectItem value="all">All Projects</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -388,7 +389,7 @@ const Tasks = () => {
                       </Button>
                       
                       {task.status !== 'Not Started' && task.status !== 'Completed' && (
-                        <TimeTrackerWithComment taskId={task.id} />
+                        <TimeTrackerWithComment task={task} />
                       )}
                       
                       <Select
