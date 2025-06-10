@@ -55,7 +55,7 @@ import {
 
 type TaskStatus = Database['public']['Enums']['task_status'];
 
-interface TaskData {
+interface Task {
   id: string;
   name: string;
   project_id: string;
@@ -139,12 +139,12 @@ const Tasks = () => {
     deadline: null as Date | null,
     estimated_duration: ''
   });
-  const [editingTask, setEditingTask] = useState<TaskData | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('not-completed'); // Changed default to exclude completed
+  const [statusFilter, setStatusFilter] = useState('not-completed');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [assignerFilter, setAssignerFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
@@ -221,7 +221,7 @@ const Tasks = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as TaskData[];
+      return data as Task[];
     }
   });
 
@@ -588,6 +588,21 @@ const Tasks = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="assigner">Assigner</Label>
+                    <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an assigner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="deadline">Deadline</Label>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -905,6 +920,21 @@ const Tasks = () => {
                     <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select an assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assigner">Assigner</Label>
+                    <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an assigner" />
                       </SelectTrigger>
                       <SelectContent>
                         {employees.map((employee) => (
@@ -1346,6 +1376,21 @@ const Tasks = () => {
                   <Select value={editingTask.assignee_id} onValueChange={(value) => setEditingTask({ ...editingTask, assignee_id: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assigner">Assigner</Label>
+                  <Select value={editingTask.assigner_id} onValueChange={(value) => setEditingTask({ ...editingTask, assigner_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an assigner" />
                     </SelectTrigger>
                     <SelectContent>
                       {employees.map((employee) => (
