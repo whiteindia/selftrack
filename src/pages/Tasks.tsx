@@ -725,10 +725,12 @@ const Tasks = () => {
 
                     {/* Time Tracker and Hours */}
                     <div className="flex items-center justify-between">
-                      <TimeTrackerWithComment
-                        task={{ id: task.id, name: task.name }}
-                        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
-                      />
+                      {task.status !== 'Completed' && task.status !== 'Not Started' && (
+                        <TimeTrackerWithComment
+                          task={{ id: task.id, name: task.name }}
+                          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                        />
+                      )}
                       <span className="text-xs text-gray-500">{task.hours}h logged</span>
                     </div>
 
@@ -1158,7 +1160,7 @@ const Tasks = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {task.status !== 'Completed' && (
+                              {task.status !== 'Completed' && task.status !== 'Not Started' && (
                                 <TimeTrackerWithComment
                                   task={{ id: task.id, name: task.name }}
                                   onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
