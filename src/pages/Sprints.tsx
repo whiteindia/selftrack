@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +28,7 @@ interface Task {
   assignee_id: string | null;
   deadline: string | null;
   hours: number;
+  estimated_duration: number | null;
   projects?: {
     name: string;
     service: string;
@@ -41,6 +43,10 @@ interface Task {
 
 interface SprintWithTasks extends Sprint {
   tasks: Task[];
+  isOverdue: boolean;
+  overdueDays: number;
+  totalEstimatedDuration: number;
+  totalLoggedDuration: number;
 }
 
 const Sprints = () => {
@@ -152,6 +158,8 @@ const Sprints = () => {
         }
 
         const sprintsWithTasks: SprintWithTasks[] = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
         for (const sprint of sprintsData) {
           console.log('Processing sprint:', sprint.id, sprint.title);
@@ -160,22 +168,23 @@ const Sprints = () => {
             .from('sprint_tasks')
             .select(`
               task_id,
-              tasks (\
-                id,\
-                name,\
-                status,\
-                project_id,\
-                assignee_id,\
-                deadline,\
-                hours,\
-                projects (\
-                  name,\
-                  service,\
-                  clients (\
-                    name\
-                  )\
-                )\
-              )\
+              tasks (
+                id,
+                name,
+                status,
+                project_id,
+                assignee_id,
+                deadline,
+                hours,
+                estimated_duration,
+                projects (
+                  name,
+                  service,
+                  clients (
+                    name
+                  )
+                )
+              )
             `)
             .eq('sprint_id', sprint.id);
 
@@ -212,19 +221,58 @@ const Sprints = () => {
                 project_id: task.project_id,
                 assignee_id: task.assignee_id,
                 deadline: task.deadline,
-                hours: task.hours,
+                hours: task.hours || 0,
+                estimated_duration: task.estimated_duration,
                 projects: task.projects,
                 employees: employeeData
               });
             }
           }
+
+          // Calculate durations
+          const totalEstimatedDuration = tasks.reduce((sum, task) => sum + (task.estimated_duration || 0), 0);
+          const totalLoggedDuration = tasks.reduce((sum, task) => sum + task.hours, 0);
+
+          // Check if overdue
+          const sprintDeadline = new Date(sprint.deadline);
+          sprintDeadline.setHours(0, 0, 0, 0);
+          const isOverdue = sprintDeadline < today;
+          const overdueDays = isOverdue ? Math.floor((today.getTime() - sprintDeadline.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+          // Check if all tasks are completed and auto-update sprint status
+          const allTasksCompleted = tasks.length > 0 && tasks.every(task => task.status === 'Completed');
+          let sprintStatus = sprint.status;
+          
+          if (allTasksCompleted && sprint.status !== 'Completed') {
+            // Auto-update sprint to completed
+            const { error: updateError } = await supabase
+              .from('sprints')
+              .update({ status: 'Completed' })
+              .eq('id', sprint.id);
+            
+            if (!updateError) {
+              sprintStatus = 'Completed';
+              console.log('Auto-completed sprint:', sprint.title);
+            }
+          }
           
           sprintsWithTasks.push({
             ...sprint,
-            status: sprint.status as 'Not Started' | 'In Progress' | 'Completed',
-            tasks
+            status: sprintStatus as 'Not Started' | 'In Progress' | 'Completed',
+            tasks,
+            isOverdue,
+            overdueDays,
+            totalEstimatedDuration,
+            totalLoggedDuration
           });
         }
+
+        // Sort sprints: overdue first, then by deadline
+        sprintsWithTasks.sort((a, b) => {
+          if (a.isOverdue && !b.isOverdue) return -1;
+          if (!a.isOverdue && b.isOverdue) return 1;
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        });
 
         console.log('Final sprints with tasks:', sprintsWithTasks);
         return sprintsWithTasks;
@@ -419,7 +467,7 @@ const Sprints = () => {
       );
       
       let sprintStatus: 'Not Started' | 'In Progress' | 'Completed' = 'Not Started';
-      if (updatedTasks.every(t => t.status === 'Completed')) {
+      if (updatedTasks.every(t => t.status === 'Completed') && updatedTasks.length > 0) {
         sprintStatus = 'Completed';
       } else if (updatedTasks.some(t => t.status === 'In Progress' || t.status === 'Completed')) {
         sprintStatus = 'In Progress';

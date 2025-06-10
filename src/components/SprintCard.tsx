@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Calendar, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Calendar, Edit, Trash2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import TaskKanban from '@/components/TaskKanban';
 
@@ -16,6 +16,7 @@ interface SprintTask {
   assignee_id: string | null;
   deadline: string | null;
   hours: number;
+  estimated_duration: number | null;
   projects?: {
     name: string;
     clients: {
@@ -35,6 +36,10 @@ interface Sprint {
   created_at: string;
   updated_at: string;
   tasks: SprintTask[];
+  isOverdue: boolean;
+  overdueDays: number;
+  totalEstimatedDuration: number;
+  totalLoggedDuration: number;
 }
 
 interface SprintCardProps {
@@ -63,7 +68,7 @@ const SprintCard: React.FC<SprintCardProps> = ({
   // Transform sprint tasks to TaskKanban format
   const transformedTasks = sprint.tasks.map(task => ({
     id: task.id,
-    created_at: new Date().toISOString(), // Use current time as fallback
+    created_at: new Date().toISOString(),
     name: task.name,
     description: null,
     project_id: task.project_id,
@@ -96,14 +101,32 @@ const SprintCard: React.FC<SprintCardProps> = ({
                   <ChevronRight className="h-5 w-5 text-gray-500" />
                 )}
                 <div>
-                  <CardTitle className="text-xl">{sprint.title}</CardTitle>
+                  <CardTitle className={`text-xl ${sprint.isOverdue ? 'text-red-600' : ''}`}>
+                    {sprint.title}
+                    {sprint.isOverdue && (
+                      <span className="text-red-600 font-normal ml-2">
+                        ({sprint.overdueDays} day{sprint.overdueDays !== 1 ? 's' : ''} overdue)
+                      </span>
+                    )}
+                  </CardTitle>
                   <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                     <div className="flex items-center space-x-1">
                       <Calendar className="h-4 w-4" />
-                      <span>Due: {format(new Date(sprint.deadline), 'MMM dd, yyyy')}</span>
+                      <span className={sprint.isOverdue ? 'text-red-600' : ''}>
+                        Due: {format(new Date(sprint.deadline), 'MMM dd, yyyy')}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <span>{completedTasks}/{totalTasks} tasks completed</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Clock className="h-4 w-4" />
+                      <span>
+                        {sprint.totalEstimatedDuration > 0 
+                          ? `${sprint.totalEstimatedDuration}h est` 
+                          : 'No estimate'
+                        } | {sprint.totalLoggedDuration}h logged
+                      </span>
                     </div>
                   </div>
                 </div>
