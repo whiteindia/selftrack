@@ -43,6 +43,15 @@ import {
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format, differenceInDays, isAfter, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 type TaskStatus = Database['public']['Enums']['task_status'];
 
@@ -96,6 +105,8 @@ interface Service {
   name: string;
 }
 
+const TASKS_PER_PAGE = 20;
+
 const Tasks = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -133,11 +144,12 @@ const Tasks = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProject, setSelectedProject] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('not-completed'); // Changed default to exclude completed
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [assignerFilter, setAssignerFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
   const [expandedHistories, setExpandedHistories] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Helper functions for task status checking
   const isTaskOverdue = (deadline: string | null, status: TaskStatus, completionDate: string | null): boolean => {
@@ -418,7 +430,12 @@ const Tasks = () => {
   const filteredAndSortedTasks = React.useMemo(() => {
     let filtered = tasks.filter(task => {
       const matchesProject = selectedProject === 'all' || task.project_id === selectedProject;
-      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+      
+      // Updated status filter logic
+      const matchesStatus = statusFilter === 'all' || 
+                           (statusFilter === 'not-completed' && task.status !== 'Completed') ||
+                           (statusFilter !== 'all' && statusFilter !== 'not-completed' && task.status === statusFilter);
+      
       const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
       const matchesAssigner = assignerFilter === 'all' || task.assigner_id === assignerFilter;
       const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -460,6 +477,16 @@ const Tasks = () => {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [tasks, selectedProject, statusFilter, assigneeFilter, assignerFilter, searchTerm, globalServiceFilter, employeeServices]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSortedTasks.length / TASKS_PER_PAGE);
+  const startIndex = (currentPage - 1) * TASKS_PER_PAGE;
+  const paginatedTasks = filteredAndSortedTasks.slice(startIndex, startIndex + TASKS_PER_PAGE);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedProject, statusFilter, assigneeFilter, assignerFilter, globalServiceFilter]);
 
   const handleCreateTask = () => {
     createTaskMutation.mutate(newTask);
@@ -633,6 +660,7 @@ const Tasks = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="not-completed">Active Tasks</SelectItem>
                     <SelectItem value="Not Started">Not Started</SelectItem>
                     <SelectItem value="In Progress">In Progress</SelectItem>
                     <SelectItem value="Completed">Completed</SelectItem>
@@ -644,7 +672,7 @@ const Tasks = () => {
 
           {/* Mobile Task Cards */}
           <div className="space-y-3">
-            {filteredAndSortedTasks.map((task) => {
+            {paginatedTasks.map((task) => {
               const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
               const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
               const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
@@ -743,6 +771,54 @@ const Tasks = () => {
               );
             })}
           </div>
+
+          {/* Mobile Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(pageNum)}
+                          isActive={currentPage === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
 
           {filteredAndSortedTasks.length === 0 && (
             <div className="text-center py-8 text-gray-500">
@@ -923,6 +999,7 @@ const Tasks = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="not-completed">Active Tasks</SelectItem>
                       <SelectItem value="Not Started">Not Started</SelectItem>
                       <SelectItem value="In Progress">In Progress</SelectItem>
                       <SelectItem value="Completed">Completed</SelectItem>
@@ -973,7 +1050,7 @@ const Tasks = () => {
                     onClick={() => {
                       setSearchTerm('');
                       setSelectedProject('all');
-                      setStatusFilter('all');
+                      setStatusFilter('not-completed');
                       setAssigneeFilter('all');
                       setAssignerFilter('all');
                       setGlobalServiceFilter('all');
@@ -995,6 +1072,7 @@ const Tasks = () => {
             <CardDescription>
               {filteredAndSortedTasks.length} task{filteredAndSortedTasks.length !== 1 ? 's' : ''} found
               {globalServiceFilter !== 'all' && ` filtered by ${services.find(s => s.id === globalServiceFilter)?.name}`}
+              {statusFilter === 'not-completed' && ' (completed tasks hidden by default)'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1003,160 +1081,226 @@ const Tasks = () => {
                 No tasks found matching your filters.
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Task Name</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Assignee</TableHead>
-                    <TableHead>Assigner</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Timer</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedTasks.map((task) => {
-                    const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
-                    const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
-                    const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
-                    const hoursBehind = getHoursBehind(task.hours, task.estimated_duration);
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task Name</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Assignee</TableHead>
+                      <TableHead>Assigner</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Deadline</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Timer</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedTasks.map((task) => {
+                      const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
+                      const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
+                      const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
+                      const hoursBehind = getHoursBehind(task.hours, task.estimated_duration);
 
-                    return (
-                      <React.Fragment key={task.id}>
-                        <TableRow className={cn((isOverdue || isOverDuration) && "bg-red-50 border-red-200")}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center space-x-2">
-                              <span>{task.name}</span>
-                              {(isOverdue || isOverDuration) && (
-                                <AlertTriangle className="h-4 w-4 text-red-500" />
+                      return (
+                        <React.Fragment key={task.id}>
+                          <TableRow className={cn((isOverdue || isOverDuration) && "bg-red-50 border-red-200")}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center space-x-2">
+                                <span>{task.name}</span>
+                                {(isOverdue || isOverDuration) && (
+                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{task.projects?.name}</TableCell>
+                            <TableCell>{task.employees?.name}</TableCell>
+                            <TableCell>{task.assigners?.name || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge className={
+                                task.status === 'Not Started' ? 'bg-gray-100 text-gray-800' :
+                                task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                'bg-green-100 text-green-800'
+                              }>
+                                {task.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {task.deadline ? (
+                                <div className={cn("text-sm", isOverdue && "text-red-600 font-semibold")}>
+                                  <div>{format(parseISO(task.deadline), "MMM dd, yyyy")}</div>
+                                  {isOverdue && (
+                                    <div className="text-xs text-red-500">
+                                      {daysBehind} days overdue{task.status === 'Completed' ? ' when completed' : ''}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">No deadline</span>
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell>{task.projects?.name}</TableCell>
-                          <TableCell>{task.employees?.name}</TableCell>
-                          <TableCell>{task.assigners?.name || 'N/A'}</TableCell>
-                          <TableCell>
-                            <Badge className={
-                              task.status === 'Not Started' ? 'bg-gray-100 text-gray-800' :
-                              task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                              'bg-green-100 text-green-800'
-                            }>
-                              {task.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {task.deadline ? (
-                              <div className={cn("text-sm", isOverdue && "text-red-600 font-semibold")}>
-                                <div>{format(parseISO(task.deadline), "MMM dd, yyyy")}</div>
-                                {isOverdue && (
-                                  <div className="text-xs text-red-500">
-                                    {daysBehind} days overdue{task.status === 'Completed' ? ' when completed' : ''}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div className={cn(isOverDuration && "text-red-600 font-semibold")}>
+                                  {task.hours || 0}h logged
+                                </div>
+                                {task.estimated_duration && (
+                                  <div className="text-xs text-gray-500">
+                                    Est: {task.estimated_duration}h
+                                    {isOverDuration && (
+                                      <span className="text-red-500 font-semibold">
+                                        {' '}(+{hoursBehind.toFixed(1)}h over)
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
-                            ) : (
-                              <span className="text-gray-400">No deadline</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div className={cn(isOverDuration && "text-red-600 font-semibold")}>
-                                {task.hours || 0}h logged
-                              </div>
-                              {task.estimated_duration && (
-                                <div className="text-xs text-gray-500">
-                                  Est: {task.estimated_duration}h
-                                  {isOverDuration && (
-                                    <span className="text-red-500 font-semibold">
-                                      {' '}(+{hoursBehind.toFixed(1)}h over)
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {task.status !== 'Completed' && (
-                              <TimeTrackerWithComment
-                                task={{ id: task.id, name: task.name }}
-                                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingTask(task);
-                                  setIsEditDialogOpen(true);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => toggleHistory(task.id)}
-                              >
-                                <History className="h-4 w-4" />
-                              </Button>
-                              
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Task</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete this task? This will also delete all time entries associated with this task. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDeleteTask(task.id)}
-                                      className="bg-red-600 hover:bg-red-700"
-                                    >
-                                      Delete Task
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        
-                        {/* Collapsible History Row */}
-                        {expandedHistories.has(task.id) && (
-                          <TableRow>
-                            <TableCell colSpan={9} className="p-0">
-                              <div className="bg-gray-50 p-4 border-t">
-                                <TaskHistory
-                                  taskId={task.id}
-                                  onUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                            </TableCell>
+                            <TableCell>
+                              {task.status !== 'Completed' && (
+                                <TimeTrackerWithComment
+                                  task={{ id: task.id, name: task.name }}
+                                  onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
                                 />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingTask(task);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleHistory(task.id)}
+                                >
+                                  <History className="h-4 w-4" />
+                                </Button>
+                                
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this task? This will also delete all time entries associated with this task. This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteTask(task.id)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Delete Task
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </TableCell>
                           </TableRow>
+                          
+                          {/* Collapsible History Row */}
+                          {expandedHistories.has(task.id) && (
+                            <TableRow>
+                              <TableCell colSpan={9} className="p-0">
+                                <div className="bg-gray-50 p-4 border-t">
+                                  <TaskHistory
+                                    taskId={task.id}
+                                    onUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                                  />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+
+                {/* Desktop Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center mt-6">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        
+                        {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 7) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 4) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 3) {
+                            pageNum = totalPages - 6 + i;
+                          } else {
+                            pageNum = currentPage - 3 + i;
+                          }
+                          
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(pageNum)}
+                                isActive={currentPage === pageNum}
+                                className="cursor-pointer"
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
+                        
+                        {totalPages > 7 && currentPage < totalPages - 3 && (
+                          <>
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                            <PaginationItem>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="cursor-pointer"
+                              >
+                                {totalPages}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </>
                         )}
-                      </React.Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
