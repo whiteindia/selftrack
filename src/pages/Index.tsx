@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Navigation from '@/components/Navigation';
 import { useNavigate } from 'react-router-dom';
@@ -21,7 +20,7 @@ const Index = () => {
   const {
     runningTasksQuery,
     statsQuery,
-    upcomingProjectsQuery
+    upcomingDeadlinesQuery
   } = useDashboardData();
 
   const { activityFeedQuery } = useActivityFeed();
@@ -39,9 +38,9 @@ const Index = () => {
   useEffect(() => {
     if (runningTasksQuery.error) console.error('Running tasks error:', runningTasksQuery.error);
     if (statsQuery.error) console.error('Stats error:', statsQuery.error);
-    if (upcomingProjectsQuery.error) console.error('Upcoming projects error:', upcomingProjectsQuery.error);
+    if (upcomingDeadlinesQuery.error) console.error('Upcoming deadlines error:', upcomingDeadlinesQuery.error);
     if (activityFeedQuery.error) console.error('Activity error:', activityFeedQuery.error);
-  }, [runningTasksQuery.error, statsQuery.error, upcomingProjectsQuery.error, activityFeedQuery.error]);
+  }, [runningTasksQuery.error, statsQuery.error, upcomingDeadlinesQuery.error, activityFeedQuery.error]);
 
   const formatElapsedTime = (startTime: string) => {
     const start = new Date(startTime);
@@ -138,10 +137,11 @@ const Index = () => {
           />
 
           <UpcomingDeadlines
-            upcomingProjects={upcomingProjectsQuery.data || []}
-            isError={!!upcomingProjectsQuery.error}
+            upcomingDeadlines={upcomingDeadlinesQuery.data || []}
+            isError={!!upcomingDeadlinesQuery.error}
             onBRDClick={handleBRDClick}
             onViewAllProjects={() => navigate('/projects')}
+            onViewAllSprints={() => navigate('/sprints')}
             getTimeUntilDeadline={getTimeUntilDeadline}
           />
 

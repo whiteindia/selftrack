@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -97,16 +98,17 @@ export const useDashboardData = () => {
     }
   });
 
-  // Get projects with upcoming deadlines (this week and next week)
-  const upcomingProjectsQuery = useQuery({
-    queryKey: ['upcoming-projects'],
+  // Get projects and sprints with upcoming deadlines (this week and next week)
+  const upcomingDeadlinesQuery = useQuery({
+    queryKey: ['upcoming-deadlines'],
     queryFn: async () => {
-      console.log('Fetching upcoming projects...');
+      console.log('Fetching upcoming deadlines...');
       const today = new Date();
       const nextWeek = new Date(today);
-      nextWeek.setDate(today.getDate() + 14); // Next 2 weeks
+      nextWeek.setDate(today.getDate() + 7); // Next 7 days
 
-      const { data, error } = await supabase
+      // Fetch upcoming projects
+      const { data: projects, error: projectError } = await supabase
         .from('projects')
         .select(`
           id,
@@ -124,21 +126,48 @@ export const useDashboardData = () => {
         .not('deadline', 'is', null)
         .gte('deadline', today.toISOString().split('T')[0])
         .lte('deadline', nextWeek.toISOString().split('T')[0])
-        .order('deadline', { ascending: true })
-        .limit(5);
+        .order('deadline', { ascending: true });
+
+      // Fetch upcoming sprints
+      const { data: sprints, error: sprintError } = await supabase
+        .from('sprints')
+        .select(`
+          id,
+          title,
+          status,
+          deadline
+        `)
+        .not('status', 'eq', 'Completed')
+        .not('deadline', 'is', null)
+        .gte('deadline', today.toISOString().split('T')[0])
+        .lte('deadline', nextWeek.toISOString().split('T')[0])
+        .order('deadline', { ascending: true });
       
-      if (error) {
-        console.error('Upcoming projects error:', error);
-        throw error;
+      if (projectError) {
+        console.error('Upcoming projects error:', projectError);
+        throw projectError;
       }
-      console.log('Upcoming projects data:', data);
-      return data || [];
+
+      if (sprintError) {
+        console.error('Upcoming sprints error:', sprintError);
+        throw sprintError;
+      }
+
+      // Combine and sort by deadline
+      const combinedDeadlines = [
+        ...(projects || []).map(project => ({ ...project, type: 'project' })),
+        ...(sprints || []).map(sprint => ({ ...sprint, type: 'sprint' }))
+      ].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+       .slice(0, 5); // Limit to 5 items
+
+      console.log('Combined upcoming deadlines data:', combinedDeadlines);
+      return combinedDeadlines;
     }
   });
 
   return {
     runningTasksQuery,
     statsQuery,
-    upcomingProjectsQuery
+    upcomingDeadlinesQuery
   };
 };
