@@ -30,7 +30,7 @@ interface TimeEntry {
     projects: {
       name: string;
       hourly_rate: number;
-      type: string;
+      service: string;
     };
   };
   employees: {
@@ -75,7 +75,7 @@ const Wages = () => {
             projects(
               name,
               hourly_rate,
-              type
+              service
             )
           ),
           employees(
@@ -166,7 +166,7 @@ const Wages = () => {
     wage_status: entry.tasks?.wage_status || 'wnotpaid',
     tasks: entry.tasks,
     employees: entry.employees,
-    project_service_type: entry.tasks?.projects?.type
+    project_service_type: entry.tasks?.projects?.service
   }));
 
   // Filter wage records based on all filters

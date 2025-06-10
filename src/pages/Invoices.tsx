@@ -31,7 +31,7 @@ interface Invoice {
   };
   projects: {
     name: string;
-    type: string;
+    service: string;
   };
 }
 
@@ -81,7 +81,7 @@ const Invoices = () => {
         .select(`
           *,
           clients(name),
-          projects(name, type)
+          projects(name, service)
         `)
         .order('created_at', { ascending: false });
       
@@ -166,7 +166,7 @@ const Invoices = () => {
   const filteredInvoices = invoices.filter(invoice => {
     if (globalServiceFilter === 'all') return true;
     // Filter by project service type
-    return invoice.projects.type === globalServiceFilter;
+    return invoice.projects.service === globalServiceFilter;
   });
 
   // Create invoice mutation
@@ -596,7 +596,7 @@ const Invoices = () => {
                       </div>
                       <p className="text-gray-600 mb-1">{invoice.clients.name}</p>
                       <p className="text-sm text-gray-500">{invoice.projects.name}</p>
-                      <p className="text-xs text-gray-400">Service: {invoice.projects.type}</p>
+                      <p className="text-xs text-gray-400">Service: {invoice.projects.service}</p>
                       <div className="mt-3 flex items-center space-x-6 text-sm text-gray-600">
                         <span>{invoice.hours}h × ₹{invoice.rate}/hr</span>
                         <span>Due: {invoice.due_date}</span>
