@@ -160,22 +160,22 @@ const Sprints = () => {
             .from('sprint_tasks')
             .select(`
               task_id,
-              tasks (
-                id,
-                name,
-                status,
-                project_id,
-                assignee_id,
-                deadline,
-                hours,
-                projects (
-                  name,
-                  type,
-                  clients (
-                    name
-                  )
-                )
-              )
+              tasks (\
+                id,\
+                name,\
+                status,\
+                project_id,\
+                assignee_id,\
+                deadline,\
+                hours,\
+                projects (\
+                  name,\
+                  type,\
+                  clients (\
+                    name\
+                  )\
+                )\
+              )\
             `)
             .eq('sprint_id', sprint.id);
 
@@ -593,5 +593,3 @@ const Sprints = () => {
 };
 
 export default Sprints;
-
-</edits_to_apply>
