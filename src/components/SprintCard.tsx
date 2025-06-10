@@ -35,6 +35,7 @@ interface Sprint {
   status: 'Not Started' | 'In Progress' | 'Completed';
   created_at: string;
   updated_at: string;
+  completion_date?: string;
   tasks: SprintTask[];
   isOverdue: boolean;
   overdueDays: number;
@@ -101,7 +102,7 @@ const SprintCard: React.FC<SprintCardProps> = ({
                   <ChevronRight className="h-5 w-5 text-gray-500" />
                 )}
                 <div>
-                  <CardTitle className={`text-xl ${sprint.isOverdue ? 'text-red-600' : ''}`}>
+                  <CardTitle className={`text-xl ${sprint.isOverdue && sprint.status !== 'Completed' ? 'text-red-600' : sprint.isOverdue && sprint.status === 'Completed' ? 'text-red-600' : ''}`}>
                     {sprint.title}
                     {sprint.isOverdue && (
                       <span className="text-red-600 font-normal ml-2">
@@ -112,7 +113,7 @@ const SprintCard: React.FC<SprintCardProps> = ({
                   <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                     <div className="flex items-center space-x-1">
                       <Calendar className="h-4 w-4" />
-                      <span className={sprint.isOverdue ? 'text-red-600' : ''}>
+                      <span className={sprint.isOverdue && sprint.status !== 'Completed' ? 'text-red-600' : ''}>
                         Due: {format(new Date(sprint.deadline), 'MMM dd, yyyy')}
                       </span>
                     </div>

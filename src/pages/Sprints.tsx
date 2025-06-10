@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +17,7 @@ interface Sprint {
   status: 'Not Started' | 'In Progress' | 'Completed';
   created_at: string;
   updated_at: string;
+  completion_date?: string;
 }
 
 interface Task {
@@ -233,32 +233,52 @@ const Sprints = () => {
           const totalEstimatedDuration = tasks.reduce((sum, task) => sum + (task.estimated_duration || 0), 0);
           const totalLoggedDuration = tasks.reduce((sum, task) => sum + task.hours, 0);
 
-          // Check if overdue
-          const sprintDeadline = new Date(sprint.deadline);
-          sprintDeadline.setHours(0, 0, 0, 0);
-          const isOverdue = sprintDeadline < today;
-          const overdueDays = isOverdue ? Math.floor((today.getTime() - sprintDeadline.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-
           // Check if all tasks are completed and auto-update sprint status
           const allTasksCompleted = tasks.length > 0 && tasks.every(task => task.status === 'Completed');
           let sprintStatus = sprint.status;
+          let completionDate = sprint.completion_date;
           
           if (allTasksCompleted && sprint.status !== 'Completed') {
-            // Auto-update sprint to completed
+            // Auto-update sprint to completed with completion date
+            const now = new Date().toISOString();
             const { error: updateError } = await supabase
               .from('sprints')
-              .update({ status: 'Completed' })
+              .update({ 
+                status: 'Completed',
+                completion_date: now
+              })
               .eq('id', sprint.id);
             
             if (!updateError) {
               sprintStatus = 'Completed';
+              completionDate = now;
               console.log('Auto-completed sprint:', sprint.title);
             }
+          }
+
+          // Calculate overdue status and days
+          const sprintDeadline = new Date(sprint.deadline);
+          sprintDeadline.setHours(0, 0, 0, 0);
+          
+          let isOverdue = false;
+          let overdueDays = 0;
+          
+          if (sprintStatus === 'Completed' && completionDate) {
+            // For completed sprints, calculate overdue days from completion date
+            const completedDate = new Date(completionDate);
+            completedDate.setHours(0, 0, 0, 0);
+            isOverdue = sprintDeadline < completedDate;
+            overdueDays = isOverdue ? Math.floor((completedDate.getTime() - sprintDeadline.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+          } else {
+            // For non-completed sprints, calculate overdue days from today
+            isOverdue = sprintDeadline < today;
+            overdueDays = isOverdue ? Math.floor((today.getTime() - sprintDeadline.getTime()) / (1000 * 60 * 60 * 24)) : 0;
           }
           
           sprintsWithTasks.push({
             ...sprint,
             status: sprintStatus as 'Not Started' | 'In Progress' | 'Completed',
+            completion_date: completionDate,
             tasks,
             isOverdue,
             overdueDays,
@@ -438,11 +458,16 @@ const Sprints = () => {
   });
 
   const updateSprintStatus = useMutation({
-    mutationFn: async ({ sprintId, status }: { sprintId: string; status: string }) => {
+    mutationFn: async ({ sprintId, status, completionDate }: { sprintId: string; status: string; completionDate?: string }) => {
       console.log('Updating sprint status:', sprintId, status);
+      const updateData: any = { status };
+      if (status === 'Completed' && completionDate) {
+        updateData.completion_date = completionDate;
+      }
+      
       const { error } = await supabase
         .from('sprints')
-        .update({ status })
+        .update(updateData)
         .eq('id', sprintId);
       
       if (error) {
@@ -467,14 +492,17 @@ const Sprints = () => {
       );
       
       let sprintStatus: 'Not Started' | 'In Progress' | 'Completed' = 'Not Started';
+      let completionDate: string | undefined;
+      
       if (updatedTasks.every(t => t.status === 'Completed') && updatedTasks.length > 0) {
         sprintStatus = 'Completed';
+        completionDate = new Date().toISOString();
       } else if (updatedTasks.some(t => t.status === 'In Progress' || t.status === 'Completed')) {
         sprintStatus = 'In Progress';
       }
       
       if (sprintStatus !== sprint.status) {
-        updateSprintStatus.mutate({ sprintId, status: sprintStatus });
+        updateSprintStatus.mutate({ sprintId, status: sprintStatus, completionDate });
       }
     }
   };
