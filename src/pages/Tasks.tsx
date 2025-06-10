@@ -59,6 +59,7 @@ interface TaskData {
   date: string;
   deadline: string | null;
   estimated_duration: number | null;
+  completion_date: string | null;
   projects: {
     name: string;
     hourly_rate: number;
@@ -139,11 +140,24 @@ const Tasks = () => {
   const [expandedHistories, setExpandedHistories] = useState<Set<string>>(new Set());
 
   // Helper functions for task status checking
-  const isTaskOverdue = (deadline: string | null): boolean => {
+  const isTaskOverdue = (deadline: string | null, status: TaskStatus, completionDate: string | null): boolean => {
     if (!deadline) return false;
-    const today = new Date();
-    const deadlineDate = parseISO(deadline);
-    return isAfter(today, deadlineDate);
+    
+    // If task is completed, check against completion date
+    if (status === 'Completed' && completionDate) {
+      const deadlineDate = parseISO(deadline);
+      const completedDate = parseISO(completionDate);
+      return isAfter(completedDate, deadlineDate);
+    }
+    
+    // For ongoing tasks, check against current date
+    if (status !== 'Completed') {
+      const today = new Date();
+      const deadlineDate = parseISO(deadline);
+      return isAfter(today, deadlineDate);
+    }
+    
+    return false;
   };
 
   const isTaskOverDuration = (hours: number, estimatedDuration: number | null): boolean => {
@@ -151,11 +165,24 @@ const Tasks = () => {
     return hours > estimatedDuration;
   };
 
-  const getDaysBehind = (deadline: string | null): number => {
+  const getDaysBehind = (deadline: string | null, status: TaskStatus, completionDate: string | null): number => {
     if (!deadline) return 0;
-    const today = new Date();
+    
     const deadlineDate = parseISO(deadline);
-    return Math.max(0, differenceInDays(today, deadlineDate));
+    
+    // If task is completed, calculate days behind from completion date
+    if (status === 'Completed' && completionDate) {
+      const completedDate = parseISO(completionDate);
+      return Math.max(0, differenceInDays(completedDate, deadlineDate));
+    }
+    
+    // For ongoing tasks, calculate from current date
+    if (status !== 'Completed') {
+      const today = new Date();
+      return Math.max(0, differenceInDays(today, deadlineDate));
+    }
+    
+    return 0;
   };
 
   const getHoursBehind = (hours: number, estimatedDuration: number | null): number => {
@@ -306,6 +333,16 @@ const Tasks = () => {
         estimated_duration: updates.estimated_duration ? parseFloat(updates.estimated_duration) : null
       };
 
+      // If status is being changed to 'Completed' and no completion_date exists, set it
+      if (updates.status === 'Completed' && !updates.completion_date) {
+        finalUpdates.completion_date = new Date().toISOString();
+      }
+
+      // If status is being changed from 'Completed' to something else, clear completion_date
+      if (updates.status !== 'Completed') {
+        finalUpdates.completion_date = null;
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .update(finalUpdates)
@@ -395,9 +432,9 @@ const Tasks = () => {
 
     // Sort tasks: overdue or over-duration tasks at the top
     return filtered.sort((a, b) => {
-      const aIsOverdue = isTaskOverdue(a.deadline);
+      const aIsOverdue = isTaskOverdue(a.deadline, a.status, a.completion_date);
       const aIsOverDuration = isTaskOverDuration(a.hours, a.estimated_duration);
-      const bIsOverdue = isTaskOverdue(b.deadline);
+      const bIsOverdue = isTaskOverdue(b.deadline, b.status, b.completion_date);
       const bIsOverDuration = isTaskOverDuration(b.hours, b.estimated_duration);
       
       const aIsPriority = aIsOverdue || aIsOverDuration;
@@ -408,8 +445,8 @@ const Tasks = () => {
       
       // If both are priority, sort by most overdue/over-duration first
       if (aIsPriority && bIsPriority) {
-        const aDaysBehind = getDaysBehind(a.deadline);
-        const bDaysBehind = getDaysBehind(b.deadline);
+        const aDaysBehind = getDaysBehind(a.deadline, a.status, a.completion_date);
+        const bDaysBehind = getDaysBehind(b.deadline, b.status, b.completion_date);
         const aHoursBehind = getHoursBehind(a.hours, a.estimated_duration);
         const bHoursBehind = getHoursBehind(b.hours, b.estimated_duration);
         
@@ -608,9 +645,9 @@ const Tasks = () => {
           {/* Mobile Task Cards */}
           <div className="space-y-3">
             {filteredAndSortedTasks.map((task) => {
-              const isOverdue = isTaskOverdue(task.deadline);
+              const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
               const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
-              const daysBehind = getDaysBehind(task.deadline);
+              const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
               const hoursBehind = getHoursBehind(task.hours, task.estimated_duration);
 
               return (
@@ -627,7 +664,7 @@ const Tasks = () => {
                           <div className={cn("text-xs", isOverdue ? "text-red-600 font-semibold" : "text-gray-600")}>
                             <Calendar className="inline h-3 w-3 mr-1" />
                             Deadline: {format(parseISO(task.deadline), "MMM dd, yyyy")}
-                            {isOverdue && ` (${daysBehind} days overdue)`}
+                            {isOverdue && ` (${daysBehind} days overdue${task.status === 'Completed' ? ' when completed' : ''})`}
                           </div>
                         )}
                         
@@ -652,7 +689,7 @@ const Tasks = () => {
                         {(isOverdue || isOverDuration) && (
                           <Badge className="bg-red-100 text-red-800 text-xs">
                             <AlertTriangle className="h-3 w-3 mr-1" />
-                            Urgent
+                            {task.status === 'Completed' ? 'Was Urgent' : 'Urgent'}
                           </Badge>
                         )}
                       </div>
@@ -982,9 +1019,9 @@ const Tasks = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredAndSortedTasks.map((task) => {
-                    const isOverdue = isTaskOverdue(task.deadline);
+                    const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
                     const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
-                    const daysBehind = getDaysBehind(task.deadline);
+                    const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
                     const hoursBehind = getHoursBehind(task.hours, task.estimated_duration);
 
                     return (
@@ -1016,7 +1053,7 @@ const Tasks = () => {
                                 <div>{format(parseISO(task.deadline), "MMM dd, yyyy")}</div>
                                 {isOverdue && (
                                   <div className="text-xs text-red-500">
-                                    {daysBehind} days overdue
+                                    {daysBehind} days overdue{task.status === 'Completed' ? ' when completed' : ''}
                                   </div>
                                 )}
                               </div>
