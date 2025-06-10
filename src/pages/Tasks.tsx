@@ -7,10 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Pencil, Trash2, MessageSquare, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import TaskCommentDialog from '@/components/TaskCommentDialog';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
+import TaskHistory from '@/components/TaskHistory';
+import Navigation from '@/components/Navigation';
 import { format } from 'date-fns';
 
 interface Task {
@@ -48,6 +50,8 @@ const Tasks = () => {
   const [projectFilter, setProjectFilter] = useState('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [showCompleted, setShowCompleted] = useState(false);
   const queryClient = useQueryClient();
@@ -221,6 +225,10 @@ const Tasks = () => {
     setCommentDialogOpen(true);
   };
 
+  const toggleTaskHistory = (taskId: string) => {
+    setExpandedTaskId(expandedTaskId === taskId ? null : taskId);
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'Not Started':
@@ -246,21 +254,30 @@ const Tasks = () => {
   };
 
   if (isLoading) {
-    return <div className="p-6">Loading tasks...</div>;
+    return (
+      <Navigation>
+        <div className="p-6">Loading tasks...</div>
+      </Navigation>
+    );
   }
 
   if (error) {
-    return <div className="p-6 text-red-500">Error loading tasks: {error.message}</div>;
+    return (
+      <Navigation>
+        <div className="p-6 text-red-500">Error loading tasks: {error.message}</div>
+      </Navigation>
+    );
   }
 
   const { data: tasks = [], count = 0, totalPages = 0 } = tasksResponse || {};
 
   return (
-    <>
+    <Navigation>
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold">Tasks</h1>
-          <Button>
+          <Button onClick={() => setShowTaskForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
             Add New Task
           </Button>
         </div>
@@ -383,7 +400,7 @@ const Tasks = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCommentClick(task)}
+                        onClick={() => toggleTaskHistory(task.id)}
                       >
                         <MessageSquare className="h-4 w-4" />
                       </Button>
@@ -425,6 +442,16 @@ const Tasks = () => {
                       </Button>
                     </div>
                   </div>
+
+                  {/* Task History - Expandable */}
+                  {expandedTaskId === task.id && (
+                    <div className="mt-4 pt-4 border-t">
+                      <TaskHistory 
+                        taskId={task.id} 
+                        onUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
@@ -490,7 +517,23 @@ const Tasks = () => {
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
         />
       )}
-    </>
+
+      {/* Task Form Dialog - Placeholder for now */}
+      {showTaskForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg">
+            <h2 className="text-lg font-semibold mb-4">Add New Task</h2>
+            <p className="text-gray-600">Task form will be implemented here.</p>
+            <Button 
+              className="mt-4" 
+              onClick={() => setShowTaskForm(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+    </Navigation>
   );
 };
 
