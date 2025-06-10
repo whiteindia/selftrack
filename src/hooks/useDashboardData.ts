@@ -86,7 +86,7 @@ export const useDashboardData = () => {
         .select(`
           id,
           name,
-          type,
+          service,
           hourly_rate,
           project_amount,
           total_hours,

@@ -44,7 +44,7 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
               >
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">{project.name}</h4>
-                  <Badge variant="outline">{project.type}</Badge>
+                  <Badge variant="outline">{project.service}</Badge>
                 </div>
                 <p className="text-sm text-gray-600 mb-3">{project.clients.name}</p>
                 
