@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect } from 'react';
 
 export const useDashboardData = () => {
   // Get running tasks (tasks with active time entries)
@@ -31,8 +32,33 @@ export const useDashboardData = () => {
       }
       console.log('Running tasks data:', data);
       return data || [];
-    }
+    },
+    refetchInterval: 1000 // Refetch every second for live timer updates
   });
+
+  // Set up real-time subscription for time entries
+  useEffect(() => {
+    const channel = supabase
+      .channel('time_entries_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'time_entries'
+        },
+        (payload) => {
+          console.log('Real-time time entry change:', payload);
+          // Invalidate and refetch running tasks when time entries change
+          runningTasksQuery.refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Get summary statistics
   const statsQuery = useQuery({
