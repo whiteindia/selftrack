@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,8 +44,8 @@ const ITEMS_PER_PAGE = 20;
 
 const Tasks = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'Not Started' | 'In Progress' | 'Completed' | ''>('');
-  const [projectFilter, setProjectFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Not Started' | 'In Progress' | 'Completed' | 'all'>('all');
+  const [projectFilter, setProjectFilter] = useState('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [commentDialogOpen, setCommentDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,11 +82,11 @@ const Tasks = () => {
         query = query.ilike('name', `%${searchTerm}%`);
       }
 
-      if (statusFilter) {
+      if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
 
-      if (projectFilter) {
+      if (projectFilter !== 'all') {
         query = query.eq('project_id', projectFilter);
       }
 
@@ -100,10 +101,10 @@ const Tasks = () => {
       if (searchTerm) {
         countQuery = countQuery.ilike('name', `%${searchTerm}%`);
       }
-      if (statusFilter) {
+      if (statusFilter !== 'all') {
         countQuery = countQuery.eq('status', statusFilter);
       }
-      if (projectFilter) {
+      if (projectFilter !== 'all') {
         countQuery = countQuery.eq('project_id', projectFilter);
       }
 
@@ -239,8 +240,8 @@ const Tasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('');
-    setProjectFilter('');
+    setStatusFilter('all');
+    setProjectFilter('all');
     setCurrentPage(1);
   };
 
@@ -278,7 +279,7 @@ const Tasks = () => {
           </div>
           
           <div>
-            <Select value={statusFilter} onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed' | '') => {
+            <Select value={statusFilter} onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed' | 'all') => {
               setStatusFilter(value);
               setCurrentPage(1);
             }}>
@@ -286,7 +287,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="Not Started">Not Started</SelectItem>
                 <SelectItem value="In Progress">In Progress</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
@@ -303,7 +304,7 @@ const Tasks = () => {
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Projects</SelectItem>
+                <SelectItem value="all">All Projects</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -483,9 +484,10 @@ const Tasks = () => {
 
       {selectedTask && (
         <TaskCommentDialog
-          open={commentDialogOpen}
-          onOpenChange={setCommentDialogOpen}
           task={selectedTask}
+          isOpen={commentDialogOpen}
+          onOpenChange={setCommentDialogOpen}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
         />
       )}
     </>
