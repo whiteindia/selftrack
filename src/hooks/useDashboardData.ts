@@ -33,23 +33,36 @@ export const useDashboardData = () => {
       console.log('Running tasks data:', data);
       return data || [];
     },
-    refetchInterval: 5000 // Reduced frequency to 5 seconds to avoid conflicts
+    refetchInterval: 2000 // More frequent updates
   });
 
   // Set up real-time subscription for time entries
   useEffect(() => {
     const channel = supabase
-      .channel('time_entries_changes')
+      .channel('time_entries_dashboard_changes')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'time_entries'
         },
         (payload) => {
-          console.log('Real-time time entry change:', payload);
-          // Force immediate refetch when time entries change
+          console.log('Real-time time entry update:', payload);
+          // Force immediate refetch when time entries are updated (stopped)
+          runningTasksQuery.refetch();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'time_entries'
+        },
+        (payload) => {
+          console.log('Real-time time entry insert:', payload);
+          // Force immediate refetch when new time entries are created (started)
           runningTasksQuery.refetch();
         }
       )

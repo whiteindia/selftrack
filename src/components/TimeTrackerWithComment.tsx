@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,7 +131,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       });
       setElapsedTime(0);
       
-      // Immediately invalidate and refetch dashboard running tasks query
+      // Aggressively invalidate and refetch dashboard queries
       await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
       await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
       
@@ -179,6 +180,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       return { data, projectName: taskDetails.projects?.name };
     },
     onSuccess: async (result) => {
+      // Clear local state immediately
       setActiveTimer(null);
       setElapsedTime(0);
       setComment('');
@@ -192,9 +194,14 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       await logTimeEntry(task.name, task.id, durationText, result.data.comment || undefined, result.projectName);
       await logTimerStopped(task.name, task.id, durationText, result.projectName);
       
-      // Immediately invalidate and refetch dashboard running tasks query
+      // Aggressively clear and refetch dashboard queries multiple times to ensure update
+      await queryClient.removeQueries({ queryKey: ['running-tasks'] });
       await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
-      await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
+      
+      // Wait a moment and refetch again to ensure consistency
+      setTimeout(async () => {
+        await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
+      }, 500);
       
       toast.success('Timer stopped!');
       onSuccess();
