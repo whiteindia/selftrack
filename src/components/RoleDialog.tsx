@@ -24,6 +24,13 @@ interface Privilege {
   allowed: boolean;
 }
 
+interface RLSPolicy {
+  id?: string;
+  role: string;
+  page_name: string;
+  rls_enabled: boolean;
+}
+
 interface RoleDialogProps {
   open: boolean;
   onClose: () => void;
@@ -34,6 +41,7 @@ interface RoleDialogProps {
 const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing }) => {
   const [roleName, setRoleName] = useState('');
   const [privileges, setPrivileges] = useState<Privilege[]>([]);
+  const [rlsPolicies, setRlsPolicies] = useState<RLSPolicy[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -71,36 +79,47 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
     if (open) {
       if (isEditing && role) {
         setRoleName(role);
-        fetchRolePrivileges(role);
+        fetchRoleData(role);
       } else {
         setRoleName('');
-        initializeDefaultPrivileges();
+        initializeDefaultData();
       }
     }
   }, [open, isEditing, role]);
 
-  const fetchRolePrivileges = async (roleToFetch: string) => {
+  const fetchRoleData = async (roleToFetch: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Fetch privileges
+      const { data: privilegesData, error: privilegesError } = await supabase
         .from('role_privileges')
         .select('*')
         .eq('role', roleToFetch)
         .order('page_name')
         .order('operation');
 
-      if (error) throw error;
-      setPrivileges(data || []);
+      if (privilegesError) throw privilegesError;
+      setPrivileges(privilegesData || []);
+
+      // Initialize RLS policies for each page
+      const rlsData: RLSPolicy[] = pages.map(page => ({
+        role: roleToFetch,
+        page_name: page,
+        rls_enabled: false
+      }));
+      setRlsPolicies(rlsData);
     } catch (error) {
-      console.error('Error fetching privileges:', error);
-      toast.error('Failed to fetch role privileges');
+      console.error('Error fetching role data:', error);
+      toast.error('Failed to fetch role data');
     } finally {
       setLoading(false);
     }
   };
 
-  const initializeDefaultPrivileges = () => {
+  const initializeDefaultData = () => {
     const defaultPrivileges: Privilege[] = [];
+    const defaultRlsPolicies: RLSPolicy[] = [];
+    
     pages.forEach(page => {
       operations.forEach(operation => {
         defaultPrivileges.push({
@@ -110,19 +129,36 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           allowed: false
         });
       });
+      
+      defaultRlsPolicies.push({
+        role: 'associate',
+        page_name: page,
+        rls_enabled: false
+      });
     });
+    
     setPrivileges(defaultPrivileges);
+    setRlsPolicies(defaultRlsPolicies);
   };
 
   const updatePrivilege = (page: string, operation: CrudOperation, allowed: boolean) => {
-    console.log('Updating privilege:', { page, operation, allowed });
     setPrivileges(prev => {
       const updated = prev.map(p => 
         p.page_name === page && p.operation === operation 
           ? { ...p, allowed } 
           : p
       );
-      console.log('Updated privileges:', updated.filter(p => p.page_name === page));
+      return updated;
+    });
+  };
+
+  const updateRlsPolicy = (page: string, enabled: boolean) => {
+    setRlsPolicies(prev => {
+      const updated = prev.map(p => 
+        p.page_name === page 
+          ? { ...p, rls_enabled: enabled } 
+          : p
+      );
       return updated;
     });
   };
@@ -194,13 +230,13 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? `Edit Role: ${role}` : 'Create New Role'}
           </DialogTitle>
           <DialogDescription>
-            Configure role permissions for different pages and operations. 
+            Configure role permissions and RLS policies for different pages and operations. 
             You can create any role name - common ones include: admin, manager, teamlead, associate, accountant, sales-executive
           </DialogDescription>
         </DialogHeader>
@@ -217,7 +253,9 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
             pages={pages}
             operations={operations}
             privileges={privileges}
+            rlsPolicies={rlsPolicies}
             onUpdatePrivilege={updatePrivilege}
+            onUpdateRlsPolicy={updateRlsPolicy}
             loading={loading}
           />
 

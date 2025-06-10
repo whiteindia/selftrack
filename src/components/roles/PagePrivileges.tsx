@@ -1,6 +1,7 @@
 
 import React from 'react';
 import PrivilegeRow from './PrivilegeRow';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { Database } from '@/integrations/supabase/types';
 
 type CrudOperation = Database['public']['Enums']['crud_operation'];
@@ -13,18 +14,29 @@ interface Privilege {
   allowed: boolean;
 }
 
+interface RLSPolicy {
+  id?: string;
+  role: string;
+  page_name: string;
+  rls_enabled: boolean;
+}
+
 interface PagePrivilegesProps {
   page: string;
   operations: CrudOperation[];
   privileges: Privilege[];
+  rlsPolicy?: RLSPolicy;
   onUpdatePrivilege: (page: string, operation: CrudOperation, allowed: boolean) => void;
+  onUpdateRlsPolicy: (page: string, enabled: boolean) => void;
 }
 
 const PagePrivileges: React.FC<PagePrivilegesProps> = ({ 
   page, 
   operations, 
   privileges, 
-  onUpdatePrivilege 
+  rlsPolicy,
+  onUpdatePrivilege,
+  onUpdateRlsPolicy
 }) => {
   const getPrivilege = (operation: CrudOperation) => {
     return privileges.find(p => p.page_name === page && p.operation === operation);
@@ -32,7 +44,22 @@ const PagePrivileges: React.FC<PagePrivilegesProps> = ({
 
   return (
     <div className="border rounded-lg p-4">
-      <h4 className="text-md font-semibold mb-4 capitalize">{page}</h4>
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-md font-semibold capitalize">{page}</h4>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            checked={rlsPolicy?.rls_enabled || false}
+            onCheckedChange={(checked) => {
+              const isChecked = checked === true;
+              console.log(`RLS policy changed for ${page}:`, isChecked);
+              onUpdateRlsPolicy(page, isChecked);
+            }}
+          />
+          <label className="text-sm font-medium text-blue-600">
+            Enable RLS Policy
+          </label>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -57,6 +84,13 @@ const PagePrivileges: React.FC<PagePrivilegesProps> = ({
           </tbody>
         </table>
       </div>
+      {rlsPolicy?.rls_enabled && (
+        <div className="mt-2 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
+          <p className="text-sm text-blue-700">
+            <strong>RLS Policy Enabled:</strong> Data access for this page will be restricted based on this role's permissions.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
