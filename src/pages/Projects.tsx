@@ -10,17 +10,15 @@ import ProjectTable from '@/components/projects/ProjectTable';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { Plus } from 'lucide-react';
 
-type ProjectType = Database['public']['Enums']['project_type'];
-
 interface ProjectData {
   id: string;
   name: string;
   client_id: string;
-  type: ProjectType;
+  service: string;
   hourly_rate: number;
   project_amount: number | null;
   total_hours: number;
-  status: Database['public']['Enums']['project_status'];
+  status: string;
   start_date: string | null;
   deadline: string | null;
   brd_file_url: string | null;
@@ -55,7 +53,7 @@ const Projects = () => {
   const [newProject, setNewProject] = useState({
     name: '',
     client_id: '',
-    type: '' as ProjectType,
+    service: '',
     billing_type: 'hourly' as 'hourly' | 'project',
     hourly_rate: 0,
     project_amount: 0,
@@ -74,7 +72,7 @@ const Projects = () => {
   // Filter states
   const [selectedClient, setSelectedClient] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
+  const [selectedService, setSelectedService] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -196,7 +194,7 @@ const Projects = () => {
     return projects.filter(project => {
       const matchesClient = selectedClient === 'all' || project.client_id === selectedClient;
       const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
-      const matchesType = selectedType === 'all' || project.type === selectedType;
+      const matchesService = selectedService === 'all' || project.service === selectedService;
       const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            project.clients?.name.toLowerCase().includes(searchTerm.toLowerCase());
       
@@ -205,9 +203,9 @@ const Projects = () => {
       const matchesYear = selectedYear === 'all' || projectDate.getFullYear().toString() === selectedYear;
       const matchesMonth = selectedMonth === 'all' || (projectDate.getMonth() + 1).toString() === selectedMonth;
       
-      return matchesClient && matchesStatus && matchesType && matchesSearch && matchesYear && matchesMonth;
+      return matchesClient && matchesStatus && matchesService && matchesSearch && matchesYear && matchesMonth;
     });
-  }, [projects, selectedClient, selectedStatus, selectedType, selectedYear, selectedMonth, searchTerm]);
+  }, [projects, selectedClient, selectedStatus, selectedService, selectedYear, selectedMonth, searchTerm]);
 
   // Get unique years from projects
   const availableYears = React.useMemo(() => {
@@ -219,9 +217,9 @@ const Projects = () => {
     const projectData = {
       name: newProject.name,
       client_id: newProject.client_id,
-      type: newProject.type,
-      hourly_rate: newProject.type === 'BRD' ? 0 : newProject.hourly_rate,
-      project_amount: newProject.billing_type === 'project' || newProject.type === 'BRD' ? newProject.project_amount : null,
+      service: newProject.service,
+      hourly_rate: newProject.service === 'BRD' ? 0 : newProject.hourly_rate,
+      project_amount: newProject.billing_type === 'project' || newProject.service === 'BRD' ? newProject.project_amount : null,
       start_date: newProject.start_date || null,
       deadline: newProject.billing_type === 'project' && newProject.deadline ? newProject.deadline : null,
       assignee_id: newProject.assignee_id || null
@@ -234,7 +232,7 @@ const Projects = () => {
           setNewProject({
             name: '',
             client_id: '',
-            type: 'DevOps',
+            service: '',
             billing_type: 'hourly',
             hourly_rate: 0,
             project_amount: 0,
@@ -254,9 +252,9 @@ const Projects = () => {
       const updates = {
         name: editingProject.name,
         client_id: editingProject.client_id,
-        type: editingProject.type,
-        hourly_rate: editingProject.type === 'BRD' ? 0 : editingProject.hourly_rate,
-        project_amount: editBillingType === 'project' || editingProject.type === 'BRD' ? editingProject.project_amount : null,
+        service: editingProject.service,
+        hourly_rate: editingProject.service === 'BRD' ? 0 : editingProject.hourly_rate,
+        project_amount: editBillingType === 'project' || editingProject.service === 'BRD' ? editingProject.project_amount : null,
         start_date: editingProject.start_date || null,
         deadline: editBillingType === 'project' && editingProject.deadline ? editingProject.deadline : null,
         status: editingProject.status,
@@ -291,7 +289,7 @@ const Projects = () => {
   const clearFilters = () => {
     setSelectedClient('all');
     setSelectedStatus('all');
-    setSelectedType('all');
+    setSelectedService('all');
     setSelectedYear('all');
     setSelectedMonth('all');
     setSearchTerm('');
@@ -333,8 +331,8 @@ const Projects = () => {
           setSelectedClient={setSelectedClient}
           selectedStatus={selectedStatus}
           setSelectedStatus={setSelectedStatus}
-          selectedType={selectedType}
-          setSelectedType={setSelectedType}
+          selectedType={selectedService}
+          setSelectedType={setSelectedService}
           selectedYear={selectedYear}
           setSelectedYear={setSelectedYear}
           selectedMonth={selectedMonth}

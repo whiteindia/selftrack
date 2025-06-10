@@ -382,10 +382,10 @@ export type Database = {
           id: string
           name: string
           project_amount: number | null
+          service: string
           start_date: string | null
-          status: Database["public"]["Enums"]["project_status"]
+          status: string
           total_hours: number
-          type: Database["public"]["Enums"]["project_type"]
           updated_at: string
         }
         Insert: {
@@ -398,10 +398,10 @@ export type Database = {
           id?: string
           name: string
           project_amount?: number | null
+          service: string
           start_date?: string | null
-          status?: Database["public"]["Enums"]["project_status"]
+          status?: string
           total_hours?: number
-          type: Database["public"]["Enums"]["project_type"]
           updated_at?: string
         }
         Update: {
@@ -414,10 +414,10 @@ export type Database = {
           id?: string
           name?: string
           project_amount?: number | null
+          service?: string
           start_date?: string | null
-          status?: Database["public"]["Enums"]["project_status"]
+          status?: string
           total_hours?: number
-          type?: Database["public"]["Enums"]["project_type"]
           updated_at?: string
         }
         Relationships: [
@@ -754,14 +754,6 @@ export type Database = {
     Enums: {
       crud_operation: "create" | "read" | "update" | "delete"
       invoice_status: "Draft" | "Sent" | "Paid" | "Overdue"
-      project_status: "Active" | "Completed" | "On Hold"
-      project_type:
-        | "DevOps"
-        | "Marketing"
-        | "Consulting"
-        | "Strategy"
-        | "Technical Writing"
-        | "BRD"
       task_status: "Not Started" | "In Progress" | "Completed"
     }
     CompositeTypes: {
@@ -880,15 +872,6 @@ export const Constants = {
     Enums: {
       crud_operation: ["create", "read", "update", "delete"],
       invoice_status: ["Draft", "Sent", "Paid", "Overdue"],
-      project_status: ["Active", "Completed", "On Hold"],
-      project_type: [
-        "DevOps",
-        "Marketing",
-        "Consulting",
-        "Strategy",
-        "Technical Writing",
-        "BRD",
-      ],
       task_status: ["Not Started", "In Progress", "Completed"],
     },
   },

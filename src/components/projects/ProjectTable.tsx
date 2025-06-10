@@ -5,20 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Edit, Trash2, Eye } from 'lucide-react';
-import type { Database } from '@/integrations/supabase/types';
-
-type ProjectType = Database['public']['Enums']['project_type'];
-type ProjectStatus = Database['public']['Enums']['project_status'];
 
 interface ProjectData {
   id: string;
   name: string;
   client_id: string;
-  type: ProjectType;
+  service: string;
   hourly_rate: number;
   project_amount: number | null;
   total_hours: number;
-  status: ProjectStatus;
+  status: string;
   start_date: string | null;
   deadline: string | null;
   brd_file_url: string | null;
@@ -68,7 +64,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Client</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Service</TableHead>
               <TableHead>Billing</TableHead>
               <TableHead>Rate/Amount</TableHead>
               <TableHead>Total Hours</TableHead>
@@ -86,7 +82,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                 <TableCell>{project.clients?.name}</TableCell>
                 <TableCell>
                   <Badge className="bg-purple-100 text-purple-800">
-                    {project.type}
+                    {project.service}
                   </Badge>
                 </TableCell>
                 <TableCell>

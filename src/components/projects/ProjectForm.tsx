@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +29,7 @@ interface ProjectData {
   id: string;
   name: string;
   client_id: string;
-  type: string;
+  service: string;
   hourly_rate: number;
   project_amount: number | null;
   start_date: string | null;
@@ -44,7 +43,7 @@ interface ProjectFormProps {
   newProject: {
     name: string;
     client_id: string;
-    type: string;
+    service: string;
     billing_type: 'hourly' | 'project';
     hourly_rate: number;
     project_amount: number;
@@ -131,7 +130,7 @@ const ProjectForm = ({
     setNewProject({
       name: '',
       client_id: '',
-      type: '',
+      service: '',
       billing_type: 'hourly',
       hourly_rate: 0,
       project_amount: 0,
@@ -192,10 +191,10 @@ const ProjectForm = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="type">Service Type</Label>
-              <Select onValueChange={(value) => setNewProject({...newProject, type: value})}>
+              <Label htmlFor="service">Service</Label>
+              <Select onValueChange={(value) => setNewProject({...newProject, service: value})}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select service type" />
+                  <SelectValue placeholder="Select service" />
                 </SelectTrigger>
                 <SelectContent>
                   {services.map((service) => (
@@ -335,10 +334,10 @@ const ProjectForm = ({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="editType">Service Type</Label>
-                <Select onValueChange={(value) => onSetEditingProject({...editingProject, type: value})}>
+                <Label htmlFor="editService">Service</Label>
+                <Select onValueChange={(value) => onSetEditingProject({...editingProject, service: value})}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select service type" defaultValue={editingProject.type} />
+                    <SelectValue placeholder="Select service" defaultValue={editingProject.service} />
                   </SelectTrigger>
                   <SelectContent>
                     {services.map((service) => (
@@ -453,3 +452,5 @@ const ProjectForm = ({
 };
 
 export default ProjectForm;
+
+</edits_to_apply>
