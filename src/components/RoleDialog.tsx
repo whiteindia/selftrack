@@ -90,6 +90,8 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
   const fetchRoleData = async (roleToFetch: string) => {
     setLoading(true);
     try {
+      console.log('Fetching privileges for role:', roleToFetch);
+      
       // Fetch privileges
       const { data: privilegesData, error: privilegesError } = await supabase
         .from('role_privileges')
@@ -98,7 +100,12 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
         .order('page_name')
         .order('operation');
 
-      if (privilegesError) throw privilegesError;
+      if (privilegesError) {
+        console.error('Error fetching privileges:', privilegesError);
+        throw privilegesError;
+      }
+      
+      console.log('Fetched privileges:', privilegesData);
       setPrivileges(privilegesData || []);
 
       // Initialize RLS policies for each page
@@ -123,7 +130,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
     pages.forEach(page => {
       operations.forEach(operation => {
         defaultPrivileges.push({
-          role: 'associate',
+          role: 'new-role',
           page_name: page,
           operation,
           allowed: false
@@ -131,7 +138,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
       });
       
       defaultRlsPolicies.push({
-        role: 'associate',
+        role: 'new-role',
         page_name: page,
         rls_enabled: false
       });
@@ -170,10 +177,12 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
     }
 
     const validRole = getValidRole(roleName);
+    console.log('Saving role:', validRole, 'from input:', roleName);
 
     setSaving(true);
     try {
       if (isEditing && role) {
+        console.log('Updating existing role privileges...');
         // Update existing privileges
         for (const privilege of privileges) {
           if (privilege.id) {
@@ -185,44 +194,70 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
               })
               .eq('id', privilege.id);
 
-            if (error) throw error;
+            if (error) {
+              console.error('Error updating privilege:', privilege.id, error);
+              throw error;
+            }
           }
         }
         toast.success('Role updated successfully');
       } else {
+        console.log('Creating new role privileges...');
+        
         // First, check if privileges already exist for this role
         const { data: existingPrivileges, error: checkError } = await supabase
           .from('role_privileges')
           .select('*')
           .eq('role', validRole);
 
-        if (checkError) throw checkError;
+        if (checkError) {
+          console.error('Error checking existing privileges:', checkError);
+          throw checkError;
+        }
+
+        console.log('Existing privileges check:', existingPrivileges);
 
         if (existingPrivileges && existingPrivileges.length > 0) {
           toast.error(`Role type "${validRole}" already exists. Please edit the existing role instead.`);
           return;
         }
 
-        // Create new role privileges
-        const privilegesToInsert = privileges.map(p => ({
-          role: validRole,
-          page_name: p.page_name,
-          operation: p.operation,
-          allowed: p.allowed
-        }));
+        // Create new role privileges - ensure we create entries for all page/operation combinations
+        const privilegesToInsert = [];
+        
+        for (const page of pages) {
+          for (const operation of operations) {
+            const privilege = privileges.find(p => p.page_name === page && p.operation === operation);
+            privilegesToInsert.push({
+              role: validRole,
+              page_name: page,
+              operation: operation,
+              allowed: privilege?.allowed || false
+            });
+          }
+        }
 
-        const { error } = await supabase
+        console.log('Inserting privileges:', privilegesToInsert.length, 'entries');
+        console.log('Sample privilege:', privilegesToInsert[0]);
+
+        const { data: insertedData, error } = await supabase
           .from('role_privileges')
-          .insert(privilegesToInsert);
+          .insert(privilegesToInsert)
+          .select('*');
 
-        if (error) throw error;
-        toast.success(`Role "${roleName}" created successfully (mapped to ${validRole})`);
+        if (error) {
+          console.error('Error inserting privileges:', error);
+          throw error;
+        }
+
+        console.log('Successfully inserted privileges:', insertedData?.length, 'rows');
+        toast.success(`Role "${roleName}" created successfully with ${insertedData?.length} privilege entries`);
       }
 
       onClose();
     } catch (error) {
       console.error('Error saving role:', error);
-      toast.error('Failed to save role');
+      toast.error('Failed to save role: ' + (error as Error).message);
     } finally {
       setSaving(false);
     }
