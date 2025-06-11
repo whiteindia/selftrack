@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import Navigation from '@/components/Navigation';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +14,6 @@ import QuickActions from '@/components/dashboard/QuickActions';
 const Index = () => {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   console.log('Dashboard - Current user:', user?.email, 'Role:', userRole);
 
@@ -25,15 +25,6 @@ const Index = () => {
 
   const { activityFeedQuery } = useActivityFeed();
 
-  // Update current time every second for live timer display
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // Log all errors for debugging
   useEffect(() => {
     if (runningTasksQuery.error) console.error('Running tasks error:', runningTasksQuery.error);
@@ -41,17 +32,6 @@ const Index = () => {
     if (upcomingDeadlinesQuery.error) console.error('Upcoming deadlines error:', upcomingDeadlinesQuery.error);
     if (activityFeedQuery.error) console.error('Activity error:', activityFeedQuery.error);
   }, [runningTasksQuery.error, statsQuery.error, upcomingDeadlinesQuery.error, activityFeedQuery.error]);
-
-  const formatElapsedTime = (startTime: string) => {
-    const start = new Date(startTime);
-    const elapsed = Math.floor((currentTime.getTime() - start.getTime()) / 1000);
-    
-    const hours = Math.floor(elapsed / 3600);
-    const minutes = Math.floor((elapsed % 3600) / 60);
-    const seconds = elapsed % 60;
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
 
   const handleRunningTaskClick = () => {
     navigate('/tasks?status=In Progress');
@@ -132,7 +112,6 @@ const Index = () => {
           <ActiveTimeTracking
             runningTasks={runningTasksQuery.data || []}
             isError={!!runningTasksQuery.error}
-            formatElapsedTime={formatElapsedTime}
             onRunningTaskClick={handleRunningTaskClick}
           />
 
