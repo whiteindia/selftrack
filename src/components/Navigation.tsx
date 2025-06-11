@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -84,10 +85,14 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return hasPageAccess(item.pageName);
   });
 
+  // Check if TrakEzy menu should be shown (only if at least one sub-item is visible)
+  const shouldShowTrakEzyMenu = visibleTrakEzyItems.length > 0;
+
   const isActive = (path: string) => location.pathname === path;
 
   console.log('Navigation - visibleMainNavItems:', visibleMainNavItems.map(item => item.label));
   console.log('Navigation - visibleTrakEzyItems:', visibleTrakEzyItems.map(item => item.label));
+  console.log('Navigation - shouldShowTrakEzyMenu:', shouldShowTrakEzyMenu);
   console.log('Navigation - visibleConfigItems:', visibleConfigItems.map(item => item.label));
 
   // Show loading state while privileges are being fetched
@@ -135,7 +140,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
           </div>
         </div>
 
-        {visibleTrakEzyItems.length > 0 && (
+        {shouldShowTrakEzyMenu && (
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">TrakEzy</h3>
             <div className="space-y-1">
@@ -233,7 +238,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               );
             })}
             
-            {visibleTrakEzyItems.length > 0 && (
+            {shouldShowTrakEzyMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 px-3 py-2">
