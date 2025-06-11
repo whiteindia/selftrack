@@ -62,6 +62,7 @@ const Projects = () => {
 
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
   console.log('Should apply user filtering:', shouldApplyUserFiltering('projects'), 'User ID:', userId);
+  console.log('Privileges loading:', privilegesLoading);
 
   const [newProject, setNewProject] = useState({
     name: '',
@@ -92,11 +93,14 @@ const Projects = () => {
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
-  // Fetch projects with client and assignee data - Enhanced with user filtering
+  // Fetch projects with client and assignee data - Enhanced with user filtering and detailed logging
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
     queryKey: ['projects', userId, shouldApplyUserFiltering('projects')],
     queryFn: async () => {
+      console.log('=== PROJECTS QUERY START ===');
       console.log('Fetching projects...');
+      console.log('User ID:', userId);
+      console.log('Should apply user filtering:', shouldApplyUserFiltering('projects'));
       
       let query = supabase
         .from('projects')
@@ -109,7 +113,12 @@ const Projects = () => {
       // Apply user filtering - show only projects assigned to the user
       if (shouldApplyUserFiltering('projects') && userId) {
         console.log('Applying user filtering for projects - showing only where user is assignee');
+        console.log('Filtering by assignee_id =', userId);
         query = query.eq('assignee_id', userId);
+      } else {
+        console.log('NOT applying user filtering because:');
+        console.log('- shouldApplyUserFiltering("projects"):', shouldApplyUserFiltering('projects'));
+        console.log('- userId:', userId);
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -118,7 +127,23 @@ const Projects = () => {
         console.error('Error fetching projects:', error);
         throw error;
       }
-      console.log('Projects fetched:', data?.length || 0, 'projects');
+      
+      console.log('Raw projects data from database:', data);
+      console.log('Number of projects found:', data?.length || 0);
+      
+      if (data && data.length > 0) {
+        data.forEach((project, index) => {
+          console.log(`Project ${index + 1}:`, {
+            id: project.id,
+            name: project.name,
+            assignee_id: project.assignee_id,
+            status: project.status,
+            client: project.clients?.name
+          });
+        });
+      }
+      
+      console.log('=== PROJECTS QUERY END ===');
       return data as ProjectData[];
     },
     enabled: canRead && !!userId // Only fetch if user has read permission and userId is available
@@ -464,3 +489,5 @@ const Projects = () => {
 };
 
 export default Projects;
+
+</initial_code>

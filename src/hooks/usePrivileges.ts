@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,15 +85,23 @@ export const usePrivileges = () => {
     return hasAccess;
   };
 
-  // New function to check if user-based filtering should be applied
+  // New function to check if user-based filtering should be applied with detailed logging
   const shouldApplyUserFiltering = (pageName: string) => {
+    console.log(`=== shouldApplyUserFiltering for ${pageName} ===`);
+    console.log('User role:', userRole);
+    console.log('User email:', user?.email);
+    
     // Only apply user filtering for Manager role (not admin)
     if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
+      console.log('User is admin/superuser - no filtering applied');
       return false;
     }
     
     // Apply filtering for Manager role on specific pages
-    return userRole === 'manager' && ['projects', 'sprints', 'tasks'].includes(pageName);
+    const shouldFilter = userRole === 'manager' && ['projects', 'sprints', 'tasks'].includes(pageName);
+    console.log(`Should apply filtering: ${shouldFilter} (role: ${userRole}, page: ${pageName})`);
+    console.log(`=== End shouldApplyUserFiltering ===`);
+    return shouldFilter;
   };
 
   return {

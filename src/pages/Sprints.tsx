@@ -81,6 +81,7 @@ const Sprints = () => {
 
   console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
   console.log('Should apply user filtering:', shouldApplyUserFiltering('sprints'), 'User ID:', userId);
+  console.log('Privileges loading:', privilegesLoading);
 
   // Fetch clients for filter
   const { data: clients = [] } = useQuery({
@@ -155,11 +156,15 @@ const Sprints = () => {
     enabled: canRead
   });
 
-  // Fetch sprints with their tasks - Enhanced with user filtering
+  // Fetch sprints with their tasks - Enhanced with user filtering and detailed logging
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
     queryKey: ['sprints', userId, shouldApplyUserFiltering('sprints')],
     queryFn: async () => {
+      console.log('=== SPRINTS QUERY START ===');
       console.log('Fetching sprints...');
+      console.log('User ID:', userId);
+      console.log('Should apply user filtering:', shouldApplyUserFiltering('sprints'));
+      
       try {
         let query = supabase
           .from('sprints')
@@ -168,7 +173,12 @@ const Sprints = () => {
         // Apply user filtering - show only sprints where user is the sprint leader
         if (shouldApplyUserFiltering('sprints') && userId) {
           console.log('Applying user filtering for sprints - showing only where user is sprint leader');
+          console.log('Filtering by sprint_leader_id =', userId);
           query = query.eq('sprint_leader_id', userId);
+        } else {
+          console.log('NOT applying user filtering because:');
+          console.log('- shouldApplyUserFiltering("sprints"):', shouldApplyUserFiltering('sprints'));
+          console.log('- userId:', userId);
         }
 
         const { data: sprintsData, error: sprintsError } = await query.order('deadline', { ascending: true });
@@ -178,11 +188,19 @@ const Sprints = () => {
           throw sprintsError;
         }
 
-        console.log('Sprints data fetched:', sprintsData);
+        console.log('Raw sprints data from database:', sprintsData);
+        console.log('Number of sprints found:', sprintsData?.length || 0);
 
-        if (!sprintsData || sprintsData.length === 0) {
-          console.log('No sprints found');
-          return [];
+        if (sprintsData && sprintsData.length > 0) {
+          sprintsData.forEach((sprint, index) => {
+            console.log(`Sprint ${index + 1}:`, {
+              id: sprint.id,
+              title: sprint.title,
+              sprint_leader_id: sprint.sprint_leader_id,
+              status: sprint.status,
+              deadline: sprint.deadline
+            });
+          });
         }
 
         const sprintsWithTasks: SprintWithTasks[] = [];
@@ -783,3 +801,5 @@ const Sprints = () => {
 };
 
 export default Sprints;
+
+</edits_to_apply>
