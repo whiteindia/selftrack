@@ -85,9 +85,9 @@ const SprintCard: React.FC<SprintCardProps> = ({
                   {sprint.status}
                 </div>
               </Badge>
-              {sprint.is_overdue && (
+              {sprint.isOverdue && (
                 <Badge variant="destructive">
-                  Overdue by {sprint.overdue_days} days
+                  Overdue by {sprint.overdueDays} days
                 </Badge>
               )}
             </div>
