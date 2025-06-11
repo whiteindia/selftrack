@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -415,18 +416,21 @@ const Invoices = () => {
   return (
     <Navigation>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Invoices</h1>
-            <p className="text-gray-600 mt-2">Generate and manage your invoices</p>
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+          <div className="min-w-0">
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Invoices</h1>
+            <p className="text-gray-600 mt-2 text-sm lg:text-base">Generate and manage your invoices</p>
           </div>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             {/* Global Service Filter */}
-            <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-gray-500" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                <Filter className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                <span className="text-sm font-medium">Filter:</span>
+              </div>
               <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48 min-w-0">
                   <SelectValue placeholder="Filter by service type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -442,7 +446,7 @@ const Invoices = () => {
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto whitespace-nowrap">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Invoice
                 </Button>
@@ -586,32 +590,35 @@ const Invoices = () => {
             filteredInvoices.map((invoice) => (
               <Card key={invoice.id} className="hover:shadow-lg transition-shadow duration-200">
                 <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-4 mb-2">
-                        <h3 className="text-lg font-semibold">{invoice.id}</h3>
-                        <Badge className={getStatusColor(invoice.status)}>
-                          {invoice.status}
-                        </Badge>
+                  <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold break-words">{invoice.id}</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className={getStatusColor(invoice.status)}>
+                            {invoice.status}
+                          </Badge>
+                        </div>
                       </div>
-                      <p className="text-gray-600 mb-1">{invoice.clients.name}</p>
-                      <p className="text-sm text-gray-500">{invoice.projects.name}</p>
+                      <p className="text-gray-600 mb-1 break-words">{invoice.clients.name}</p>
+                      <p className="text-sm text-gray-500 break-words">{invoice.projects.name}</p>
                       <p className="text-xs text-gray-400">Service: {invoice.projects.service}</p>
-                      <div className="mt-3 flex items-center space-x-6 text-sm text-gray-600">
-                        <span>{invoice.hours}h × ₹{invoice.rate}/hr</span>
-                        <span>Due: {invoice.due_date}</span>
+                      <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-sm text-gray-600">
+                        <span className="break-words">{invoice.hours}h × ₹{invoice.rate}/hr</span>
+                        <span className="break-words">Due: {invoice.due_date}</span>
                       </div>
                     </div>
                     
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-gray-900 mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <p className="text-xl lg:text-2xl font-bold text-gray-900 text-center sm:text-right">
                         ₹{invoice.amount.toFixed(2)}
                       </p>
-                      <div className="flex space-x-2 mb-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setExpandedInvoice(expandedInvoice === invoice.id ? null : invoice.id)}
+                          className="flex-shrink-0"
                         >
                           {expandedInvoice === invoice.id ? (
                             <ChevronUp className="h-4 w-4 mr-1" />
@@ -624,6 +631,7 @@ const Invoices = () => {
                           variant="outline" 
                           size="sm"
                           onClick={() => generatePDF(invoice)}
+                          className="flex-shrink-0"
                         >
                           <Download className="h-4 w-4 mr-1" />
                           PDF
@@ -633,6 +641,7 @@ const Invoices = () => {
                             size="sm"
                             onClick={() => updateInvoiceStatus(invoice.id, 'Sent')}
                             disabled={updateInvoiceStatusMutation.isPending}
+                            className="flex-shrink-0"
                           >
                             Send
                           </Button>
@@ -641,7 +650,7 @@ const Invoices = () => {
                           <Button 
                             size="sm"
                             onClick={() => updateInvoiceStatus(invoice.id, 'Paid')}
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-green-600 hover:bg-green-700 flex-shrink-0"
                             disabled={updateInvoiceStatusMutation.isPending}
                           >
                             Mark Paid
@@ -654,22 +663,24 @@ const Invoices = () => {
                   {expandedInvoice === invoice.id && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-medium mb-3">Tasks in this invoice:</h4>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Task Name</TableHead>
-                            <TableHead>Hours</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {invoiceTasks.map((invoiceTask, index) => (
-                            <TableRow key={index}>
-                              <TableCell>{invoiceTask.tasks.name}</TableCell>
-                              <TableCell>{invoiceTask.tasks.hours}h</TableCell>
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Task Name</TableHead>
+                              <TableHead>Hours</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {invoiceTasks.map((invoiceTask, index) => (
+                              <TableRow key={index}>
+                                <TableCell className="break-words">{invoiceTask.tasks.name}</TableCell>
+                                <TableCell>{invoiceTask.tasks.hours}h</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   )}
                 </CardContent>
