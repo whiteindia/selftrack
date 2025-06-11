@@ -609,5 +609,3 @@ const Wages = () => {
 };
 
 export default Wages;
-
-}
