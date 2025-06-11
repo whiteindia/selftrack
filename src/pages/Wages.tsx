@@ -242,6 +242,96 @@ const Wages = () => {
     setExpandedTasks(newExpanded);
   };
 
+  const exportToCSV = () => {
+    // Create CSV headers
+    const headers = [
+      'Task Name',
+      'Employee Name',
+      'Project Name',
+      'Service Type',
+      'Date',
+      'Hours Worked',
+      'Employee Rate (₹)',
+      'Amount (₹)',
+      'Status'
+    ];
+
+    // Create CSV rows from filtered data
+    const csvRows = [];
+    
+    // Add filter information as header comments
+    const filterInfo = [];
+    filterInfo.push(`# Employee Wage Report - ${format(selectedMonth, "MMMM yyyy")}`);
+    if (selectedEmployee !== 'all') {
+      const employeeName = employees.find(emp => emp.id === selectedEmployee)?.name || 'Unknown';
+      filterInfo.push(`# Employee: ${employeeName}`);
+    }
+    if (globalServiceFilter !== 'all') {
+      filterInfo.push(`# Service Type: ${globalServiceFilter}`);
+    }
+    if (wageStatusFilter !== 'all') {
+      filterInfo.push(`# Wage Status: ${wageStatusFilter === 'wpaid' ? 'Paid' : 'Not Paid'}`);
+    }
+    filterInfo.push(`# Total Hours: ${totalHours.toFixed(2)}`);
+    filterInfo.push(`# Total Wages: ₹${totalWages.toFixed(2)}`);
+    filterInfo.push(`# Paid Wages: ₹${paidWages.toFixed(2)}`);
+    filterInfo.push(`# Unpaid Wages: ₹${unpaidWages.toFixed(2)}`);
+    filterInfo.push(''); // Empty line
+    
+    // Add filter info to CSV
+    csvRows.push(...filterInfo);
+    
+    // Add headers
+    csvRows.push(headers.join(','));
+
+    // Add data rows - expand all grouped records
+    Object.entries(groupedWageRecords).forEach(([taskId, group]) => {
+      group.entries.forEach((entry: any) => {
+        const row = [
+          `"${group.task?.name || ''}"`,
+          `"${group.employee?.name || ''}"`,
+          `"${group.task?.projects?.name || ''}"`,
+          `"${group.project_service_type || ''}"`,
+          `"${format(new Date(entry.date), "yyyy-MM-dd")}"`,
+          entry.hours_worked.toFixed(2),
+          group.hourly_rate,
+          entry.wage_amount.toFixed(2),
+          group.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'
+        ];
+        csvRows.push(row.join(','));
+      });
+    });
+
+    // Create and download CSV file
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      
+      // Generate filename with filters
+      let filename = `wages_report_${format(selectedMonth, "yyyy_MM")}`;
+      if (selectedEmployee !== 'all') {
+        const employeeName = employees.find(emp => emp.id === selectedEmployee)?.name || 'employee';
+        filename += `_${employeeName.replace(/\s+/g, '_')}`;
+      }
+      if (globalServiceFilter !== 'all') {
+        filename += `_${globalServiceFilter.replace(/\s+/g, '_')}`;
+      }
+      filename += '.csv';
+      
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Wage report exported successfully!');
+    }
+  };
+
   if (isLoading || privilegesLoading) {
     return (
       <Navigation>
@@ -262,7 +352,7 @@ const Wages = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            <Button variant="outline">
+            <Button variant="outline" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               Export Report
             </Button>
@@ -519,3 +609,5 @@ const Wages = () => {
 };
 
 export default Wages;
+
+}
