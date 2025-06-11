@@ -72,17 +72,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   // Filter items based on privileges
   const visibleMainNavItems = mainNavItems.filter(item => {
     if (item.pageName === 'dashboard') return true;
-    // For sprints, let's always show it for now to debug
-    if (item.pageName === 'sprints') {
-      console.log('Sprints item access check:', hasPageAccess('sprints'));
-      return true; // Always show sprints to debug
-    }
     return hasPageAccess(item.pageName);
   });
 
-  // Always show TrakEzy items for now (similar to dashboard and sprints)
+  // Filter TrakEzy items based on privileges
   const visibleTrakEzyItems = trakEzyItems.filter(item => {
-    return true; // Always show TrakEzy items for now
+    return hasPageAccess(item.pageName);
   });
 
   const visibleConfigItems = configItems.filter(item => {
@@ -93,6 +88,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   console.log('Navigation - visibleMainNavItems:', visibleMainNavItems.map(item => item.label));
   console.log('Navigation - visibleTrakEzyItems:', visibleTrakEzyItems.map(item => item.label));
+  console.log('Navigation - visibleConfigItems:', visibleConfigItems.map(item => item.label));
 
   // Show loading state while privileges are being fetched
   if (privilegesLoading) {

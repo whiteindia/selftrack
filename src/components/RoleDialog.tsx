@@ -45,7 +45,22 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const pages = ['dashboard', 'clients', 'employees', 'projects', 'tasks', 'sprints', 'invoices', 'payments', 'services', 'wages'];
+  // Updated pages list to include TrakEzy navigation items
+  const pages = [
+    'dashboard', 
+    'clients', 
+    'employees', 
+    'projects', 
+    'tasks', 
+    'sprints', 
+    'invoices', 
+    'payments', 
+    'services', 
+    'wages',
+    'gantt-view',
+    'agenda-cal',
+    'log-cal'
+  ];
   const operations: CrudOperation[] = ['create', 'read', 'update', 'delete'];
 
   // Map of common role names to standardized values
@@ -357,6 +372,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           </DialogTitle>
           <DialogDescription>
             Configure role permissions and RLS policies for different pages and operations. 
+            This includes main pages, TrakEzy navigation items, and configuration pages.
             RLS policies will be applied to the database when enabled, restricting data access based on the role.
           </DialogDescription>
         </DialogHeader>
