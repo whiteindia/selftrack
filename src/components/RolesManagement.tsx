@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import RoleDialog from './RoleDialog';
 
 interface RoleWithPrivileges {
@@ -167,16 +167,10 @@ const RolesManagement = () => {
                 Manage roles and their permissions across the system. You can create any custom role name.
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={fetchRoles}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-              <Button onClick={handleAddRole}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Role
-              </Button>
-            </div>
+            <Button onClick={handleAddRole}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Role
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
