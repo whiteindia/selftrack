@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +30,7 @@ interface TimeEntry {
   duration_minutes: number;
   created_at: string;
   start_time: string;
+  comment?: string;
   tasks: {
     id: string;
     name: string;
@@ -71,7 +71,7 @@ const Wages = () => {
   // Check specific permissions for wages page
   const canUpdate = hasOperationAccess('wages', 'update');
 
-  // Fetch time entries with employee hourly rate data
+  // Fetch time entries with employee hourly rate data and comments
   const { data: timeEntries = [], isLoading } = useQuery({
     queryKey: ['time-entries', selectedEmployee, selectedMonth],
     queryFn: async () => {
@@ -180,7 +180,8 @@ const Wages = () => {
     wage_status: entry.tasks?.wage_status || 'wnotpaid',
     tasks: entry.tasks,
     employees: entry.employees,
-    project_service_type: entry.tasks?.projects?.service
+    project_service_type: entry.tasks?.projects?.service,
+    comment: entry.comment
   }));
 
   // Filter wage records based on all filters
@@ -611,15 +612,22 @@ const Wages = () => {
                                 {group.entries.map((entry: any) => (
                                   <TableRow key={entry.id} className="bg-gray-50">
                                     <TableCell className="pl-8 text-sm text-gray-600">
-                                      Time Entry
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{format(new Date(entry.date), "PPP")}</span>
+                                        {entry.comment && (
+                                          <span className="text-xs text-gray-500 mt-1 italic">
+                                            "{entry.comment}"
+                                          </span>
+                                        )}
+                                      </div>
                                     </TableCell>
                                     <TableCell className="text-sm">-</TableCell>
                                     <TableCell className="text-sm">-</TableCell>
                                     <TableCell className="text-sm">-</TableCell>
-                                    <TableCell className="text-sm">{format(new Date(entry.date), "PPP")}</TableCell>
                                     <TableCell className="text-sm">{entry.hours_worked.toFixed(2)}</TableCell>
                                     <TableCell className="text-sm">-</TableCell>
                                     <TableCell className="text-sm">₹{entry.wage_amount.toFixed(2)}</TableCell>
+                                    <TableCell className="text-sm">-</TableCell>
                                     <TableCell className="text-sm">-</TableCell>
                                   </TableRow>
                                 ))}
