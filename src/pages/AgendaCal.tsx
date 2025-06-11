@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,7 @@ interface Task {
   name: string;
   project_id: string;
   assignee_id: string | null;
+  assigner_id: string | null;
   date: string;
   deadline?: string;
   status: string;
@@ -25,6 +27,9 @@ interface Task {
     };
   };
   assignee: {
+    name: string;
+  } | null;
+  assigner: {
     name: string;
   } | null;
   sprints?: {
@@ -583,5 +588,3 @@ const AgendaCal = () => {
 };
 
 export default AgendaCal;
-
-}
