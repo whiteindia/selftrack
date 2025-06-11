@@ -18,6 +18,9 @@ import TaskKanban from '@/components/TaskKanban';
 import TaskCommentDialog from '@/components/TaskCommentDialog';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { Database } from '@/integrations/supabase/types';
+
+type TaskStatus = Database['public']['Enums']['task_status'];
 
 interface Task {
   id: string;
@@ -25,7 +28,7 @@ interface Task {
   project_id: string;
   assignee_id: string;
   assigner_id: string;
-  status: string;
+  status: TaskStatus;
   deadline: string;
   estimated_duration: number;
   hours: number;
@@ -303,7 +306,7 @@ const Tasks = () => {
     setIsCommentDialogOpen(true);
   };
 
-  const handleTaskStatusChange = async (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed') => {
+  const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     if (!canUpdate) {
       toast.error('You do not have permission to update tasks');
       return;
@@ -516,7 +519,6 @@ const Tasks = () => {
                         <SelectItem value="Not Started">Not Started</SelectItem>
                         <SelectItem value="In Progress">In Progress</SelectItem>
                         <SelectItem value="Completed">Completed</SelectItem>
-                        <SelectItem value="On Hold">On Hold</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -809,3 +811,5 @@ const Tasks = () => {
 };
 
 export default Tasks;
+
+</edits_to_apply>
