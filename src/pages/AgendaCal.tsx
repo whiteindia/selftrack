@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, ChevronLeft, ChevronRight, Circle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Circle, Clock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, isSameDay, parseISO } from 'date-fns';
@@ -52,6 +52,40 @@ const AgendaCal = () => {
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every second for live timer display
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch running tasks (tasks with active time entries)
+  const { data: runningTasks = [] } = useQuery({
+    queryKey: ['running-tasks-agenda'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select(`
+          id,
+          start_time,
+          task_id,
+          tasks (
+            id,
+            name
+          )
+        `)
+        .is('end_time', null)
+        .order('start_time', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 2000
+  });
 
   // Fetch services for filter
   const { data: services = [] } = useQuery({
@@ -152,6 +186,23 @@ const AgendaCal = () => {
       return tasksWithSprints;
     }
   });
+
+  // Format elapsed time for running tasks
+  const formatElapsedTime = (startTime: string) => {
+    const start = new Date(startTime);
+    const elapsed = Math.floor((currentTime.getTime() - start.getTime()) / 1000);
+    
+    const hours = Math.floor(elapsed / 3600);
+    const minutes = Math.floor((elapsed % 3600) / 60);
+    const seconds = elapsed % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Check if a task is currently running
+  const getRunningTaskEntry = (taskId: string) => {
+    return runningTasks.find(entry => entry.task_id === taskId);
+  };
 
   // Filter projects based on client filter
   const filteredProjects = useMemo(() => {
@@ -370,18 +421,31 @@ const AgendaCal = () => {
                   {format(currentDate, 'EEEE, MMMM d')}
                 </h3>
                 <div className="space-y-2">
-                  {getItemsForDate(currentDate).map((item) => (
-                    <Card key={item.id} className="border-l-4 border-l-blue-500">
-                      <CardContent className="p-4">
-                        <div className="text-sm font-medium">
-                          {item.name} || {item.task} || {item.sprint}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {item.project} • {item.client}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {getItemsForDate(currentDate).map((item) => {
+                    const runningEntry = getRunningTaskEntry(item.id);
+                    return (
+                      <Card key={item.id} className="border-l-4 border-l-blue-500">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-sm font-medium">
+                                {item.name} || {item.task} || {item.sprint}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {item.project} • {item.client}
+                              </div>
+                            </div>
+                            {runningEntry && (
+                              <div className="flex items-center text-sm text-green-600 font-mono bg-green-50 px-2 py-1 rounded">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {formatElapsedTime(runningEntry.start_time)}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                   {getItemsForDate(currentDate).length === 0 && (
                     <div className="text-center text-gray-500 py-8">
                       No tasks scheduled for this day
@@ -397,18 +461,27 @@ const AgendaCal = () => {
                       {format(date, 'EEE d')}
                     </h3>
                     <div className="space-y-1">
-                      {getItemsForDate(date).map((item) => (
-                        <Card key={`${date.toISOString()}-${item.id}`} className="border-l-4 border-l-green-500">
-                          <CardContent className="p-2">
-                            <div className="text-xs font-medium truncate">
-                              {item.name} || {item.task}
-                            </div>
-                            <div className="text-xs text-gray-500 truncate">
-                              {item.sprint}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                      {getItemsForDate(date).map((item) => {
+                        const runningEntry = getRunningTaskEntry(item.id);
+                        return (
+                          <Card key={`${date.toISOString()}-${item.id}`} className="border-l-4 border-l-green-500">
+                            <CardContent className="p-2">
+                              <div className="text-xs font-medium truncate">
+                                {item.name} || {item.task}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate">
+                                {item.sprint}
+                              </div>
+                              {runningEntry && (
+                                <div className="flex items-center text-xs text-green-600 font-mono mt-1">
+                                  <Clock className="h-2 w-2 mr-1" />
+                                  {formatElapsedTime(runningEntry.start_time)}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -421,11 +494,20 @@ const AgendaCal = () => {
                       {format(date, 'd')}
                     </div>
                     <div className="space-y-1">
-                      {getItemsForDate(date).slice(0, 2).map((item) => (
-                        <div key={`${date.toISOString()}-${item.id}`} className="text-xs bg-blue-100 rounded p-1 truncate">
-                          {item.name}
-                        </div>
-                      ))}
+                      {getItemsForDate(date).slice(0, 2).map((item) => {
+                        const runningEntry = getRunningTaskEntry(item.id);
+                        return (
+                          <div key={`${date.toISOString()}-${item.id}`} className="text-xs bg-blue-100 rounded p-1">
+                            <div className="truncate">{item.name}</div>
+                            {runningEntry && (
+                              <div className="flex items-center text-green-600 font-mono text-xs">
+                                <Clock className="h-2 w-2 mr-1" />
+                                {formatElapsedTime(runningEntry.start_time)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                       {getItemsForDate(date).length > 2 && (
                         <div className="text-xs text-gray-500">
                           +{getItemsForDate(date).length - 2} more
