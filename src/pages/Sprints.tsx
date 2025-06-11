@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,6 +71,16 @@ const Sprints = () => {
   const queryClient = useQueryClient();
 
   console.log('Sprints component rendered');
+
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for sprints page
+  const canCreate = hasOperationAccess('sprints', 'create');
+  const canUpdate = hasOperationAccess('sprints', 'update');
+  const canDelete = hasOperationAccess('sprints', 'delete');
+  const canRead = hasOperationAccess('sprints', 'read');
+
+  console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
 
   // Fetch clients for filter
   const { data: clients = [] } = useQuery({
@@ -192,7 +203,24 @@ const Sprints = () => {
             .from('sprint_tasks')
             .select(`
               task_id,
-              tasks (\n                id,\n                name,\n                status,\n                project_id,\n                assignee_id,\n                deadline,\n                hours,\n                estimated_duration,\n                projects (\n                  name,\n                  service,\n                  clients (\n                    name\n                  )\n                )\n              )\n            `)
+              tasks (
+                id,
+                name,
+                status,
+                project_id,
+                assignee_id,
+                deadline,
+                hours,
+                estimated_duration,
+                projects (
+                  name,
+                  service,
+                  clients (
+                    name
+                  )
+                )
+              )
+            `)
             .eq('sprint_id', sprint.id);
 
           if (tasksError) {
@@ -394,16 +422,6 @@ const Sprints = () => {
       return true;
     });
   });
-
-  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
-  
-  // Check specific permissions for sprints page
-  const canCreate = hasOperationAccess('sprints', 'create');
-  const canUpdate = hasOperationAccess('sprints', 'update');
-  const canDelete = hasOperationAccess('sprints', 'delete');
-  const canRead = hasOperationAccess('sprints', 'read');
-
-  console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
 
   // Delete sprint mutation
   const deleteSprint = useMutation({
@@ -750,5 +768,3 @@ const Sprints = () => {
 };
 
 export default Sprints;
-
-</edits_to_apply>
