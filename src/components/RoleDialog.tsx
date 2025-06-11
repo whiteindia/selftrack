@@ -90,7 +90,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
   const fetchRoleData = async (roleToFetch: string) => {
     setLoading(true);
     try {
-      console.log('Fetching privileges for role:', roleToFetch);
+      console.log('Fetching privileges and RLS policies for role:', roleToFetch);
       
       // Fetch privileges
       const { data: privilegesData, error: privilegesError } = await supabase
@@ -108,13 +108,31 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
       console.log('Fetched privileges:', privilegesData);
       setPrivileges(privilegesData || []);
 
-      // Initialize RLS policies for each page
-      const rlsData: RLSPolicy[] = pages.map(page => ({
-        role: roleToFetch,
-        page_name: page,
-        rls_enabled: false
-      }));
-      setRlsPolicies(rlsData);
+      // Fetch RLS policies
+      const { data: rlsData, error: rlsError } = await supabase
+        .from('role_rls_policies')
+        .select('*')
+        .eq('role', roleToFetch)
+        .order('page_name');
+
+      if (rlsError) {
+        console.error('Error fetching RLS policies:', rlsError);
+        throw rlsError;
+      }
+
+      console.log('Fetched RLS policies:', rlsData);
+      
+      // Initialize RLS policies for each page, using existing data or defaults
+      const rlsPolicies: RLSPolicy[] = pages.map(page => {
+        const existingPolicy = rlsData?.find(p => p.page_name === page);
+        return {
+          id: existingPolicy?.id,
+          role: roleToFetch,
+          page_name: page,
+          rls_enabled: existingPolicy?.rls_enabled || false
+        };
+      });
+      setRlsPolicies(rlsPolicies);
     } catch (error) {
       console.error('Error fetching role data:', error);
       toast.error('Failed to fetch role data');
@@ -170,6 +188,23 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
     });
   };
 
+  const applyRlsPolicies = async () => {
+    try {
+      console.log('Applying RLS policies to database...');
+      const { error } = await supabase.rpc('apply_rls_policies');
+      
+      if (error) {
+        console.error('Error applying RLS policies:', error);
+        throw error;
+      }
+      
+      console.log('RLS policies applied successfully');
+    } catch (error) {
+      console.error('Error applying RLS policies:', error);
+      toast.error('Failed to apply RLS policies');
+    }
+  };
+
   const handleSave = async () => {
     if (!roleName.trim()) {
       toast.error('Role name is required');
@@ -182,7 +217,8 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
     setSaving(true);
     try {
       if (isEditing && role) {
-        console.log('Updating existing role privileges...');
+        console.log('Updating existing role privileges and RLS policies...');
+        
         // Update existing privileges
         for (const privilege of privileges) {
           if (privilege.id) {
@@ -200,11 +236,48 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
             }
           }
         }
+
+        // Update RLS policies
+        for (const rlsPolicy of rlsPolicies) {
+          if (rlsPolicy.id) {
+            // Update existing RLS policy
+            const { error } = await supabase
+              .from('role_rls_policies')
+              .update({ 
+                rls_enabled: rlsPolicy.rls_enabled,
+                updated_at: new Date().toISOString() 
+              })
+              .eq('id', rlsPolicy.id);
+
+            if (error) {
+              console.error('Error updating RLS policy:', rlsPolicy.id, error);
+              throw error;
+            }
+          } else {
+            // Insert new RLS policy
+            const { error } = await supabase
+              .from('role_rls_policies')
+              .insert({
+                role: validRole,
+                page_name: rlsPolicy.page_name,
+                rls_enabled: rlsPolicy.rls_enabled
+              });
+
+            if (error) {
+              console.error('Error inserting RLS policy:', error);
+              throw error;
+            }
+          }
+        }
+
+        // Apply the RLS policies to the database
+        await applyRlsPolicies();
+        
         toast.success('Role updated successfully');
       } else {
-        console.log('Creating new role privileges...');
+        console.log('Creating new role privileges and RLS policies...');
         
-        // First, check if privileges already exist for this role
+        // Check if privileges already exist for this role
         const { data: existingPrivileges, error: checkError } = await supabase
           .from('role_privileges')
           .select('*')
@@ -215,14 +288,12 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           throw checkError;
         }
 
-        console.log('Existing privileges check:', existingPrivileges);
-
         if (existingPrivileges && existingPrivileges.length > 0) {
           toast.error(`Role type "${validRole}" already exists. Please edit the existing role instead.`);
           return;
         }
 
-        // Create new role privileges - ensure we create entries for all page/operation combinations
+        // Create new role privileges
         const privilegesToInsert = [];
         
         for (const page of pages) {
@@ -237,21 +308,35 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           }
         }
 
-        console.log('Inserting privileges:', privilegesToInsert.length, 'entries');
-        console.log('Sample privilege:', privilegesToInsert[0]);
-
-        const { data: insertedData, error } = await supabase
+        const { error: privilegesError } = await supabase
           .from('role_privileges')
-          .insert(privilegesToInsert)
-          .select('*');
+          .insert(privilegesToInsert);
 
-        if (error) {
-          console.error('Error inserting privileges:', error);
-          throw error;
+        if (privilegesError) {
+          console.error('Error inserting privileges:', privilegesError);
+          throw privilegesError;
         }
 
-        console.log('Successfully inserted privileges:', insertedData?.length, 'rows');
-        toast.success(`Role "${roleName}" created successfully with ${insertedData?.length} privilege entries`);
+        // Create RLS policies
+        const rlsPoliciesToInsert = rlsPolicies.map(policy => ({
+          role: validRole,
+          page_name: policy.page_name,
+          rls_enabled: policy.rls_enabled
+        }));
+
+        const { error: rlsError } = await supabase
+          .from('role_rls_policies')
+          .insert(rlsPoliciesToInsert);
+
+        if (rlsError) {
+          console.error('Error inserting RLS policies:', rlsError);
+          throw rlsError;
+        }
+
+        // Apply the RLS policies to the database
+        await applyRlsPolicies();
+
+        toast.success(`Role "${roleName}" created successfully with privileges and RLS policies`);
       }
 
       onClose();
@@ -272,7 +357,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           </DialogTitle>
           <DialogDescription>
             Configure role permissions and RLS policies for different pages and operations. 
-            You can create any role name - common ones include: admin, manager, teamlead, associate, accountant, sales-executive
+            RLS policies will be applied to the database when enabled, restricting data access based on the role.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,0 +1,119 @@
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface RLSPolicy {
+  id?: string;
+  role: string;
+  page_name: string;
+  rls_enabled: boolean;
+}
+
+export const useRlsPolicies = (role?: string) => {
+  const [rlsPolicies, setRlsPolicies] = useState<RLSPolicy[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRlsPolicies = async () => {
+      if (!role) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('Fetching RLS policies for role:', role);
+        
+        const { data, error } = await supabase
+          .from('role_rls_policies')
+          .select('*')
+          .eq('role', role)
+          .order('page_name');
+
+        if (error) {
+          console.error('Error fetching RLS policies:', error);
+          setRlsPolicies([]);
+        } else {
+          console.log('RLS policies fetched for role', role, ':', data);
+          setRlsPolicies(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching RLS policies:', error);
+        setRlsPolicies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRlsPolicies();
+  }, [role]);
+
+  const updateRlsPolicy = async (pageame: string, enabled: boolean) => {
+    if (!role) return;
+
+    try {
+      console.log(`Updating RLS policy for ${role}-${pageame}:`, enabled);
+      
+      // First check if policy exists
+      const existingPolicy = rlsPolicies.find(p => p.page_name === pageame);
+      
+      if (existingPolicy) {
+        // Update existing policy
+        const { error } = await supabase
+          .from('role_rls_policies')
+          .update({ 
+            rls_enabled: enabled,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', existingPolicy.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new policy
+        const { error } = await supabase
+          .from('role_rls_policies')
+          .insert({
+            role: role,
+            page_name: pageame,
+            rls_enabled: enabled
+          });
+
+        if (error) throw error;
+      }
+
+      // Apply the RLS policies to the database
+      const { error: applyError } = await supabase.rpc('apply_rls_policies');
+      if (applyError) {
+        console.error('Error applying RLS policies:', applyError);
+        throw applyError;
+      }
+
+      // Update local state
+      setRlsPolicies(prev => {
+        const updated = prev.filter(p => p.page_name !== pageame);
+        updated.push({
+          role,
+          page_name: pageame,
+          rls_enabled: enabled
+        });
+        return updated;
+      });
+
+      console.log('RLS policy updated and applied successfully');
+    } catch (error) {
+      console.error('Error updating RLS policy:', error);
+      throw error;
+    }
+  };
+
+  const isRlsEnabled = (pageame: string) => {
+    const policy = rlsPolicies.find(p => p.page_name === pageame);
+    return policy?.rls_enabled || false;
+  };
+
+  return {
+    rlsPolicies,
+    loading,
+    updateRlsPolicy,
+    isRlsEnabled
+  };
+};

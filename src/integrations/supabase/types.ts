@@ -467,6 +467,33 @@ export type Database = {
         }
         Relationships: []
       }
+      role_rls_policies: {
+        Row: {
+          created_at: string
+          id: string
+          page_name: string
+          rls_enabled: boolean
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_name: string
+          rls_enabled?: boolean
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_name?: string
+          rls_enabled?: boolean
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string
@@ -769,8 +796,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_rls_policies: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      get_user_client_id: {
+        Args: { user_id: string }
+        Returns: string
+      }
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: string
+      }
       has_role: {
         Args: { _user_id: string; _role: string }
+        Returns: boolean
+      }
+      is_rls_enabled: {
+        Args: { role_name: string; page_name: string }
         Returns: boolean
       }
       setup_admin_user: {

@@ -89,7 +89,8 @@ const PagePrivileges: React.FC<PagePrivilegesProps> = ({
       {rlsPolicy?.rls_enabled && (
         <div className="mt-2 p-2 bg-blue-50 rounded border-l-4 border-blue-400">
           <p className="text-sm text-blue-700">
-            <strong>RLS Policy Enabled:</strong> Data access for this page will be restricted based on this role's permissions.
+            <strong>RLS Policy Active:</strong> Database-level Row Level Security is now enforced for this page. 
+            Data access will be restricted based on this role's permissions and user context.
           </p>
         </div>
       )}
