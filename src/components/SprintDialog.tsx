@@ -66,8 +66,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState<Date>();
-  const [assigneeId, setAssigneeId] = useState<string>('');
-  const [sprintLeaderId, setSprintLeaderId] = useState<string>('');
+  const [assigneeId, setAssigneeId] = useState<string>('unassigned');
+  const [sprintLeaderId, setSprintLeaderId] = useState<string>('unassigned');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 
   // Reset form when dialog opens/closes or editing sprint changes
@@ -76,8 +76,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
       if (editingSprint) {
         setTitle(editingSprint.title);
         setDeadline(new Date(editingSprint.deadline));
-        setAssigneeId(editingSprint.assignee_id || '');
-        setSprintLeaderId(editingSprint.sprint_leader_id || '');
+        setAssigneeId(editingSprint.assignee_id || 'unassigned');
+        setSprintLeaderId(editingSprint.sprint_leader_id || 'unassigned');
         // Load existing tasks for this sprint
         loadSprintTasks(editingSprint.id);
       } else {
@@ -147,8 +147,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
         .insert({
           title: sprintData.title,
           deadline: sprintData.deadline,
-          assignee_id: sprintData.assigneeId || null,
-          sprint_leader_id: sprintData.sprintLeaderId || null,
+          assignee_id: sprintData.assigneeId === 'unassigned' ? null : sprintData.assigneeId,
+          sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
           status: 'Not Started'
         })
         .select()
@@ -197,8 +197,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
         .update({
           title: sprintData.title,
           deadline: sprintData.deadline,
-          assignee_id: sprintData.assigneeId || null,
-          sprint_leader_id: sprintData.sprintLeaderId || null,
+          assignee_id: sprintData.assigneeId === 'unassigned' ? null : sprintData.assigneeId,
+          sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
         })
         .eq('id', sprintData.id);
 
@@ -248,8 +248,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   const resetForm = () => {
     setTitle('');
     setDeadline(undefined);
-    setAssigneeId('');
-    setSprintLeaderId('');
+    setAssigneeId('unassigned');
+    setSprintLeaderId('unassigned');
     setSelectedTasks([]);
   };
 
@@ -359,7 +359,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
                 <SelectValue placeholder="Select sprint leader" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Leader Assigned</SelectItem>
+                <SelectItem value="unassigned">No Leader Assigned</SelectItem>
                 {employees.map((employee) => (
                   <SelectItem key={employee.id} value={employee.id}>
                     {employee.name}
@@ -376,7 +376,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
                 <SelectValue placeholder="Select an assignee" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {employees.map((employee) => (
                   <SelectItem key={employee.id} value={employee.id}>
                     {employee.name}
