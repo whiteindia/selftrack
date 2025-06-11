@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +13,7 @@ interface Task {
   name: string;
   project_id: string;
   assignee_id: string | null;
-  start_date?: string;
+  date: string;
   deadline?: string;
   status: string;
   projects: {
@@ -112,8 +111,8 @@ const AgendaCal = () => {
           name,
           project_id,
           assignee_id,
+          date,
           deadline,
-          created_at,
           status,
           projects (
             name,
@@ -172,7 +171,7 @@ const AgendaCal = () => {
       if (clientFilter !== 'all' && task.projects.client_id !== clientFilter) return;
       if (projectFilter !== 'all' && task.project_id !== projectFilter) return;
 
-      const startDate = task.created_at ? parseISO(task.created_at) : new Date();
+      const startDate = task.date ? parseISO(task.date) : new Date();
       const endDate = task.deadline ? parseISO(task.deadline) : startDate;
       const sprintName = task.sprints && task.sprints.length > 0 ? task.sprints[0].title : 'No Sprint';
 
