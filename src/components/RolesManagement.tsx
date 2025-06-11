@@ -10,7 +10,7 @@ import RoleDialog from './RoleDialog';
 interface RoleWithPrivileges {
   role: string;
   privilegeCount: number;
-  totalEntries: number; // New field to show total entries in DB
+  totalEntries: number;
 }
 
 const RolesManagement = () => {
@@ -19,7 +19,6 @@ const RolesManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     fetchRoles();
@@ -29,29 +28,6 @@ const RolesManagement = () => {
     try {
       console.log('Fetching roles...');
       
-      // Get all role_privileges data for debugging
-      const { data: allPrivileges, error: allError } = await supabase
-        .from('role_privileges')
-        .select('*')
-        .order('role')
-        .order('page_name')
-        .order('operation');
-
-      if (allError) {
-        console.error('Error fetching all privileges:', allError);
-        throw allError;
-      }
-
-      console.log('Total privileges in database:', allPrivileges?.length);
-      console.log('Sample privileges:', allPrivileges?.slice(0, 5));
-
-      // Set debug info
-      setDebugInfo({
-        totalEntries: allPrivileges?.length || 0,
-        uniqueRoles: [...new Set(allPrivileges?.map(p => p.role) || [])],
-        sampleData: allPrivileges?.slice(0, 10) || []
-      });
-
       // Get unique roles from role_privileges table
       const { data: roleData, error } = await supabase
         .from('role_privileges')
@@ -204,18 +180,6 @@ const RolesManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Debug Information */}
-          {debugInfo && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">Database Debug Info:</h4>
-              <div className="text-sm text-blue-700 space-y-1">
-                <p>Total privilege entries in database: {debugInfo.totalEntries}</p>
-                <p>Unique roles found: {debugInfo.uniqueRoles.join(', ')}</p>
-                <p>Expected entries per role: 40 (10 pages × 4 operations)</p>
-              </div>
-            </div>
-          )}
-
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {roles.map((roleData) => (
               <Card key={roleData.role} className="relative">
@@ -225,10 +189,6 @@ const RolesManagement = () => {
                       <CardTitle className="text-lg capitalize">{roleData.role}</CardTitle>
                       <CardDescription>
                         {roleData.privilegeCount} privileges assigned
-                        <br />
-                        <span className="text-xs text-gray-500">
-                          ({roleData.totalEntries} total entries in DB)
-                        </span>
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
@@ -254,11 +214,6 @@ const RolesManagement = () => {
                   <div className="text-sm text-gray-600">
                     {getRoleDescription(roleData.role)}
                   </div>
-                  {roleData.totalEntries !== 40 && (
-                    <div className="mt-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
-                      Warning: Expected 40 entries, found {roleData.totalEntries}
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
