@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -433,6 +434,40 @@ const GanttView = () => {
                           <div><span className="font-medium">Service:</span> {item.service}</div>
                           <div>
                             <span className="font-medium">Timeline:</span> {format(new Date(item.startDate), 'MMM d')} - {format(new Date(item.endDate), 'MMM d, yyyy')}
+                          </div>
+                        </div>
+                        
+                        {/* Mobile Timeline Visual */}
+                        <div className="mt-3">
+                          <div className="text-xs font-medium mb-2 text-gray-700">Timeline for {format(selectedMonth, 'MMMM yyyy')}</div>
+                          <div className="relative bg-gray-100 h-6 rounded-md overflow-hidden">
+                            {(() => {
+                              const position = getTimelinePosition(item.startDate, item.endDate);
+                              if (!position.visible) {
+                                return (
+                                  <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-500">
+                                    Outside selected month
+                                  </div>
+                                );
+                              }
+                              
+                              return (
+                                <div
+                                  className={`absolute h-full rounded-sm ${getStatusColor(item.status, item.type)} opacity-80 flex items-center px-1`}
+                                  style={{ left: position.left, width: position.width }}
+                                >
+                                  <span className="text-white text-xs truncate font-medium">
+                                    {item.name}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          
+                          {/* Month days reference */}
+                          <div className="mt-1 flex justify-between text-xs text-gray-500">
+                            <span>{format(startOfMonth(selectedMonth), 'MMM d')}</span>
+                            <span>{format(endOfMonth(selectedMonth), 'MMM d')}</span>
                           </div>
                         </div>
                       </div>
