@@ -19,6 +19,9 @@ import NotFound from "./pages/NotFound";
 import Roles from "./pages/Roles";
 import Invitations from "./pages/Invitations";
 import Sprints from "./pages/Sprints";
+import GanttView from "./pages/GanttView";
+import AgendaCal from "./pages/AgendaCal";
+import LogCal from "./pages/LogCal";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +79,30 @@ function App() {
                 element={
                   <ProtectedRoute pageName="sprints">
                     <Sprints />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gantt-view"
+                element={
+                  <ProtectedRoute pageName="gantt-view">
+                    <GanttView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/agenda-cal"
+                element={
+                  <ProtectedRoute pageName="agenda-cal">
+                    <AgendaCal />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/log-cal"
+                element={
+                  <ProtectedRoute pageName="log-cal">
+                    <LogCal />
                   </ProtectedRoute>
                 }
               />

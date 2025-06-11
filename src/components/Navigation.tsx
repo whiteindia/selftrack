@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,10 @@ import {
   Menu,
   ChevronDown,
   User,
-  Calendar
+  Calendar,
+  ChartGantt,
+  CalendarClock,
+  CalendarRange
 } from 'lucide-react';
 import {
   Drawer,
@@ -53,6 +57,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/wages', label: 'Wages', icon: Wallet, pageName: 'wages' },
   ];
 
+  const trakEzyItems = [
+    { path: '/gantt-view', label: 'Gantt View', icon: ChartGantt, pageName: 'gantt-view' },
+    { path: '/agenda-cal', label: 'Agenda Cal', icon: CalendarRange, pageName: 'agenda-cal' },
+    { path: '/log-cal', label: 'Log Cal', icon: CalendarClock, pageName: 'log-cal' },
+  ];
+
   const configItems = [
     { path: '/clients', label: 'Clients', icon: Users, pageName: 'clients' },
     { path: '/employees', label: 'Employees', icon: UserCheck, pageName: 'employees' },
@@ -68,6 +78,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       console.log('Sprints item access check:', hasPageAccess('sprints'));
       return true; // Always show sprints to debug
     }
+    return hasPageAccess(item.pageName);
+  });
+
+  const visibleTrakEzyItems = trakEzyItems.filter(item => {
     return hasPageAccess(item.pageName);
   });
 
@@ -123,6 +137,31 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             })}
           </div>
         </div>
+
+        {visibleTrakEzyItems.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">TrakEzy</h3>
+            <div className="space-y-1">
+              {visibleTrakEzyItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {visibleConfigItems.length > 0 && (
           <div>
@@ -196,6 +235,38 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 </Link>
               );
             })}
+            
+            {visibleTrakEzyItems.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>TrakEzy</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                  {visibleTrakEzyItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             
             {visibleConfigItems.length > 0 && (
               <DropdownMenu>
