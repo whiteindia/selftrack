@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarIcon, Download, Filter, Check, X } from 'lucide-react';
+import { CalendarIcon, Download, Filter, Check, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from 'sonner';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface TimeEntry {
   id: string;
@@ -57,6 +58,7 @@ const Wages = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
   const [wageStatusFilter, setWageStatusFilter] = useState<string>('all');
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
@@ -190,6 +192,27 @@ const Wages = () => {
     return matchesEmployee && matchesService && matchesWageStatus;
   });
 
+  // Group wage records by task
+  const groupedWageRecords = filteredWageRecords.reduce((groups, record) => {
+    const taskId = record.task_id;
+    if (!groups[taskId]) {
+      groups[taskId] = {
+        task: record.tasks,
+        employee: record.employees,
+        project_service_type: record.project_service_type,
+        wage_status: record.wage_status,
+        hourly_rate: record.hourly_rate,
+        entries: [],
+        totalHours: 0,
+        totalAmount: 0
+      };
+    }
+    groups[taskId].entries.push(record);
+    groups[taskId].totalHours += record.hours_worked;
+    groups[taskId].totalAmount += record.wage_amount;
+    return groups;
+  }, {} as Record<string, any>);
+
   // Calculate totals
   const totalHours = filteredWageRecords.reduce((sum, record) => sum + record.hours_worked, 0);
   const totalWages = filteredWageRecords.reduce((sum, record) => sum + record.wage_amount, 0);
@@ -207,6 +230,16 @@ const Wages = () => {
     }
 
     updateWageStatusMutation.mutate({ taskId, status });
+  };
+
+  const toggleTaskExpansion = (taskId: string) => {
+    const newExpanded = new Set(expandedTasks);
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId);
+    } else {
+      newExpanded.add(taskId);
+    }
+    setExpandedTasks(newExpanded);
   };
 
   if (isLoading || privilegesLoading) {
@@ -369,64 +402,112 @@ const Wages = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
                   <TableHead>Task</TableHead>
+                  <TableHead>Employee</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Service Type</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Hours</TableHead>
+                  <TableHead>Total Hours</TableHead>
                   <TableHead>Employee Rate</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>Total Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredWageRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{record.employees?.name}</TableCell>
-                    <TableCell>{record.tasks?.name}</TableCell>
-                    <TableCell>{record.tasks?.projects?.name}</TableCell>
-                    <TableCell>{record.project_service_type}</TableCell>
-                    <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
-                    <TableCell>{record.hours_worked.toFixed(2)}</TableCell>
-                    <TableCell>₹{record.hourly_rate}</TableCell>
-                    <TableCell>₹{record.wage_amount.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge variant={record.wage_status === 'wpaid' ? 'default' : 'destructive'}>
-                        {record.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {canUpdate ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              Actions
+                {Object.entries(groupedWageRecords).map(([taskId, group]) => (
+                  <React.Fragment key={taskId}>
+                    {/* Main task row */}
+                    <TableRow className="border-b-2">
+                      <TableCell>
+                        <Collapsible>
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-0 h-auto font-normal justify-start"
+                              onClick={() => toggleTaskExpansion(taskId)}
+                            >
+                              {expandedTasks.has(taskId) ? (
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 mr-2" />
+                              )}
+                              {group.task?.name}
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() => handleWageStatusChange(record.task_id, 'wpaid')}
-                              disabled={record.wage_status === 'wpaid'}
-                            >
-                              <Check className="h-4 w-4 mr-2" />
-                              Mark as Paid
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleWageStatusChange(record.task_id, 'wnotpaid')}
-                              disabled={record.wage_status === 'wnotpaid'}
-                            >
-                              <X className="h-4 w-4 mr-2" />
-                              Mark as Not Paid
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : (
-                        <span className="text-sm text-gray-500">No permission</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                          </CollapsibleTrigger>
+                        </Collapsible>
+                      </TableCell>
+                      <TableCell>{group.employee?.name}</TableCell>
+                      <TableCell>{group.task?.projects?.name}</TableCell>
+                      <TableCell>{group.project_service_type}</TableCell>
+                      <TableCell className="font-semibold">{group.totalHours.toFixed(2)}</TableCell>
+                      <TableCell>₹{group.hourly_rate}</TableCell>
+                      <TableCell className="font-semibold">₹{group.totalAmount.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge variant={group.wage_status === 'wpaid' ? 'default' : 'destructive'}>
+                          {group.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {canUpdate ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Actions
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                onClick={() => handleWageStatusChange(taskId, 'wpaid')}
+                                disabled={group.wage_status === 'wpaid'}
+                              >
+                                <Check className="h-4 w-4 mr-2" />
+                                Mark as Paid
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleWageStatusChange(taskId, 'wnotpaid')}
+                                disabled={group.wage_status === 'wnotpaid'}
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Mark as Not Paid
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="text-sm text-gray-500">No permission</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Collapsible time entries */}
+                    {expandedTasks.has(taskId) && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="p-0">
+                          <div className="bg-gray-50 border-l-4 border-blue-200">
+                            <Table>
+                              <TableBody>
+                                {group.entries.map((entry: any) => (
+                                  <TableRow key={entry.id} className="bg-gray-50">
+                                    <TableCell className="pl-8 text-sm text-gray-600">
+                                      Time Entry
+                                    </TableCell>
+                                    <TableCell className="text-sm">-</TableCell>
+                                    <TableCell className="text-sm">-</TableCell>
+                                    <TableCell className="text-sm">-</TableCell>
+                                    <TableCell className="text-sm">{format(new Date(entry.date), "PPP")}</TableCell>
+                                    <TableCell className="text-sm">{entry.hours_worked.toFixed(2)}</TableCell>
+                                    <TableCell className="text-sm">-</TableCell>
+                                    <TableCell className="text-sm">₹{entry.wage_amount.toFixed(2)}</TableCell>
+                                    <TableCell className="text-sm">-</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
