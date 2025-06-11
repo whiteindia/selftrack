@@ -42,6 +42,12 @@ const PagePrivileges: React.FC<PagePrivilegesProps> = ({
     return privileges.find(p => p.page_name === page && p.operation === operation);
   };
 
+  const handleRlsPolicyChange = (checked: boolean | 'indeterminate') => {
+    const isChecked = checked === true;
+    console.log(`RLS policy changed for ${page}:`, isChecked);
+    onUpdateRlsPolicy(page, isChecked);
+  };
+
   return (
     <div className="border rounded-lg p-4">
       <div className="flex justify-between items-center mb-4">
@@ -49,11 +55,7 @@ const PagePrivileges: React.FC<PagePrivilegesProps> = ({
         <div className="flex items-center space-x-2">
           <Checkbox
             checked={rlsPolicy?.rls_enabled || false}
-            onCheckedChange={(checked) => {
-              const isChecked = checked === true;
-              console.log(`RLS policy changed for ${page}:`, isChecked);
-              onUpdateRlsPolicy(page, isChecked);
-            }}
+            onCheckedChange={handleRlsPolicyChange}
           />
           <label className="text-sm font-medium text-blue-600">
             Enable RLS Policy

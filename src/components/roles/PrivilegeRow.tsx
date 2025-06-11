@@ -13,17 +13,19 @@ interface PrivilegeRowProps {
 }
 
 const PrivilegeRow: React.FC<PrivilegeRowProps> = ({ operation, allowed, onToggle, page }) => {
+  const handleCheckedChange = (checked: boolean | 'indeterminate') => {
+    const isChecked = checked === true;
+    console.log(`Privilege row checkbox changed for ${page}-${operation}:`, isChecked);
+    onToggle(isChecked);
+  };
+
   return (
     <tr className="hover:bg-gray-50">
       <td className="p-2 border-b font-medium capitalize">{operation}</td>
       <td className="p-2 border-b text-center">
         <Checkbox
           checked={allowed}
-          onCheckedChange={(checked) => {
-            const isChecked = checked === true;
-            console.log(`Checkbox changed for ${page}-${operation}:`, isChecked);
-            onToggle(isChecked);
-          }}
+          onCheckedChange={handleCheckedChange}
         />
       </td>
     </tr>
