@@ -15,7 +15,6 @@ interface Sprint {
   title: string;
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
-  assignee_id: string | null;
   sprint_leader_id: string | null;
   created_at: string;
   updated_at: string;
@@ -44,6 +43,9 @@ interface Task {
 }
 
 interface SprintWithTasks extends Sprint {
+  sprint_leader?: {
+    name: string;
+  };
   tasks: Task[];
   isOverdue: boolean;
   overdueDays: number;
@@ -167,6 +169,20 @@ const Sprints = () => {
         for (const sprint of sprintsData) {
           console.log('Processing sprint:', sprint.id, sprint.title);
           
+          // Fetch sprint leader data
+          let sprintLeader = null;
+          if (sprint.sprint_leader_id) {
+            const { data: leaderData } = await supabase
+              .from('employees')
+              .select('name')
+              .eq('id', sprint.sprint_leader_id)
+              .single();
+            
+            if (leaderData) {
+              sprintLeader = { name: leaderData.name };
+            }
+          }
+          
           const { data: sprintTasks, error: tasksError } = await supabase
             .from('sprint_tasks')
             .select(`
@@ -282,6 +298,7 @@ const Sprints = () => {
             ...sprint,
             status: sprintStatus as 'Not Started' | 'In Progress' | 'Completed',
             completion_date: completionDate,
+            sprint_leader: sprintLeader,
             tasks,
             isOverdue,
             overdueDays,

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Calendar, Edit, Trash2, Clock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Calendar, Edit, Trash2, Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import TaskKanban from '@/components/TaskKanban';
 
@@ -36,6 +36,10 @@ interface Sprint {
   created_at: string;
   updated_at: string;
   completion_date?: string;
+  sprint_leader_id: string | null;
+  sprint_leader?: {
+    name: string;
+  };
   tasks: SprintTask[];
   isOverdue: boolean;
   overdueDays: number;
@@ -102,14 +106,22 @@ const SprintCard: React.FC<SprintCardProps> = ({
                   <ChevronRight className="h-5 w-5 text-gray-500" />
                 )}
                 <div>
-                  <CardTitle className={`text-xl ${sprint.isOverdue && sprint.status !== 'Completed' ? 'text-red-600' : sprint.isOverdue && sprint.status === 'Completed' ? 'text-red-600' : ''}`}>
-                    {sprint.title}
-                    {sprint.isOverdue && (
-                      <span className="text-red-600 font-normal ml-2">
-                        ({sprint.overdueDays} day{sprint.overdueDays !== 1 ? 's' : ''} overdue)
-                      </span>
+                  <div className="flex items-center space-x-3">
+                    <CardTitle className={`text-xl ${sprint.isOverdue && sprint.status !== 'Completed' ? 'text-red-600' : sprint.isOverdue && sprint.status === 'Completed' ? 'text-red-600' : ''}`}>
+                      {sprint.title}
+                      {sprint.isOverdue && (
+                        <span className="text-red-600 font-normal ml-2">
+                          ({sprint.overdueDays} day{sprint.overdueDays !== 1 ? 's' : ''} overdue)
+                        </span>
+                      )}
+                    </CardTitle>
+                    {sprint.sprint_leader && (
+                      <div className="flex items-center space-x-1 text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                        <User className="h-3 w-3" />
+                        <span>{sprint.sprint_leader.name}</span>
+                      </div>
                     )}
-                  </CardTitle>
+                  </div>
                   <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                     <div className="flex items-center space-x-1">
                       <Calendar className="h-4 w-4" />
