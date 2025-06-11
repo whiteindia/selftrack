@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +46,6 @@ interface Sprint {
   title: string;
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
-  assignee_id: string | null;
   sprint_leader_id: string | null;
   created_at: string;
   updated_at: string;
@@ -66,7 +66,6 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState<Date>();
-  const [assigneeId, setAssigneeId] = useState<string>('unassigned');
   const [sprintLeaderId, setSprintLeaderId] = useState<string>('unassigned');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 
@@ -76,7 +75,6 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
       if (editingSprint) {
         setTitle(editingSprint.title);
         setDeadline(new Date(editingSprint.deadline));
-        setAssigneeId(editingSprint.assignee_id || 'unassigned');
         setSprintLeaderId(editingSprint.sprint_leader_id || 'unassigned');
         // Load existing tasks for this sprint
         loadSprintTasks(editingSprint.id);
@@ -140,14 +138,13 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   });
 
   const createSprintMutation = useMutation({
-    mutationFn: async (sprintData: { title: string; deadline: string; assigneeId: string; sprintLeaderId: string; taskIds: string[] }) => {
+    mutationFn: async (sprintData: { title: string; deadline: string; sprintLeaderId: string; taskIds: string[] }) => {
       // Create sprint
       const { data: sprint, error: sprintError } = await supabase
         .from('sprints')
         .insert({
           title: sprintData.title,
           deadline: sprintData.deadline,
-          assignee_id: sprintData.assigneeId === 'unassigned' ? null : sprintData.assigneeId,
           sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
           status: 'Not Started'
         })
@@ -190,14 +187,13 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   });
 
   const updateSprintMutation = useMutation({
-    mutationFn: async (sprintData: { id: string; title: string; deadline: string; assigneeId: string; sprintLeaderId: string; taskIds: string[] }) => {
+    mutationFn: async (sprintData: { id: string; title: string; deadline: string; sprintLeaderId: string; taskIds: string[] }) => {
       // Update sprint
       const { error: sprintError } = await supabase
         .from('sprints')
         .update({
           title: sprintData.title,
           deadline: sprintData.deadline,
-          assignee_id: sprintData.assigneeId === 'unassigned' ? null : sprintData.assigneeId,
           sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
         })
         .eq('id', sprintData.id);
@@ -248,7 +244,6 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   const resetForm = () => {
     setTitle('');
     setDeadline(undefined);
-    setAssigneeId('unassigned');
     setSprintLeaderId('unassigned');
     setSelectedTasks([]);
   };
@@ -277,7 +272,6 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     const sprintData = {
       title: title.trim(),
       deadline: format(deadline, 'yyyy-MM-dd'),
-      assigneeId: assigneeId,
       sprintLeaderId: sprintLeaderId,
       taskIds: selectedTasks
     };
@@ -360,23 +354,6 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="unassigned">No Leader Assigned</SelectItem>
-                {employees.map((employee) => (
-                  <SelectItem key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="assignee">Assignee (Optional)</Label>
-            <Select value={assigneeId} onValueChange={setAssigneeId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select an assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {employees.map((employee) => (
                   <SelectItem key={employee.id} value={employee.id}>
                     {employee.name}
