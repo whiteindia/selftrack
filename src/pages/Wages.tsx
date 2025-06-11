@@ -18,8 +18,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 interface TimeEntry {
   id: string;
@@ -317,8 +317,8 @@ const Wages = () => {
       });
     });
     
-    // Create the table
-    autoTable(doc, {
+    // Create the table using autoTable
+    (doc as any).autoTable({
       head: [['Task/Date', 'Employee', 'Project', 'Service Type', 'Hours', 'Rate', 'Amount', 'Status']],
       body: tableData,
       startY: yPosition,
@@ -334,7 +334,7 @@ const Wages = () => {
       alternateRowStyles: {
         fillColor: [245, 245, 245]
       },
-      didParseCell: function(data) {
+      didParseCell: function(data: any) {
         // Style the indented rows differently
         if (data.cell.text[0] && data.cell.text[0].startsWith('  →')) {
           data.cell.styles.fillColor = [240, 248, 255];
@@ -638,3 +638,5 @@ const Wages = () => {
 };
 
 export default Wages;
+
+}
