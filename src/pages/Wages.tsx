@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { jsPDF } from 'jspdf';
+// @ts-ignore
+import jsPDF from 'jspdf';
+// @ts-ignore
 import 'jspdf-autotable';
 
 interface TimeEntry {
