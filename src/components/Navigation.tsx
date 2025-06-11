@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -70,9 +69,8 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/roles', label: 'Roles', icon: UserCheck, pageName: 'roles' },
   ];
 
-  // Filter items based on privileges
+  // Filter all items based on privileges - no special case for dashboard
   const visibleMainNavItems = mainNavItems.filter(item => {
-    if (item.pageName === 'dashboard') return true;
     return hasPageAccess(item.pageName);
   });
 
