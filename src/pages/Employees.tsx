@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +14,7 @@ import Navigation from '@/components/Navigation';
 import EmployeeServicesSelect from '@/components/EmployeeServicesSelect';
 import { useRoles } from '@/hooks/useRoles';
 import { useInvitations } from '@/hooks/useInvitations';
+import { usePrivileges } from '@/hooks/usePrivileges';
 
 interface Employee {
   id: string;
@@ -50,6 +50,16 @@ const Employees = () => {
     role: 'associate',
     hourly_rate: 0
   });
+
+  // Use privileges hook to check permissions
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for employees page
+  const canCreate = hasOperationAccess('employees', 'create');
+  const canUpdate = hasOperationAccess('employees', 'update');
+  const canDelete = hasOperationAccess('employees', 'delete');
+
+  console.log('Employee permissions - Create:', canCreate, 'Update:', canUpdate, 'Delete:', canDelete);
 
   // Fetch dynamic roles
   const { roles, loading: rolesLoading } = useRoles();
@@ -366,6 +376,16 @@ const Employees = () => {
   });
 
   const handleSubmit = () => {
+    if (editingEmployee && !canUpdate) {
+      toast.error('You do not have permission to update employees');
+      return;
+    }
+    
+    if (!editingEmployee && !canCreate) {
+      toast.error('You do not have permission to create employees');
+      return;
+    }
+
     if (editingEmployee) {
       updateEmployeeMutation.mutate({ id: editingEmployee.id, ...newEmployee });
     } else {
@@ -378,6 +398,11 @@ const Employees = () => {
   };
 
   const handleEdit = async (employee: Employee) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to edit employees');
+      return;
+    }
+
     setEditingEmployee(employee);
     setNewEmployee({
       name: employee.name,
@@ -398,12 +423,22 @@ const Employees = () => {
   };
 
   const handleDelete = (employeeId: string) => {
+    if (!canDelete) {
+      toast.error('You do not have permission to delete employees');
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this employee?')) {
       deleteEmployeeMutation.mutate(employeeId);
     }
   };
 
   const handleCreateAuthUser = (employee: Employee) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to create auth users');
+      return;
+    }
+
     if (window.confirm(`Create auth user for ${employee.email} with role ${employee.role}? They will be able to login with email as password.`)) {
       createAuthUserMutation.mutate(employee);
     }
@@ -428,7 +463,7 @@ const Employees = () => {
     return serviceNames.join(', ') || 'None';
   };
 
-  if (isLoading || rolesLoading) {
+  if (isLoading || rolesLoading || privilegesLoading) {
     return (
       <Navigation>
         <div className="flex items-center justify-center py-8">
@@ -447,109 +482,117 @@ const Employees = () => {
             <p className="text-gray-600 mt-2">Manage your team members, their roles, and services</p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Employee
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
-                <DialogDescription>
-                  {editingEmployee ? 'Update employee information and services.' : 'Add a new team member. An invitation email will be sent automatically.'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={newEmployee.name}
-                    onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
-                    placeholder="Enter employee name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newEmployee.email}
-                    onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
-                    placeholder="Enter email address"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact">Contact Number</Label>
-                  <Input
-                    id="contact"
-                    value={newEmployee.contact_number}
-                    onChange={(e) => setNewEmployee({...newEmployee, contact_number: e.target.value})}
-                    placeholder="Enter contact number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hourly_rate">Hourly Rate (₹) *</Label>
-                  <Input
-                    id="hourly_rate"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newEmployee.hourly_rate}
-                    onChange={(e) => setNewEmployee({...newEmployee, hourly_rate: parseFloat(e.target.value) || 0})}
-                    placeholder="Enter hourly rate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select value={newEmployee.role} onValueChange={(value) => setNewEmployee({...newEmployee, role: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role} value={role} className="capitalize">
-                          {role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <EmployeeServicesSelect 
-                  selectedServices={selectedServices}
-                  onServicesChange={setSelectedServices}
-                />
-                {!editingEmployee && (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="sendInvite"
-                      checked={sendInviteEmail}
-                      onChange={(e) => setSendInviteEmail(e.target.checked)}
-                      className="rounded"
-                    />
-                    <Label htmlFor="sendInvite" className="text-sm">
-                      Send password setup invitation email
-                    </Label>
-                  </div>
-                )}
-                <Button 
-                  onClick={handleSubmit} 
-                  className="w-full"
-                  disabled={addEmployeeMutation.isPending || updateEmployeeMutation.isPending}
-                >
-                  {addEmployeeMutation.isPending || updateEmployeeMutation.isPending 
-                    ? (editingEmployee ? 'Updating...' : 'Creating...') 
-                    : (editingEmployee ? 'Update Employee' : 'Create Employee')}
+          {canCreate && (
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Employee
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
+                  <DialogDescription>
+                    {editingEmployee ? 'Update employee information and services.' : 'Add a new team member. An invitation email will be sent automatically.'}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name *</Label>
+                    <Input
+                      id="name"
+                      value={newEmployee.name}
+                      onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
+                      placeholder="Enter employee name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newEmployee.email}
+                      onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact">Contact Number</Label>
+                    <Input
+                      id="contact"
+                      value={newEmployee.contact_number}
+                      onChange={(e) => setNewEmployee({...newEmployee, contact_number: e.target.value})}
+                      placeholder="Enter contact number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hourly_rate">Hourly Rate (₹) *</Label>
+                    <Input
+                      id="hourly_rate"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newEmployee.hourly_rate}
+                      onChange={(e) => setNewEmployee({...newEmployee, hourly_rate: parseFloat(e.target.value) || 0})}
+                      placeholder="Enter hourly rate"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={newEmployee.role} onValueChange={(value) => setNewEmployee({...newEmployee, role: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((role) => (
+                          <SelectItem key={role} value={role} className="capitalize">
+                            {role}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <EmployeeServicesSelect 
+                    selectedServices={selectedServices}
+                    onServicesChange={setSelectedServices}
+                  />
+                  {!editingEmployee && (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="sendInvite"
+                        checked={sendInviteEmail}
+                        onChange={(e) => setSendInviteEmail(e.target.checked)}
+                        className="rounded"
+                      />
+                      <Label htmlFor="sendInvite" className="text-sm">
+                        Send password setup invitation email
+                      </Label>
+                    </div>
+                  )}
+                  <Button 
+                    onClick={handleSubmit} 
+                    className="w-full"
+                    disabled={addEmployeeMutation.isPending || updateEmployeeMutation.isPending}
+                  >
+                    {addEmployeeMutation.isPending || updateEmployeeMutation.isPending 
+                      ? (editingEmployee ? 'Updating...' : 'Creating...') 
+                      : (editingEmployee ? 'Update Employee' : 'Create Employee')}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {!canCreate && (
+            <div className="text-sm text-gray-500">
+              You don't have permission to add employees
+            </div>
+          )}
         </div>
 
         <Card>
@@ -584,28 +627,34 @@ const Employees = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(employee)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCreateAuthUser(employee)}
-                          title="Create auth user"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(employee.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canUpdate && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(employee)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canUpdate && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCreateAuthUser(employee)}
+                            title="Create auth user"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(employee.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -614,7 +663,7 @@ const Employees = () => {
             </Table>
             {employees.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                No employees found. Add your first team member to get started.
+                No employees found. {canCreate ? 'Add your first team member to get started.' : 'You need create permission to add employees.'}
               </div>
             )}
           </CardContent>
@@ -625,3 +674,5 @@ const Employees = () => {
 };
 
 export default Employees;
+
+}
