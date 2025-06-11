@@ -19,6 +19,7 @@ import TaskHistory from '@/components/TaskHistory';
 import { logActivity } from '@/utils/activityLogger';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePrivileges } from '@/hooks/usePrivileges';
 import {
   Collapsible,
   CollapsibleContent,
@@ -111,6 +112,13 @@ const Tasks = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const { hasOperationAccess, shouldApplyUserFiltering, loading: privilegesLoading } = usePrivileges();
+  
+  // Check permissions for tasks
+  const canCreate = hasOperationAccess('tasks', 'create');
+  const canUpdate = hasOperationAccess('tasks', 'update');
+  const canDelete = hasOperationAccess('tasks', 'delete');
+  const canRead = hasOperationAccess('tasks', 'read');
 
   // Helper function to get current user's employee ID
   const getCurrentUserEmployeeId = async () => {
@@ -512,11 +520,25 @@ const Tasks = () => {
     setExpandedHistories(newExpanded);
   };
 
-  if (isLoading) {
+  if (isLoading || privilegesLoading) {
     return (
       <Navigation>
         <div className="flex items-center justify-center py-8">
           <div className="text-lg">Loading tasks...</div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  // Check if user has read access
+  if (!canRead) {
+    return (
+      <Navigation>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+            <p className="text-gray-600">You don't have permission to view tasks.</p>
+          </div>
         </div>
       </Navigation>
     );
@@ -533,117 +555,119 @@ const Tasks = () => {
               <p className="text-gray-600 text-sm mt-1">Track and manage your project tasks</p>
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="mx-4 max-w-[calc(100vw-2rem)]">
-                <DialogHeader>
-                  <DialogTitle>Create New Task</DialogTitle>
-                  <DialogDescription>
-                    Add a new task to a project.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Task Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="Task name"
-                      value={newTask.name}
-                      onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="project">Project</Label>
-                    <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assignee">Assignee</Label>
-                    <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assigner">Assigner</Label>
-                    <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an assigner" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deadline">Deadline</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !newTask.deadline && "text-muted-foreground"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {newTask.deadline ? format(newTask.deadline, "PPP") : <span>Pick a deadline</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={newTask.deadline}
-                          onSelect={(date) => setNewTask({ ...newTask, deadline: date })}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
-                    <Input
-                      id="estimated_duration"
-                      type="number"
-                      placeholder="Estimated hours"
-                      value={newTask.estimated_duration}
-                      onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
-                    />
-                  </div>
-                  <Button onClick={handleCreateTask} className="w-full">
-                    Create Task
+            {canCreate ? (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="mx-4 max-w-[calc(100vw-2rem)]">
+                  <DialogHeader>
+                    <DialogTitle>Create New Task</DialogTitle>
+                    <DialogDescription>
+                      Add a new task to a project.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Task Name</Label>
+                      <Input
+                        id="name"
+                        placeholder="Task name"
+                        value={newTask.name}
+                        onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="project">Project</Label>
+                      <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="assignee">Assignee</Label>
+                      <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map((employee) => (
+                            <SelectItem key={employee.id} value={employee.id}>
+                              {employee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="assigner">Assigner</Label>
+                      <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an assigner" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map((employee) => (
+                            <SelectItem key={employee.id} value={employee.id}>
+                              {employee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="deadline">Deadline</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !newTask.deadline && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {newTask.deadline ? format(newTask.deadline, "PPP") : <span>Pick a deadline</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newTask.deadline}
+                            onSelect={(date) => setNewTask({ ...newTask, deadline: date })}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
+                      <Input
+                        id="estimated_duration"
+                        type="number"
+                        placeholder="Estimated hours"
+                        value={newTask.estimated_duration}
+                        onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
+                      />
+                    </div>
+                    <Button onClick={handleCreateTask} className="w-full">
+                      Create Task
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : null}
           </div>
 
           {/* Mobile Filters */}
@@ -842,6 +866,13 @@ const Tasks = () => {
               No tasks found matching your filters.
             </div>
           )}
+
+          {/* Display message when user has no permissions */}
+          {!canCreate && !canUpdate && !canDelete && (
+            <div className="text-center py-4 mt-4">
+              <p className="text-gray-600">You don't have permission to modify tasks.</p>
+            </div>
+          )}
         </div>
       </Navigation>
     );
@@ -876,117 +907,119 @@ const Tasks = () => {
               </Select>
             </div>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Task
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Task</DialogTitle>
-                  <DialogDescription>
-                    Add a new task to a project.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Task Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="Task name"
-                      value={newTask.name}
-                      onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="project">Project</Label>
-                    <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assignee">Assignee</Label>
-                    <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assigner">Assigner</Label>
-                    <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an assigner" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deadline">Deadline</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !newTask.deadline && "text-muted-foreground"
-                          )}
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {newTask.deadline ? format(newTask.deadline, "PPP") : <span>Pick a deadline</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={newTask.deadline}
-                          onSelect={(date) => setNewTask({ ...newTask, deadline: date })}
-                          initialFocus
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
-                    <Input
-                      id="estimated_duration"
-                      type="number"
-                      placeholder="Estimated hours"
-                      value={newTask.estimated_duration}
-                      onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
-                    />
-                  </div>
-                  <Button onClick={handleCreateTask} className="w-full">
-                    Create Task
+            {canCreate ? (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Task
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Create New Task</DialogTitle>
+                    <DialogDescription>
+                      Add a new task to a project.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Task Name</Label>
+                      <Input
+                        id="name"
+                        placeholder="Task name"
+                        value={newTask.name}
+                        onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="project">Project</Label>
+                      <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="assignee">Assignee</Label>
+                      <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map((employee) => (
+                            <SelectItem key={employee.id} value={employee.id}>
+                              {employee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="assigner">Assigner</Label>
+                      <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an assigner" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map((employee) => (
+                            <SelectItem key={employee.id} value={employee.id}>
+                              {employee.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="deadline">Deadline</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !newTask.deadline && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {newTask.deadline ? format(newTask.deadline, "PPP") : <span>Pick a deadline</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={newTask.deadline}
+                            onSelect={(date) => setNewTask({ ...newTask, deadline: date })}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
+                      <Input
+                        id="estimated_duration"
+                        type="number"
+                        placeholder="Estimated hours"
+                        value={newTask.estimated_duration}
+                        onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
+                      />
+                    </div>
+                    <Button onClick={handleCreateTask} className="w-full">
+                      Create Task
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : null}
           </div>
         </div>
 
@@ -1336,6 +1369,13 @@ const Tasks = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Display message when user has no permissions */}
+        {!canCreate && !canUpdate && !canDelete && (
+          <div className="text-center py-4 mt-6">
+            <p className="text-gray-600">You don't have permission to create or modify tasks.</p>
+          </div>
+        )}
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-2xl">
