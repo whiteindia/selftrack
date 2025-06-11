@@ -532,33 +532,54 @@ export type Database = {
       }
       sprints: {
         Row: {
+          assignee_id: string | null
           completion_date: string | null
           created_at: string
           deadline: string
           id: string
+          sprint_leader_id: string | null
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          assignee_id?: string | null
           completion_date?: string | null
           created_at?: string
           deadline: string
           id?: string
+          sprint_leader_id?: string | null
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          assignee_id?: string | null
           completion_date?: string | null
           created_at?: string
           deadline?: string
           id?: string
+          sprint_leader_id?: string | null
           status?: string
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sprints_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprints_sprint_leader_id_fkey"
+            columns: ["sprint_leader_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_comments: {
         Row: {

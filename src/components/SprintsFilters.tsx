@@ -35,6 +35,8 @@ interface SprintsFiltersProps {
   setSelectedAssignee: (value: string) => void;
   selectedAssigner: string;
   setSelectedAssigner: (value: string) => void;
+  selectedSprintLeader: string;
+  setSelectedSprintLeader: (value: string) => void;
   selectedService: string;
   setSelectedService: (value: string) => void;
   selectedStatus: string;
@@ -69,6 +71,8 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
   setSelectedAssignee,
   selectedAssigner,
   setSelectedAssigner,
+  selectedSprintLeader,
+  setSelectedSprintLeader,
   selectedService,
   setSelectedService,
   selectedStatus,
@@ -152,8 +156,25 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
           </div>
         </div>
 
-        {/* Second row - Task-based filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Second row - Sprint and Task-based filters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Sprint Leader</label>
+            <Select value={selectedSprintLeader} onValueChange={setSelectedSprintLeader}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Sprint Leaders" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sprint Leaders</SelectItem>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">Client</label>
             <Select value={selectedClient} onValueChange={setSelectedClient}>
@@ -241,6 +262,11 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
             {selectedMonth !== 'all' && (
               <Badge variant="secondary">
                 Month: {months.find(m => m.value === selectedMonth)?.label}
+              </Badge>
+            )}
+            {selectedSprintLeader !== 'all' && (
+              <Badge variant="secondary">
+                Sprint Leader: {employees.find(e => e.id === selectedSprintLeader)?.name}
               </Badge>
             )}
             {selectedClient !== 'all' && (

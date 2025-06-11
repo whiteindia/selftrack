@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -33,11 +34,19 @@ interface Task {
   };
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface Sprint {
   id: string;
   title: string;
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
+  assignee_id: string | null;
+  sprint_leader_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +66,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState<Date>();
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [sprintLeaderId, setSprintLeaderId] = useState<string>('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 
   // Reset form when dialog opens/closes or editing sprint changes
@@ -65,6 +76,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
       if (editingSprint) {
         setTitle(editingSprint.title);
         setDeadline(new Date(editingSprint.deadline));
+        setAssigneeId(editingSprint.assignee_id || '');
+        setSprintLeaderId(editingSprint.sprint_leader_id || '');
         // Load existing tasks for this sprint
         loadSprintTasks(editingSprint.id);
       } else {
@@ -83,6 +96,21 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
       setSelectedTasks(sprintTasks.map(st => st.task_id));
     }
   };
+
+  // Fetch available employees
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, email')
+        .order('name');
+
+      if (error) throw error;
+      return data as Employee[];
+    },
+    enabled: open
+  });
 
   // Fetch available tasks - only show "Not Started" tasks
   const { data: tasks = [] } = useQuery({
@@ -112,13 +140,15 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   });
 
   const createSprintMutation = useMutation({
-    mutationFn: async (sprintData: { title: string; deadline: string; taskIds: string[] }) => {
+    mutationFn: async (sprintData: { title: string; deadline: string; assigneeId: string; sprintLeaderId: string; taskIds: string[] }) => {
       // Create sprint
       const { data: sprint, error: sprintError } = await supabase
         .from('sprints')
         .insert({
           title: sprintData.title,
           deadline: sprintData.deadline,
+          assignee_id: sprintData.assigneeId || null,
+          sprint_leader_id: sprintData.sprintLeaderId || null,
           status: 'Not Started'
         })
         .select()
@@ -160,13 +190,15 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   });
 
   const updateSprintMutation = useMutation({
-    mutationFn: async (sprintData: { id: string; title: string; deadline: string; taskIds: string[] }) => {
+    mutationFn: async (sprintData: { id: string; title: string; deadline: string; assigneeId: string; sprintLeaderId: string; taskIds: string[] }) => {
       // Update sprint
       const { error: sprintError } = await supabase
         .from('sprints')
         .update({
           title: sprintData.title,
           deadline: sprintData.deadline,
+          assignee_id: sprintData.assigneeId || null,
+          sprint_leader_id: sprintData.sprintLeaderId || null,
         })
         .eq('id', sprintData.id);
 
@@ -216,6 +248,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   const resetForm = () => {
     setTitle('');
     setDeadline(undefined);
+    setAssigneeId('');
+    setSprintLeaderId('');
     setSelectedTasks([]);
   };
 
@@ -243,6 +277,8 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     const sprintData = {
       title: title.trim(),
       deadline: format(deadline, 'yyyy-MM-dd'),
+      assigneeId: assigneeId,
+      sprintLeaderId: sprintLeaderId,
       taskIds: selectedTasks
     };
 
@@ -314,6 +350,40 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
                 />
               </PopoverContent>
             </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sprintLeader">Sprint Leader</Label>
+            <Select value={sprintLeaderId} onValueChange={setSprintLeaderId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select sprint leader" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No Leader Assigned</SelectItem>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="assignee">Assignee (Optional)</Label>
+            <Select value={assigneeId} onValueChange={setAssigneeId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select an assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Unassigned</SelectItem>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

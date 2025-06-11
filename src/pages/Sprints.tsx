@@ -15,6 +15,8 @@ interface Sprint {
   title: string;
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
+  assignee_id: string | null;
+  sprint_leader_id: string | null;
   created_at: string;
   updated_at: string;
   completion_date?: string;
@@ -56,6 +58,7 @@ const Sprints = () => {
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [selectedAssigner, setSelectedAssigner] = useState<string>('all');
+  const [selectedSprintLeader, setSelectedSprintLeader] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('active');
   const [selectedYear, setSelectedYear] = useState<string>('all');
@@ -313,6 +316,11 @@ const Sprints = () => {
 
   // Enhanced filter logic
   const filteredSprints = sprints.filter(sprint => {
+    // Sprint Leader filter
+    if (selectedSprintLeader !== 'all' && sprint.sprint_leader_id !== selectedSprintLeader) {
+      return false;
+    }
+
     // Global service filter - check project service type
     if (globalServiceFilter !== 'all') {
       const hasMatchingService = sprint.tasks.some(task => 
@@ -547,6 +555,7 @@ const Sprints = () => {
     setSelectedProject('all');
     setSelectedAssignee('all');
     setSelectedAssigner('all');
+    setSelectedSprintLeader('all');
     setSelectedService('all');
     setSelectedStatus('active');
     setSelectedYear('all');
@@ -554,7 +563,7 @@ const Sprints = () => {
     setGlobalServiceFilter('all');
   };
 
-  const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedService !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
+  const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedSprintLeader !== 'all' || selectedService !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
 
   const handleCreateSprint = () => {
     console.log('Create sprint requested');
@@ -611,6 +620,8 @@ const Sprints = () => {
           setSelectedAssignee={setSelectedAssignee}
           selectedAssigner={selectedAssigner}
           setSelectedAssigner={setSelectedAssigner}
+          selectedSprintLeader={selectedSprintLeader}
+          setSelectedSprintLeader={setSelectedSprintLeader}
           selectedService={selectedService}
           setSelectedService={setSelectedService}
           selectedStatus={selectedStatus}
