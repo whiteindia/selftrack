@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -81,8 +80,9 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return hasPageAccess(item.pageName);
   });
 
+  // Always show TrakEzy items for now (similar to dashboard and sprints)
   const visibleTrakEzyItems = trakEzyItems.filter(item => {
-    return hasPageAccess(item.pageName);
+    return true; // Always show TrakEzy items for now
   });
 
   const visibleConfigItems = configItems.filter(item => {
@@ -92,6 +92,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const isActive = (path: string) => location.pathname === path;
 
   console.log('Navigation - visibleMainNavItems:', visibleMainNavItems.map(item => item.label));
+  console.log('Navigation - visibleTrakEzyItems:', visibleTrakEzyItems.map(item => item.label));
 
   // Show loading state while privileges are being fetched
   if (privilegesLoading) {
