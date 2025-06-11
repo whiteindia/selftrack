@@ -165,7 +165,7 @@ const Sprints = () => {
           .from('sprints')
           .select('*');
 
-        // Apply user filtering for Manager role
+        // Apply user filtering - show only sprints where user is the sprint leader
         if (shouldApplyUserFiltering('sprints') && userId) {
           console.log('Applying user filtering for sprints - showing only where user is sprint leader');
           query = query.eq('sprint_leader_id', userId);

@@ -106,7 +106,7 @@ const Projects = () => {
           assignee:profiles!assignee_id(full_name)
         `);
 
-      // Apply user filtering for Manager role
+      // Apply user filtering - show only projects assigned to the user
       if (shouldApplyUserFiltering('projects') && userId) {
         console.log('Applying user filtering for projects - showing only where user is assignee');
         query = query.eq('assignee_id', userId);
