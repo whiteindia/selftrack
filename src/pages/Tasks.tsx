@@ -809,5 +809,3 @@ const Tasks = () => {
 };
 
 export default Tasks;
-
-</edits_to_apply>
