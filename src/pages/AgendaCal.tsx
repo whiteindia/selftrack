@@ -52,6 +52,8 @@ const AgendaCal = () => {
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [assignerFilter, setAssignerFilter] = useState<string>('all');
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every second for live timer display
@@ -134,6 +136,19 @@ const AgendaCal = () => {
     }
   });
 
+  // Fetch employees for assignee/assigner filters
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   // Fetch tasks with related data
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['agenda-tasks', currentDate, viewMode],
@@ -145,6 +160,7 @@ const AgendaCal = () => {
           name,
           project_id,
           assignee_id,
+          assigner_id,
           date,
           deadline,
           status,
@@ -157,6 +173,9 @@ const AgendaCal = () => {
             )
           ),
           assignee:employees!assignee_id (
+            name
+          ),
+          assigner:employees!assigner_id (
             name
           )
         `)
@@ -221,6 +240,8 @@ const AgendaCal = () => {
       if (serviceFilter !== 'all' && task.projects.service !== serviceFilter) return;
       if (clientFilter !== 'all' && task.projects.client_id !== clientFilter) return;
       if (projectFilter !== 'all' && task.project_id !== projectFilter) return;
+      if (assigneeFilter !== 'all' && task.assignee_id !== assigneeFilter) return;
+      if (assignerFilter !== 'all' && task.assigner_id !== assignerFilter) return;
 
       const startDate = task.date ? parseISO(task.date) : new Date();
       const endDate = task.deadline ? parseISO(task.deadline) : startDate;
@@ -240,7 +261,7 @@ const AgendaCal = () => {
     });
 
     return items;
-  }, [tasks, serviceFilter, clientFilter, projectFilter]);
+  }, [tasks, serviceFilter, clientFilter, projectFilter, assigneeFilter, assignerFilter]);
 
   // Get date range based on view mode
   const getDateRange = () => {
@@ -345,6 +366,42 @@ const AgendaCal = () => {
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assignee Filter */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Assignee</label>
+              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Assignees</SelectItem>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assigner Filter */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Assigner</label>
+              <Select value={assignerFilter} onValueChange={setAssignerFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by assigner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Assigners</SelectItem>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -526,3 +583,5 @@ const AgendaCal = () => {
 };
 
 export default AgendaCal;
+
+}
