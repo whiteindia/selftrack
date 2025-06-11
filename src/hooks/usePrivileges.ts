@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentEmployee } from '@/hooks/useCurrentEmployee';
 
 interface Privilege {
   page_name: string;
@@ -10,7 +11,8 @@ interface Privilege {
 }
 
 export const usePrivileges = () => {
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
+  const { employeeId } = useCurrentEmployee();
   const [privileges, setPrivileges] = useState<Privilege[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +51,12 @@ export const usePrivileges = () => {
   }, [userRole]);
 
   const hasPageAccess = (pageName: string) => {
+    // Admin and yugandhar@whiteindia.in have full access
+    if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
+      console.log(`Full access granted for ${pageName} to admin/superuser`);
+      return true;
+    }
+
     // Check if user has read access to the page
     const readPrivilege = privileges.find(
       p => p.page_name === pageName && p.operation === 'read'
@@ -59,6 +67,12 @@ export const usePrivileges = () => {
   };
 
   const hasOperationAccess = (pageName: string, operation: 'create' | 'read' | 'update' | 'delete') => {
+    // Admin and yugandhar@whiteindia.in have full access
+    if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
+      console.log(`Full operation access granted for ${pageName}-${operation} to admin/superuser`);
+      return true;
+    }
+
     // Find the specific privilege for this page and operation
     const privilege = privileges.find(
       p => p.page_name === pageName && p.operation === operation
@@ -70,10 +84,25 @@ export const usePrivileges = () => {
     return hasAccess;
   };
 
+  // New function to check if user-based filtering should be applied
+  const shouldApplyUserFiltering = (pageName: string) => {
+    // Only apply user filtering for Manager role (not admin)
+    if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
+      return false;
+    }
+    
+    // Apply filtering for Manager role on specific pages
+    return userRole === 'manager' && ['projects', 'sprints', 'tasks'].includes(pageName);
+  };
+
   return {
     privileges,
     loading,
     hasPageAccess,
-    hasOperationAccess
+    hasOperationAccess,
+    shouldApplyUserFiltering,
+    userRole,
+    userId: user?.id,
+    employeeId
   };
 };

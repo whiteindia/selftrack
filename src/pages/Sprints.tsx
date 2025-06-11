@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,7 +71,7 @@ const Sprints = () => {
 
   console.log('Sprints component rendered');
 
-  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, shouldApplyUserFiltering, userId, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for sprints page
   const canCreate = hasOperationAccess('sprints', 'create');
@@ -81,6 +80,7 @@ const Sprints = () => {
   const canRead = hasOperationAccess('sprints', 'read');
 
   console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
+  console.log('Should apply user filtering:', shouldApplyUserFiltering('sprints'), 'User ID:', userId);
 
   // Fetch clients for filter
   const { data: clients = [] } = useQuery({
@@ -155,16 +155,23 @@ const Sprints = () => {
     enabled: canRead
   });
 
-  // Fetch sprints with their tasks
+  // Fetch sprints with their tasks - Enhanced with user filtering
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
-    queryKey: ['sprints'],
+    queryKey: ['sprints', userId, shouldApplyUserFiltering('sprints')],
     queryFn: async () => {
       console.log('Fetching sprints...');
       try {
-        const { data: sprintsData, error: sprintsError } = await supabase
+        let query = supabase
           .from('sprints')
-          .select('*')
-          .order('deadline', { ascending: true });
+          .select('*');
+
+        // Apply user filtering for Manager role
+        if (shouldApplyUserFiltering('sprints') && userId) {
+          console.log('Applying user filtering for sprints - showing only where user is sprint leader');
+          query = query.eq('sprint_leader_id', userId);
+        }
+
+        const { data: sprintsData, error: sprintsError } = await query.order('deadline', { ascending: true });
 
         if (sprintsError) {
           console.error('Error fetching sprints:', sprintsError);
@@ -337,7 +344,7 @@ const Sprints = () => {
         throw error;
       }
     },
-    enabled: canRead // Only fetch if user has read permission
+    enabled: canRead && !!userId // Only fetch if user has read permission and userId is available
   });
 
   // Log any query errors
@@ -695,6 +702,14 @@ const Sprints = () => {
           canCreate={canCreate}
           onCreateSprint={handleCreateSprint}
         />
+
+        {shouldApplyUserFiltering('sprints') && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Manager View:</strong> Showing only sprints where you are the sprint leader.
+            </p>
+          </div>
+        )}
 
         <SprintsFilters
           selectedClient={selectedClient}

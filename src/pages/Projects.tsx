@@ -52,7 +52,7 @@ interface Assignee {
 }
 
 const Projects = () => {
-  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, shouldApplyUserFiltering, userId, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for projects page
   const canCreate = hasOperationAccess('projects', 'create');
@@ -61,6 +61,7 @@ const Projects = () => {
   const canRead = hasOperationAccess('projects', 'read');
 
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
+  console.log('Should apply user filtering:', shouldApplyUserFiltering('projects'), 'User ID:', userId);
 
   const [newProject, setNewProject] = useState({
     name: '',
@@ -91,19 +92,27 @@ const Projects = () => {
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
-  // Fetch projects with client and assignee data
+  // Fetch projects with client and assignee data - Enhanced with user filtering
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
-    queryKey: ['projects'],
+    queryKey: ['projects', userId, shouldApplyUserFiltering('projects')],
     queryFn: async () => {
       console.log('Fetching projects...');
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('projects')
         .select(`
           *,
           clients(name),
           assignee:profiles!assignee_id(full_name)
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      // Apply user filtering for Manager role
+      if (shouldApplyUserFiltering('projects') && userId) {
+        console.log('Applying user filtering for projects - showing only where user is assignee');
+        query = query.eq('assignee_id', userId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error fetching projects:', error);
@@ -112,7 +121,7 @@ const Projects = () => {
       console.log('Projects fetched:', data?.length || 0, 'projects');
       return data as ProjectData[];
     },
-    enabled: canRead // Only fetch if user has read permission
+    enabled: canRead && !!userId // Only fetch if user has read permission and userId is available
   });
 
   // Fetch clients for dropdown
@@ -388,7 +397,9 @@ const Projects = () => {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600 mt-2">Manage your client projects</p>
+            <p className="text-gray-600 mt-2">
+              {shouldApplyUserFiltering('projects') ? 'Projects assigned to you' : 'Manage your client projects'}
+            </p>
           </div>
           
           {canCreate && (
@@ -396,12 +407,6 @@ const Projects = () => {
               <Plus className="h-4 w-4 mr-2" />
               Add Project
             </Button>
-          )}
-
-          {!canCreate && (
-            <div className="text-sm text-gray-500">
-              You don't have permission to add projects
-            </div>
           )}
         </div>
 
@@ -459,3 +464,5 @@ const Projects = () => {
 };
 
 export default Projects;
+
+}
