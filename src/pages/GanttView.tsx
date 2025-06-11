@@ -16,9 +16,7 @@ interface Sprint {
   deadline: string;
   status: string;
   created_at: string;
-  sprint_leader?: {
-    name: string;
-  };
+  sprint_leader_id?: string;
 }
 
 interface Task {
@@ -41,6 +39,9 @@ interface SprintWithTasks extends Sprint {
   client_name?: string;
   project_name?: string;
   service_type?: string;
+  sprint_leader?: {
+    name: string;
+  } | null;
 }
 
 const GanttView = () => {
@@ -72,7 +73,7 @@ const GanttView = () => {
         .from('sprints')
         .select(`
           *,
-          sprint_leader:employees(name)
+          sprint_leader:employees!sprint_leader_id(name)
         `)
         .or(`deadline.gte.${startDate},created_at.lte.${endDate}`)
         .order('deadline', { ascending: true });
@@ -134,7 +135,10 @@ const GanttView = () => {
           tasks,
           client_name,
           project_name,
-          service_type
+          service_type,
+          sprint_leader: Array.isArray(sprint.sprint_leader) && sprint.sprint_leader.length > 0 
+            ? sprint.sprint_leader[0] 
+            : null
         });
       }
 
