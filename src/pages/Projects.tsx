@@ -8,7 +8,9 @@ import ProjectForm from '@/components/projects/ProjectForm';
 import ProjectFilters from '@/components/projects/ProjectFilters';
 import ProjectTable from '@/components/projects/ProjectTable';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
+import { usePrivileges } from '@/hooks/usePrivileges';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ProjectData {
   id: string;
@@ -50,6 +52,13 @@ interface Assignee {
 }
 
 const Projects = () => {
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for projects page
+  const canCreate = hasOperationAccess('projects', 'create');
+  const canUpdate = hasOperationAccess('projects', 'update');
+  const canDelete = hasOperationAccess('projects', 'delete');
+
   const [newProject, setNewProject] = useState({
     name: '',
     client_id: '',
@@ -214,6 +223,11 @@ const Projects = () => {
   }, [projects]);
 
   const handleCreateProject = () => {
+    if (!canCreate) {
+      toast.error('You do not have permission to create projects');
+      return;
+    }
+
     const projectData = {
       name: newProject.name,
       client_id: newProject.client_id,
@@ -248,6 +262,11 @@ const Projects = () => {
   };
 
   const handleUpdateProject = () => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to update projects');
+      return;
+    }
+
     if (editingProject) {
       const updates = {
         name: editingProject.name,
@@ -275,6 +294,11 @@ const Projects = () => {
   };
 
   const handleDeleteProject = (id: string) => {
+    if (!canDelete) {
+      toast.error('You do not have permission to delete projects');
+      return;
+    }
+
     deleteProjectMutation.mutate(id);
   };
 
@@ -296,12 +320,17 @@ const Projects = () => {
   };
 
   const handleEditProject = (project: ProjectData) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to edit projects');
+      return;
+    }
+
     setEditingProject(project);
     setEditBillingType(isProjectBased(project) ? 'project' : 'hourly');
     setIsEditDialogOpen(true);
   };
 
-  if (isLoading) {
+  if (isLoading || privilegesLoading) {
     return (
       <Navigation>
         <div className="flex items-center justify-center py-8">
@@ -320,10 +349,18 @@ const Projects = () => {
             <p className="text-gray-600 mt-2">Manage your client projects</p>
           </div>
           
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Project
-          </Button>
+          {canCreate && (
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Project
+            </Button>
+          )}
+
+          {!canCreate && (
+            <div className="text-sm text-gray-500">
+              You don't have permission to add projects
+            </div>
+          )}
         </div>
 
         <ProjectFilters
@@ -348,6 +385,8 @@ const Projects = () => {
         <ProjectTable
           projects={filteredProjects}
           totalProjects={projects.length}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
           onEdit={handleEditProject}
           onDelete={handleDeleteProject}
           onViewBRD={openBRDFile}
@@ -378,3 +417,5 @@ const Projects = () => {
 };
 
 export default Projects;
+
+}

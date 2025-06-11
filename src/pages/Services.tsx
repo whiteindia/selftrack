@@ -8,9 +8,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useServices } from '@/hooks/useServices';
 import ServiceCard from '@/components/services/ServiceCard';
 import ServiceForm from '@/components/services/ServiceForm';
+import { usePrivileges } from '@/hooks/usePrivileges';
 
 const Services = () => {
   const { userRole } = useAuth();
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for services page
+  const canCreate = hasOperationAccess('services', 'create');
+  const canUpdate = hasOperationAccess('services', 'update');
+  const canDelete = hasOperationAccess('services', 'delete');
+
   const {
     services,
     isLoading,
@@ -27,7 +35,7 @@ const Services = () => {
     isSubmitting
   } = useServices();
 
-  if (isLoading) {
+  if (isLoading || privilegesLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         <Navigation />
@@ -48,7 +56,7 @@ const Services = () => {
               <p className="text-gray-600 mt-2">Manage your service offerings and hourly rates</p>
             </div>
             
-            {userRole === 'admin' && (
+            {canCreate && (
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-blue-600 hover:bg-blue-700" onClick={openCreateDialog}>
@@ -58,6 +66,12 @@ const Services = () => {
                 </DialogTrigger>
               </Dialog>
             )}
+
+            {!canCreate && (
+              <div className="text-sm text-gray-500">
+                You don't have permission to add services
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -66,6 +80,8 @@ const Services = () => {
                 key={service.id}
                 service={service}
                 userRole={userRole}
+                canUpdate={canUpdate}
+                canDelete={canDelete}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />

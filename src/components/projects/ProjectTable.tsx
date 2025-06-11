@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Edit, Trash2, Eye } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface ProjectData {
   id: string;
@@ -31,6 +32,8 @@ interface ProjectData {
 interface ProjectTableProps {
   projects: ProjectData[];
   totalProjects: number;
+  canUpdate: boolean;
+  canDelete: boolean;
   onEdit: (project: ProjectData) => void;
   onDelete: (id: string) => void;
   onViewBRD: (url: string) => void;
@@ -39,6 +42,8 @@ interface ProjectTableProps {
 const ProjectTable: React.FC<ProjectTableProps> = ({
   projects,
   totalProjects,
+  canUpdate,
+  canDelete,
   onEdit,
   onDelete,
   onViewBRD
@@ -50,24 +55,19 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Projects ({projects.length})</CardTitle>
-        <CardDescription>
-          {projects.length !== totalProjects 
-            ? `Showing ${projects.length} of ${totalProjects} projects`
-            : `All projects and their details`
-          }
-        </CardDescription>
+        <CardTitle>
+          Projects ({projects.length} of {totalProjects} total)
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead>Project Name</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Service</TableHead>
-              <TableHead>Billing</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Rate/Amount</TableHead>
-              <TableHead>Total Hours</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Assignee</TableHead>
               <TableHead>Deadline</TableHead>
@@ -80,34 +80,25 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
               <TableRow key={project.id}>
                 <TableCell className="font-medium">{project.name}</TableCell>
                 <TableCell>{project.clients?.name}</TableCell>
+                <TableCell>{project.service}</TableCell>
                 <TableCell>
-                  <Badge className="bg-purple-100 text-purple-800">
-                    {project.service}
+                  <Badge variant={isProjectBased(project) ? "default" : "secondary"}>
+                    {isProjectBased(project) ? "Project" : "Hourly"}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge className={isProjectBased(project) ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}>
-                    {isProjectBased(project) ? 'Project' : 'Hourly'}
-                  </Badge>
+                  {isProjectBased(project) 
+                    ? `₹${project.project_amount?.toLocaleString() || 0}` 
+                    : `₹${project.hourly_rate}/hr`}
                 </TableCell>
                 <TableCell>
-                  {isProjectBased(project) ? `₹${project.project_amount || 0}` : `₹${project.hourly_rate}/hr`}
-                </TableCell>
-                <TableCell>{project.total_hours}</TableCell>
-                <TableCell>
-                  <Badge className={
-                    project.status === 'Active' ? 'bg-green-100 text-green-800' : 
-                    project.status === 'Completed' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }>
+                  <Badge variant={project.status === 'Active' ? "default" : "secondary"}>
                     {project.status}
                   </Badge>
                 </TableCell>
+                <TableCell>{project.assignee?.full_name || 'Unassigned'}</TableCell>
                 <TableCell>
-                  {project.assignee?.full_name || 'Unassigned'}
-                </TableCell>
-                <TableCell>
-                  {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}
+                  {project.deadline ? format(new Date(project.deadline), 'PPP') : 'No deadline'}
                 </TableCell>
                 <TableCell>
                   {project.brd_file_url ? (
@@ -116,36 +107,47 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                       size="sm"
                       onClick={() => onViewBRD(project.brd_file_url!)}
                     >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
+                      <Eye className="h-4 w-4" />
                     </Button>
                   ) : (
-                    'N/A'
+                    'No BRD'
                   )}
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(project)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onDelete(project.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canUpdate && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(project)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to delete this project?')) {
+                            onDelete(project.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        {projects.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No projects found matching your filters.
+          </div>
+        )}
       </CardContent>
     </Card>
   );

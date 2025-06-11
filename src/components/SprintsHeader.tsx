@@ -11,8 +11,9 @@ interface Service {
 
 interface SprintsHeaderProps {
   globalServiceFilter: string;
-  setGlobalServiceFilter: (value: string) => void;
+  setGlobalServiceFilter: (filter: string) => void;
   services: Service[];
+  canCreate: boolean;
   onCreateSprint: () => void;
 }
 
@@ -20,16 +21,22 @@ const SprintsHeader: React.FC<SprintsHeaderProps> = ({
   globalServiceFilter,
   setGlobalServiceFilter,
   services,
+  canCreate,
   onCreateSprint
 }) => {
   return (
     <div className="flex justify-between items-center mb-6">
-      <h1 className="text-3xl font-bold">Sprints</h1>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Sprints</h1>
+        <p className="text-gray-600 mt-2">Manage project sprints and track progress</p>
+      </div>
+      
       <div className="flex items-center gap-4">
-        <div className="w-48">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Global Service Filter:</label>
           <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Service" />
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by service" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Services</SelectItem>
@@ -41,10 +48,19 @@ const SprintsHeader: React.FC<SprintsHeaderProps> = ({
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={onCreateSprint}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Sprint
-        </Button>
+        
+        {canCreate && (
+          <Button onClick={onCreateSprint}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Sprint
+          </Button>
+        )}
+
+        {!canCreate && (
+          <div className="text-sm text-gray-500">
+            You don't have permission to create sprints
+          </div>
+        )}
       </div>
     </div>
   );

@@ -196,7 +196,7 @@ const Employees = () => {
         try {
           await sendInvitation.mutateAsync({
             email: employeeData.email,
-            role: employeeData.role, // Use the selected role from the form
+            role: employeeData.role,
             employee_data: {
               name: employeeData.name,
               contact_number: employeeData.contact_number || ''
@@ -418,7 +418,7 @@ const Employees = () => {
       .map(es => es.service_id);
     setSelectedServices(empServices);
     
-    setSendInviteEmail(false); // Don't send invite when editing
+    setSendInviteEmail(false);
     setIsDialogOpen(true);
   };
 

@@ -1,14 +1,13 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Calendar, Edit, Trash2, Clock, User } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import TaskKanban from '@/components/TaskKanban';
+import { Edit, Trash2, Calendar, Clock, CheckCircle } from 'lucide-react';
 
-interface SprintTask {
+interface Task {
   id: string;
   name: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
@@ -19,6 +18,7 @@ interface SprintTask {
   estimated_duration: number | null;
   projects?: {
     name: string;
+    service: string;
     clients: {
       name: string;
     };
@@ -28,19 +28,19 @@ interface SprintTask {
   };
 }
 
-interface Sprint {
+interface SprintWithTasks {
   id: string;
   title: string;
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
+  sprint_leader_id: string | null;
   created_at: string;
   updated_at: string;
   completion_date?: string;
-  sprint_leader_id: string | null;
   sprint_leader?: {
     name: string;
   };
-  tasks: SprintTask[];
+  tasks: Task[];
   isOverdue: boolean;
   overdueDays: number;
   totalEstimatedDuration: number;
@@ -48,8 +48,10 @@ interface Sprint {
 }
 
 interface SprintCardProps {
-  sprint: Sprint;
-  onTaskStatusChange: (taskId: string, newStatus: string, sprintId: string) => void;
+  sprint: SprintWithTasks;
+  canUpdate: boolean;
+  canDelete: boolean;
+  onTaskStatusChange: (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed', sprintId: string) => void;
   onEdit: () => void;
   onDelete: () => void;
   getStatusIcon: (status: string) => React.ReactNode;
@@ -58,154 +60,129 @@ interface SprintCardProps {
 
 const SprintCard: React.FC<SprintCardProps> = ({
   sprint,
+  canUpdate,
+  canDelete,
   onTaskStatusChange,
   onEdit,
   onDelete,
   getStatusIcon,
   getStatusColor
 }) => {
-  const [isOpen, setIsOpen] = useState(true);
-
-  const completedTasks = sprint.tasks.filter(t => t.status === 'Completed').length;
+  const completedTasks = sprint.tasks.filter(task => task.status === 'Completed').length;
   const totalTasks = sprint.tasks.length;
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Transform sprint tasks to TaskKanban format
-  const transformedTasks = sprint.tasks.map(task => ({
-    id: task.id,
-    created_at: new Date().toISOString(),
-    name: task.name,
-    description: null,
-    project_id: task.project_id,
-    assigner_id: null,
-    assignee_id: task.assignee_id,
-    status: task.status,
-    priority: 'Medium' as const,
-    due_date: task.deadline,
-    estimated_hours: null,
-    actual_hours: null,
-    comments: null,
-    deadline: task.deadline,
-    hours: task.hours,
-    projects: task.projects,
-    assignee: task.employees,
-    assigner: null,
-    employees: task.employees
-  }));
-
   return (
     <Card className="w-full">
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-gray-50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                {isOpen ? (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronRight className="h-5 w-5 text-gray-500" />
-                )}
-                <div>
-                  <div className="flex items-center space-x-3">
-                    <CardTitle className={`text-xl ${sprint.isOverdue && sprint.status !== 'Completed' ? 'text-red-600' : sprint.isOverdue && sprint.status === 'Completed' ? 'text-red-600' : ''}`}>
-                      {sprint.title}
-                      {sprint.isOverdue && (
-                        <span className="text-red-600 font-normal ml-2">
-                          ({sprint.overdueDays} day{sprint.overdueDays !== 1 ? 's' : ''} overdue)
-                        </span>
-                      )}
-                    </CardTitle>
-                    {sprint.sprint_leader && (
-                      <div className="flex items-center space-x-1 text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                        <User className="h-3 w-3" />
-                        <span>{sprint.sprint_leader.name}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4" />
-                      <span className={sprint.isOverdue && sprint.status !== 'Completed' ? 'text-red-600' : ''}>
-                        Due: {format(new Date(sprint.deadline), 'MMM dd, yyyy')}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <span>{completedTasks}/{totalTasks} tasks completed</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Clock className="h-4 w-4" />
-                      <span>
-                        {sprint.totalEstimatedDuration > 0 
-                          ? `${sprint.totalEstimatedDuration}h est` 
-                          : 'No estimate'
-                        } | {sprint.totalLoggedDuration}h logged
-                      </span>
-                    </div>
-                  </div>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <CardTitle className="text-xl">{sprint.title}</CardTitle>
+              <Badge className={getStatusColor(sprint.status)}>
+                <div className="flex items-center gap-1">
+                  {getStatusIcon(sprint.status)}
+                  {sprint.status}
                 </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit();
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete();
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {progressPercentage.toFixed(0)}% complete
-                </div>
-                <Badge className={getStatusColor(sprint.status)}>
-                  <div className="flex items-center space-x-1">
-                    {getStatusIcon(sprint.status)}
-                    <span>{sprint.status}</span>
-                  </div>
+              </Badge>
+              {sprint.is_overdue && (
+                <Badge variant="destructive">
+                  Overdue by {sprint.overdue_days} days
                 </Badge>
+              )}
+            </div>
+            <div className="text-sm text-gray-500">
+              <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Deadline: {format(new Date(sprint.deadline), "PPP")}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  Est: {sprint.totalEstimatedDuration}h, Logged: {sprint.totalLoggedDuration}h
+                </div>
+                <div className="flex items-center gap-1">
+                  <CheckCircle className="h-4 w-4" />
+                  Progress: {completedTasks}/{totalTasks} tasks
+                </div>
+                {sprint.sprint_leader && (
+                  <div>
+                    Lead: {sprint.sprint_leader.name}
+                  </div>
+                )}
               </div>
             </div>
-            
-            {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-          </CardHeader>
-        </CollapsibleTrigger>
-
-        <CollapsibleContent>
-          <CardContent>
-            {sprint.tasks.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No tasks assigned to this sprint
-              </div>
-            ) : (
-              <TaskKanban
-                tasks={transformedTasks}
-                onTaskStatusChange={(taskId, newStatus) => 
-                  onTaskStatusChange(taskId, newStatus, sprint.id)
-                }
-              />
+          </div>
+          <div className="flex gap-2">
+            {canUpdate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onEdit}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
             )}
-          </CardContent>
-        </CollapsibleContent>
-      </Collapsible>
+            {canDelete && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+          <div 
+            className="bg-blue-600 h-2.5 rounded-full" 
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {sprint.tasks.length > 0 ? (
+          <div className="grid gap-2">
+            {sprint.tasks.map((task) => (
+              <div key={task.id} className="flex items-center justify-between p-2 border rounded-md">
+                <div className="flex-1">
+                  <div className="font-medium">{task.name}</div>
+                  <div className="text-sm text-gray-500">
+                    {task.projects?.clients.name} - {task.projects?.name}
+                    {task.employees && <span> • Assignee: {task.employees.name}</span>}
+                  </div>
+                </div>
+                {canUpdate ? (
+                  <Select 
+                    value={task.status} 
+                    onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed') => 
+                      onTaskStatusChange(task.id, value, sprint.id)
+                    }
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Not Started">Not Started</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge className={getStatusColor(task.status)}>
+                    {task.status}
+                  </Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500">
+            No tasks assigned to this sprint yet.
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 };

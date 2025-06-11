@@ -8,6 +8,7 @@ import SprintsHeader from '@/components/SprintsHeader';
 import SprintsFilters from '@/components/SprintsFilters';
 import SprintsEmptyState from '@/components/SprintsEmptyState';
 import Navigation from '@/components/Navigation';
+import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from '@/hooks/use-toast';
 
 interface Sprint {
@@ -406,6 +407,13 @@ const Sprints = () => {
     });
   });
 
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for sprints page
+  const canCreate = hasOperationAccess('sprints', 'create');
+  const canUpdate = hasOperationAccess('sprints', 'update');
+  const canDelete = hasOperationAccess('sprints', 'delete');
+
   // Delete sprint mutation
   const deleteSprint = useMutation({
     mutationFn: async (sprintId: string) => {
@@ -507,6 +515,15 @@ const Sprints = () => {
   });
 
   const handleTaskStatusChange = (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed', sprintId: string) => {
+    if (!canUpdate) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to update task status",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('Handle task status change:', taskId, newStatus, sprintId);
     updateTaskStatus.mutate({ taskId, status: newStatus });
     
@@ -533,12 +550,30 @@ const Sprints = () => {
   };
 
   const handleEditSprint = (sprint: Sprint) => {
+    if (!canUpdate) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to edit sprints",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('Edit sprint:', sprint);
     setEditingSprint(sprint);
     setDialogOpen(true);
   };
 
   const handleDeleteSprint = (sprintId: string) => {
+    if (!canDelete) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to delete sprints",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('Delete sprint requested:', sprintId);
     if (confirm('Are you sure you want to delete this sprint? This action cannot be undone.')) {
       deleteSprint.mutate(sprintId);
@@ -583,6 +618,15 @@ const Sprints = () => {
   const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedSprintLeader !== 'all' || selectedService !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
 
   const handleCreateSprint = () => {
+    if (!canCreate) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to create sprints",
+        variant: "destructive",
+      });
+      return;
+    }
+
     console.log('Create sprint requested');
     setEditingSprint(null);
     setDialogOpen(true);
@@ -625,6 +669,7 @@ const Sprints = () => {
           globalServiceFilter={globalServiceFilter}
           setGlobalServiceFilter={setGlobalServiceFilter}
           services={services}
+          canCreate={canCreate}
           onCreateSprint={handleCreateSprint}
         />
 
@@ -663,6 +708,7 @@ const Sprints = () => {
               sprintsLength={sprints.length}
               hasActiveFilters={hasActiveFilters}
               resetFilters={resetFilters}
+              canCreate={canCreate}
               onCreateSprint={handleCreateSprint}
             />
           ) : (
@@ -670,6 +716,8 @@ const Sprints = () => {
               <SprintCard
                 key={sprint.id}
                 sprint={sprint}
+                canUpdate={canUpdate}
+                canDelete={canDelete}
                 onTaskStatusChange={handleTaskStatusChange}
                 onEdit={() => handleEditSprint(sprint)}
                 onDelete={() => handleDeleteSprint(sprint.id)}
@@ -697,3 +745,5 @@ const Sprints = () => {
 };
 
 export default Sprints;
+
+}

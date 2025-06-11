@@ -15,6 +15,8 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { usePrivileges } from '@/hooks/usePrivileges';
+import { toast } from 'sonner';
 
 interface TimeEntry {
   id: string;
@@ -56,6 +58,11 @@ const Wages = () => {
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
   const [wageStatusFilter, setWageStatusFilter] = useState<string>('all');
   const queryClient = useQueryClient();
+
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for wages page
+  const canUpdate = hasOperationAccess('wages', 'update');
 
   // Fetch time entries with employee hourly rate data
   const { data: timeEntries = [], isLoading } = useQuery({
@@ -194,8 +201,23 @@ const Wages = () => {
     .reduce((sum, record) => sum + record.wage_amount, 0);
 
   const handleWageStatusChange = (taskId: string, status: string) => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to update wage status');
+      return;
+    }
+
     updateWageStatusMutation.mutate({ taskId, status });
   };
+
+  if (isLoading || privilegesLoading) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-lg">Loading wages...</div>
+        </div>
+      </Navigation>
+    );
+  }
 
   return (
     <Navigation>
@@ -376,29 +398,33 @@ const Wages = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            Actions
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            onClick={() => handleWageStatusChange(record.task_id, 'wpaid')}
-                            disabled={record.wage_status === 'wpaid'}
-                          >
-                            <Check className="h-4 w-4 mr-2" />
-                            Mark as Paid
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleWageStatusChange(record.task_id, 'wnotpaid')}
-                            disabled={record.wage_status === 'wnotpaid'}
-                          >
-                            <X className="h-4 w-4 mr-2" />
-                            Mark as Not Paid
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {canUpdate ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              Actions
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              onClick={() => handleWageStatusChange(record.task_id, 'wpaid')}
+                              disabled={record.wage_status === 'wpaid'}
+                            >
+                              <Check className="h-4 w-4 mr-2" />
+                              Mark as Paid
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleWageStatusChange(record.task_id, 'wnotpaid')}
+                              disabled={record.wage_status === 'wnotpaid'}
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Mark as Not Paid
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        <span className="text-sm text-gray-500">No permission</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -412,3 +438,5 @@ const Wages = () => {
 };
 
 export default Wages;
+
+}
