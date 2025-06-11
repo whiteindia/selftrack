@@ -188,24 +188,7 @@ const Sprints = () => {
             .from('sprint_tasks')
             .select(`
               task_id,
-              tasks (
-                id,
-                name,
-                status,
-                project_id,
-                assignee_id,
-                deadline,
-                hours,
-                estimated_duration,
-                projects (
-                  name,
-                  service,
-                  clients (
-                    name
-                  )
-                )
-              )
-            `)
+              tasks (\n                id,\n                name,\n                status,\n                project_id,\n                assignee_id,\n                deadline,\n                hours,\n                estimated_duration,\n                projects (\n                  name,\n                  service,\n                  clients (\n                    name\n                  )\n                )\n              )\n            `)
             .eq('sprint_id', sprint.id);
 
           if (tasksError) {
@@ -745,5 +728,3 @@ const Sprints = () => {
 };
 
 export default Sprints;
-
-}
