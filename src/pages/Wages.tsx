@@ -18,6 +18,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface TimeEntry {
   id: string;
@@ -242,94 +244,121 @@ const Wages = () => {
     setExpandedTasks(newExpanded);
   };
 
-  const exportToCSV = () => {
-    // Create CSV headers
-    const headers = [
-      'Task Name',
-      'Employee Name',
-      'Project Name',
-      'Service Type',
-      'Date',
-      'Hours Worked',
-      'Employee Rate (₹)',
-      'Amount (₹)',
-      'Status'
-    ];
-
-    // Create CSV rows from filtered data
-    const csvRows = [];
+  const exportToPDF = () => {
+    const doc = new jsPDF();
     
-    // Add filter information as header comments
-    const filterInfo = [];
-    filterInfo.push(`# Employee Wage Report - ${format(selectedMonth, "MMMM yyyy")}`);
+    // Add title and filter information
+    doc.setFontSize(20);
+    doc.text('Employee Wage Report', 20, 20);
+    
+    doc.setFontSize(12);
+    let yPosition = 35;
+    
+    // Add filter information
+    doc.text(`Month: ${format(selectedMonth, "MMMM yyyy")}`, 20, yPosition);
+    yPosition += 10;
+    
     if (selectedEmployee !== 'all') {
       const employeeName = employees.find(emp => emp.id === selectedEmployee)?.name || 'Unknown';
-      filterInfo.push(`# Employee: ${employeeName}`);
+      doc.text(`Employee: ${employeeName}`, 20, yPosition);
+      yPosition += 10;
     }
+    
     if (globalServiceFilter !== 'all') {
-      filterInfo.push(`# Service Type: ${globalServiceFilter}`);
+      doc.text(`Service Type: ${globalServiceFilter}`, 20, yPosition);
+      yPosition += 10;
     }
+    
     if (wageStatusFilter !== 'all') {
-      filterInfo.push(`# Wage Status: ${wageStatusFilter === 'wpaid' ? 'Paid' : 'Not Paid'}`);
+      doc.text(`Wage Status: ${wageStatusFilter === 'wpaid' ? 'Paid' : 'Not Paid'}`, 20, yPosition);
+      yPosition += 10;
     }
-    filterInfo.push(`# Total Hours: ${totalHours.toFixed(2)}`);
-    filterInfo.push(`# Total Wages: ₹${totalWages.toFixed(2)}`);
-    filterInfo.push(`# Paid Wages: ₹${paidWages.toFixed(2)}`);
-    filterInfo.push(`# Unpaid Wages: ₹${unpaidWages.toFixed(2)}`);
-    filterInfo.push(''); // Empty line
     
-    // Add filter info to CSV
-    csvRows.push(...filterInfo);
+    // Add summary information
+    yPosition += 5;
+    doc.text(`Total Hours: ${totalHours.toFixed(2)}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Total Wages: ₹${totalWages.toFixed(2)}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Paid Wages: ₹${paidWages.toFixed(2)}`, 20, yPosition);
+    yPosition += 8;
+    doc.text(`Unpaid Wages: ₹${unpaidWages.toFixed(2)}`, 20, yPosition);
     
-    // Add headers
-    csvRows.push(headers.join(','));
-
-    // Add data rows - expand all grouped records
+    yPosition += 15;
+    
+    // Prepare table data
+    const tableData: any[] = [];
+    
     Object.entries(groupedWageRecords).forEach(([taskId, group]) => {
+      // Add main task row
+      tableData.push([
+        group.task?.name || '',
+        group.employee?.name || '',
+        group.task?.projects?.name || '',
+        group.project_service_type || '',
+        group.totalHours.toFixed(2),
+        `₹${group.hourly_rate}`,
+        `₹${group.totalAmount.toFixed(2)}`,
+        group.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'
+      ]);
+      
+      // Add individual time entries (indented)
       group.entries.forEach((entry: any) => {
-        const row = [
-          `"${group.task?.name || ''}"`,
-          `"${group.employee?.name || ''}"`,
-          `"${group.task?.projects?.name || ''}"`,
-          `"${group.project_service_type || ''}"`,
-          `"${format(new Date(entry.date), "yyyy-MM-dd")}"`,
+        tableData.push([
+          `  → ${format(new Date(entry.date), "PPP")}`,
+          '',
+          '',
+          '',
           entry.hours_worked.toFixed(2),
-          group.hourly_rate,
-          entry.wage_amount.toFixed(2),
-          group.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'
-        ];
-        csvRows.push(row.join(','));
+          '',
+          `₹${entry.wage_amount.toFixed(2)}`,
+          ''
+        ]);
       });
     });
-
-    // Create and download CSV file
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
     
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      
-      // Generate filename with filters
-      let filename = `wages_report_${format(selectedMonth, "yyyy_MM")}`;
-      if (selectedEmployee !== 'all') {
-        const employeeName = employees.find(emp => emp.id === selectedEmployee)?.name || 'employee';
-        filename += `_${employeeName.replace(/\s+/g, '_')}`;
+    // Create the table
+    autoTable(doc, {
+      head: [['Task/Date', 'Employee', 'Project', 'Service Type', 'Hours', 'Rate', 'Amount', 'Status']],
+      body: tableData,
+      startY: yPosition,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [66, 66, 66],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      didParseCell: function(data) {
+        // Style the indented rows differently
+        if (data.cell.text[0] && data.cell.text[0].startsWith('  →')) {
+          data.cell.styles.fillColor = [240, 248, 255];
+          data.cell.styles.textColor = [100, 100, 100];
+          data.cell.styles.fontSize = 8;
+        }
       }
-      if (globalServiceFilter !== 'all') {
-        filename += `_${globalServiceFilter.replace(/\s+/g, '_')}`;
-      }
-      filename += '.csv';
-      
-      link.setAttribute('download', filename);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success('Wage report exported successfully!');
+    });
+    
+    // Generate filename with filters
+    let filename = `wages_report_${format(selectedMonth, "yyyy_MM")}`;
+    if (selectedEmployee !== 'all') {
+      const employeeName = employees.find(emp => emp.id === selectedEmployee)?.name || 'employee';
+      filename += `_${employeeName.replace(/\s+/g, '_')}`;
     }
+    if (globalServiceFilter !== 'all') {
+      filename += `_${globalServiceFilter.replace(/\s+/g, '_')}`;
+    }
+    filename += '.pdf';
+    
+    // Save the PDF
+    doc.save(filename);
+    
+    toast.success('Wage report exported successfully!');
   };
 
   if (isLoading || privilegesLoading) {
@@ -352,9 +381,9 @@ const Wages = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={exportToCSV}>
+            <Button variant="outline" onClick={exportToPDF}>
               <Download className="h-4 w-4 mr-2" />
-              Export Report
+              Export PDF
             </Button>
           </div>
         </div>
