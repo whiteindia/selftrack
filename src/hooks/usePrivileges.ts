@@ -17,11 +17,14 @@ export const usePrivileges = () => {
   useEffect(() => {
     const fetchPrivileges = async () => {
       if (!userRole) {
+        console.log('No user role found, setting loading to false');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('Fetching privileges for role:', userRole);
+        
         const { data, error } = await supabase
           .from('role_privileges')
           .select('page_name, operation, allowed')
@@ -31,6 +34,7 @@ export const usePrivileges = () => {
           console.error('Error fetching privileges:', error);
           setPrivileges([]);
         } else {
+          console.log('Privileges fetched for role', userRole, ':', data);
           setPrivileges(data || []);
         }
       } catch (error) {
@@ -49,14 +53,18 @@ export const usePrivileges = () => {
     const readPrivilege = privileges.find(
       p => p.page_name === pageName && p.operation === 'read'
     );
-    return readPrivilege?.allowed || false;
+    const hasAccess = readPrivilege?.allowed || false;
+    console.log(`Page access check for ${pageName}:`, hasAccess, 'Role:', userRole);
+    return hasAccess;
   };
 
   const hasOperationAccess = (pageName: string, operation: 'create' | 'read' | 'update' | 'delete') => {
     const privilege = privileges.find(
       p => p.page_name === pageName && p.operation === operation
     );
-    return privilege?.allowed || false;
+    const hasAccess = privilege?.allowed || false;
+    console.log(`Operation access check for ${pageName}-${operation}:`, hasAccess, 'Role:', userRole);
+    return hasAccess;
   };
 
   return {

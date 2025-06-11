@@ -58,6 +58,9 @@ const Projects = () => {
   const canCreate = hasOperationAccess('projects', 'create');
   const canUpdate = hasOperationAccess('projects', 'update');
   const canDelete = hasOperationAccess('projects', 'delete');
+  const canRead = hasOperationAccess('projects', 'read');
+
+  console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
 
   const [newProject, setNewProject] = useState({
     name: '',
@@ -89,9 +92,10 @@ const Projects = () => {
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
   // Fetch projects with client and assignee data
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: projects = [], isLoading, error: projectsError } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
+      console.log('Fetching projects...');
       const { data, error } = await supabase
         .from('projects')
         .select(`
@@ -101,23 +105,34 @@ const Projects = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+      console.log('Projects fetched:', data?.length || 0, 'projects');
       return data as ProjectData[];
-    }
+    },
+    enabled: canRead // Only fetch if user has read permission
   });
 
   // Fetch clients for dropdown
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
+      console.log('Fetching clients for projects...');
       const { data, error } = await supabase
         .from('clients')
         .select('id, name')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+      console.log('Clients fetched for projects:', data?.length || 0, 'clients');
       return data as Client[];
-    }
+    },
+    enabled: canRead
   });
 
   // Fetch services for project types and filtering
@@ -335,6 +350,33 @@ const Projects = () => {
       <Navigation>
         <div className="flex items-center justify-center py-8">
           <div className="text-lg">Loading projects...</div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  // Check if user has read access
+  if (!canRead) {
+    return (
+      <Navigation>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+            <p className="text-gray-600">You don't have permission to view projects.</p>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (projectsError) {
+    return (
+      <Navigation>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+            <p className="text-gray-600">Failed to load projects: {projectsError.message}</p>
+          </div>
         </div>
       </Navigation>
     );

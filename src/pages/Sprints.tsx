@@ -86,7 +86,8 @@ const Sprints = () => {
       }
       console.log('Clients fetched:', data);
       return data || [];
-    }
+    },
+    enabled: canRead
   });
 
   const { data: projects = [] } = useQuery({
@@ -103,7 +104,8 @@ const Sprints = () => {
       }
       console.log('Projects fetched:', data);
       return data || [];
-    }
+    },
+    enabled: canRead
   });
 
   const { data: employees = [] } = useQuery({
@@ -120,7 +122,8 @@ const Sprints = () => {
       }
       console.log('Employees fetched:', data);
       return data || [];
-    }
+    },
+    enabled: canRead
   });
 
   const { data: services = [] } = useQuery({
@@ -137,7 +140,8 @@ const Sprints = () => {
       }
       console.log('Services fetched:', data);
       return data || [];
-    }
+    },
+    enabled: canRead
   });
 
   // Fetch sprints with their tasks
@@ -304,7 +308,8 @@ const Sprints = () => {
         console.error('Error in sprints query:', error);
         throw error;
       }
-    }
+    },
+    enabled: canRead // Only fetch if user has read permission
   });
 
   // Log any query errors
@@ -396,6 +401,9 @@ const Sprints = () => {
   const canCreate = hasOperationAccess('sprints', 'create');
   const canUpdate = hasOperationAccess('sprints', 'update');
   const canDelete = hasOperationAccess('sprints', 'delete');
+  const canRead = hasOperationAccess('sprints', 'read');
+
+  console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
 
   // Delete sprint mutation
   const deleteSprint = useMutation({
@@ -619,12 +627,26 @@ const Sprints = () => {
   console.log('Sprints data:', sprints);
   console.log('Filtered sprints:', filteredSprints);
 
-  if (isLoading) {
+  if (isLoading || privilegesLoading) {
     return (
       <Navigation>
         <div className="container mx-auto p-6">
           <div className="flex justify-center items-center h-64">
             <div className="text-lg">Loading sprints...</div>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  // Check if user has read access
+  if (!canRead) {
+    return (
+      <Navigation>
+        <div className="container mx-auto p-6">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+            <p className="text-gray-600">You don't have permission to view sprints.</p>
           </div>
         </div>
       </Navigation>
@@ -728,3 +750,5 @@ const Sprints = () => {
 };
 
 export default Sprints;
+
+</edits_to_apply>

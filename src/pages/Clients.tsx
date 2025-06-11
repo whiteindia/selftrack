@@ -1,404 +1,160 @@
+
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, UserPlus } from 'lucide-react';
-import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Search, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navigation from '@/components/Navigation';
-import { useInvitations } from '@/hooks/useInvitations';
+import { usePrivileges } from '@/hooks/usePrivileges';
+import { toast } from 'sonner';
 
 interface Client {
   id: string;
   name: string;
   email: string;
-  company: string | null;
   phone: string | null;
+  company: string | null;
   created_at: string;
   updated_at: string;
 }
 
 const Clients = () => {
-  const queryClient = useQueryClient();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [sendInviteEmail, setSendInviteEmail] = useState(true);
   const [newClient, setNewClient] = useState({
     name: '',
     email: '',
-    company: '',
-    phone: ''
+    phone: '',
+    company: ''
   });
+  
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
 
-  const { sendInvitation } = useInvitations();
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  
+  // Check specific permissions for clients page
+  const canCreate = hasOperationAccess('clients', 'create');
+  const canUpdate = hasOperationAccess('clients', 'update');
+  const canDelete = hasOperationAccess('clients', 'delete');
+  const canRead = hasOperationAccess('clients', 'read');
 
-  const { data: clients = [], isLoading } = useQuery({
+  console.log('Clients page permissions:', { canCreate, canUpdate, canDelete, canRead });
+
+  const { data: clients = [], isLoading, error: clientsError, refetch } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
+      console.log('Fetching clients...');
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .order('name');
+        .order(sortBy);
       
-      if (error) throw error;
-      return data as Client[];
-    }
-  });
-
-  // Add mutation to manually create auth user for client
-  const createAuthUserMutation = useMutation({
-    mutationFn: async (client: Client) => {
-      console.log('Manually creating auth user for client:', client.email, 'with role: client');
-      
-      try {
-        const { data: response, error } = await supabase.functions.invoke(
-          'create-invited-user',
-          {
-            body: {
-              email: client.email,
-              password: client.email, // Use email as default password
-              userData: {
-                name: client.name,
-                role: 'client' // Always use 'client' role for clients
-              }
-            }
-          }
-        );
-
-        if (error) {
-          console.error('Edge function error:', error);
-          throw error;
-        }
-
-        if (!response?.success) {
-          console.error('Edge function returned unsuccessful response:', response);
-          throw new Error(response?.error || 'Failed to create user');
-        }
-
-        console.log('Auth user created successfully with role: client', response);
-        return response;
-        
-      } catch (error) {
-        console.error('Error creating auth user:', error);
+      if (error) {
+        console.error('Error fetching clients:', error);
         throw error;
       }
+      
+      console.log('Clients fetched:', data?.length || 0, 'clients');
+      return data as Client[];
     },
-    onSuccess: (data, client) => {
-      toast.success(`Auth user created successfully with role client! They can now login.`);
-    },
-    onError: (error) => {
-      console.error('Failed to create auth user:', error);
-      toast.error(`Failed to create auth user: ${error.message}`);
-    }
+    enabled: canRead // Only fetch if user has read permission
   });
 
-  const addClientMutation = useMutation({
-    mutationFn: async (clientData: typeof newClient) => {
-      console.log('Creating client with data:', clientData);
-      
-      const { data, error } = await supabase
+  // Filter clients based on search term
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (client.company && client.company.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const handleCreateClient = async () => {
+    if (!canCreate) {
+      toast.error('You do not have permission to create clients');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
         .from('clients')
-        .insert([clientData])
-        .select()
-        .single();
-      
+        .insert([newClient]);
+
       if (error) throw error;
 
-      console.log('Client created successfully:', data);
-
-      // Send invitation email if enabled and not editing
-      if (sendInviteEmail && !editingClient) {
-        console.log('Sending invitation email for client:', clientData.email);
-        
-        try {
-          await sendInvitation.mutateAsync({
-            email: clientData.email,
-            role: 'client',
-            client_id: data.id,
-            employee_data: {
-              name: clientData.name,
-              company: clientData.company || '',
-              phone: clientData.phone || ''
-            }
-          });
-          console.log('Client invitation sent successfully');
-        } catch (inviteError) {
-          console.error('Failed to send client invitation:', inviteError);
-          toast.error(`Client created but invitation email failed: ${(inviteError as Error).message}`);
-        }
-      }
-      
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      setNewClient({ name: '', email: '', company: '', phone: '' });
-      setSendInviteEmail(true);
+      toast.success('Client created successfully');
+      setNewClient({ name: '', email: '', phone: '', company: '' });
       setIsDialogOpen(false);
-      toast.success(editingClient ? 'Client updated successfully!' : 'Client created successfully!');
-    },
-    onError: (error) => {
+      refetch();
+    } catch (error: any) {
+      console.error('Error creating client:', error);
       toast.error('Failed to create client: ' + error.message);
     }
-  });
+  };
 
-  const updateClientMutation = useMutation({
-    mutationFn: async ({ id, ...updateData }: Partial<Client> & { id: string }) => {
-      const { data, error } = await supabase
+  const handleUpdateClient = async () => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to update clients');
+      return;
+    }
+
+    if (!editingClient) return;
+
+    try {
+      const { error } = await supabase
         .from('clients')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-      
+        .update({
+          name: editingClient.name,
+          email: editingClient.email,
+          phone: editingClient.phone,
+          company: editingClient.company
+        })
+        .eq('id', editingClient.id);
+
       if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
+
+      toast.success('Client updated successfully');
       setEditingClient(null);
-      setSendInviteEmail(true);
-      setIsDialogOpen(false);
-      toast.success('Client updated successfully!');
-    },
-    onError: (error) => {
+      setIsEditDialogOpen(false);
+      refetch();
+    } catch (error: any) {
+      console.error('Error updating client:', error);
       toast.error('Failed to update client: ' + error.message);
     }
-  });
+  };
 
-  const deleteClientMutation = useMutation({
-    mutationFn: async (clientId: string) => {
-      // First get the client data to find the email and related data
-      const { data: client, error: fetchError } = await supabase
-        .from('clients')
-        .select('email')
-        .eq('id', clientId)
-        .single();
-      
-      if (fetchError) {
-        console.error('Error fetching client for deletion:', fetchError);
-      }
+  const handleDeleteClient = async (clientId: string) => {
+    if (!canDelete) {
+      toast.error('You do not have permission to delete clients');
+      return;
+    }
 
-      // Get all projects for this client
-      const { data: projects, error: projectsError } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('client_id', clientId);
-      
-      if (projectsError) {
-        console.error('Error fetching projects:', projectsError);
-      }
+    if (!confirm('Are you sure you want to delete this client?')) return;
 
-      let taskIds: string[] = [];
-
-      if (projects && projects.length > 0) {
-        const projectIds = projects.map(p => p.id);
-
-        // Get all tasks for these projects
-        const { data: tasks, error: tasksError } = await supabase
-          .from('tasks')
-          .select('id')
-          .in('project_id', projectIds);
-        
-        if (tasksError) {
-          console.error('Error fetching tasks:', tasksError);
-        }
-
-        if (tasks && tasks.length > 0) {
-          taskIds = tasks.map(t => t.id);
-
-          // Delete time entries FIRST (they reference tasks)
-          const { error: timeEntriesError } = await supabase
-            .from('time_entries')
-            .delete()
-            .in('task_id', taskIds);
-          
-          if (timeEntriesError) {
-            console.error('Error deleting time entries:', timeEntriesError);
-            throw new Error('Failed to delete related time entries');
-          }
-
-          // Delete task comments (they reference tasks)
-          const { error: commentsError } = await supabase
-            .from('task_comments')
-            .delete()
-            .in('task_id', taskIds);
-          
-          if (commentsError) {
-            console.error('Error deleting task comments:', commentsError);
-            throw new Error('Failed to delete related task comments');
-          }
-
-          // Delete invoice tasks (they reference tasks)
-          const { error: invoiceTasksError } = await supabase
-            .from('invoice_tasks')
-            .delete()
-            .in('task_id', taskIds);
-          
-          if (invoiceTasksError) {
-            console.error('Error deleting invoice tasks:', invoiceTasksError);
-          }
-
-          // Now delete tasks (after all references are cleared)
-          const { error: tasksDeleteError } = await supabase
-            .from('tasks')
-            .delete()
-            .in('project_id', projectIds);
-          
-          if (tasksDeleteError) {
-            console.error('Error deleting tasks:', tasksDeleteError);
-            throw new Error('Failed to delete related tasks');
-          }
-        }
-
-        // Delete payments
-        const { error: paymentsError } = await supabase
-          .from('payments')
-          .delete()
-          .eq('client_id', clientId);
-        
-        if (paymentsError) {
-          console.error('Error deleting payments:', paymentsError);
-        }
-
-        // Delete invoices
-        const { error: invoicesError } = await supabase
-          .from('invoices')
-          .delete()
-          .eq('client_id', clientId);
-        
-        if (invoicesError) {
-          console.error('Error deleting invoices:', invoicesError);
-        }
-
-        // Delete projects
-        const { error: projectsDeleteError } = await supabase
-          .from('projects')
-          .delete()
-          .eq('client_id', clientId);
-        
-        if (projectsDeleteError) {
-          console.error('Error deleting projects:', projectsDeleteError);
-          throw new Error('Failed to delete related projects');
-        }
-      }
-
-      // Try to get the user ID from auth users table to clean up activity feed
-      if (client?.email) {
-        try {
-          // Delete activity feed records for this user before deleting the client
-          console.log('Cleaning up activity feed records for user:', client.email);
-          
-          const { error: activityCleanupError } = await supabase.functions.invoke(
-            'delete-auth-user',
-            {
-              body: {
-                email: client.email,
-                cleanup_only: true // Flag to only clean up activity feed
-              }
-            }
-          );
-
-          if (activityCleanupError) {
-            console.error('Failed to cleanup activity feed:', activityCleanupError);
-          }
-        } catch (cleanupError) {
-          console.error('Error during activity feed cleanup:', cleanupError);
-        }
-      }
-
-      // Delete the client record from database
+    try {
       const { error } = await supabase
         .from('clients')
         .delete()
         .eq('id', clientId);
-      
+
       if (error) throw error;
 
-      // Try to delete the auth user if we have the email
-      if (client?.email) {
-        try {
-          console.log('Attempting to delete auth user for:', client.email);
-          
-          const { data: response, error: authError } = await supabase.functions.invoke(
-            'delete-auth-user',
-            {
-              body: {
-                email: client.email
-              }
-            }
-          );
-
-          if (authError) {
-            console.error('Failed to delete auth user:', authError);
-            // Don't throw here - client deletion was successful
-          } else if (response?.success) {
-            console.log('Auth user deleted successfully');
-          } else {
-            console.log('Auth user deletion response:', response);
-          }
-        } catch (authError) {
-          console.error('Error calling delete auth user function:', authError);
-          // Don't throw here - client deletion was successful
-        }
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Client and all related records deleted successfully!');
-    },
-    onError: (error) => {
+      toast.success('Client deleted successfully');
+      refetch();
+    } catch (error: any) {
+      console.error('Error deleting client:', error);
       toast.error('Failed to delete client: ' + error.message);
     }
-  });
-
-  const handleSubmit = () => {
-    if (editingClient) {
-      updateClientMutation.mutate({ id: editingClient.id, ...newClient });
-    } else {
-      if (!newClient.name || !newClient.email) {
-        toast.error('Please fill in all required fields');
-        return;
-      }
-      addClientMutation.mutate(newClient);
-    }
   };
 
-  const handleEdit = (client: Client) => {
-    setEditingClient(client);
-    setNewClient({
-      name: client.name,
-      email: client.email,
-      company: client.company || '',
-      phone: client.phone || ''
-    });
-    setSendInviteEmail(false); // Don't send invite when editing
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = (clientId: string) => {
-    if (window.confirm('Are you sure you want to delete this client? This will also delete all related projects, tasks, time entries, and other associated data.')) {
-      deleteClientMutation.mutate(clientId);
-    }
-  };
-
-  const handleCreateAuthUser = (client: Client) => {
-    if (window.confirm(`Create auth user for ${client.email} with role client? They will be able to login with email as password.`)) {
-      createAuthUserMutation.mutate(client);
-    }
-  };
-
-  const resetForm = () => {
-    setNewClient({ name: '', email: '', company: '', phone: '' });
-    setEditingClient(null);
-    setSendInviteEmail(true);
-  };
-
-  if (isLoading) {
+  if (isLoading || privilegesLoading) {
     return (
       <Navigation>
         <div className="flex items-center justify-center py-8">
@@ -408,101 +164,145 @@ const Clients = () => {
     );
   }
 
+  // Check if user has read access
+  if (!canRead) {
+    return (
+      <Navigation>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+            <p className="text-gray-600">You don't have permission to view clients.</p>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (clientsError) {
+    return (
+      <Navigation>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center py-8">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
+            <p className="text-gray-600">Failed to load clients: {clientsError.message}</p>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
   return (
     <Navigation>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Clients</h1>
-            <p className="text-gray-600 mt-2">Manage your clients and their access to the platform</p>
+            <p className="text-gray-600 mt-2">Manage your client database</p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Client
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingClient ? 'Edit Client' : 'Add New Client'}</DialogTitle>
-                <DialogDescription>
-                  {editingClient ? 'Update client information.' : 'Add a new client. An invitation email will be sent automatically for platform access.'}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name *</Label>
-                  <Input
-                    id="name"
-                    value={newClient.name}
-                    onChange={(e) => setNewClient({...newClient, name: e.target.value})}
-                    placeholder="Enter client name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newClient.email}
-                    onChange={(e) => setNewClient({...newClient, email: e.target.value})}
-                    placeholder="Enter email address"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Input
-                    id="company"
-                    value={newClient.company}
-                    onChange={(e) => setNewClient({...newClient, company: e.target.value})}
-                    placeholder="Enter company name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={newClient.phone}
-                    onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-                {!editingClient && (
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="sendInvite"
-                      checked={sendInviteEmail}
-                      onChange={(e) => setSendInviteEmail(e.target.checked)}
-                      className="rounded"
-                    />
-                    <Label htmlFor="sendInvite" className="text-sm">
-                      Send password setup invitation email
-                    </Label>
-                  </div>
-                )}
-                <Button 
-                  onClick={handleSubmit} 
-                  className="w-full"
-                  disabled={addClientMutation.isPending || updateClientMutation.isPending}
-                >
-                  {addClientMutation.isPending || updateClientMutation.isPending 
-                    ? (editingClient ? 'Updating...' : 'Creating...') 
-                    : (editingClient ? 'Update Client' : 'Create Client')}
+          {canCreate && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Client
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Client</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={newClient.name}
+                      onChange={(e) => setNewClient({...newClient, name: e.target.value})}
+                      placeholder="Client name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newClient.email}
+                      onChange={(e) => setNewClient({...newClient, email: e.target.value})}
+                      placeholder="client@example.com"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      value={newClient.phone}
+                      onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
+                      placeholder="Phone number"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="company">Company</Label>
+                    <Input
+                      id="company"
+                      value={newClient.company}
+                      onChange={(e) => setNewClient({...newClient, company: e.target.value})}
+                      placeholder="Company name"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateClient}>
+                      Create Client
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
+        {/* Search and Filter Section */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search clients..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="company">Company</SelectItem>
+                    <SelectItem value="created_at">Created Date</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Clients Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Clients</CardTitle>
+            <CardTitle>Clients ({filteredClients.length})</CardTitle>
+            <CardDescription>
+              A list of all clients in your system.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -510,55 +310,109 @@ const Clients = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Company</TableHead>
                   <TableHead>Phone</TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clients.map((client) => (
+                {filteredClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell>{client.email}</TableCell>
-                    <TableCell>{client.company || 'N/A'}</TableCell>
-                    <TableCell>{client.phone || 'N/A'}</TableCell>
+                    <TableCell>{client.phone || '-'}</TableCell>
+                    <TableCell>{client.company || '-'}</TableCell>
+                    <TableCell>{new Date(client.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(client)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCreateAuthUser(client)}
-                          title="Create auth user"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDelete(client.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canUpdate && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setEditingClient(client);
+                              setIsEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteClient(client.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            {clients.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No clients found. Add your first client to get started.
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Edit Client Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Client</DialogTitle>
+            </DialogHeader>
+            {editingClient && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-name">Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editingClient.name}
+                    onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
+                    placeholder="Client name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editingClient.email}
+                    onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editingClient.phone || ''}
+                    onChange={(e) => setEditingClient({...editingClient, phone: e.target.value})}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-company">Company</Label>
+                  <Input
+                    id="edit-company"
+                    value={editingClient.company || ''}
+                    onChange={(e) => setEditingClient({...editingClient, company: e.target.value})}
+                    placeholder="Company name"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdateClient}>
+                    Update Client
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Navigation>
   );
