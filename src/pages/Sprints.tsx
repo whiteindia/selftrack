@@ -801,5 +801,3 @@ const Sprints = () => {
 };
 
 export default Sprints;
-
-</edits_to_apply>

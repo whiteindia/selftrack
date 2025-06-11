@@ -489,5 +489,3 @@ const Projects = () => {
 };
 
 export default Projects;
-
-</initial_code>
