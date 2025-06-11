@@ -28,7 +28,13 @@ interface Task {
   status: string;
   deadline: string;
   estimated_duration: number;
+  hours: number;
+  date: string;
+  invoiced: boolean;
+  completion_date: string;
   created_at: string;
+  updated_at: string;
+  wage_status: string;
   projects: {
     name: string;
     clients: {
@@ -99,12 +105,12 @@ const Tasks = () => {
               name
             )
           ),
-          assignee:profiles!assignee_id (
-            full_name,
+          assignee:employees!assignee_id (
+            name,
             email
           ),
-          assigner:profiles!assigner_id (
-            full_name,
+          assigner:employees!assigner_id (
+            name,
             email
           )
         `)
