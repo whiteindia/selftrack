@@ -56,6 +56,9 @@ interface GanttItem {
 const GanttView = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [serviceFilter, setServiceFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [sprintStatusFilter, setSprintStatusFilter] = useState<string>('active'); // Default to active (hide completed)
   const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
 
   // Fetch services for filter
@@ -64,6 +67,19 @@ const GanttView = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('services')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  // Fetch clients for filter
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
         .select('id, name')
         .order('name');
       if (error) throw error;
@@ -141,6 +157,12 @@ const GanttView = () => {
     }
   });
 
+  // Filter projects based on client filter
+  const filteredProjects = useMemo(() => {
+    if (clientFilter === 'all') return projects;
+    return projects.filter(project => project.client_id === clientFilter);
+  }, [projects, clientFilter]);
+
   // Generate gantt items
   const ganttItems = useMemo(() => {
     const items: GanttItem[] = [];
@@ -152,8 +174,14 @@ const GanttView = () => {
       
       if (!project) return;
       
-      // Filter by service if selected
+      // Apply filters
       if (serviceFilter !== 'all' && project.service !== serviceFilter) return;
+      if (clientFilter !== 'all' && project.client_id !== clientFilter) return;
+      if (projectFilter !== 'all' && project.id !== projectFilter) return;
+      
+      // Apply sprint status filter
+      if (sprintStatusFilter === 'active' && sprint.status === 'Completed') return;
+      if (sprintStatusFilter !== 'all' && sprintStatusFilter !== 'active' && sprint.status !== sprintStatusFilter) return;
 
       // Add sprint item
       items.push({
@@ -190,7 +218,7 @@ const GanttView = () => {
     });
 
     return items;
-  }, [sprintsData, projects, serviceFilter, expandedSprints]);
+  }, [sprintsData, projects, serviceFilter, clientFilter, projectFilter, sprintStatusFilter, expandedSprints]);
 
   // Generate calendar days for the month
   const monthDays = useMemo(() => {
@@ -268,7 +296,7 @@ const GanttView = () => {
             <CardTitle>Timeline Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Month</label>
                 <Select 
@@ -305,6 +333,56 @@ const GanttView = () => {
                         {service.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Client Filter</label>
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Project Filter</label>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {filteredProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Sprint Status</label>
+                <Select value={sprintStatusFilter} onValueChange={setSprintStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by sprint status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sprints</SelectItem>
+                    <SelectItem value="active">Active Sprints (Hide Completed)</SelectItem>
+                    <SelectItem value="Not Started">Not Started</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
