@@ -1,24 +1,57 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import Navigation from '@/components/Navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, Edit, Trash2, Play, Pause, Check, MessageCircle, Clock, Filter, History, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { Calendar, Clock, User, Trash2, Edit, Plus, Eye, Filter } from 'lucide-react';
-import { format } from 'date-fns';
-import TaskKanban from '@/components/TaskKanban';
-import TaskCommentDialog from '@/components/TaskCommentDialog';
-import { usePrivileges } from '@/hooks/usePrivileges';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import { Database } from '@/integrations/supabase/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+import Navigation from '@/components/Navigation';
+import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
+import TaskHistory from '@/components/TaskHistory';
+import { logActivity } from '@/utils/activityLogger';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format, differenceInDays, isAfter, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 type TaskStatus = Database['public']['Enums']['task_status'];
 
@@ -29,508 +62,509 @@ interface Task {
   assignee_id: string;
   assigner_id: string;
   status: TaskStatus;
-  deadline: string;
-  estimated_duration: number;
+  created_at: string;
+  invoiced: boolean;
   hours: number;
   date: string;
-  invoiced: boolean;
-  completion_date: string;
-  created_at: string;
-  updated_at: string;
-  wage_status: string;
+  deadline: string | null;
+  estimated_duration: number | null;
+  completion_date: string | null;
   projects: {
     name: string;
+    hourly_rate: number;
     clients: {
       name: string;
     };
   };
-  assignee: {
+  employees: {
     name: string;
-    email: string;
   };
-  assigner: {
+  assigners?: {
     name: string;
-    email: string;
   };
 }
 
 interface Project {
   id: string;
   name: string;
-  clients: {
-    name: string;
-  };
+}
+
+interface EmployeeService {
+  id: string;
+  employee_id: string;
+  service_id: string;
 }
 
 interface Employee {
   id: string;
   name: string;
-  email: string;
 }
 
-const Tasks = () => {
-  const [selectedView, setSelectedView] = useState<'list' | 'kanban' | 'table'>('table');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const queryClient = useQueryClient();
-  
-  // Privilege checks
-  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
-  const canCreate = hasOperationAccess('tasks', 'create');
-  const canRead = hasOperationAccess('tasks', 'read');
-  const canUpdate = hasOperationAccess('tasks', 'update');
-  const canDelete = hasOperationAccess('tasks', 'delete');
+interface Service {
+  id: string;
+  name: string;
+}
 
-  // Form state
-  const [formData, setFormData] = useState({
+const TASKS_PER_PAGE = 20;
+
+const Tasks = () => {
+  const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
+  const { user } = useAuth();
+
+  // Helper function to get current user's employee ID
+  const getCurrentUserEmployeeId = async () => {
+    if (!user?.email) return null;
+    
+    const { data, error } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('email', user.email)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching current user employee:', error);
+      return null;
+    }
+    
+    return data?.id || null;
+  };
+
+  const [newTask, setNewTask] = useState({
     name: '',
     project_id: '',
     assignee_id: '',
-    deadline: '',
-    estimated_duration: '',
+    assigner_id: '',
+    status: 'Not Started' as TaskStatus,
+    deadline: null as Date | null,
+    estimated_duration: ''
   });
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProject, setSelectedProject] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('not-completed');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [assignerFilter, setAssignerFilter] = useState('all');
+  const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
+  const [expandedHistories, setExpandedHistories] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch tasks
-  const { data: tasks, isLoading: tasksLoading } = useQuery({
+  // Helper functions for task status checking
+  const isTaskOverdue = (deadline: string | null, status: TaskStatus, completionDate: string | null): boolean => {
+    if (!deadline) return false;
+    
+    // If task is completed, check against completion date
+    if (status === 'Completed' && completionDate) {
+      const deadlineDate = parseISO(deadline);
+      const completedDate = parseISO(completionDate);
+      return isAfter(completedDate, deadlineDate);
+    }
+    
+    // For ongoing tasks, check against current date
+    if (status !== 'Completed') {
+      const today = new Date();
+      const deadlineDate = parseISO(deadline);
+      return isAfter(today, deadlineDate);
+    }
+    
+    return false;
+  };
+
+  const isTaskOverDuration = (hours: number, estimatedDuration: number | null): boolean => {
+    if (!estimatedDuration) return false;
+    return hours > estimatedDuration;
+  };
+
+  const getDaysBehind = (deadline: string | null, status: TaskStatus, completionDate: string | null): number => {
+    if (!deadline) return 0;
+    
+    const deadlineDate = parseISO(deadline);
+    
+    // If task is completed, calculate days behind from completion date
+    if (status === 'Completed' && completionDate) {
+      const completedDate = parseISO(completionDate);
+      return Math.max(0, differenceInDays(completedDate, deadlineDate));
+    }
+    
+    // For ongoing tasks, calculate from current date
+    if (status !== 'Completed') {
+      const today = new Date();
+      return Math.max(0, differenceInDays(today, deadlineDate));
+    }
+    
+    return 0;
+  };
+
+  const getHoursBehind = (hours: number, estimatedDuration: number | null): number => {
+    if (!estimatedDuration) return 0;
+    return Math.max(0, hours - estimatedDuration);
+  };
+
+  // Fetch tasks with project and employee data including client data and assigner data
+  const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      console.log('Fetching tasks...');
       const { data, error } = await supabase
         .from('tasks')
         .select(`
           *,
-          projects!inner (
-            name,
-            clients!inner (
-              name
-            )
+          projects(
+            name, 
+            hourly_rate,
+            clients(name)
           ),
-          assignee:employees!assignee_id (
-            name,
-            email
-          ),
-          assigner:employees!assigner_id (
-            name,
-            email
-          )
+          employees!tasks_assignee_id_fkey(name),
+          assigners:employees!tasks_assigner_id_fkey(name)
         `)
         .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching tasks:', error);
-        throw error;
-      }
-
-      console.log('Tasks fetched:', data?.length);
-      return data || [];
-    },
-    enabled: canRead, // Only fetch if user can read
+      
+      if (error) throw error;
+      return data as Task[];
+    }
   });
 
-  // Fetch projects
-  const { data: projects } = useQuery({
+  // Fetch projects for dropdown
+  const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select(`
-          id,
-          name,
-          clients (
-            name
-          )
-        `)
+        .select('id, name')
         .order('name');
-
+      
       if (error) throw error;
-      return data || [];
-    },
-    enabled: canCreate || canUpdate, // Only fetch if user can create or update
+      return data as Project[];
+    }
   });
 
-  // Fetch employees
-  const { data: employees } = useQuery({
+  // Fetch employee services separately
+  const { data: employeeServices = [] } = useQuery({
+    queryKey: ['employee-services'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employee_services')
+        .select('*');
+      
+      if (error) throw error;
+      return data as EmployeeService[];
+    }
+  });
+
+  // Fetch employees for dropdown
+  const { data: employees = [] } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('employees')
-        .select('id, name, email')
+        .select('id, name')
         .order('name');
-
+      
       if (error) throw error;
-      return data || [];
-    },
-    enabled: canCreate || canUpdate, // Only fetch if user can create or update
+      return data as Employee[];
+    }
   });
 
-  // Filter tasks based on current filters
-  const filteredTasks = tasks?.filter(task => {
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
-    const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
-    const matchesSearch = searchQuery === '' || 
-      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.projects?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.assignee?.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesStatus && matchesProject && matchesAssignee && matchesSearch;
-  }) || [];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!canCreate && !editingTask) {
-      toast.error('You do not have permission to create tasks');
-      return;
+  // Fetch services for the global filter
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      return data as Service[];
     }
-    
-    if (!canUpdate && editingTask) {
-      toast.error('You do not have permission to update tasks');
-      return;
-    }
+  });
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated user');
-
-      const taskData = {
-        name: formData.name,
-        project_id: formData.project_id,
-        assignee_id: formData.assignee_id,
-        assigner_id: user.id,
-        deadline: formData.deadline || null,
-        estimated_duration: formData.estimated_duration ? parseFloat(formData.estimated_duration) : null,
+  // Mutation to create a new task
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskData: any) => {
+      // Get current user's employee ID for assigner
+      const currentUserEmployeeId = await getCurrentUserEmployeeId();
+      
+      const finalTaskData = {
+        ...taskData,
+        assigner_id: currentUserEmployeeId, // Auto-set to current user
+        deadline: taskData.deadline ? format(taskData.deadline, 'yyyy-MM-dd') : null,
+        estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null
       };
 
-      if (editingTask) {
-        const { error } = await supabase
-          .from('tasks')
-          .update(taskData)
-          .eq('id', editingTask.id);
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([finalTaskData])
+        .select()
+        .single();
+      
+      if (error) throw error;
 
-        if (error) throw error;
-        toast.success('Task updated successfully');
-        setIsEditDialogOpen(false);
-      } else {
-        const { error } = await supabase
-          .from('tasks')
-          .insert([taskData]);
+      // Log activity
+      await logActivity({
+        action_type: 'created',
+        entity_type: 'task',
+        entity_id: data.id,
+        entity_name: data.name,
+        description: `Created task ${data.name}`,
+        comment: ''
+      });
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setNewTask({
+        name: '',
+        project_id: '',
+        assignee_id: '',
+        assigner_id: '',
+        status: 'Not Started',
+        deadline: null,
+        estimated_duration: ''
+      });
+      setIsDialogOpen(false);
+      toast.success('Task created successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to create task: ' + error.message);
+    }
+  });
 
-        if (error) throw error;
-        toast.success('Task created successfully');
-        setIsCreateDialogOpen(false);
+  // Mutation to update an existing task
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, ...updates }: { id: string } & any) => {
+      // Get current user's employee ID for assigner if not already set
+      const currentUserEmployeeId = await getCurrentUserEmployeeId();
+      
+      const finalUpdates = {
+        ...updates,
+        assigner_id: updates.assigner_id || currentUserEmployeeId, // Auto-set if not provided
+        deadline: updates.deadline ? format(new Date(updates.deadline), 'yyyy-MM-dd') : null,
+        estimated_duration: updates.estimated_duration ? parseFloat(updates.estimated_duration) : null
+      };
+
+      // If status is being changed to 'Completed' and no completion_date exists, set it
+      if (updates.status === 'Completed' && !updates.completion_date) {
+        finalUpdates.completion_date = new Date().toISOString();
       }
 
+      // If status is being changed from 'Completed' to something else, clear completion_date
+      if (updates.status !== 'Completed') {
+        finalUpdates.completion_date = null;
+      }
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .update(finalUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Log activity
+      await logActivity({
+        action_type: 'updated',
+        entity_type: 'task',
+        entity_id: data.id,
+        entity_name: data.name,
+        description: `Updated task ${data.name}`,
+        comment: ''
+      });
+      
+      return data;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      resetForm();
-    } catch (error) {
-      console.error('Error saving task:', error);
-      toast.error('Failed to save task');
+      setEditingTask(null);
+      setIsEditDialogOpen(false);
+      toast.success('Task updated successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to update task: ' + error.message);
     }
-  };
+  });
 
-  const handleDelete = async (taskId: string) => {
-    if (!canDelete) {
-      toast.error('You do not have permission to delete tasks');
-      return;
-    }
+  // Updated mutation to delete a task and its related time entries
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // First, delete all time entries associated with this task
+      const { error: timeEntriesError } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('task_id', id);
+      
+      if (timeEntriesError) throw timeEntriesError;
 
-    if (!confirm('Are you sure you want to delete this task?')) return;
-
-    try {
-      const { error } = await supabase
+      // Then delete the task
+      const { data, error } = await supabase
         .from('tasks')
         .delete()
-        .eq('id', taskId);
-
+        .eq('id', id);
+      
       if (error) throw error;
 
-      toast.success('Task deleted successfully');
+      // Log activity
+      await logActivity({
+        action_type: 'deleted',
+        entity_type: 'task',
+        entity_id: id,
+        entity_name: id,
+        description: `Deleted task ${id}`,
+        comment: ''
+      });
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      toast.error('Failed to delete task');
+      queryClient.invalidateQueries({ queryKey: ['time-entries'] });
+      toast.success('Task and all related time entries deleted successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete task: ' + error.message);
     }
-  };
+  });
 
-  const handleEdit = (task: Task) => {
-    if (!canUpdate) {
-      toast.error('You do not have permission to edit tasks');
-      return;
-    }
-
-    setEditingTask(task);
-    setFormData({
-      name: task.name,
-      project_id: task.project_id,
-      assignee_id: task.assignee_id,
-      deadline: task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd') : '',
-      estimated_duration: task.estimated_duration?.toString() || '',
+  // Filter and sort tasks
+  const filteredAndSortedTasks = React.useMemo(() => {
+    let filtered = tasks.filter(task => {
+      const matchesProject = selectedProject === 'all' || task.project_id === selectedProject;
+      
+      // Updated status filter logic
+      const matchesStatus = statusFilter === 'all' || 
+                           (statusFilter === 'not-completed' && task.status !== 'Completed') ||
+                           (statusFilter !== 'all' && statusFilter !== 'not-completed' && task.status === statusFilter);
+      
+      const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
+      const matchesAssigner = assignerFilter === 'all' || task.assigner_id === assignerFilter;
+      const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Filter by service through employee services (check if the assignee has the service)
+      const matchesService = globalServiceFilter === 'all' || 
+        employeeServices.some(es => es.employee_id === task.assignee_id && es.service_id === globalServiceFilter);
+      
+      return matchesProject && matchesStatus && matchesAssignee && matchesAssigner && matchesSearch && matchesService;
     });
-    setIsEditDialogOpen(true);
-  };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      project_id: '',
-      assignee_id: '',
-      deadline: '',
-      estimated_duration: '',
+    // Sort tasks: overdue or over-duration tasks at the top
+    return filtered.sort((a, b) => {
+      const aIsOverdue = isTaskOverdue(a.deadline, a.status, a.completion_date);
+      const aIsOverDuration = isTaskOverDuration(a.hours, a.estimated_duration);
+      const bIsOverdue = isTaskOverdue(b.deadline, b.status, b.completion_date);
+      const bIsOverDuration = isTaskOverDuration(b.hours, b.estimated_duration);
+      
+      const aIsPriority = aIsOverdue || aIsOverDuration;
+      const bIsPriority = bIsOverdue || bIsOverDuration;
+      
+      if (aIsPriority && !bIsPriority) return -1;
+      if (!aIsPriority && bIsPriority) return 1;
+      
+      // If both are priority, sort by most overdue/over-duration first
+      if (aIsPriority && bIsPriority) {
+        const aDaysBehind = getDaysBehind(a.deadline, a.status, a.completion_date);
+        const bDaysBehind = getDaysBehind(b.deadline, b.status, b.completion_date);
+        const aHoursBehind = getHoursBehind(a.hours, a.estimated_duration);
+        const bHoursBehind = getHoursBehind(b.hours, b.estimated_duration);
+        
+        const aTotalBehind = aDaysBehind + aHoursBehind;
+        const bTotalBehind = bDaysBehind + bHoursBehind;
+        
+        return bTotalBehind - aTotalBehind;
+      }
+      
+      // Default sort by creation date
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-    setEditingTask(null);
+  }, [tasks, selectedProject, statusFilter, assigneeFilter, assignerFilter, searchTerm, globalServiceFilter, employeeServices]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAndSortedTasks.length / TASKS_PER_PAGE);
+  const startIndex = (currentPage - 1) * TASKS_PER_PAGE;
+  const paginatedTasks = filteredAndSortedTasks.slice(startIndex, startIndex + TASKS_PER_PAGE);
+
+  // Reset to first page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedProject, statusFilter, assigneeFilter, assignerFilter, globalServiceFilter]);
+
+  const handleCreateTask = () => {
+    createTaskMutation.mutate(newTask);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed': return 'bg-green-500';
-      case 'In Progress': return 'bg-blue-500';
-      case 'On Hold': return 'bg-yellow-500';
-      default: return 'bg-gray-500';
+  const handleUpdateTask = () => {
+    if (editingTask) {
+      updateTaskMutation.mutate({ id: editingTask.id, ...editingTask });
     }
   };
 
-  const openCommentDialog = (task: Task) => {
-    setSelectedTask(task);
-    setIsCommentDialogOpen(true);
+  const handleDeleteTask = (id: string) => {
+    deleteTaskMutation.mutate(id);
   };
 
-  const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
-    if (!canUpdate) {
-      toast.error('You do not have permission to update tasks');
-      return;
+  const toggleHistory = (taskId: string) => {
+    const newExpanded = new Set(expandedHistories);
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId);
+    } else {
+      newExpanded.add(taskId);
     }
-
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-
-      if (error) throw error;
-
-      toast.success('Task status updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      toast.error('Failed to update task status');
-    }
+    setExpandedHistories(newExpanded);
   };
 
-  if (privilegesLoading || tasksLoading) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <Navigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-lg">Loading...</div>
-          </div>
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-lg">Loading tasks...</div>
         </div>
-      </div>
+      </Navigation>
     );
   }
 
-  if (!canRead) {
+  // Mobile view with cards
+  if (isMobile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <Navigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-              <p className="text-gray-600">You don't have permission to view tasks.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <ProtectedRoute pageName="tasks">
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <Navigation />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
+      <Navigation>
+        <div className="px-4 py-6 space-y-4">
+          <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-              <p className="text-gray-600 mt-2">Manage project tasks and assignments</p>
+              <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+              <p className="text-gray-600 text-sm mt-1">Track and manage your project tasks</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
-              <div className="flex rounded-lg border border-gray-200 bg-white p-1">
-                <button
-                  onClick={() => setSelectedView('table')}
-                  className={`px-3 py-1 rounded text-sm transition-colors ${
-                    selectedView === 'table' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Table
-                </button>
-                <button
-                  onClick={() => setSelectedView('list')}
-                  className={`px-3 py-1 rounded text-sm transition-colors ${
-                    selectedView === 'list' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  List View
-                </button>
-                <button
-                  onClick={() => setSelectedView('kanban')}
-                  className={`px-3 py-1 rounded text-sm transition-colors ${
-                    selectedView === 'kanban' 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Kanban
-                </button>
-              </div>
-              {canCreate && (
-                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => { resetForm(); setIsCreateDialogOpen(true); }}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Task
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Create New Task</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <Label htmlFor="name">Task Name</Label>
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="project">Project</Label>
-                        <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a project" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {projects?.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name} - {project.clients?.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="assignee">Assignee</Label>
-                        <Select value={formData.assignee_id} onValueChange={(value) => setFormData({ ...formData, assignee_id: value })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select an assignee" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {employees?.map((employee) => (
-                              <SelectItem key={employee.id} value={employee.id}>
-                                {employee.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="deadline">Deadline</Label>
-                        <Input
-                          id="deadline"
-                          type="date"
-                          value={formData.deadline}
-                          onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
-                        <Input
-                          id="estimated_duration"
-                          type="number"
-                          step="0.5"
-                          value={formData.estimated_duration}
-                          onChange={(e) => setFormData({ ...formData, estimated_duration: e.target.value })}
-                        />
-                      </div>
-                      <div className="flex justify-end space-x-2">
-                        <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button type="submit">Create Task</Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </div>
-          </div>
-
-          {/* Filters */}
-          {showFilters && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Filters</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <Label htmlFor="search">Search</Label>
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="mx-4 max-w-[calc(100vw-2rem)]">
+                <DialogHeader>
+                  <DialogTitle>Create New Task</DialogTitle>
+                  <DialogDescription>
+                    Add a new task to a project.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Task Name</Label>
                     <Input
-                      id="search"
-                      placeholder="Search tasks..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      id="name"
+                      placeholder="Task name"
+                      value={newTask.name}
+                      onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="status-filter">Status</Label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <div className="space-y-2">
+                    <Label htmlFor="project">Project</Label>
+                    <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
                       <SelectTrigger>
-                        <SelectValue placeholder="All statuses" />
+                        <SelectValue placeholder="Select a project" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Not Started">Not Started</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="project-filter">Project</Label>
-                    <Select value={projectFilter} onValueChange={setProjectFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All projects" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Projects</SelectItem>
-                        {projects?.map((project) => (
+                        {projects.map((project) => (
                           <SelectItem key={project.id} value={project.id}>
                             {project.name}
                           </SelectItem>
@@ -538,15 +572,14 @@ const Tasks = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label htmlFor="assignee-filter">Assignee</Label>
-                    <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                  <div className="space-y-2">
+                    <Label htmlFor="assignee">Assignee</Label>
+                    <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
                       <SelectTrigger>
-                        <SelectValue placeholder="All assignees" />
+                        <SelectValue placeholder="Select an assignee" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Assignees</SelectItem>
-                        {employees?.map((employee) => (
+                        {employees.map((employee) => (
                           <SelectItem key={employee.id} value={employee.id}>
                             {employee.name}
                           </SelectItem>
@@ -554,212 +587,470 @@ const Tasks = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {selectedView === 'kanban' ? (
-            <TaskKanban 
-              tasks={filteredTasks} 
-              onTaskStatusChange={handleTaskStatusChange}
-            />
-          ) : selectedView === 'table' ? (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Task Name</TableHead>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Assignee</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Deadline</TableHead>
-                      <TableHead>Est. Duration</TableHead>
-                      <TableHead>Hours Logged</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTasks.map((task) => (
-                      <TableRow key={task.id}>
-                        <TableCell className="font-medium">{task.name}</TableCell>
-                        <TableCell>{task.projects?.name}</TableCell>
-                        <TableCell>{task.projects?.clients?.name}</TableCell>
-                        <TableCell>{task.assignee?.name || 'Unassigned'}</TableCell>
-                        <TableCell>
-                          <Badge className={`${getStatusColor(task.status)} text-white`}>
-                            {task.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {task.deadline ? format(new Date(task.deadline), 'MMM d, yyyy') : 'No deadline'}
-                        </TableCell>
-                        <TableCell>{task.estimated_duration ? `${task.estimated_duration}h` : 'N/A'}</TableCell>
-                        <TableCell>{task.hours}h</TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openCommentDialog(task)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {canUpdate && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(task)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            )}
-                            {canDelete && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(task.id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {filteredTasks.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No tasks found matching your filters.
+                  <div className="space-y-2">
+                    <Label htmlFor="assigner">Assigner</Label>
+                    <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an assigner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredTasks.map((task) => (
-                <Card key={task.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="deadline">Deadline</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !newTask.deadline && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {newTask.deadline ? format(newTask.deadline, "PPP") : <span>Pick a deadline</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newTask.deadline}
+                          onSelect={(date) => setNewTask({ ...newTask, deadline: date })}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
+                    <Input
+                      id="estimated_duration"
+                      type="number"
+                      placeholder="Estimated hours"
+                      value={newTask.estimated_duration}
+                      onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
+                    />
+                  </div>
+                  <Button onClick={handleCreateTask} className="w-full">
+                    Create Task
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Mobile Filters */}
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Input
+                placeholder="Search tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="text-xs">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="not-completed">Active Tasks</SelectItem>
+                    <SelectItem value="Not Started">Not Started</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </Card>
+
+          {/* Mobile Task Cards */}
+          <div className="space-y-3">
+            {paginatedTasks.map((task) => {
+              const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
+              const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
+              const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
+              const hoursBehind = getHoursBehind(task.hours, task.estimated_duration);
+
+              return (
+                <Card key={task.id} className={cn("p-4", (isOverdue || isOverDuration) && "border-red-500 bg-red-50")}>
+                  <div className="space-y-3">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{task.name}</CardTitle>
-                      <Badge className={`${getStatusColor(task.status)} text-white`}>
-                        {task.status}
-                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm truncate">{task.name}</h3>
+                        <p className="text-xs text-gray-500 truncate">{task.projects?.name}</p>
+                        <p className="text-xs text-gray-500">{task.employees?.name}</p>
+                        
+                        {/* Deadline and Duration Info */}
+                        {task.deadline && (
+                          <div className={cn("text-xs", isOverdue ? "text-red-600 font-semibold" : "text-gray-600")}>
+                            <Calendar className="inline h-3 w-3 mr-1" />
+                            Deadline: {format(parseISO(task.deadline), "MMM dd, yyyy")}
+                            {isOverdue && ` (${daysBehind} days overdue${task.status === 'Completed' ? ' when completed' : ''})`}
+                          </div>
+                        )}
+                        
+                        {task.estimated_duration && (
+                          <div className={cn("text-xs", isOverDuration ? "text-red-600 font-semibold" : "text-gray-600")}>
+                            <Clock className="inline h-3 w-3 mr-1" />
+                            Est: {task.estimated_duration}h | Logged: {task.hours}h
+                            {isOverDuration && ` (+${hoursBehind.toFixed(1)}h over)`}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-col items-end space-y-1">
+                        <Badge className={
+                          task.status === 'Not Started' ? 'bg-gray-100 text-gray-800 text-xs' :
+                          task.status === 'In Progress' ? 'bg-blue-100 text-blue-800 text-xs' :
+                          'bg-green-100 text-green-800 text-xs'
+                        }>
+                          {task.status}
+                        </Badge>
+                        
+                        {(isOverdue || isOverDuration) && (
+                          <Badge className="bg-red-100 text-red-800 text-xs">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {task.status === 'Completed' ? 'Was Urgent' : 'Urgent'}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-2 text-gray-500" />
-                        <span className="font-medium">Project:</span> {task.projects?.name}
-                      </div>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-2 text-gray-500" />
-                        <span className="font-medium">Client:</span> {task.projects?.clients?.name}
-                      </div>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-2 text-gray-500" />
-                        <span className="font-medium">Assignee:</span> {task.assignee?.name || 'Unassigned'}
-                      </div>
-                      {task.deadline && (
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                          <span className="font-medium">Deadline:</span> {format(new Date(task.deadline), 'MMM d, yyyy')}
-                        </div>
+
+                    {/* Time Tracker and Hours */}
+                    <div className="flex items-center justify-between">
+                      {task.status !== 'Completed' && task.status !== 'Not Started' && (
+                        <TimeTrackerWithComment
+                          task={{ id: task.id, name: task.name }}
+                          onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                        />
                       )}
-                      {task.estimated_duration && (
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                          <span className="font-medium">Estimated:</span> {task.estimated_duration}h
-                        </div>
-                      )}
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-2 text-gray-500" />
-                        <span className="font-medium">Logged:</span> {task.hours}h
-                      </div>
+                      <span className="text-xs text-gray-500">{task.hours}h logged</span>
                     </div>
-                    <div className="flex justify-end space-x-2 mt-4">
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-between items-center pt-2 border-t">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => openCommentDialog(task)}
+                        onClick={() => {
+                          setEditingTask(task);
+                          setIsEditDialogOpen(true);
+                        }}
+                        className="text-xs"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Edit className="h-3 w-3" />
                       </Button>
-                      {canUpdate && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(task)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(task.id)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleHistory(task.id)}
+                        className="text-xs"
+                      >
+                        <History className="h-3 w-3 mr-1" />
+                        History
+                      </Button>
                     </div>
-                  </CardContent>
+
+                    {/* Collapsible History */}
+                    <Collapsible open={expandedHistories.has(task.id)}>
+                      <CollapsibleContent className="pt-3 border-t">
+                        <TaskHistory
+                          taskId={task.id}
+                          onUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
                 </Card>
-              ))}
-              {filteredTasks.length === 0 && (
-                <div className="col-span-full text-center py-8 text-gray-500">
-                  No tasks found matching your filters.
-                </div>
-              )}
+              );
+            })}
+          </div>
+
+          {/* Mobile Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                  
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(pageNum)}
+                          isActive={currentPage === pageNum}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  })}
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
 
-          {/* Edit Dialog */}
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Edit Task</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-name">Task Name</Label>
+          {filteredAndSortedTasks.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No tasks found matching your filters.
+            </div>
+          )}
+        </div>
+      </Navigation>
+    );
+  }
+
+  // Desktop view with table
+  return (
+    <Navigation>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
+            <p className="text-gray-600 mt-2">Track and manage your project tasks</p>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            {/* Global Service Filter */}
+            <div className="flex items-center space-x-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by service" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Services</SelectItem>
+                  {services.map((service) => (
+                    <SelectItem key={service.id} value={service.id}>
+                      {service.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Task
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Task</DialogTitle>
+                  <DialogDescription>
+                    Add a new task to a project.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Task Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="Task name"
+                      value={newTask.name}
+                      onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="project">Project</Label>
+                    <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assignee">Assignee</Label>
+                    <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assigner">Assigner</Label>
+                    <Select value={newTask.assigner_id} onValueChange={(value) => setNewTask({ ...newTask, assigner_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an assigner" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {employees.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="deadline">Deadline</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !newTask.deadline && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {newTask.deadline ? format(newTask.deadline, "PPP") : <span>Pick a deadline</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={newTask.deadline}
+                          onSelect={(date) => setNewTask({ ...newTask, deadline: date })}
+                          initialFocus
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
+                    <Input
+                      id="estimated_duration"
+                      type="number"
+                      placeholder="Estimated hours"
+                      value={newTask.estimated_duration}
+                      onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
+                    />
+                  </div>
+                  <Button onClick={handleCreateTask} className="w-full">
+                    Create Task
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Filters - Organized in two rows */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              {/* First Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="search">Search Tasks</Label>
                   <Input
-                    id="edit-name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
+                    id="search"
+                    placeholder="Search by name..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="edit-project">Project</Label>
-                  <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })}>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="project-filter">Filter by Project</Label>
+                  <Select value={selectedProject} onValueChange={setSelectedProject}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a project" />
+                      <SelectValue placeholder="All Projects" />
                     </SelectTrigger>
                     <SelectContent>
-                      {projects?.map((project) => (
+                      <SelectItem value="all">All Projects</SelectItem>
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
-                          {project.name} - {project.clients?.name}
+                          {project.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="edit-assignee">Assignee</Label>
-                  <Select value={formData.assignee_id} onValueChange={(value) => setFormData({ ...formData, assignee_id: value })}>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status-filter">Filter by Status</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select an assignee" />
+                      <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      {employees?.map((employee) => (
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="not-completed">Active Tasks</SelectItem>
+                      <SelectItem value="Not Started">Not Started</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Second Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="assignee-filter">Filter by Assignee</Label>
+                  <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Assignees" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Assignees</SelectItem>
+                      {employees.map((employee) => (
                         <SelectItem key={employee.id} value={employee.id}>
                           {employee.name}
                         </SelectItem>
@@ -767,49 +1058,408 @@ const Tasks = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="edit-deadline">Deadline</Label>
-                  <Input
-                    id="edit-deadline"
-                    type="date"
-                    value={formData.deadline}
-                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-estimated_duration">Estimated Duration (hours)</Label>
-                  <Input
-                    id="edit-estimated_duration"
-                    type="number"
-                    step="0.5"
-                    value={formData.estimated_duration}
-                    onChange={(e) => setFormData({ ...formData, estimated_duration: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">Update Task</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
 
-          {/* Comment Dialog */}
-          {selectedTask && (
-            <TaskCommentDialog
-              open={isCommentDialogOpen}
-              onClose={() => setIsCommentDialogOpen(false)}
-              task={selectedTask}
-            />
-          )}
-        </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assigner-filter">Filter by Assigner</Label>
+                  <Select value={assignerFilter} onValueChange={setAssignerFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Assigners" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Assigners</SelectItem>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedProject('all');
+                      setStatusFilter('not-completed');
+                      setAssigneeFilter('all');
+                      setAssignerFilter('all');
+                      setGlobalServiceFilter('all');
+                    }}
+                    className="w-full"
+                  >
+                    Clear All Filters
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tasks List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Tasks ({filteredAndSortedTasks.length})</CardTitle>
+            <CardDescription>
+              {filteredAndSortedTasks.length} task{filteredAndSortedTasks.length !== 1 ? 's' : ''} found
+              {globalServiceFilter !== 'all' && ` filtered by ${services.find(s => s.id === globalServiceFilter)?.name}`}
+              {statusFilter === 'not-completed' && ' (completed tasks hidden by default)'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {filteredAndSortedTasks.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No tasks found matching your filters.
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task Name</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Assignee</TableHead>
+                      <TableHead>Assigner</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Deadline</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Timer</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedTasks.map((task) => {
+                      const isOverdue = isTaskOverdue(task.deadline, task.status, task.completion_date);
+                      const isOverDuration = isTaskOverDuration(task.hours, task.estimated_duration);
+                      const daysBehind = getDaysBehind(task.deadline, task.status, task.completion_date);
+                      const hoursBehind = getHoursBehind(task.hours, task.estimated_duration);
+
+                      return (
+                        <React.Fragment key={task.id}>
+                          <TableRow className={cn((isOverdue || isOverDuration) && "bg-red-50 border-red-200")}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center space-x-2">
+                                <span>{task.name}</span>
+                                {(isOverdue || isOverDuration) && (
+                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{task.projects?.name}</TableCell>
+                            <TableCell>{task.employees?.name}</TableCell>
+                            <TableCell>{task.assigners?.name || 'N/A'}</TableCell>
+                            <TableCell>
+                              <Badge className={
+                                task.status === 'Not Started' ? 'bg-gray-100 text-gray-800' :
+                                task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                'bg-green-100 text-green-800'
+                              }>
+                                {task.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {task.deadline ? (
+                                <div className={cn("text-sm", isOverdue && "text-red-600 font-semibold")}>
+                                  <div>{format(parseISO(task.deadline), "MMM dd, yyyy")}</div>
+                                  {isOverdue && (
+                                    <div className="text-xs text-red-500">
+                                      {daysBehind} days overdue{task.status === 'Completed' ? ' when completed' : ''}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">No deadline</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div className={cn(isOverDuration && "text-red-600 font-semibold")}>
+                                  {task.hours || 0}h logged
+                                </div>
+                                {task.estimated_duration && (
+                                  <div className="text-xs text-gray-500">
+                                    Est: {task.estimated_duration}h
+                                    {isOverDuration && (
+                                      <span className="text-red-500 font-semibold">
+                                        {' '}(+{hoursBehind.toFixed(1)}h over)
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {task.status !== 'Completed' && task.status !== 'Not Started' && (
+                                <TimeTrackerWithComment
+                                  task={{ id: task.id, name: task.name }}
+                                  onSuccess={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingTask(task);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleHistory(task.id)}
+                                >
+                                  <History className="h-4 w-4" />
+                                </Button>
+                                
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this task? This will also delete all time entries associated with this task. This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteTask(task.id)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Delete Task
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          
+                          {/* Collapsible History Row */}
+                          {expandedHistories.has(task.id) && (
+                            <TableRow>
+                              <TableCell colSpan={9} className="p-0">
+                                <div className="bg-gray-50 p-4 border-t">
+                                  <TaskHistory
+                                    taskId={task.id}
+                                    onUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
+                                  />
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+
+                {/* Desktop Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center mt-6">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                        
+                        {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 7) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 4) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 3) {
+                            pageNum = totalPages - 6 + i;
+                          } else {
+                            pageNum = currentPage - 3 + i;
+                          }
+                          
+                          return (
+                            <PaginationItem key={pageNum}>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(pageNum)}
+                                isActive={currentPage === pageNum}
+                                className="cursor-pointer"
+                              >
+                                {pageNum}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
+                        
+                        {totalPages > 7 && currentPage < totalPages - 3 && (
+                          <>
+                            <PaginationItem>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                            <PaginationItem>
+                              <PaginationLink
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="cursor-pointer"
+                              >
+                                {totalPages}
+                              </PaginationLink>
+                            </PaginationItem>
+                          </>
+                        )}
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+              <DialogDescription>
+                Edit task details.
+              </DialogDescription>
+            </DialogHeader>
+            {editingTask && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Task Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Task name"
+                    value={editingTask.name}
+                    onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project">Project</Label>
+                  <Select value={editingTask.project_id} onValueChange={(value) => setEditingTask({ ...editingTask, project_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assignee">Assignee</Label>
+                  <Select value={editingTask.assignee_id} onValueChange={(value) => setEditingTask({ ...editingTask, assignee_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assigner">Assigner</Label>
+                  <Select value={editingTask.assigner_id} onValueChange={(value) => setEditingTask({ ...editingTask, assigner_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an assigner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={editingTask.status} onValueChange={(value) => setEditingTask({ ...editingTask, status: value as TaskStatus })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Not Started">Not Started</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deadline">Deadline</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !editingTask.deadline && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {editingTask.deadline ? format(parseISO(editingTask.deadline), "PPP") : <span>Pick a deadline</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={editingTask.deadline ? parseISO(editingTask.deadline) : undefined}
+                        onSelect={(date) => setEditingTask({ ...editingTask, deadline: date ? format(date, 'yyyy-MM-dd') : null })}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="estimated_duration">Estimated Duration (hours)</Label>
+                  <Input
+                    id="estimated_duration"
+                    type="number"
+                    placeholder="Estimated hours"
+                    value={editingTask.estimated_duration || ''}
+                    onChange={(e) => setEditingTask({ ...editingTask, estimated_duration: parseFloat(e.target.value) || null })}
+                  />
+                </div>
+                <Button onClick={handleUpdateTask} className="w-full">
+                  Update Task
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
-    </ProtectedRoute>
+    </Navigation>
   );
 };
 
 export default Tasks;
-
-</edits_to_apply>
