@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Calendar, Clock, User, Trash2, Edit, Plus, Eye } from 'lucide-react';
+import { Calendar, Clock, User, Trash2, Edit, Plus, Eye, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import TaskKanban from '@/components/TaskKanban';
 import TaskCommentDialog from '@/components/TaskCommentDialog';
@@ -66,12 +66,20 @@ interface Employee {
 }
 
 const Tasks = () => {
-  const [selectedView, setSelectedView] = useState<'list' | 'kanban'>('list');
+  const [selectedView, setSelectedView] = useState<'list' | 'kanban' | 'table'>('table');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isCommentDialogOpen, setIsCommentDialogOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const queryClient = useQueryClient();
   
   // Privilege checks
@@ -162,6 +170,19 @@ const Tasks = () => {
     },
     enabled: canCreate || canUpdate, // Only fetch if user can create or update
   });
+
+  // Filter tasks based on current filters
+  const filteredTasks = tasks?.filter(task => {
+    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+    const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
+    const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
+    const matchesSearch = searchQuery === '' || 
+      task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.projects?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.assignee?.name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesStatus && matchesProject && matchesAssignee && matchesSearch;
+  }) || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,6 +303,28 @@ const Tasks = () => {
     setIsCommentDialogOpen(true);
   };
 
+  const handleTaskStatusChange = async (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed') => {
+    if (!canUpdate) {
+      toast.error('You do not have permission to update tasks');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success('Task status updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast.error('Failed to update task status');
+    }
+  };
+
   if (privilegesLoading || tasksLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -322,7 +365,24 @@ const Tasks = () => {
               <p className="text-gray-600 mt-2">Manage project tasks and assignments</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
               <div className="flex rounded-lg border border-gray-200 bg-white p-1">
+                <button
+                  onClick={() => setSelectedView('table')}
+                  className={`px-3 py-1 rounded text-sm transition-colors ${
+                    selectedView === 'table' 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Table
+                </button>
                 <button
                   onClick={() => setSelectedView('list')}
                   className={`px-3 py-1 rounded text-sm transition-colors ${
@@ -428,19 +488,158 @@ const Tasks = () => {
             </div>
           </div>
 
+          {/* Filters */}
+          {showFilters && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Filters</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label htmlFor="search">Search</Label>
+                    <Input
+                      id="search"
+                      placeholder="Search tasks..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="status-filter">Status</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="Not Started">Not Started</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="On Hold">On Hold</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="project-filter">Project</Label>
+                    <Select value={projectFilter} onValueChange={setProjectFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All projects" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Projects</SelectItem>
+                        {projects?.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="assignee-filter">Assignee</Label>
+                    <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All assignees" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {employees?.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            {employee.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {selectedView === 'kanban' ? (
             <TaskKanban 
-              tasks={tasks || []} 
-              onTaskUpdate={() => queryClient.invalidateQueries({ queryKey: ['tasks'] })}
-              canUpdate={canUpdate}
-              canDelete={canDelete}
-              onTaskEdit={handleEdit}
-              onTaskDelete={handleDelete}
-              onTaskComment={openCommentDialog}
+              tasks={filteredTasks} 
+              onTaskStatusChange={handleTaskStatusChange}
             />
+          ) : selectedView === 'table' ? (
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task Name</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Assignee</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Deadline</TableHead>
+                      <TableHead>Est. Duration</TableHead>
+                      <TableHead>Hours Logged</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">{task.name}</TableCell>
+                        <TableCell>{task.projects?.name}</TableCell>
+                        <TableCell>{task.projects?.clients?.name}</TableCell>
+                        <TableCell>{task.assignee?.name || 'Unassigned'}</TableCell>
+                        <TableCell>
+                          <Badge className={`${getStatusColor(task.status)} text-white`}>
+                            {task.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {task.deadline ? format(new Date(task.deadline), 'MMM d, yyyy') : 'No deadline'}
+                        </TableCell>
+                        <TableCell>{task.estimated_duration ? `${task.estimated_duration}h` : 'N/A'}</TableCell>
+                        <TableCell>{task.hours}h</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openCommentDialog(task)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {canUpdate && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(task)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(task.id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {filteredTasks.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No tasks found matching your filters.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {tasks?.map((task) => (
+              {filteredTasks.map((task) => (
                 <Card key={task.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
@@ -476,6 +675,10 @@ const Tasks = () => {
                           <span className="font-medium">Estimated:</span> {task.estimated_duration}h
                         </div>
                       )}
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-2 text-gray-500" />
+                        <span className="font-medium">Logged:</span> {task.hours}h
+                      </div>
                     </div>
                     <div className="flex justify-end space-x-2 mt-4">
                       <Button
@@ -508,6 +711,11 @@ const Tasks = () => {
                   </CardContent>
                 </Card>
               ))}
+              {filteredTasks.length === 0 && (
+                <div className="col-span-full text-center py-8 text-gray-500">
+                  No tasks found matching your filters.
+                </div>
+              )}
             </div>
           )}
 
@@ -601,3 +809,5 @@ const Tasks = () => {
 };
 
 export default Tasks;
+
+</edits_to_apply>

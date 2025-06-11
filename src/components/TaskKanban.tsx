@@ -7,7 +7,7 @@ import { Clock, User, Calendar } from 'lucide-react';
 interface Task {
   id: string;
   name: string;
-  status: 'Not Started' | 'In Progress' | 'Completed';
+  status: string;
   deadline?: string;
   estimated_duration?: number;
   hours: number;
