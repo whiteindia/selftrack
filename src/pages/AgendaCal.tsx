@@ -332,17 +332,17 @@ const AgendaCal = () => {
 
   return (
     <Navigation>
-      <div className="flex h-screen">
+      <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Panel - Filters */}
-        <div className="w-80 bg-gray-50 border-r p-6 overflow-y-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <Calendar className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-bold">Agenda Calendar</h2>
+        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-4 lg:p-6 overflow-y-auto">
+          <div className="flex items-center gap-3 mb-4 lg:mb-6">
+            <Calendar className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
+            <h2 className="text-lg lg:text-xl font-bold">Agenda Calendar</h2>
           </div>
 
-          <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-6 lg:space-y-0 lg:space-y-6">
             {/* Service Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Service</label>
               <Select value={serviceFilter} onValueChange={setServiceFilter}>
                 <SelectTrigger>
@@ -360,7 +360,7 @@ const AgendaCal = () => {
             </div>
 
             {/* Client Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Client</label>
               <Select value={clientFilter} onValueChange={setClientFilter}>
                 <SelectTrigger>
@@ -378,7 +378,7 @@ const AgendaCal = () => {
             </div>
 
             {/* Assignee Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Assignee</label>
               <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
                 <SelectTrigger>
@@ -396,7 +396,7 @@ const AgendaCal = () => {
             </div>
 
             {/* Assigner Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Assigner</label>
               <Select value={assignerFilter} onValueChange={setAssignerFilter}>
                 <SelectTrigger>
@@ -414,9 +414,9 @@ const AgendaCal = () => {
             </div>
 
             {/* Project Filter */}
-            <div>
+            <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Projects</label>
-              <div className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2 bg-white">
+              <div className="space-y-1 max-h-32 lg:max-h-48 overflow-y-auto border rounded-md p-2 bg-white">
                 <div
                   className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
                     projectFilter === 'all' ? 'bg-blue-50 text-blue-700' : ''
@@ -444,29 +444,29 @@ const AgendaCal = () => {
         </div>
 
         {/* Main Calendar View */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Calendar Header */}
-          <div className="border-b p-4 bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
+          <div className="border-b p-3 lg:p-4 bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 lg:gap-4 mb-3 lg:mb-4">
+              <div className="flex items-center gap-2 lg:gap-4 min-w-0">
+                <Button variant="outline" size="icon" onClick={() => navigateDate('prev')} className="flex-shrink-0">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <h1 className="text-2xl font-bold">{getDateRangeText()}</h1>
-                <Button variant="outline" size="icon" onClick={() => navigateDate('next')}>
+                <h1 className="text-lg lg:text-2xl font-bold truncate">{getDateRangeText()}</h1>
+                <Button variant="outline" size="icon" onClick={() => navigateDate('next')} className="flex-shrink-0">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-1 self-start sm:self-auto">
                 {(['day', 'week', 'month'] as ViewMode[]).map((mode) => (
                   <Button
                     key={mode}
                     variant={viewMode === mode ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setViewMode(mode)}
-                    className="capitalize"
+                    className="capitalize text-xs lg:text-sm px-2 lg:px-3"
                   >
                     {mode}
                   </Button>
@@ -476,10 +476,10 @@ const AgendaCal = () => {
           </div>
 
           {/* Calendar Content */}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="flex-1 overflow-auto p-3 lg:p-4">
             {viewMode === 'day' ? (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">
+              <div className="space-y-3 lg:space-y-4">
+                <h3 className="text-base lg:text-lg font-semibold border-b pb-2">
                   {format(currentDate, 'EEEE, MMMM d')}
                 </h3>
                 <div className="space-y-2">
@@ -487,18 +487,18 @@ const AgendaCal = () => {
                     const runningEntry = getRunningTaskEntry(item.id);
                     return (
                       <Card key={item.id} className="border-l-4 border-l-blue-500">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-sm font-medium">
+                        <CardContent className="p-3 lg:p-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium break-words">
                                 {item.name} || {item.task} || {item.sprint}
                               </div>
-                              <div className="text-xs text-gray-500 mt-1">
+                              <div className="text-xs text-gray-500 mt-1 break-words">
                                 {item.project} • {item.client}
                               </div>
                             </div>
                             {runningEntry && (
-                              <div className="flex items-center text-sm text-green-600 font-mono bg-green-50 px-2 py-1 rounded">
+                              <div className="flex items-center text-sm text-green-600 font-mono bg-green-50 px-2 py-1 rounded flex-shrink-0">
                                 <Clock className="h-3 w-3 mr-1" />
                                 {formatElapsedTime(runningEntry.start_time)}
                               </div>
@@ -516,7 +516,7 @@ const AgendaCal = () => {
                 </div>
               </div>
             ) : viewMode === 'week' ? (
-              <div className="grid grid-cols-7 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-3 lg:gap-4">
                 {getDateRange().map((date) => (
                   <div key={date.toISOString()} className="space-y-2">
                     <h3 className="text-sm font-semibold text-center border-b pb-2">
@@ -549,9 +549,9 @@ const AgendaCal = () => {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 lg:gap-2">
                 {getDateRange().map((date) => (
-                  <div key={date.toISOString()} className="min-h-24 border rounded p-1">
+                  <div key={date.toISOString()} className="min-h-16 lg:min-h-24 border rounded p-1">
                     <div className="text-xs font-medium text-center mb-1">
                       {format(date, 'd')}
                     </div>

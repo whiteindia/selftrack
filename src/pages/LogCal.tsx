@@ -255,17 +255,17 @@ const LogCal = () => {
 
   return (
     <Navigation>
-      <div className="flex h-screen">
+      <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Panel - Filters */}
-        <div className="w-80 bg-gray-50 border-r p-6 overflow-y-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <CalendarClock className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-bold">Log Calendar</h2>
+        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-4 lg:p-6 overflow-y-auto">
+          <div className="flex items-center gap-3 mb-4 lg:mb-6">
+            <CalendarClock className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
+            <h2 className="text-lg lg:text-xl font-bold">Log Calendar</h2>
           </div>
 
-          <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-6 lg:space-y-0 lg:space-y-6">
             {/* Service Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Service</label>
               <Select value={serviceFilter} onValueChange={setServiceFilter}>
                 <SelectTrigger>
@@ -283,7 +283,7 @@ const LogCal = () => {
             </div>
 
             {/* Client Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Client</label>
               <Select value={clientFilter} onValueChange={setClientFilter}>
                 <SelectTrigger>
@@ -301,7 +301,7 @@ const LogCal = () => {
             </div>
 
             {/* Assignee Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Assignee</label>
               <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
                 <SelectTrigger>
@@ -319,7 +319,7 @@ const LogCal = () => {
             </div>
 
             {/* Assigner Filter */}
-            <div>
+            <div className="lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Assigner</label>
               <Select value={assignerFilter} onValueChange={setAssignerFilter}>
                 <SelectTrigger>
@@ -337,9 +337,9 @@ const LogCal = () => {
             </div>
 
             {/* Project Filter */}
-            <div>
+            <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Projects</label>
-              <div className="space-y-1 max-h-48 overflow-y-auto border rounded-md p-2 bg-white">
+              <div className="space-y-1 max-h-32 lg:max-h-48 overflow-y-auto border rounded-md p-2 bg-white">
                 <div
                   className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
                     projectFilter === 'all' ? 'bg-blue-50 text-blue-700' : ''
@@ -367,18 +367,18 @@ const LogCal = () => {
         </div>
 
         {/* Main Calendar View */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Calendar Header */}
-          <div className="border-b p-4 bg-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => navigateDate('prev')}>
+          <div className="border-b p-3 lg:p-4 bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 lg:gap-4">
+              <div className="flex items-center gap-2 lg:gap-4 min-w-0">
+                <Button variant="outline" size="icon" onClick={() => navigateDate('prev')} className="flex-shrink-0">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <h1 className="text-2xl font-bold">
+                <h1 className="text-lg lg:text-2xl font-bold truncate">
                   {format(currentDate, 'EEEE, MMMM d, yyyy')} - Time Log View
                 </h1>
-                <Button variant="outline" size="icon" onClick={() => navigateDate('next')}>
+                <Button variant="outline" size="icon" onClick={() => navigateDate('next')} className="flex-shrink-0">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -387,18 +387,16 @@ const LogCal = () => {
 
           {/* 24-Hour Calendar Content */}
           <div className="flex-1 overflow-auto">
-            <div className="grid grid-cols-1 divide-y">
-              {calendarSlots.map((slot) => (
-                <div key={slot.hour} className="min-h-16 flex border-b">
-                  {/* Time Label */}
-                  <div className="w-20 flex-shrink-0 bg-gray-50 border-r p-3 text-sm font-medium text-gray-700">
-                    {formatHour(slot.hour)}
-                  </div>
-                  
-                  {/* Time Slot Content */}
-                  <div className="flex-1 p-2 relative">
-                    {slot.entries.length > 0 ? (
-                      <div className="space-y-1">
+            {/* Mobile View */}
+            <div className="block lg:hidden">
+              <div className="space-y-2 p-3">
+                {calendarSlots.map((slot) => (
+                  slot.entries.length > 0 && (
+                    <div key={slot.hour}>
+                      <div className="text-sm font-medium text-gray-700 mb-2 sticky top-0 bg-white py-1">
+                        {formatHour(slot.hour)}
+                      </div>
+                      <div className="space-y-2 ml-4">
                         {slot.entries.map((entry, index) => {
                           const sprintName = entry.sprints && entry.sprints.length > 0 
                             ? entry.sprints[0].title 
@@ -410,15 +408,15 @@ const LogCal = () => {
                               className="border-l-4 border-l-green-500 bg-green-50"
                             >
                               <CardContent className="p-3">
-                                <div className="space-y-1">
-                                  <div className="text-sm font-medium text-green-800">
+                                <div className="space-y-2">
+                                  <div className="text-sm font-medium text-green-800 break-words">
                                     {entry.comment || 'No Comment'} || {entry.tasks.name} || {sprintName} || {entry.tasks.assignee?.name || 'Unassigned'}
                                   </div>
                                   <div className="text-xs text-gray-600 flex items-center gap-2">
                                     <Clock className="h-3 w-3" />
                                     {formatTimeRange(entry.start_time, entry.end_time)}
                                   </div>
-                                  <div className="text-xs text-gray-500">
+                                  <div className="text-xs text-gray-500 break-words">
                                     {entry.tasks.projects.name} • {entry.tasks.projects.clients?.name} • Logged by: {entry.employee.name}
                                   </div>
                                 </div>
@@ -427,14 +425,68 @@ const LogCal = () => {
                           );
                         })}
                       </div>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-                        No logs
-                      </div>
-                    )}
+                    </div>
+                  )
+                ))}
+                {calendarSlots.every(slot => slot.entries.length === 0) && (
+                  <div className="text-center text-gray-500 py-8">
+                    No time logs for this day
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
+            </div>
+
+            {/* Desktop View */}
+            <div className="hidden lg:block">
+              <div className="grid grid-cols-1 divide-y">
+                {calendarSlots.map((slot) => (
+                  <div key={slot.hour} className="min-h-16 flex border-b">
+                    {/* Time Label */}
+                    <div className="w-20 flex-shrink-0 bg-gray-50 border-r p-3 text-sm font-medium text-gray-700">
+                      {formatHour(slot.hour)}
+                    </div>
+                    
+                    {/* Time Slot Content */}
+                    <div className="flex-1 p-2 relative">
+                      {slot.entries.length > 0 ? (
+                        <div className="space-y-1">
+                          {slot.entries.map((entry, index) => {
+                            const sprintName = entry.sprints && entry.sprints.length > 0 
+                              ? entry.sprints[0].title 
+                              : 'No Sprint';
+                            
+                            return (
+                              <Card 
+                                key={`${entry.id}-${index}`} 
+                                className="border-l-4 border-l-green-500 bg-green-50"
+                              >
+                                <CardContent className="p-3">
+                                  <div className="space-y-1">
+                                    <div className="text-sm font-medium text-green-800">
+                                      {entry.comment || 'No Comment'} || {entry.tasks.name} || {sprintName} || {entry.tasks.assignee?.name || 'Unassigned'}
+                                    </div>
+                                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                                      <Clock className="h-3 w-3" />
+                                      {formatTimeRange(entry.start_time, entry.end_time)}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {entry.tasks.projects.name} • {entry.tasks.projects.clients?.name} • Logged by: {entry.employee.name}
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                          No logs
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

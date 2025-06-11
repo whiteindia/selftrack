@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -281,22 +280,22 @@ const GanttView = () => {
 
   return (
     <Navigation>
-      <div className="space-y-6 p-6">
-        <div className="flex items-center gap-3">
-          <ChartGantt className="h-8 w-8 text-blue-600" />
+      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <ChartGantt className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
           <div>
-            <h1 className="text-3xl font-bold">Gantt Timeline View</h1>
-            <p className="text-gray-600">Sprint and task timeline visualization</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Gantt Timeline View</h1>
+            <p className="text-sm sm:text-base text-gray-600">Sprint and task timeline visualization</p>
           </div>
         </div>
 
         {/* Filters */}
         <Card>
           <CardHeader>
-            <CardTitle>Timeline Filters</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Timeline Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Month</label>
                 <Select 
@@ -354,7 +353,7 @@ const GanttView = () => {
                 </Select>
               </div>
 
-              <div>
+              <div className="sm:col-span-2 lg:col-span-1">
                 <label className="block text-sm font-medium mb-2">Project Filter</label>
                 <Select value={projectFilter} onValueChange={setProjectFilter}>
                   <SelectTrigger>
@@ -371,7 +370,7 @@ const GanttView = () => {
                 </Select>
               </div>
 
-              <div>
+              <div className="sm:col-span-2 lg:col-span-1">
                 <label className="block text-sm font-medium mb-2">Sprint Status</label>
                 <Select value={sprintStatusFilter} onValueChange={setSprintStatusFilter}>
                   <SelectTrigger>
@@ -393,14 +392,58 @@ const GanttView = () => {
         {/* Gantt Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Timeline - {format(selectedMonth, 'MMMM yyyy')}
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-lg sm:text-xl">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="break-words">Timeline - {format(selectedMonth, 'MMMM yyyy')}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            {/* Header */}
-            <div className="min-w-[1200px]">
+            {/* Mobile View */}
+            <div className="block sm:hidden">
+              <div className="space-y-3">
+                {ganttItems.map((item) => (
+                  <Card key={`${item.type}-${item.id}`} className="border-l-4 border-l-blue-500">
+                    <CardContent className="p-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-sm truncate flex-1 min-w-0">
+                            {item.type === 'sprint' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 mr-2"
+                                onClick={() => toggleSprintExpansion(item.id)}
+                              >
+                                {expandedSprints.has(item.id) ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </Button>
+                            )}
+                            {item.name}
+                          </div>
+                          <div className={`px-2 py-1 rounded text-xs text-white ${getStatusColor(item.status, item.type)}`}>
+                            {item.status}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <div><span className="font-medium">Client:</span> {item.client}</div>
+                          <div><span className="font-medium">Project:</span> {item.project}</div>
+                          <div><span className="font-medium">Service:</span> {item.service}</div>
+                          <div>
+                            <span className="font-medium">Timeline:</span> {format(new Date(item.startDate), 'MMM d')} - {format(new Date(item.endDate), 'MMM d, yyyy')}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop View */}
+            <div className="hidden sm:block min-w-[1200px]">
               <div className="grid grid-cols-[200px_200px_200px_1fr] gap-2 border-b-2 border-gray-200 pb-2 mb-4">
                 <div className="font-semibold text-sm">Client</div>
                 <div className="font-semibold text-sm">Project</div>
@@ -466,36 +509,42 @@ const GanttView = () => {
                 </div>
               )}
             </div>
+
+            {ganttItems.length === 0 && (
+              <div className="block sm:hidden text-center py-8 text-gray-500">
+                No sprints or tasks found for the selected month and filters.
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Legend */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-4">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-4">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-600 rounded"></div>
-                <span className="text-sm">Completed (Sprint)</span>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-600 rounded"></div>
+                <span className="text-xs sm:text-sm">Completed (Sprint)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-400 rounded"></div>
-                <span className="text-sm">Completed (Task)</span>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded"></div>
+                <span className="text-xs sm:text-sm">Completed (Task)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-600 rounded"></div>
-                <span className="text-sm">In Progress (Sprint)</span>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-600 rounded"></div>
+                <span className="text-xs sm:text-sm">In Progress (Sprint)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-blue-400 rounded"></div>
-                <span className="text-sm">In Progress (Task)</span>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-400 rounded"></div>
+                <span className="text-xs sm:text-sm">In Progress (Task)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-600 rounded"></div>
-                <span className="text-sm">Not Started (Sprint)</span>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-gray-600 rounded"></div>
+                <span className="text-xs sm:text-sm">Not Started (Sprint)</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-400 rounded"></div>
-                <span className="text-sm">Not Started (Task)</span>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-gray-400 rounded"></div>
+                <span className="text-xs sm:text-sm">Not Started (Task)</span>
               </div>
             </div>
           </CardContent>
