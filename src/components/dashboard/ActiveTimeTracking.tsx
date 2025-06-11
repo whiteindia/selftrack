@@ -4,18 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Play, Clock } from 'lucide-react';
+import LiveTimer from './LiveTimer';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
   isError: boolean;
-  formatElapsedTime: (startTime: string) => string;
   onRunningTaskClick: () => void;
 }
 
 const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   runningTasks,
   isError,
-  formatElapsedTime,
   onRunningTaskClick
 }) => {
   return (
@@ -52,8 +51,8 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                     <Badge variant="default" className="bg-green-600">
                       Running
                     </Badge>
-                    <div className="text-sm font-mono text-green-600 mt-1">
-                      {formatElapsedTime(entry.start_time)}
+                    <div className="mt-1">
+                      <LiveTimer startTime={entry.start_time} />
                     </div>
                   </div>
                 </div>
