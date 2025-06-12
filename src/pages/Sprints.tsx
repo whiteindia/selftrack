@@ -20,6 +20,7 @@ interface Sprint {
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
   sprint_leader_id: string | null;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
   completion_date?: string;
@@ -49,6 +50,13 @@ interface Task {
 interface SprintWithTasks extends Sprint {
   sprint_leader?: {
     name: string;
+  };
+  project?: {
+    name: string;
+    service: string;
+    clients: {
+      name: string;
+    };
   };
   tasks: Task[];
   isOverdue: boolean;
@@ -158,19 +166,28 @@ const Sprints = () => {
     enabled: canRead
   });
 
-  // Fetch sprints with their tasks - Using improved RLS without recursion
+  // Fetch sprints with their tasks and project information
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
     queryKey: ['sprints', userId, userRole, employeeId],
     queryFn: async () => {
       console.log('=== SPRINTS QUERY START ===');
-      console.log('Fetching sprints with improved RLS policies (no recursion)...');
+      console.log('Fetching sprints with project manager access...');
       console.log('User ID:', userId, 'Employee ID:', employeeId, 'User role:', userRole);
       
       try {
-        // Fetch sprints - Improved RLS will filter based on sprint leadership or task involvement
+        // Fetch sprints - RLS will filter based on sprint leadership, task involvement, or project management
         const { data: sprintsData, error: sprintsError } = await supabase
           .from('sprints')
-          .select('*')
+          .select(`
+            *,
+            projects (
+              name,
+              service,
+              clients (
+                name
+              )
+            )
+          `)
           .order('deadline', { ascending: true });
 
         if (sprintsError) {
@@ -187,6 +204,7 @@ const Sprints = () => {
               id: sprint.id,
               title: sprint.title,
               sprint_leader_id: sprint.sprint_leader_id,
+              project_id: sprint.project_id,
               status: sprint.status,
               deadline: sprint.deadline
             });
@@ -281,12 +299,13 @@ const Sprints = () => {
           }
 
           // RLS handles visibility at database level, so if we see the sprint, we should show it
-          // But we'll add a safety check: if no tasks and user is not sprint leader, skip
+          // But we'll add a safety check: if no tasks and user is not sprint leader and not project manager, skip
           const isSprintLeader = sprint.sprint_leader_id === employeeId;
           const hasVisibleTasks = tasks.length > 0;
+          const isProjectManager = sprint.projects && sprint.projects.assignee_employee_id === employeeId;
           
-          if (!isSprintLeader && !hasVisibleTasks) {
-            console.log(`Filtering out sprint ${sprint.title} - user is not sprint leader and has no visible tasks`);
+          if (!isSprintLeader && !hasVisibleTasks && !isProjectManager) {
+            console.log(`Filtering out sprint ${sprint.title} - user is not sprint leader, project manager, and has no visible tasks`);
             continue;
           }
 
@@ -341,6 +360,7 @@ const Sprints = () => {
             status: sprintStatus as 'Not Started' | 'In Progress' | 'Completed',
             completion_date: completionDate,
             sprint_leader: sprintLeader,
+            project: sprint.projects as any,
             tasks,
             isOverdue,
             overdueDays,
@@ -356,7 +376,7 @@ const Sprints = () => {
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         });
 
-        console.log('Final sprints with tasks (RLS filtered):', sprintsWithTasks);
+        console.log('Final sprints with tasks (RLS with project manager access):', sprintsWithTasks);
         return sprintsWithTasks;
       } catch (error) {
         console.error('Error in sprints query:', error);
@@ -726,7 +746,7 @@ const Sprints = () => {
         <RlsStatusAlert 
           userRole={userRole} 
           pageName="Sprints" 
-          description="Showing only sprints where you are the sprint leader or have assigned tasks." 
+          description="Showing only sprints where you are the sprint leader, project manager, or have assigned tasks." 
         />
 
         <SprintsFilters

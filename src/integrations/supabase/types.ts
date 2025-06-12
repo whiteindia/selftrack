@@ -574,6 +574,7 @@ export type Database = {
           created_at: string
           deadline: string
           id: string
+          project_id: string | null
           sprint_leader_id: string | null
           status: string
           title: string
@@ -585,6 +586,7 @@ export type Database = {
           created_at?: string
           deadline: string
           id?: string
+          project_id?: string | null
           sprint_leader_id?: string | null
           status?: string
           title: string
@@ -596,6 +598,7 @@ export type Database = {
           created_at?: string
           deadline?: string
           id?: string
+          project_id?: string | null
           sprint_leader_id?: string | null
           status?: string
           title?: string
@@ -607,6 +610,13 @@ export type Database = {
             columns: ["assignee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sprints_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
