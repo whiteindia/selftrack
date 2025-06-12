@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +19,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
+  getFirstAccessiblePage: () => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,6 +71,80 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Error fetching user role:', error);
       setUserRole(null);
       return null;
+    }
+  };
+
+  const getFirstAccessiblePage = async (): Promise<string> => {
+    console.log('=== Getting first accessible page ===');
+    console.log('Current user role:', userRole);
+    console.log('Current user email:', user?.email);
+
+    // If admin or yugandhar@whiteindia.in, redirect to dashboard
+    if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
+      console.log('Admin user - redirecting to dashboard');
+      return '/';
+    }
+
+    if (!userRole) {
+      console.log('No role found - redirecting to dashboard as fallback');
+      return '/';
+    }
+
+    try {
+      // Define page priority order
+      const pageOrder = [
+        'dashboard',
+        'sprints', 
+        'tasks',
+        'projects',
+        'invoices',
+        'clients',
+        'employees',
+        'payments',
+        'services',
+        'wages'
+      ];
+
+      // Fetch user privileges
+      const { data: privileges, error } = await supabase
+        .from('role_privileges')
+        .select('page_name, operation, allowed')
+        .eq('role', userRole)
+        .eq('operation', 'read')
+        .eq('allowed', true);
+
+      if (error) {
+        console.error('Error fetching privileges:', error);
+        return '/';
+      }
+
+      console.log('User privileges:', privileges);
+
+      if (!privileges || privileges.length === 0) {
+        console.log('No privileges found - redirecting to dashboard as fallback');
+        return '/';
+      }
+
+      // Find first accessible page in priority order
+      const allowedPages = privileges.map(p => p.page_name);
+      console.log('Allowed pages:', allowedPages);
+
+      for (const page of pageOrder) {
+        if (allowedPages.includes(page)) {
+          const route = page === 'dashboard' ? '/' : `/${page}`;
+          console.log(`First accessible page found: ${route}`);
+          return route;
+        }
+      }
+
+      // If no match found, return first allowed page
+      const firstAllowed = `/${allowedPages[0]}`;
+      console.log(`Using first allowed page: ${firstAllowed}`);
+      return firstAllowed;
+
+    } catch (error) {
+      console.error('Error determining accessible page:', error);
+      return '/';
     }
   };
 
@@ -201,6 +277,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     signUp,
     updatePassword,
+    getFirstAccessiblePage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

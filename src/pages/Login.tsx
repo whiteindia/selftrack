@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 const Login = () => {
-  const { signIn, user, loading } = useAuth();
+  const { signIn, user, loading, getFirstAccessiblePage } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +61,18 @@ const Login = () => {
       } else {
         console.log('=== LOGIN SUCCESS ===');
         toast.success('Successfully logged in!');
+        
+        // Wait a moment for auth state to update, then get accessible page
+        setTimeout(async () => {
+          try {
+            const redirectTo = await getFirstAccessiblePage();
+            console.log('Redirecting to:', redirectTo);
+            navigate(redirectTo, { replace: true });
+          } catch (err) {
+            console.error('Error getting accessible page:', err);
+            navigate('/', { replace: true });
+          }
+        }, 100);
       }
     } catch (err) {
       console.error('=== UNEXPECTED LOGIN ERROR ===');
