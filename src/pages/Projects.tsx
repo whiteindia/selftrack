@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import ProjectForm from '@/components/projects/ProjectForm';
 import ProjectFilters from '@/components/projects/ProjectFilters';
 import ProjectTable from '@/components/projects/ProjectTable';
+import ProjectDebugInfo from '@/components/projects/ProjectDebugInfo';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import RlsStatusAlert from '@/components/RlsStatusAlert';
@@ -97,7 +97,7 @@ const Projects = () => {
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
-  // Fetch projects with client and assignee data - Enhanced with RLS support
+  // Enhanced projects query with better debugging and error handling
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
     queryKey: ['projects', userId, userRole, employeeId],
     queryFn: async () => {
@@ -108,9 +108,43 @@ const Projects = () => {
       console.log('User role:', userRole);
       console.log('RLS filtering active:', isRlsFilteringActive('projects'));
       
-      // Get current user's email for debugging
+      // Get current user's info for debugging
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current auth user email:', user?.email);
+      console.log('Current auth user:', {
+        id: user?.id,
+        email: user?.email,
+        user_metadata: user?.user_metadata
+      });
+
+      // Debug: Check what's in the projects table
+      console.log('=== DEBUG: Checking all projects (admin view) ===');
+      const { data: allProjects, error: debugError } = await supabase
+        .from('projects')
+        .select(`
+          id,
+          name,
+          assignee_id,
+          status,
+          clients(name)
+        `);
+      
+      if (!debugError) {
+        console.log('All projects in database:', allProjects);
+        allProjects?.forEach((proj, idx) => {
+          console.log(`Project ${idx + 1}: ${proj.name}, assignee_id: "${proj.assignee_id}", client: ${proj.clients?.name}`);
+        });
+      }
+
+      // Debug: Check employee record for current user
+      if (user?.email) {
+        const { data: empRecord, error: empError } = await supabase
+          .from('employees')
+          .select('id, name, email')
+          .eq('email', user.email);
+        
+        console.log('Employee record for current user:', empRecord);
+        if (empError) console.log('Employee query error:', empError);
+      }
       
       let query = supabase
         .from('projects')
@@ -120,11 +154,10 @@ const Projects = () => {
           assignee:profiles!assignee_id(full_name)
         `);
 
-      // For manager role with RLS active, only show projects where user is assignee
-      // The RLS policy will handle this automatically, but let's add debugging
+      // For manager role with RLS active, the RLS policy should handle filtering automatically
       if (isRlsFilteringActive('projects') && userRole === 'manager') {
-        console.log('Manager role detected - RLS will filter projects where user is assignee');
-        console.log('Looking for projects where assignee_id matches employee ID:', employeeId);
+        console.log('Manager role with RLS - letting RLS policies handle filtering');
+        console.log('Expected: Projects where assignee_id matches current user employee ID');
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -134,12 +167,12 @@ const Projects = () => {
         throw error;
       }
       
-      console.log('Raw projects data from database:', data);
+      console.log('Final projects data returned:', data);
       console.log('Number of projects found:', data?.length || 0);
       
       if (data && data.length > 0) {
         data.forEach((project, index) => {
-          console.log(`Project ${index + 1}:`, {
+          console.log(`Returned Project ${index + 1}:`, {
             id: project.id,
             name: project.name,
             assignee_id: project.assignee_id,
@@ -148,16 +181,18 @@ const Projects = () => {
           });
         });
       } else if (isRlsFilteringActive('projects')) {
-        console.log('No projects found - this might indicate:');
-        console.log('1. No projects are assigned to employee ID:', employeeId);
+        console.log('=== NO PROJECTS FOUND - DEBUGGING ===');
+        console.log('This could mean:');
+        console.log('1. No projects have assignee_id matching employee ID:', employeeId);
         console.log('2. RLS policy is not matching correctly');
-        console.log('3. Employee record might not exist or email mismatch');
+        console.log('3. assignee_id field contains wrong format (username vs UUID)');
+        console.log('4. Employee record email does not match auth user email');
       }
       
       console.log('=== PROJECTS QUERY END ===');
       return data as ProjectData[];
     },
-    enabled: canRead && !!userId // Only fetch if user has read permission and userId is available
+    enabled: canRead && !!userId
   });
 
   // Fetch clients for dropdown
@@ -452,7 +487,14 @@ const Projects = () => {
           description="Showing only projects where you are the assignee." 
         />
 
-        {/* Debug information for development */}
+        {/* Add the debug component */}
+        <ProjectDebugInfo 
+          userRole={userRole}
+          employeeId={employeeId}
+          userId={userId}
+        />
+
+        {/* Enhanced debug information */}
         {process.env.NODE_ENV === 'development' && isRlsFilteringActive('projects') && (
           <Alert className="mb-6 bg-blue-50">
             <Info className="h-4 w-4" />
@@ -460,6 +502,14 @@ const Projects = () => {
               <strong>Debug Info:</strong> User Role: {userRole} | Employee ID: {employeeId || 'Not found'} | 
               RLS Active: {isRlsFilteringActive('projects') ? 'Yes' : 'No'} | 
               Projects Found: {projects.length}
+              {projects.length === 0 && userRole === 'manager' && (
+                <div className="mt-2 text-sm">
+                  <strong>Troubleshooting:</strong> No projects found for manager. Check that:
+                  <br />• Projects table has assignee_id matching your employee ID
+                  <br />• Your employee record exists with correct email
+                  <br />• RLS policies are properly configured
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
