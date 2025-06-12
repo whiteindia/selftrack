@@ -175,6 +175,16 @@ const Sprints = () => {
       console.log('Current auth user email:', user?.email);
       
       try {
+        // Test the security definer function first
+        console.log('Testing get_current_user_employee_id function...');
+        const { data: currentEmployeeId, error: functionError } = await supabase.rpc('get_current_user_employee_id');
+        
+        if (functionError) {
+          console.error('Error calling get_current_user_employee_id:', functionError);
+        } else {
+          console.log('Current user employee ID from function:', currentEmployeeId);
+        }
+
         let query = supabase
           .from('sprints')
           .select('*');
@@ -373,7 +383,8 @@ const Sprints = () => {
         throw error;
       }
     },
-    enabled: canRead && !!userId // Only fetch if user has read permission and userId is available
+    enabled: canRead && !!userId, // Only fetch if user has read permission and userId is available
+    retry: false // Don't retry on RLS policy errors
   });
 
   // Log any query errors

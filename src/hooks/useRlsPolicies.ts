@@ -80,15 +80,18 @@ export const useRlsPolicies = (role?: string) => {
         if (error) throw error;
       }
 
-      // For sprints and tasks specifically, we don't need to call apply_rls_policies 
-      // since we have direct policies that don't rely on the function
-      if (pageName !== 'sprints' && pageName !== 'tasks') {
+      // For sprints and tasks, we have dedicated RLS policies that don't need the global function
+      // Only call apply_rls_policies for other tables that use the dynamic policy creation
+      const tablesWithDirectPolicies = ['sprints', 'tasks'];
+      if (!tablesWithDirectPolicies.includes(pageName)) {
         // Apply the RLS policies to the database for other tables
         const { error: applyError } = await supabase.rpc('apply_rls_policies');
         if (applyError) {
           console.error('Error applying RLS policies:', applyError);
           throw applyError;
         }
+      } else {
+        console.log(`Skipping apply_rls_policies for ${pageName} - using direct policy`);
       }
 
       // Update local state
