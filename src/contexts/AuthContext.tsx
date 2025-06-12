@@ -160,11 +160,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
+    console.log('AuthProvider: Initializing auth state...');
+    
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
       console.log('Initial session check:', session?.user?.email || 'No session');
+      if (error) {
+        console.error('Error getting initial session:', error);
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
+      
       if (session?.user) {
         fetchUserRole(session.user.id);
         checkPasswordResetNeeded(session.user);
@@ -180,7 +187,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('=== AUTH STATE CHANGE ===');
         console.log('Event:', event);
         console.log('Session user:', session?.user?.email || 'No user');
-        console.log('Session object:', session);
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -236,18 +242,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               } catch (error) {
                 console.error('Error during post-login redirect:', error);
               }
-            }, 500); // Wait longer for role to be fetched
+            }, 1000); // Wait longer for role to be fetched
           }
         } else {
           setUserRole(null);
           setNeedsPasswordReset(false);
         }
         
-        setLoading(false);
+        if (event !== 'SIGNED_IN') {
+          setLoading(false);
+        }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('AuthProvider: Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -323,6 +334,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updatePassword,
     getFirstAccessiblePage,
   };
+
+  console.log('AuthProvider: Rendering with loading:', loading, 'user:', user?.email);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
