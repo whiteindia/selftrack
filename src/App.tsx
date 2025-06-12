@@ -41,7 +41,7 @@ const AppContent = () => {
     <BrowserRouter>
       <div className="min-h-screen bg-background">
         {user && <Navigation />}
-        <main className={user ? "pt-16" : ""}>
+        <main className={user ? "pt-0" : ""}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route
