@@ -158,16 +158,16 @@ const Sprints = () => {
     enabled: canRead
   });
 
-  // Fetch sprints with their tasks - Now using the updated RLS policies
+  // Fetch sprints with their tasks - Using improved RLS without recursion
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
     queryKey: ['sprints', userId, userRole, employeeId],
     queryFn: async () => {
       console.log('=== SPRINTS QUERY START ===');
-      console.log('Fetching sprints with updated RLS policies...');
+      console.log('Fetching sprints with improved RLS policies (no recursion)...');
       console.log('User ID:', userId, 'Employee ID:', employeeId, 'User role:', userRole);
       
       try {
-        // Fetch sprints - Updated RLS will filter based on sprint leadership or task involvement
+        // Fetch sprints - Improved RLS will filter based on sprint leadership or task involvement
         const { data: sprintsData, error: sprintsError } = await supabase
           .from('sprints')
           .select('*')
@@ -214,7 +214,7 @@ const Sprints = () => {
             }
           }
           
-          // Fetch tasks for this sprint - Updated RLS policy will filter appropriately
+          // Fetch tasks for this sprint - RLS will automatically filter based on user permissions
           const { data: sprintTasks, error: tasksError } = await supabase
             .from('sprint_tasks')
             .select(`
@@ -280,11 +280,11 @@ const Sprints = () => {
             }
           }
 
-          // UI-level filtering: Only show sprint if user is sprint leader OR has visible tasks
+          // RLS handles visibility at database level, so if we see the sprint, we should show it
+          // But we'll add a safety check: if no tasks and user is not sprint leader, skip
           const isSprintLeader = sprint.sprint_leader_id === employeeId;
           const hasVisibleTasks = tasks.length > 0;
           
-          // Apply the post-filter: if no visible tasks and user is not sprint leader, skip this sprint
           if (!isSprintLeader && !hasVisibleTasks) {
             console.log(`Filtering out sprint ${sprint.title} - user is not sprint leader and has no visible tasks`);
             continue;
@@ -356,7 +356,7 @@ const Sprints = () => {
           return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
         });
 
-        console.log('Final sprints with tasks (after UI filtering):', sprintsWithTasks);
+        console.log('Final sprints with tasks (RLS filtered):', sprintsWithTasks);
         return sprintsWithTasks;
       } catch (error) {
         console.error('Error in sprints query:', error);
