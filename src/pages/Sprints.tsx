@@ -84,7 +84,6 @@ const Sprints = () => {
 
   console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
   console.log('Should apply user filtering:', isRlsFilteringActive('sprints'), 'User ID:', userId, 'Employee ID:', employeeId);
-  console.log('Privileges loading:', privilegesLoading);
 
   // Fetch clients for filter
   const { data: clients = [] } = useQuery({
@@ -159,43 +158,20 @@ const Sprints = () => {
     enabled: canRead
   });
 
-  // Fetch sprints with their tasks - Enhanced with user filtering and detailed logging
+  // Fetch sprints with their tasks - Now using the new RLS policies without recursion
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
     queryKey: ['sprints', userId, userRole, employeeId],
     queryFn: async () => {
       console.log('=== SPRINTS QUERY START ===');
-      console.log('Fetching sprints...');
-      console.log('User ID:', userId);
-      console.log('Employee ID:', employeeId);
-      console.log('User role:', userRole);
-      console.log('RLS filtering active:', isRlsFilteringActive('sprints'));
-      
-      // Get current user's email for debugging
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current auth user email:', user?.email);
+      console.log('Fetching sprints with new RLS policies...');
+      console.log('User ID:', userId, 'Employee ID:', employeeId, 'User role:', userRole);
       
       try {
-        // Test the security definer function first
-        console.log('Testing get_current_user_employee_id function...');
-        const { data: currentEmployeeId, error: functionError } = await supabase.rpc('get_current_user_employee_id');
-        
-        if (functionError) {
-          console.error('Error calling get_current_user_employee_id:', functionError);
-        } else {
-          console.log('Current user employee ID from function:', currentEmployeeId);
-        }
-
-        let query = supabase
+        // Fetch sprints - RLS will automatically filter based on the new policy
+        const { data: sprintsData, error: sprintsError } = await supabase
           .from('sprints')
-          .select('*');
-
-        // The RLS policy will handle filtering automatically
-        if (isRlsFilteringActive('sprints') && userRole === 'manager') {
-          console.log('Manager role detected - RLS will filter sprints appropriately');
-          console.log('Looking for sprints where user is sprint leader or has assigned tasks');
-        }
-
-        const { data: sprintsData, error: sprintsError } = await query.order('deadline', { ascending: true });
+          .select('*')
+          .order('deadline', { ascending: true });
 
         if (sprintsError) {
           console.error('Error fetching sprints:', sprintsError);
@@ -215,11 +191,6 @@ const Sprints = () => {
               deadline: sprint.deadline
             });
           });
-        } else if (isRlsFilteringActive('sprints')) {
-          console.log('No sprints found - this might indicate:');
-          console.log('1. No sprints are assigned to employee ID:', employeeId);
-          console.log('2. User is not a sprint leader and has no assigned tasks');
-          console.log('3. Employee record might not exist or email mismatch');
         }
 
         const sprintsWithTasks: SprintWithTasks[] = [];
@@ -244,7 +215,7 @@ const Sprints = () => {
           }
           
           // Fetch tasks for this sprint using the sprint_tasks relationship
-          // The RLS policy will automatically filter tasks based on user access rights
+          // The new RLS policy on tasks will filter appropriately without recursion
           const { data: sprintTasks, error: tasksError } = await supabase
             .from('sprint_tasks')
             .select(`
@@ -748,18 +719,6 @@ const Sprints = () => {
           pageName="Sprints" 
           description="Showing only sprints where you are the sprint leader or have assigned tasks." 
         />
-
-        {/* Debug information for development */}
-        {process.env.NODE_ENV === 'development' && isRlsFilteringActive('sprints') && (
-          <Alert className="mb-6 bg-blue-50">
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Debug Info:</strong> User Role: {userRole} | Employee ID: {employeeId || 'Not found'} | 
-              RLS Active: {isRlsFilteringActive('sprints') ? 'Yes' : 'No'} | 
-              Sprints Found: {sprints.length}
-            </AlertDescription>
-          </Alert>
-        )}
 
         <SprintsFilters
           selectedClient={selectedClient}
