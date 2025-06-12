@@ -77,7 +77,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState<Date>();
   const [sprintLeaderId, setSprintLeaderId] = useState<string>('unassigned');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('none');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 
   // Reset form when dialog opens/closes or editing sprint changes
@@ -87,7 +87,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
         setTitle(editingSprint.title);
         setDeadline(new Date(editingSprint.deadline));
         setSprintLeaderId(editingSprint.sprint_leader_id || 'unassigned');
-        setSelectedProjectId(editingSprint.project_id || '');
+        setSelectedProjectId(editingSprint.project_id || 'none');
         // Load existing tasks for this sprint
         loadSprintTasks(editingSprint.id);
       } else {
@@ -148,7 +148,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   const { data: tasks = [] } = useQuery({
     queryKey: ['available-tasks', selectedProjectId],
     queryFn: async () => {
-      if (!selectedProjectId) return [];
+      if (!selectedProjectId || selectedProjectId === 'none') return [];
       
       const { data, error } = await supabase
         .from('tasks')
@@ -171,7 +171,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
       if (error) throw error;
       return data as Task[];
     },
-    enabled: open && !!selectedProjectId
+    enabled: open && !!selectedProjectId && selectedProjectId !== 'none'
   });
 
   const createSprintMutation = useMutation({
@@ -183,7 +183,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           title: sprintData.title,
           deadline: sprintData.deadline,
           sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
-          project_id: sprintData.projectId || null,
+          project_id: sprintData.projectId === 'none' ? null : sprintData.projectId,
           status: 'Not Started'
         })
         .select()
@@ -233,7 +233,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           title: sprintData.title,
           deadline: sprintData.deadline,
           sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
-          project_id: sprintData.projectId || null,
+          project_id: sprintData.projectId === 'none' ? null : sprintData.projectId,
         })
         .eq('id', sprintData.id);
 
@@ -284,7 +284,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     setTitle('');
     setDeadline(undefined);
     setSprintLeaderId('unassigned');
-    setSelectedProjectId('');
+    setSelectedProjectId('none');
     setSelectedTasks([]);
   };
 
@@ -416,7 +416,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Project Selected</SelectItem>
+                <SelectItem value="none">No Project Selected</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name} - {project.clients?.name}
@@ -428,7 +428,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
 
           <div className="space-y-2">
             <Label>Select Tasks (Not Started Only)</Label>
-            {!selectedProjectId ? (
+            {selectedProjectId === 'none' ? (
               <p className="text-sm text-gray-500">Please select a project first to see available tasks</p>
             ) : (
               <div className="border rounded-md p-4 max-h-60 overflow-y-auto">
