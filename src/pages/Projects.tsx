@@ -9,8 +9,9 @@ import ProjectFilters from '@/components/projects/ProjectFilters';
 import ProjectTable from '@/components/projects/ProjectTable';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
-import { Plus } from 'lucide-react';
+import { Plus, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProjectData {
   id: string;
@@ -52,7 +53,7 @@ interface Assignee {
 }
 
 const Projects = () => {
-  const { hasOperationAccess, shouldApplyUserFiltering, userId, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, shouldApplyUserFiltering, userId, userRole, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for projects page
   const canCreate = hasOperationAccess('projects', 'create');
@@ -62,6 +63,7 @@ const Projects = () => {
 
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
   console.log('Should apply user filtering:', shouldApplyUserFiltering('projects'), 'User ID:', userId);
+  console.log('User role:', userRole);
   console.log('Privileges loading:', privilegesLoading);
 
   const [newProject, setNewProject] = useState({
@@ -93,14 +95,15 @@ const Projects = () => {
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
-  // Fetch projects with client and assignee data - Enhanced with user filtering and detailed logging
+  // Fetch projects with client and assignee data - Enhanced with RLS support
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
-    queryKey: ['projects', userId, shouldApplyUserFiltering('projects')],
+    queryKey: ['projects', userId, userRole],
     queryFn: async () => {
       console.log('=== PROJECTS QUERY START ===');
       console.log('Fetching projects...');
       console.log('User ID:', userId);
-      console.log('Should apply user filtering:', shouldApplyUserFiltering('projects'));
+      console.log('User role:', userRole);
+      console.log('RLS will be applied by Supabase based on role policies');
       
       let query = supabase
         .from('projects')
@@ -110,17 +113,7 @@ const Projects = () => {
           assignee:profiles!assignee_id(full_name)
         `);
 
-      // Apply user filtering - show only projects assigned to the user
-      if (shouldApplyUserFiltering('projects') && userId) {
-        console.log('Applying user filtering for projects - showing only where user is assignee');
-        console.log('Filtering by assignee_id =', userId);
-        query = query.eq('assignee_id', userId);
-      } else {
-        console.log('NOT applying user filtering because:');
-        console.log('- shouldApplyUserFiltering("projects"):', shouldApplyUserFiltering('projects'));
-        console.log('- userId:', userId);
-      }
-      
+      // Let RLS handle filtering - no additional client-side filtering needed
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
@@ -423,7 +416,7 @@ const Projects = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
             <p className="text-gray-600 mt-2">
-              {shouldApplyUserFiltering('projects') ? 'Projects assigned to you' : 'Manage your client projects'}
+              {userRole === 'manager' ? 'Projects assigned to you' : 'Manage your client projects'}
             </p>
           </div>
           
@@ -434,6 +427,15 @@ const Projects = () => {
             </Button>
           )}
         </div>
+
+        {userRole === 'manager' && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Manager View: Showing only projects where you are the assignee. Row-Level Security is active.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <ProjectFilters
           selectedClient={selectedClient}
