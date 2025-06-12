@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,7 +72,7 @@ const Sprints = () => {
 
   console.log('Sprints component rendered');
 
-  const { hasOperationAccess, shouldApplyUserFiltering, userId, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, isRlsFilteringActive, userId, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for sprints page
   const canCreate = hasOperationAccess('sprints', 'create');
@@ -80,7 +81,7 @@ const Sprints = () => {
   const canRead = hasOperationAccess('sprints', 'read');
 
   console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
-  console.log('Should apply user filtering:', shouldApplyUserFiltering('sprints'), 'User ID:', userId);
+  console.log('RLS filtering active:', isRlsFilteringActive('sprints'), 'User ID:', userId);
   console.log('Privileges loading:', privilegesLoading);
 
   // Fetch clients for filter
@@ -158,12 +159,12 @@ const Sprints = () => {
 
   // Fetch sprints with their tasks - Enhanced with user filtering and detailed logging
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
-    queryKey: ['sprints', userId, shouldApplyUserFiltering('sprints')],
+    queryKey: ['sprints', userId, isRlsFilteringActive('sprints')],
     queryFn: async () => {
       console.log('=== SPRINTS QUERY START ===');
       console.log('Fetching sprints...');
       console.log('User ID:', userId);
-      console.log('Should apply user filtering:', shouldApplyUserFiltering('sprints'));
+      console.log('RLS filtering active:', isRlsFilteringActive('sprints'));
       
       try {
         let query = supabase
@@ -171,13 +172,13 @@ const Sprints = () => {
           .select('*');
 
         // Apply user filtering - show only sprints where user is the sprint leader
-        if (shouldApplyUserFiltering('sprints') && userId) {
+        if (isRlsFilteringActive('sprints') && userId) {
           console.log('Applying user filtering for sprints - showing only where user is sprint leader');
           console.log('Filtering by sprint_leader_id =', userId);
           query = query.eq('sprint_leader_id', userId);
         } else {
           console.log('NOT applying user filtering because:');
-          console.log('- shouldApplyUserFiltering("sprints"):', shouldApplyUserFiltering('sprints'));
+          console.log('- isRlsFilteringActive("sprints"):', isRlsFilteringActive('sprints'));
           console.log('- userId:', userId);
         }
 
@@ -721,7 +722,7 @@ const Sprints = () => {
           onCreateSprint={handleCreateSprint}
         />
 
-        {shouldApplyUserFiltering('sprints') && (
+        {isRlsFilteringActive('sprints') && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
               <strong>Manager View:</strong> Showing only sprints where you are the sprint leader.
