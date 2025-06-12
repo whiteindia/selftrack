@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,7 @@ import ProjectFilters from '@/components/projects/ProjectFilters';
 import ProjectTable from '@/components/projects/ProjectTable';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
+import RlsStatusAlert from '@/components/RlsStatusAlert';
 import { Plus, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -53,7 +55,7 @@ interface Assignee {
 }
 
 const Projects = () => {
-  const { hasOperationAccess, isRlsFilteringActive, userId, userRole, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, isRlsFilteringActive, userId, userRole, employeeId, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for projects page
   const canCreate = hasOperationAccess('projects', 'create');
@@ -62,7 +64,7 @@ const Projects = () => {
   const canRead = hasOperationAccess('projects', 'read');
 
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
-  console.log('Should apply user filtering:', isRlsFilteringActive('projects'), 'User ID:', userId);
+  console.log('Should apply user filtering:', isRlsFilteringActive('projects'), 'User ID:', userId, 'Employee ID:', employeeId);
   console.log('User role:', userRole);
   console.log('Privileges loading:', privilegesLoading);
 
@@ -97,13 +99,18 @@ const Projects = () => {
 
   // Fetch projects with client and assignee data - Enhanced with RLS support
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
-    queryKey: ['projects', userId, userRole],
+    queryKey: ['projects', userId, userRole, employeeId],
     queryFn: async () => {
       console.log('=== PROJECTS QUERY START ===');
       console.log('Fetching projects...');
       console.log('User ID:', userId);
+      console.log('Employee ID:', employeeId);
       console.log('User role:', userRole);
-      console.log('RLS will be applied by Supabase based on role policies');
+      console.log('RLS filtering active:', isRlsFilteringActive('projects'));
+      
+      // Get current user's email for debugging
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current auth user email:', user?.email);
       
       let query = supabase
         .from('projects')
@@ -113,7 +120,13 @@ const Projects = () => {
           assignee:profiles!assignee_id(full_name)
         `);
 
-      // Let RLS handle filtering - no additional client-side filtering needed
+      // For manager role with RLS active, only show projects where user is assignee
+      // The RLS policy will handle this automatically, but let's add debugging
+      if (isRlsFilteringActive('projects') && userRole === 'manager') {
+        console.log('Manager role detected - RLS will filter projects where user is assignee');
+        console.log('Looking for projects where assignee_id matches employee ID:', employeeId);
+      }
+
       const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
@@ -134,6 +147,11 @@ const Projects = () => {
             client: project.clients?.name
           });
         });
+      } else if (isRlsFilteringActive('projects')) {
+        console.log('No projects found - this might indicate:');
+        console.log('1. No projects are assigned to employee ID:', employeeId);
+        console.log('2. RLS policy is not matching correctly');
+        console.log('3. Employee record might not exist or email mismatch');
       }
       
       console.log('=== PROJECTS QUERY END ===');
@@ -428,11 +446,20 @@ const Projects = () => {
           )}
         </div>
 
-        {userRole === 'manager' && (
-          <Alert className="mb-6">
+        <RlsStatusAlert 
+          userRole={userRole} 
+          pageName="Projects" 
+          description="Showing only projects where you are the assignee." 
+        />
+
+        {/* Debug information for development */}
+        {process.env.NODE_ENV === 'development' && isRlsFilteringActive('projects') && (
+          <Alert className="mb-6 bg-blue-50">
             <Info className="h-4 w-4" />
             <AlertDescription>
-              Manager View: Showing only projects where you are the assignee. Row-Level Security is active.
+              <strong>Debug Info:</strong> User Role: {userRole} | Employee ID: {employeeId || 'Not found'} | 
+              RLS Active: {isRlsFilteringActive('projects') ? 'Yes' : 'No'} | 
+              Projects Found: {projects.length}
             </AlertDescription>
           </Alert>
         )}

@@ -8,8 +8,11 @@ import SprintsHeader from '@/components/SprintsHeader';
 import SprintsFilters from '@/components/SprintsFilters';
 import SprintsEmptyState from '@/components/SprintsEmptyState';
 import Navigation from '@/components/Navigation';
+import RlsStatusAlert from '@/components/RlsStatusAlert';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from '@/hooks/use-toast';
+import { Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Sprint {
   id: string;
@@ -71,7 +74,7 @@ const Sprints = () => {
 
   console.log('Sprints component rendered');
 
-  const { hasOperationAccess, isRlsFilteringActive, userId, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, isRlsFilteringActive, userId, userRole, employeeId, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for sprints page
   const canCreate = hasOperationAccess('sprints', 'create');
@@ -80,7 +83,7 @@ const Sprints = () => {
   const canRead = hasOperationAccess('sprints', 'read');
 
   console.log('Sprints page permissions:', { canCreate, canUpdate, canDelete, canRead });
-  console.log('Should apply user filtering:', isRlsFilteringActive('sprints'), 'User ID:', userId);
+  console.log('Should apply user filtering:', isRlsFilteringActive('sprints'), 'User ID:', userId, 'Employee ID:', employeeId);
   console.log('Privileges loading:', privilegesLoading);
 
   // Fetch clients for filter
@@ -158,27 +161,29 @@ const Sprints = () => {
 
   // Fetch sprints with their tasks - Enhanced with user filtering and detailed logging
   const { data: sprints = [], isLoading, error: sprintsError } = useQuery({
-    queryKey: ['sprints', userId, isRlsFilteringActive('sprints')],
+    queryKey: ['sprints', userId, userRole, employeeId],
     queryFn: async () => {
       console.log('=== SPRINTS QUERY START ===');
       console.log('Fetching sprints...');
       console.log('User ID:', userId);
-      console.log('Should apply user filtering:', isRlsFilteringActive('sprints'));
+      console.log('Employee ID:', employeeId);
+      console.log('User role:', userRole);
+      console.log('RLS filtering active:', isRlsFilteringActive('sprints'));
+      
+      // Get current user's email for debugging
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('Current auth user email:', user?.email);
       
       try {
         let query = supabase
           .from('sprints')
           .select('*');
 
-        // Apply user filtering - show only sprints where user is the sprint leader
-        if (isRlsFilteringActive('sprints') && userId) {
-          console.log('Applying user filtering for sprints - showing only where user is sprint leader');
-          console.log('Filtering by sprint_leader_id =', userId);
-          query = query.eq('sprint_leader_id', userId);
-        } else {
-          console.log('NOT applying user filtering because:');
-          console.log('- isRlsFilteringActive("sprints"):', isRlsFilteringActive('sprints'));
-          console.log('- userId:', userId);
+        // For manager role with RLS active, only show sprints where user is sprint leader
+        // The RLS policy will handle this automatically, but let's add debugging
+        if (isRlsFilteringActive('sprints') && userRole === 'manager') {
+          console.log('Manager role detected - RLS will filter sprints where user is sprint leader');
+          console.log('Looking for sprints where sprint_leader_id matches employee ID:', employeeId);
         }
 
         const { data: sprintsData, error: sprintsError } = await query.order('deadline', { ascending: true });
@@ -201,6 +206,11 @@ const Sprints = () => {
               deadline: sprint.deadline
             });
           });
+        } else if (isRlsFilteringActive('sprints')) {
+          console.log('No sprints found - this might indicate:');
+          console.log('1. No sprints are assigned to employee ID:', employeeId);
+          console.log('2. RLS policy is not matching correctly');
+          console.log('3. Employee record might not exist or email mismatch');
         }
 
         const sprintsWithTasks: SprintWithTasks[] = [];
@@ -721,12 +731,22 @@ const Sprints = () => {
           onCreateSprint={handleCreateSprint}
         />
 
-        {isRlsFilteringActive('sprints') && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Manager View:</strong> Showing only sprints where you are the sprint leader.
-            </p>
-          </div>
+        <RlsStatusAlert 
+          userRole={userRole} 
+          pageName="Sprints" 
+          description="Showing only sprints where you are the sprint leader." 
+        />
+
+        {/* Debug information for development */}
+        {process.env.NODE_ENV === 'development' && isRlsFilteringActive('sprints') && (
+          <Alert className="mb-6 bg-blue-50">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Debug Info:</strong> User Role: {userRole} | Employee ID: {employeeId || 'Not found'} | 
+              RLS Active: {isRlsFilteringActive('sprints') ? 'Yes' : 'No'} | 
+              Sprints Found: {sprints.length}
+            </AlertDescription>
+          </Alert>
         )}
 
         <SprintsFilters
