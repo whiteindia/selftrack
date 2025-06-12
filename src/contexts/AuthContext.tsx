@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -162,28 +161,50 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     console.log('AuthProvider: Initializing auth state...');
     
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('Initial session check:', session?.user?.email || 'No session');
-      if (error) {
-        console.error('Error getting initial session:', error);
+    let isMounted = true;
+    
+    const initializeAuth = async () => {
+      try {
+        // Get initial session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
+        console.log('Initial session check:', session?.user?.email || 'No session');
+        if (error) {
+          console.error('Error getting initial session:', error);
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserRole(session.user.id);
+          checkPasswordResetNeeded(session.user);
+          // Log user login activity
+          logUserLogin(session.user.email || 'Unknown user');
+        }
+        
+        // Always set loading to false after initial check
+        if (isMounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-        checkPasswordResetNeeded(session.user);
-        // Log user login activity
-        logUserLogin(session.user.email || 'Unknown user');
-      }
-      setLoading(false);
-    });
+    };
+
+    // Initialize auth state
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!isMounted) return;
+        
         console.log('=== AUTH STATE CHANGE ===');
         console.log('Event:', event);
         console.log('Session user:', session?.user?.email || 'No user');
@@ -201,13 +222,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               logUserLogin(session.user.email || 'Unknown user');
             }, 0);
 
-            // Handle redirect after login
-            setTimeout(async () => {
-              try {
-                console.log('Attempting to redirect after login, role:', role);
-                
-                // Only redirect if we're on the login page
-                if (window.location.pathname === '/login') {
+            // Handle redirect after login - only if on login page
+            if (window.location.pathname === '/login') {
+              setTimeout(async () => {
+                try {
+                  console.log('Attempting to redirect after login, role:', role);
+                  
                   let redirectTo = '/';
                   
                   // If admin or yugandhar@whiteindia.in, redirect to dashboard
@@ -238,24 +258,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   
                   console.log('Redirecting to:', redirectTo);
                   window.location.href = redirectTo;
+                } catch (error) {
+                  console.error('Error during post-login redirect:', error);
                 }
-              } catch (error) {
-                console.error('Error during post-login redirect:', error);
-              }
-            }, 1000); // Wait longer for role to be fetched
+              }, 1500); // Wait for role to be fully loaded
+            }
           }
         } else {
           setUserRole(null);
           setNeedsPasswordReset(false);
         }
-        
-        if (event !== 'SIGNED_IN') {
-          setLoading(false);
-        }
       }
     );
 
     return () => {
+      isMounted = false;
       console.log('AuthProvider: Cleaning up auth subscription');
       subscription.unsubscribe();
     };
