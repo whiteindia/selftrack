@@ -80,11 +80,15 @@ export const useRlsPolicies = (role?: string) => {
         if (error) throw error;
       }
 
-      // Apply the RLS policies to the database
-      const { error: applyError } = await supabase.rpc('apply_rls_policies');
-      if (applyError) {
-        console.error('Error applying RLS policies:', applyError);
-        throw applyError;
+      // For sprints specifically, we don't need to call apply_rls_policies 
+      // since we have a direct policy that doesn't rely on the function
+      if (pageName !== 'sprints') {
+        // Apply the RLS policies to the database for other tables
+        const { error: applyError } = await supabase.rpc('apply_rls_policies');
+        if (applyError) {
+          console.error('Error applying RLS policies:', applyError);
+          throw applyError;
+        }
       }
 
       // Update local state
@@ -98,7 +102,7 @@ export const useRlsPolicies = (role?: string) => {
         return updated;
       });
 
-      console.log('RLS policy updated and applied successfully');
+      console.log('RLS policy updated successfully');
     } catch (error) {
       console.error('Error updating RLS policy:', error);
       throw error;
