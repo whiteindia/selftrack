@@ -20,6 +20,7 @@ import { logActivity } from '@/utils/activityLogger';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
+import RlsStatusAlert from '@/components/RlsStatusAlert';
 import {
   Collapsible,
   CollapsibleContent,
@@ -112,7 +113,7 @@ const Tasks = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { user } = useAuth();
-  const { hasOperationAccess, shouldApplyUserFiltering, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, isRlsFilteringActive, loading: privilegesLoading } = usePrivileges();
   
   // Check permissions for tasks
   const canCreate = hasOperationAccess('tasks', 'create');
@@ -340,26 +341,34 @@ const Tasks = () => {
     }
   });
 
-  // Mutation to update an existing task
+  // Mutation to update an existing task - FIXED to only use actual table columns
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string } & any) => {
       // Get current user's employee ID for assigner if not already set
       const currentUserEmployeeId = await getCurrentUserEmployeeId();
       
+      // Only include actual table columns, exclude read-only JOIN data
+      const {
+        projects,
+        employees,
+        assigners,
+        ...actualTableColumns
+      } = updates;
+      
       const finalUpdates = {
-        ...updates,
-        assigner_id: updates.assigner_id || currentUserEmployeeId, // Auto-set if not provided
-        deadline: updates.deadline ? format(new Date(updates.deadline), 'yyyy-MM-dd') : null,
-        estimated_duration: updates.estimated_duration ? parseFloat(updates.estimated_duration) : null
+        ...actualTableColumns,
+        assigner_id: actualTableColumns.assigner_id || currentUserEmployeeId, // Auto-set if not provided
+        deadline: actualTableColumns.deadline ? format(new Date(actualTableColumns.deadline), 'yyyy-MM-dd') : null,
+        estimated_duration: actualTableColumns.estimated_duration ? parseFloat(actualTableColumns.estimated_duration) : null
       };
 
       // If status is being changed to 'Completed' and no completion_date exists, set it
-      if (updates.status === 'Completed' && !updates.completion_date) {
+      if (actualTableColumns.status === 'Completed' && !actualTableColumns.completion_date) {
         finalUpdates.completion_date = new Date().toISOString();
       }
 
       // If status is being changed from 'Completed' to something else, clear completion_date
-      if (updates.status !== 'Completed') {
+      if (actualTableColumns.status !== 'Completed') {
         finalUpdates.completion_date = null;
       }
 
@@ -669,6 +678,13 @@ const Tasks = () => {
               </Dialog>
             ) : null}
           </div>
+
+          {/* RLS Status Alert for mobile */}
+          <RlsStatusAlert 
+            userRole={user?.email || ''}
+            pageName="tasks"
+            description="You are seeing only tasks where you are the assignee or assigner."
+          />
 
           {/* Mobile Filters */}
           <Card className="p-4">
@@ -1022,6 +1038,13 @@ const Tasks = () => {
             ) : null}
           </div>
         </div>
+
+        {/* RLS Status Alert for desktop */}
+        <RlsStatusAlert 
+          userRole={user?.email || ''}
+          pageName="tasks"
+          description="You are seeing only tasks where you are the assignee or assigner."
+        />
 
         {/* Filters - Organized in two rows */}
         <Card className="mb-6">
