@@ -80,9 +80,9 @@ export const useRlsPolicies = (role?: string) => {
         if (error) throw error;
       }
 
-      // For sprints specifically, we don't need to call apply_rls_policies 
-      // since we have a direct policy that doesn't rely on the function
-      if (pageName !== 'sprints') {
+      // For sprints and tasks specifically, we don't need to call apply_rls_policies 
+      // since we have direct policies that don't rely on the function
+      if (pageName !== 'sprints' && pageName !== 'tasks') {
         // Apply the RLS policies to the database for other tables
         const { error: applyError } = await supabase.rpc('apply_rls_policies');
         if (applyError) {
