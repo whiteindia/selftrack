@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,12 +29,16 @@ interface ProjectData {
   deadline: string | null;
   brd_file_url: string | null;
   assignee_id: string | null;
+  assignee_employee_id: string | null;
   created_at: string;
   clients: {
     name: string;
   };
-  assignee?: {
-    full_name: string;
+  assignee_employee?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
   };
 }
 
@@ -47,9 +52,9 @@ interface Service {
   name: string;
 }
 
-interface Assignee {
+interface Employee {
   id: string;
-  full_name: string;
+  name: string;
   email: string;
   role: string;
 }
@@ -77,7 +82,7 @@ const Projects = () => {
     project_amount: 0,
     start_date: '',
     deadline: '',
-    assignee_id: '',
+    assignee_employee_id: '',
     brd_file: null as File | null
   });
   const [editingProject, setEditingProject] = useState<ProjectData | null>(null);
@@ -97,7 +102,7 @@ const Projects = () => {
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
-  // Enhanced projects query with better debugging and error handling
+  // Enhanced projects query with proper employee relationship
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
     queryKey: ['projects', userId, userRole, employeeId],
     queryFn: async () => {
@@ -116,48 +121,18 @@ const Projects = () => {
         user_metadata: user?.user_metadata
       });
 
-      // Debug: Check what's in the projects table
-      console.log('=== DEBUG: Checking all projects (admin view) ===');
-      const { data: allProjects, error: debugError } = await supabase
-        .from('projects')
-        .select(`
-          id,
-          name,
-          assignee_id,
-          status,
-          clients(name)
-        `);
-      
-      if (!debugError) {
-        console.log('All projects in database:', allProjects);
-        allProjects?.forEach((proj, idx) => {
-          console.log(`Project ${idx + 1}: ${proj.name}, assignee_id: "${proj.assignee_id}", client: ${proj.clients?.name}`);
-        });
-      }
-
-      // Debug: Check employee record for current user
-      if (user?.email) {
-        const { data: empRecord, error: empError } = await supabase
-          .from('employees')
-          .select('id, name, email')
-          .eq('email', user.email);
-        
-        console.log('Employee record for current user:', empRecord);
-        if (empError) console.log('Employee query error:', empError);
-      }
-      
       let query = supabase
         .from('projects')
         .select(`
           *,
           clients(name),
-          assignee:profiles!assignee_id(full_name)
+          assignee_employee:employees!assignee_employee_id(id, name, email, role)
         `);
 
       // For manager role with RLS active, the RLS policy should handle filtering automatically
       if (isRlsFilteringActive('projects') && userRole === 'manager') {
         console.log('Manager role with RLS - letting RLS policies handle filtering');
-        console.log('Expected: Projects where assignee_id matches current user employee ID');
+        console.log('Expected: Projects where assignee_employee_id matches current user employee ID');
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -175,7 +150,8 @@ const Projects = () => {
           console.log(`Returned Project ${index + 1}:`, {
             id: project.id,
             name: project.name,
-            assignee_id: project.assignee_id,
+            assignee_employee_id: project.assignee_employee_id,
+            assignee_employee: project.assignee_employee,
             status: project.status,
             client: project.clients?.name
           });
@@ -183,10 +159,9 @@ const Projects = () => {
       } else if (isRlsFilteringActive('projects')) {
         console.log('=== NO PROJECTS FOUND - DEBUGGING ===');
         console.log('This could mean:');
-        console.log('1. No projects have assignee_id matching employee ID:', employeeId);
+        console.log('1. No projects have assignee_employee_id matching employee ID:', employeeId);
         console.log('2. RLS policy is not matching correctly');
-        console.log('3. assignee_id field contains wrong format (username vs UUID)');
-        console.log('4. Employee record email does not match auth user email');
+        console.log('3. Employee record does not exist for current user');
       }
       
       console.log('=== PROJECTS QUERY END ===');
@@ -229,67 +204,26 @@ const Projects = () => {
     }
   });
 
-  // Fetch assignees (admin users and managers) - Enhanced with better debugging
-  const { data: assignees = [] } = useQuery({
-    queryKey: ['assignees'],
+  // Fetch employees for assignment (all employees) - Enhanced with better debugging
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employees'],
     queryFn: async () => {
-      console.log('Fetching assignees...');
+      console.log('Fetching employees for assignment...');
       
-      // First get user roles for admin and manager
-      const { data: userRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['admin', 'manager']);
+      const { data: employeesData, error } = await supabase
+        .from('employees')
+        .select('id, name, email, role')
+        .order('name');
       
-      if (rolesError) {
-        console.error('Error fetching user roles:', rolesError);
-        throw rolesError;
+      if (error) {
+        console.error('Error fetching employees:', error);
+        throw error;
       }
       
-      console.log('User roles found:', userRoles);
-      console.log('Admin roles:', userRoles?.filter(r => r.role === 'admin'));
-      console.log('Manager roles:', userRoles?.filter(r => r.role === 'manager'));
+      console.log('Employees fetched for assignment:', employeesData?.length || 0, 'employees');
+      console.log('Available employees:', employeesData);
       
-      if (!userRoles || userRoles.length === 0) {
-        console.log('No admin or manager users found');
-        return [];
-      }
-      
-      // Extract user IDs
-      const userIds = userRoles.map(role => role.user_id);
-      console.log('User IDs to fetch profiles for:', userIds);
-      
-      // Now get profiles for these users
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds)
-        .order('full_name');
-      
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        throw profilesError;
-      }
-      
-      console.log('Raw profiles data:', profiles);
-      
-      // Transform the data to match expected format and include role information
-      const transformedData = profiles?.map(profile => {
-        const userRole = userRoles.find(ur => ur.user_id === profile.id);
-        return {
-          id: profile.id,
-          full_name: profile.full_name || profile.email,
-          email: profile.email,
-          role: userRole?.role || 'unknown'
-        };
-      }) || [];
-      
-      console.log('Transformed assignees data:', transformedData);
-      console.log('Total assignees found:', transformedData.length);
-      console.log('Admins:', transformedData.filter(a => a.role === 'admin'));
-      console.log('Managers:', transformedData.filter(a => a.role === 'manager'));
-      
-      return transformedData as Assignee[];
+      return employeesData as Employee[];
     }
   });
 
@@ -331,7 +265,7 @@ const Projects = () => {
       project_amount: newProject.billing_type === 'project' || newProject.service === 'BRD' ? newProject.project_amount : null,
       start_date: newProject.start_date || null,
       deadline: newProject.billing_type === 'project' && newProject.deadline ? newProject.deadline : null,
-      assignee_id: newProject.assignee_id || null
+      assignee_employee_id: newProject.assignee_employee_id || null
     };
     
     createProjectMutation.mutate(
@@ -347,7 +281,7 @@ const Projects = () => {
             project_amount: 0,
             start_date: '',
             deadline: '',
-            assignee_id: '',
+            assignee_employee_id: '',
             brd_file: null
           });
           setIsDialogOpen(false);
@@ -372,7 +306,7 @@ const Projects = () => {
         start_date: editingProject.start_date || null,
         deadline: editBillingType === 'project' && editingProject.deadline ? editingProject.deadline : null,
         status: editingProject.status,
-        assignee_id: editingProject.assignee_id || null
+        assignee_employee_id: editingProject.assignee_employee_id || null
       };
       
       updateProjectMutation.mutate(
@@ -487,7 +421,6 @@ const Projects = () => {
           description="Showing only projects where you are the assignee." 
         />
 
-        {/* Add the debug component */}
         <ProjectDebugInfo 
           userRole={userRole}
           employeeId={employeeId}
@@ -505,7 +438,7 @@ const Projects = () => {
               {projects.length === 0 && userRole === 'manager' && (
                 <div className="mt-2 text-sm">
                   <strong>Troubleshooting:</strong> No projects found for manager. Check that:
-                  <br />• Projects table has assignee_id matching your employee ID
+                  <br />• Projects table has assignee_employee_id matching your employee ID
                   <br />• Your employee record exists with correct email
                   <br />• RLS policies are properly configured
                 </div>
@@ -560,7 +493,7 @@ const Projects = () => {
           onCreateProject={handleCreateProject}
           onUpdateProject={handleUpdateProject}
           onViewBRD={openBRDFile}
-          assignees={assignees}
+          employees={employees}
         />
       </div>
     </Navigation>

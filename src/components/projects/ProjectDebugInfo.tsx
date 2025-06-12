@@ -27,15 +27,26 @@ const ProjectDebugInfo: React.FC<ProjectDebugInfoProps> = ({ userRole, employeeI
         .eq('email', user?.email || '')
         .single();
 
-      // Get projects with assignee info
+      // Get projects with assignee info using the new foreign key relationship
       const { data: projects } = await supabase
         .from('projects')
         .select(`
           id,
           name,
           assignee_id,
-          clients(name)
+          assignee_employee_id,
+          clients(name),
+          assignee_employee:employees!assignee_employee_id(id, name, email, role)
         `);
+
+      // Check migration status - projects using old assignee_id vs new assignee_employee_id
+      const oldAssigneeProjects = projects?.filter(p => 
+        p.assignee_id && !p.assignee_employee_id
+      );
+
+      const newAssigneeProjects = projects?.filter(p => 
+        p.assignee_employee_id
+      );
 
       // Check if there are projects where assignee_id matches username pattern
       const usernameProjects = projects?.filter(p => 
@@ -47,6 +58,8 @@ const ProjectDebugInfo: React.FC<ProjectDebugInfoProps> = ({ userRole, employeeI
         userUuid: user?.id,
         employeeRecord: employee,
         totalProjects: projects?.length || 0,
+        oldAssigneeProjects: oldAssigneeProjects || [],
+        newAssigneeProjects: newAssigneeProjects || [],
         usernameAssignedProjects: usernameProjects || [],
         allProjects: projects?.slice(0, 3) // Show first 3 for debugging
       };
@@ -60,7 +73,7 @@ const ProjectDebugInfo: React.FC<ProjectDebugInfoProps> = ({ userRole, employeeI
     <Alert className="mb-6 bg-yellow-50 border-yellow-200">
       <Info className="h-4 w-4" />
       <AlertDescription>
-        <strong>Project Assignment Debug:</strong>
+        <strong>Project Assignment Migration Debug:</strong>
         <div className="mt-2 space-y-1 text-sm">
           <div><strong>User Email:</strong> {debugInfo.userEmail}</div>
           <div><strong>User UUID:</strong> {debugInfo.userUuid}</div>
@@ -70,25 +83,46 @@ const ProjectDebugInfo: React.FC<ProjectDebugInfoProps> = ({ userRole, employeeI
           }</div>
           <div><strong>Total Projects:</strong> {debugInfo.totalProjects}</div>
           
+          <div className="mt-2">
+            <strong>Migration Status:</strong>
+            <div className="ml-2">
+              • Projects using new assignee_employee_id: <span className="text-green-600">{debugInfo.newAssigneeProjects.length}</span>
+            </div>
+            <div className="ml-2">
+              • Projects still using old assignee_id: <span className="text-orange-600">{debugInfo.oldAssigneeProjects.length}</span>
+            </div>
+          </div>
+
           {debugInfo.usernameAssignedProjects.length > 0 && (
             <div className="mt-2">
-              <strong>Projects with username assignments:</strong>
+              <strong>Projects with username assignments (need migration):</strong>
               {debugInfo.usernameAssignedProjects.map(p => (
                 <div key={p.id} className="ml-2">
-                  • {p.name} (assignee_id: "{p.assignee_id}")
+                  • {p.name} (old assignee_id: "{p.assignee_id}")
                 </div>
               ))}
               <div className="text-red-600 mt-1">
-                ⚠️ These projects use username strings instead of employee UUIDs!
+                ⚠️ These projects use username/email strings instead of employee UUIDs!
               </div>
             </div>
           )}
           
+          {debugInfo.newAssigneeProjects.length > 0 && (
+            <div className="mt-2">
+              <strong>Successfully migrated projects:</strong>
+              {debugInfo.newAssigneeProjects.map(p => (
+                <div key={p.id} className="ml-2">
+                  • {p.name} → {p.assignee_employee?.name || 'Unknown Employee'}
+                </div>
+              ))}
+            </div>
+          )}
+          
           <div className="mt-2">
-            <strong>Sample projects:</strong>
+            <strong>Sample projects debug:</strong>
             {debugInfo.allProjects.map(p => (
               <div key={p.id} className="ml-2">
-                • {p.name} - assignee_id: {p.assignee_id || 'NULL'}
+                • {p.name} | old: {p.assignee_id || 'NULL'} | new: {p.assignee_employee_id || 'NULL'} | employee: {p.assignee_employee?.name || 'N/A'}
               </div>
             ))}
           </div>

@@ -20,10 +20,11 @@ interface Service {
   name: string;
 }
 
-interface Assignee {
+interface Employee {
   id: string;
-  full_name: string;
+  name: string;
   email: string;
+  role: string;
 }
 
 interface ProjectData {
@@ -36,7 +37,7 @@ interface ProjectData {
   start_date: string | null;
   deadline: string | null;
   status: string;
-  assignee_id: string | null;
+  assignee_employee_id: string | null;
   brd_file_url?: string | null;
 }
 
@@ -50,7 +51,7 @@ interface ProjectFormProps {
     project_amount: number;
     start_date: string;
     deadline: string;
-    assignee_id: string;
+    assignee_employee_id: string;
     brd_file: File | null;
   };
   setNewProject: (project: any) => void;
@@ -68,7 +69,7 @@ interface ProjectFormProps {
   onUpdateProject: () => void;
   onViewBRD: (url: string) => void;
   onSetEditingProject: (project: ProjectData) => void;
-  assignees: Assignee[];
+  employees: Employee[];
 }
 
 const ProjectForm = ({ 
@@ -88,7 +89,7 @@ const ProjectForm = ({
   onUpdateProject, 
   onViewBRD,
   onSetEditingProject,
-  assignees
+  employees
 }: ProjectFormProps) => {
   const { createProjectMutation, updateProjectMutation } = useProjectOperations();
 
@@ -137,7 +138,7 @@ const ProjectForm = ({
       project_amount: 0,
       start_date: '',
       deadline: '',
-      assignee_id: '',
+      assignee_employee_id: '',
       brd_file: null
     });
   };
@@ -178,14 +179,15 @@ const ProjectForm = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="assignee">Assignee</Label>
-              <Select onValueChange={(value) => setNewProject({...newProject, assignee_id: value})}>
+              <Select onValueChange={(value) => setNewProject({...newProject, assignee_employee_id: value})}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select an assignee (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {assignees.map((assignee) => (
-                    <SelectItem key={assignee.id} value={assignee.id}>
-                      {assignee.full_name}
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.name} ({employee.role})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -320,15 +322,18 @@ const ProjectForm = ({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editAssignee">Assignee</Label>
-                <Select onValueChange={(value) => onSetEditingProject({...editingProject, assignee_id: value === "unassigned" ? null : value})}>
+                <Select 
+                  value={editingProject.assignee_employee_id || "unassigned"}
+                  onValueChange={(value) => onSetEditingProject({...editingProject, assignee_employee_id: value === "unassigned" ? null : value})}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select an assignee (optional)" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {assignees.map((assignee) => (
-                      <SelectItem key={assignee.id} value={assignee.id}>
-                        {assignee.full_name}
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name} ({employee.role})
                       </SelectItem>
                     ))}
                   </SelectContent>
