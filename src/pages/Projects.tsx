@@ -53,7 +53,7 @@ interface Assignee {
 }
 
 const Projects = () => {
-  const { hasOperationAccess, shouldApplyUserFiltering, userId, userRole, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, isRlsFilteringActive, userId, userRole, loading: privilegesLoading } = usePrivileges();
   
   // Check specific permissions for projects page
   const canCreate = hasOperationAccess('projects', 'create');
@@ -62,7 +62,7 @@ const Projects = () => {
   const canRead = hasOperationAccess('projects', 'read');
 
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
-  console.log('Should apply user filtering:', shouldApplyUserFiltering('projects'), 'User ID:', userId);
+  console.log('Should apply user filtering:', isRlsFilteringActive('projects'), 'User ID:', userId);
   console.log('User role:', userRole);
   console.log('Privileges loading:', privilegesLoading);
 
