@@ -179,11 +179,10 @@ const Sprints = () => {
           .from('sprints')
           .select('*');
 
-        // For manager role with RLS active, only show sprints where user is sprint leader
-        // The RLS policy will handle this automatically, but let's add debugging
+        // The RLS policy will handle filtering automatically
         if (isRlsFilteringActive('sprints') && userRole === 'manager') {
-          console.log('Manager role detected - RLS will filter sprints where user is sprint leader');
-          console.log('Looking for sprints where sprint_leader_id matches employee ID:', employeeId);
+          console.log('Manager role detected - RLS will filter sprints appropriately');
+          console.log('Looking for sprints where user is sprint leader or has assigned tasks');
         }
 
         const { data: sprintsData, error: sprintsError } = await query.order('deadline', { ascending: true });
@@ -209,7 +208,7 @@ const Sprints = () => {
         } else if (isRlsFilteringActive('sprints')) {
           console.log('No sprints found - this might indicate:');
           console.log('1. No sprints are assigned to employee ID:', employeeId);
-          console.log('2. RLS policy is not matching correctly');
+          console.log('2. User is not a sprint leader and has no assigned tasks');
           console.log('3. Employee record might not exist or email mismatch');
         }
 
@@ -234,6 +233,8 @@ const Sprints = () => {
             }
           }
           
+          // Fetch tasks for this sprint using the sprint_tasks relationship
+          // The RLS policy will automatically filter tasks based on user access rights
           const { data: sprintTasks, error: tasksError } = await supabase
             .from('sprint_tasks')
             .select(`
@@ -734,7 +735,7 @@ const Sprints = () => {
         <RlsStatusAlert 
           userRole={userRole} 
           pageName="Sprints" 
-          description="Showing only sprints where you are the sprint leader." 
+          description="Showing only sprints where you are the sprint leader or have assigned tasks." 
         />
 
         {/* Debug information for development */}

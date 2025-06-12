@@ -810,6 +810,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_current_user_employee_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_user_client_id: {
         Args: { user_id: string }
         Returns: string
