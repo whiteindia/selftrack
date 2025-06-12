@@ -226,40 +226,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (window.location.pathname === '/login') {
               setTimeout(async () => {
                 try {
-                  console.log('Attempting to redirect after login, role:', role);
-                  
-                  let redirectTo = '/';
-                  
-                  // If admin or yugandhar@whiteindia.in, redirect to dashboard
-                  if (role === 'admin' || session.user.email === 'yugandhar@whiteindia.in') {
-                    redirectTo = '/';
-                  } else if (role) {
-                    // For other roles, get first accessible page
-                    const pageOrder = ['sprints', 'tasks', 'projects', 'invoices', 'clients', 'employees', 'payments', 'services', 'wages'];
-                    
-                    const { data: privileges } = await supabase
-                      .from('role_privileges')
-                      .select('page_name')
-                      .eq('role', role)
-                      .eq('operation', 'read')
-                      .eq('allowed', true);
-                    
-                    if (privileges && privileges.length > 0) {
-                      const allowedPages = privileges.map(p => p.page_name);
-                      
-                      for (const page of pageOrder) {
-                        if (allowedPages.includes(page)) {
-                          redirectTo = `/${page}`;
-                          break;
-                        }
-                      }
-                    }
-                  }
-                  
+                  console.log('Redirecting using getFirstAccessiblePage...');
+                  const redirectTo = await getFirstAccessiblePage();
                   console.log('Redirecting to:', redirectTo);
                   window.location.href = redirectTo;
-                } catch (error) {
-                  console.error('Error during post-login redirect:', error);
+                } catch (err) {
+                  console.error('Redirect error:', err);
+                  window.location.href = '/'; // fallback
                 }
               }, 1500); // Wait for role to be fully loaded
             }
