@@ -179,12 +179,12 @@ const ProjectForm = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="assignee">Assignee</Label>
-              <Select onValueChange={(value) => setNewProject({...newProject, assignee_employee_id: value})}>
+              <Select onValueChange={(value) => setNewProject({...newProject, assignee_employee_id: value === "unassigned" ? "" : value})}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select an assignee (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id}>
                       {employee.name} ({employee.role})
