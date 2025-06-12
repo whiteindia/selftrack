@@ -54,6 +54,7 @@ interface SprintWithTasks extends Sprint {
   project?: {
     name: string;
     service: string;
+    assignee_employee_id: string;
     clients: {
       name: string;
     };
@@ -183,6 +184,7 @@ const Sprints = () => {
             projects (
               name,
               service,
+              assignee_employee_id,
               clients (
                 name
               )
@@ -302,7 +304,7 @@ const Sprints = () => {
           // But we'll add a safety check: if no tasks and user is not sprint leader and not project manager, skip
           const isSprintLeader = sprint.sprint_leader_id === employeeId;
           const hasVisibleTasks = tasks.length > 0;
-          const isProjectManager = sprint.projects && sprint.projects.assignee_employee_id === employeeId;
+          const isProjectManager = sprint.projects && (sprint.projects as any).assignee_employee_id === employeeId;
           
           if (!isSprintLeader && !hasVisibleTasks && !isProjectManager) {
             console.log(`Filtering out sprint ${sprint.title} - user is not sprint leader, project manager, and has no visible tasks`);
