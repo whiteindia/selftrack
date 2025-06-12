@@ -47,14 +47,14 @@ export const useRlsPolicies = (role?: string) => {
     fetchRlsPolicies();
   }, [role]);
 
-  const updateRlsPolicy = async (pageame: string, enabled: boolean) => {
+  const updateRlsPolicy = async (pageName: string, enabled: boolean) => {
     if (!role) return;
 
     try {
-      console.log(`Updating RLS policy for ${role}-${pageame}:`, enabled);
+      console.log(`Updating RLS policy for ${role}-${pageName}:`, enabled);
       
       // First check if policy exists
-      const existingPolicy = rlsPolicies.find(p => p.page_name === pageame);
+      const existingPolicy = rlsPolicies.find(p => p.page_name === pageName);
       
       if (existingPolicy) {
         // Update existing policy
@@ -73,7 +73,7 @@ export const useRlsPolicies = (role?: string) => {
           .from('role_rls_policies')
           .insert({
             role: role,
-            page_name: pageame,
+            page_name: pageName,
             rls_enabled: enabled
           });
 
@@ -89,10 +89,10 @@ export const useRlsPolicies = (role?: string) => {
 
       // Update local state
       setRlsPolicies(prev => {
-        const updated = prev.filter(p => p.page_name !== pageame);
+        const updated = prev.filter(p => p.page_name !== pageName);
         updated.push({
           role,
-          page_name: pageame,
+          page_name: pageName,
           rls_enabled: enabled
         });
         return updated;
@@ -105,8 +105,8 @@ export const useRlsPolicies = (role?: string) => {
     }
   };
 
-  const isRlsEnabled = (pageame: string) => {
-    const policy = rlsPolicies.find(p => p.page_name === pageame);
+  const isRlsEnabled = (pageName: string) => {
+    const policy = rlsPolicies.find(p => p.page_name === pageName);
     return policy?.rls_enabled || false;
   };
 
