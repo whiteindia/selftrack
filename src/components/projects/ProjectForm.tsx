@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -179,7 +178,10 @@ const ProjectForm = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="assignee">Assignee</Label>
-              <Select onValueChange={(value) => setNewProject({...newProject, assignee_employee_id: value === "unassigned" ? "" : value})}>
+              <Select 
+                value={newProject.assignee_employee_id || "unassigned"}
+                onValueChange={(value) => setNewProject({...newProject, assignee_employee_id: value === "unassigned" ? "" : value})}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select an assignee (optional)" />
                 </SelectTrigger>
@@ -309,9 +311,12 @@ const ProjectForm = ({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editClient">Client</Label>
-                <Select onValueChange={(value) => onSetEditingProject({...editingProject, client_id: value})}>
+                <Select 
+                  value={editingProject.client_id}
+                  onValueChange={(value) => onSetEditingProject({...editingProject, client_id: value})}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a client" defaultValue={editingProject.client_id} />
+                    <SelectValue placeholder="Select a client" />
                   </SelectTrigger>
                   <SelectContent>
                     {clients.map((client) => (
@@ -341,9 +346,12 @@ const ProjectForm = ({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editService">Service</Label>
-                <Select onValueChange={(value) => onSetEditingProject({...editingProject, service: value})}>
+                <Select 
+                  value={editingProject.service}
+                  onValueChange={(value) => onSetEditingProject({...editingProject, service: value})}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select service" defaultValue={editingProject.service} />
+                    <SelectValue placeholder="Select service" />
                   </SelectTrigger>
                   <SelectContent>
                     {services.map((service) => (
@@ -354,9 +362,12 @@ const ProjectForm = ({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editBillingType">Billing Type</Label>
-                <Select onValueChange={(value: 'hourly' | 'project') => setEditBillingType(value)}>
+                <Select 
+                  value={editBillingType}
+                  onValueChange={(value: 'hourly' | 'project') => setEditBillingType(value)}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select billing type" defaultValue={editBillingType} />
+                    <SelectValue placeholder="Select billing type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="hourly">Hourly</SelectItem>
@@ -408,9 +419,12 @@ const ProjectForm = ({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editStatus">Status</Label>
-                <Select onValueChange={(value) => onSetEditingProject({...editingProject, status: value})}>
+                <Select 
+                  value={editingProject.status}
+                  onValueChange={(value) => onSetEditingProject({...editingProject, status: value})}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select status" defaultValue={editingProject.status} />
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Active">Active</SelectItem>
