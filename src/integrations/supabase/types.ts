@@ -216,6 +216,13 @@ export type Database = {
             foreignKeyName: "invoice_tasks_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "task_project_managers"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "invoice_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
@@ -562,6 +569,13 @@ export type Database = {
             foreignKeyName: "sprint_tasks_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "task_project_managers"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "sprint_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
@@ -654,6 +668,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_managers"
+            referencedColumns: ["task_id"]
+          },
           {
             foreignKeyName: "task_comments_task_id_fkey"
             columns: ["task_id"]
@@ -785,6 +806,13 @@ export type Database = {
             foreignKeyName: "time_entries_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "task_project_managers"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
@@ -813,7 +841,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      task_project_managers: {
+        Row: {
+          project_manager_id: string | null
+          task_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_projects_assignee_employee"
+            columns: ["project_manager_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       apply_rls_policies: {
