@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -354,9 +353,15 @@ const Projects = () => {
       return;
     }
 
+    console.log('Setting editing project:', project);
     setEditingProject(project);
     setEditBillingType(isProjectBased(project) ? 'project' : 'hourly');
     setIsEditDialogOpen(true);
+  };
+
+  const handleSetEditingProject = (updatedProject: ProjectData) => {
+    console.log('Updating editing project:', updatedProject);
+    setEditingProject(updatedProject);
   };
 
   if (isLoading || privilegesLoading) {
@@ -480,7 +485,7 @@ const Projects = () => {
           newProject={newProject}
           setNewProject={setNewProject}
           editingProject={editingProject}
-          onSetEditingProject={handleEditProject}
+          onSetEditingProject={handleSetEditingProject}
           editBillingType={editBillingType}
           setEditBillingType={setEditBillingType}
           editBrdFile={editBrdFile}

@@ -20,12 +20,16 @@ interface ProjectData {
   deadline: string | null;
   brd_file_url: string | null;
   assignee_id: string | null;
+  assignee_employee_id: string | null;
   created_at: string;
   clients: {
     name: string;
   };
-  assignee?: {
-    full_name: string;
+  assignee_employee?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
   };
 }
 
@@ -50,6 +54,16 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
 }) => {
   const isProjectBased = (project: ProjectData) => {
     return project.project_amount !== null || project.brd_file_url !== null;
+  };
+
+  const getAssigneeName = (project: ProjectData) => {
+    // Use the new employee relationship
+    if (project.assignee_employee?.name) {
+      return project.assignee_employee.name;
+    }
+    
+    // Fallback to show that no assignee is set
+    return 'Unassigned';
   };
 
   return (
@@ -96,7 +110,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                     {project.status}
                   </Badge>
                 </TableCell>
-                <TableCell>{project.assignee?.full_name || 'Unassigned'}</TableCell>
+                <TableCell>{getAssigneeName(project)}</TableCell>
                 <TableCell>
                   {project.deadline ? format(new Date(project.deadline), 'PPP') : 'No deadline'}
                 </TableCell>
