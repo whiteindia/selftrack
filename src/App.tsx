@@ -142,12 +142,10 @@ const AppContent = () => {
           </Routes>
         </Navigation>
       ) : (
-        <div className="min-h-screen bg-background">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </div>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
       )}
     </BrowserRouter>
   );
