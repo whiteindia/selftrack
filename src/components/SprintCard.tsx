@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { Edit, Trash2, Calendar, Clock, CheckCircle } from 'lucide-react';
+import { Edit, Trash2, Calendar, Clock, CheckCircle, Building2, User } from 'lucide-react';
 
 interface Task {
   id: string;
@@ -72,6 +72,9 @@ const SprintCard: React.FC<SprintCardProps> = ({
   const totalTasks = sprint.tasks.length;
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
+  // Get project and client info from the first task (since all tasks in a sprint should be from the same project)
+  const projectInfo = sprint.tasks.length > 0 ? sprint.tasks[0].projects : null;
+
   return (
     <Card className="w-full">
       <CardHeader className="pb-4">
@@ -90,6 +93,17 @@ const SprintCard: React.FC<SprintCardProps> = ({
                   <Badge variant="destructive" className="text-xs">
                     Overdue by {sprint.overdueDays} days
                   </Badge>
+                )}
+                {projectInfo && (
+                  <>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      <Building2 className="h-3 w-3 mr-1" />
+                      Client: {projectInfo.clients.name}
+                    </Badge>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      Project: {projectInfo.name}
+                    </Badge>
+                  </>
                 )}
               </div>
             </div>
@@ -151,11 +165,13 @@ const SprintCard: React.FC<SprintCardProps> = ({
             {sprint.tasks.map((task) => (
               <div key={task.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-2 border rounded-md gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium break-words">{task.name}</div>
-                  <div className="text-sm text-gray-500 break-words">
-                    {task.projects?.clients.name} - {task.projects?.name}
-                    {task.employees && <span> • Assignee: {task.employees.name}</span>}
-                  </div>
+                  <div className="font-medium break-words mb-1">{task.name}</div>
+                  {task.employees && (
+                    <div className="text-sm text-gray-500 flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      <span>Assignee: {task.employees.name}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-shrink-0 w-full lg:w-auto">
                   {canUpdate ? (
