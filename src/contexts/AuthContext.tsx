@@ -186,13 +186,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          fetchUserRole(session.user.id);
+          const role = await fetchUserRole(session.user.id);
           checkPasswordResetNeeded(session.user);
+          
           // Log user login activity for sign in events
           if (event === 'SIGNED_IN') {
             setTimeout(() => {
               logUserLogin(session.user.email || 'Unknown user');
             }, 0);
+
+            // Handle redirect after login
+            setTimeout(async () => {
+              try {
+                console.log('Attempting to redirect after login, role:', role);
+                
+                // Only redirect if we're on the login page
+                if (window.location.pathname === '/login') {
+                  let redirectTo = '/';
+                  
+                  // If admin or yugandhar@whiteindia.in, redirect to dashboard
+                  if (role === 'admin' || session.user.email === 'yugandhar@whiteindia.in') {
+                    redirectTo = '/';
+                  } else if (role) {
+                    // For other roles, get first accessible page
+                    const pageOrder = ['sprints', 'tasks', 'projects', 'invoices', 'clients', 'employees', 'payments', 'services', 'wages'];
+                    
+                    const { data: privileges } = await supabase
+                      .from('role_privileges')
+                      .select('page_name')
+                      .eq('role', role)
+                      .eq('operation', 'read')
+                      .eq('allowed', true);
+                    
+                    if (privileges && privileges.length > 0) {
+                      const allowedPages = privileges.map(p => p.page_name);
+                      
+                      for (const page of pageOrder) {
+                        if (allowedPages.includes(page)) {
+                          redirectTo = `/${page}`;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                  
+                  console.log('Redirecting to:', redirectTo);
+                  window.location.href = redirectTo;
+                }
+              } catch (error) {
+                console.error('Error during post-login redirect:', error);
+              }
+            }, 500); // Wait longer for role to be fetched
           }
         } else {
           setUserRole(null);

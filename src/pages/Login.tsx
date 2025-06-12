@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 const Login = () => {
-  const { signIn, user, loading, getFirstAccessiblePage } = useAuth();
+  const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,18 +61,7 @@ const Login = () => {
       } else {
         console.log('=== LOGIN SUCCESS ===');
         toast.success('Successfully logged in!');
-        
-        // Wait a moment for auth state to update, then get accessible page
-        setTimeout(async () => {
-          try {
-            const redirectTo = await getFirstAccessiblePage();
-            console.log('Redirecting to:', redirectTo);
-            navigate(redirectTo, { replace: true });
-          } catch (err) {
-            console.error('Error getting accessible page:', err);
-            navigate('/', { replace: true });
-          }
-        }, 100);
+        // Don't redirect here - let the auth state change handle it
       }
     } catch (err) {
       console.error('=== UNEXPECTED LOGIN ERROR ===');
