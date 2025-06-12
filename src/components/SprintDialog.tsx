@@ -41,12 +41,22 @@ interface Employee {
   email: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  client_id: string;
+  clients?: {
+    name: string;
+  };
+}
+
 interface Sprint {
   id: string;
   title: string;
   deadline: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
   sprint_leader_id: string | null;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +77,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   const [title, setTitle] = useState('');
   const [deadline, setDeadline] = useState<Date>();
   const [sprintLeaderId, setSprintLeaderId] = useState<string>('unassigned');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
 
   // Reset form when dialog opens/closes or editing sprint changes
@@ -76,6 +87,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
         setTitle(editingSprint.title);
         setDeadline(new Date(editingSprint.deadline));
         setSprintLeaderId(editingSprint.sprint_leader_id || 'unassigned');
+        setSelectedProjectId(editingSprint.project_id || '');
         // Load existing tasks for this sprint
         loadSprintTasks(editingSprint.id);
       } else {
@@ -110,10 +122,34 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     enabled: open
   });
 
-  // Fetch available tasks - only show "Not Started" tasks
-  const { data: tasks = [] } = useQuery({
-    queryKey: ['available-tasks'],
+  // Fetch available projects
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          id,
+          name,
+          client_id,
+          clients (
+            name
+          )
+        `)
+        .order('name');
+
+      if (error) throw error;
+      return data as Project[];
+    },
+    enabled: open
+  });
+
+  // Fetch available tasks based on selected project - only show "Not Started" tasks
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['available-tasks', selectedProjectId],
+    queryFn: async () => {
+      if (!selectedProjectId) return [];
+      
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -129,16 +165,17 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           )
         `)
         .eq('status', 'Not Started')
+        .eq('project_id', selectedProjectId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as Task[];
     },
-    enabled: open
+    enabled: open && !!selectedProjectId
   });
 
   const createSprintMutation = useMutation({
-    mutationFn: async (sprintData: { title: string; deadline: string; sprintLeaderId: string; taskIds: string[] }) => {
+    mutationFn: async (sprintData: { title: string; deadline: string; sprintLeaderId: string; projectId: string; taskIds: string[] }) => {
       // Create sprint
       const { data: sprint, error: sprintError } = await supabase
         .from('sprints')
@@ -146,6 +183,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           title: sprintData.title,
           deadline: sprintData.deadline,
           sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
+          project_id: sprintData.projectId || null,
           status: 'Not Started'
         })
         .select()
@@ -187,7 +225,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
   });
 
   const updateSprintMutation = useMutation({
-    mutationFn: async (sprintData: { id: string; title: string; deadline: string; sprintLeaderId: string; taskIds: string[] }) => {
+    mutationFn: async (sprintData: { id: string; title: string; deadline: string; sprintLeaderId: string; projectId: string; taskIds: string[] }) => {
       // Update sprint
       const { error: sprintError } = await supabase
         .from('sprints')
@@ -195,6 +233,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           title: sprintData.title,
           deadline: sprintData.deadline,
           sprint_leader_id: sprintData.sprintLeaderId === 'unassigned' ? null : sprintData.sprintLeaderId,
+          project_id: sprintData.projectId || null,
         })
         .eq('id', sprintData.id);
 
@@ -245,6 +284,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     setTitle('');
     setDeadline(undefined);
     setSprintLeaderId('unassigned');
+    setSelectedProjectId('');
     setSelectedTasks([]);
   };
 
@@ -273,6 +313,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
       title: title.trim(),
       deadline: format(deadline, 'yyyy-MM-dd'),
       sprintLeaderId: sprintLeaderId,
+      projectId: selectedProjectId,
       taskIds: selectedTasks
     };
 
@@ -292,6 +333,11 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
         ? prev.filter(id => id !== taskId)
         : [...prev, taskId]
     );
+  };
+
+  const handleProjectChange = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setSelectedTasks([]); // Clear selected tasks when project changes
   };
 
   const isLoading = createSprintMutation.isPending || updateSprintMutation.isPending;
@@ -364,33 +410,54 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="project">Project</Label>
+            <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No Project Selected</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name} - {project.clients?.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label>Select Tasks (Not Started Only)</Label>
-            <div className="border rounded-md p-4 max-h-60 overflow-y-auto">
-              {tasks.length === 0 ? (
-                <p className="text-sm text-gray-500">No "Not Started" tasks available</p>
-              ) : (
-                <div className="space-y-2">
-                  {tasks.map((task) => (
-                    <div key={task.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={task.id}
-                        checked={selectedTasks.includes(task.id)}
-                        onCheckedChange={() => handleTaskToggle(task.id)}
-                      />
-                      <label
-                        htmlFor={task.id}
-                        className="flex-1 text-sm cursor-pointer"
-                      >
-                        <div className="font-medium">{task.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {task.projects?.name} - {task.projects?.clients?.name}
-                        </div>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {!selectedProjectId ? (
+              <p className="text-sm text-gray-500">Please select a project first to see available tasks</p>
+            ) : (
+              <div className="border rounded-md p-4 max-h-60 overflow-y-auto">
+                {tasks.length === 0 ? (
+                  <p className="text-sm text-gray-500">No "Not Started" tasks available for this project</p>
+                ) : (
+                  <div className="space-y-2">
+                    {tasks.map((task) => (
+                      <div key={task.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={task.id}
+                          checked={selectedTasks.includes(task.id)}
+                          onCheckedChange={() => handleTaskToggle(task.id)}
+                        />
+                        <label
+                          htmlFor={task.id}
+                          className="flex-1 text-sm cursor-pointer"
+                        >
+                          <div className="font-medium">{task.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {task.projects?.name} - {task.projects?.clients?.name}
+                          </div>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <p className="text-xs text-gray-500">
               Selected {selectedTasks.length} task(s)
             </p>
