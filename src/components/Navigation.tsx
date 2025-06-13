@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -69,18 +70,23 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/roles', label: 'Roles', icon: UserCheck, pageName: 'roles' },
   ];
 
-  // Filter all items based on privileges - no special case for dashboard
+  // Filter items based on actual database privileges
   const visibleMainNavItems = mainNavItems.filter(item => {
-    return hasPageAccess(item.pageName);
+    const access = hasPageAccess(item.pageName);
+    console.log(`Navigation filtering ${item.label} (${item.pageName}):`, access);
+    return access;
   });
 
-  // Filter TrakEzy items based on privileges
   const visibleTrakEzyItems = trakEzyItems.filter(item => {
-    return hasPageAccess(item.pageName);
+    const access = hasPageAccess(item.pageName);
+    console.log(`TrakEzy filtering ${item.label} (${item.pageName}):`, access);
+    return access;
   });
 
   const visibleConfigItems = configItems.filter(item => {
-    return hasPageAccess(item.pageName);
+    const access = hasPageAccess(item.pageName);
+    console.log(`Config filtering ${item.label} (${item.pageName}):`, access);
+    return access;
   });
 
   // Check if TrakEzy menu should be shown (only if at least one sub-item is visible)
@@ -115,28 +121,30 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       </div>
       
       <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
-          <div className="space-y-1">
-            {visibleMainNavItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive(item.path)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+        {visibleMainNavItems.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
+            <div className="space-y-1">
+              {visibleMainNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {shouldShowTrakEzyMenu && (
           <div>

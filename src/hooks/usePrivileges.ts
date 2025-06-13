@@ -59,10 +59,10 @@ export const usePrivileges = () => {
 
     // Check if user has read access to the page
     const readPrivilege = privileges.find(
-      p => p.page_name === pageName && p.operation === 'read'
+      p => p.page_name === pageName && p.operation === 'read' && p.allowed === true
     );
-    const hasAccess = readPrivilege?.allowed || false;
-    console.log(`Page access check for ${pageName}:`, hasAccess, 'Role:', userRole);
+    const hasAccess = !!readPrivilege;
+    console.log(`Page access check for ${pageName}:`, hasAccess, 'Role:', userRole, 'Privilege found:', !!readPrivilege);
     return hasAccess;
   };
 
@@ -75,11 +75,10 @@ export const usePrivileges = () => {
 
     // Find the specific privilege for this page and operation
     const privilege = privileges.find(
-      p => p.page_name === pageName && p.operation === operation
+      p => p.page_name === pageName && p.operation === operation && p.allowed === true
     );
     
-    // If no privilege record exists, deny access (don't default to true)
-    const hasAccess = privilege?.allowed === true;
+    const hasAccess = !!privilege;
     console.log(`Operation access check for ${pageName}-${operation}:`, hasAccess, 'Privilege found:', !!privilege, 'Role:', userRole);
     return hasAccess;
   };
