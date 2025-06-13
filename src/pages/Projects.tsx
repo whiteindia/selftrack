@@ -10,10 +10,8 @@ import ProjectTable from '@/components/projects/ProjectTable';
 import ProjectDebugInfo from '@/components/projects/ProjectDebugInfo';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
-import RlsStatusAlert from '@/components/RlsStatusAlert';
-import { Plus, Info } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ProjectData {
   id: string;
@@ -420,37 +418,11 @@ const Projects = () => {
           )}
         </div>
 
-        <RlsStatusAlert 
-          userRole={userRole} 
-          pageName="Projects" 
-          description="Showing only projects where you are the assignee." 
-        />
-
         <ProjectDebugInfo 
           userRole={userRole}
           employeeId={employeeId}
           userId={userId}
         />
-
-        {/* Enhanced debug information */}
-        {process.env.NODE_ENV === 'development' && isRlsFilteringActive('projects') && (
-          <Alert className="mb-6 bg-blue-50">
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Debug Info:</strong> User Role: {userRole} | Employee ID: {employeeId || 'Not found'} | 
-              RLS Active: {isRlsFilteringActive('projects') ? 'Yes' : 'No'} | 
-              Projects Found: {projects.length}
-              {projects.length === 0 && userRole === 'manager' && (
-                <div className="mt-2 text-sm">
-                  <strong>Troubleshooting:</strong> No projects found for manager. Check that:
-                  <br />• Projects table has assignee_employee_id matching your employee ID
-                  <br />• Your employee record exists with correct email
-                  <br />• RLS policies are properly configured
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
 
         <ProjectFilters
           selectedClient={selectedClient}

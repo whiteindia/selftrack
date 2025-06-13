@@ -8,11 +8,8 @@ import SprintsHeader from '@/components/SprintsHeader';
 import SprintsFilters from '@/components/SprintsFilters';
 import SprintsEmptyState from '@/components/SprintsEmptyState';
 import Navigation from '@/components/Navigation';
-import RlsStatusAlert from '@/components/RlsStatusAlert';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from '@/hooks/use-toast';
-import { Info } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Sprint {
   id: string;
@@ -743,12 +740,6 @@ const Sprints = () => {
           services={services}
           canCreate={canCreate}
           onCreateSprint={handleCreateSprint}
-        />
-
-        <RlsStatusAlert 
-          userRole={userRole} 
-          pageName="Sprints" 
-          description="Showing only sprints where you are the sprint leader, project manager, or have assigned tasks." 
         />
 
         <SprintsFilters
