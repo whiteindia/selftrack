@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import Navigation from '@/components/Navigation';
 import { logActivity } from '@/utils/activityLogger';
+import { usePrivileges } from '@/hooks/usePrivileges';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -64,6 +64,7 @@ interface InvoiceTask {
 
 const Invoices = () => {
   const queryClient = useQueryClient();
+  const { hasOperationAccess } = usePrivileges();
   const [newInvoice, setNewInvoice] = useState({
     project_id: '',
     selectedTasks: [] as string[],
@@ -444,97 +445,99 @@ const Invoices = () => {
               </Select>
             </div>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto whitespace-nowrap">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Create New Invoice</DialogTitle>
-                  <DialogDescription>
-                    Select completed tasks to generate an invoice.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="project">Project</Label>
-                    <Select value={newInvoice.project_id} onValueChange={handleProjectChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name} ({project.clients.name})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {newInvoice.project_id && (
+            {hasOperationAccess('invoices', 'create') && (
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto whitespace-nowrap">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Invoice
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Create New Invoice</DialogTitle>
+                    <DialogDescription>
+                      Select completed tasks to generate an invoice.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Select Tasks to Invoice</Label>
-                      <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
-                        {availableTasks.length === 0 ? (
-                          <p className="text-gray-500 text-sm">No completed tasks available for this project.</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {availableTasks.map((task) => (
-                              <div key={task.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
-                                <Checkbox
-                                  id={`task-${task.id}`}
-                                  checked={newInvoice.selectedTasks.includes(task.id)}
-                                  onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
-                                />
-                                <div className="flex-1">
-                                  <label htmlFor={`task-${task.id}`} className="text-sm font-medium cursor-pointer">
-                                    {task.name}
-                                  </label>
-                                  <div className="text-xs text-gray-600">
-                                    {task.hours}h × ₹{task.projects.hourly_rate}/hr = ₹{(task.hours * task.projects.hourly_rate).toFixed(2)}
+                      <Label htmlFor="project">Project</Label>
+                      <Select value={newInvoice.project_id} onValueChange={handleProjectChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name} ({project.clients.name})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {newInvoice.project_id && (
+                      <div className="space-y-2">
+                        <Label>Select Tasks to Invoice</Label>
+                        <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                          {availableTasks.length === 0 ? (
+                            <p className="text-gray-500 text-sm">No completed tasks available for this project.</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {availableTasks.map((task) => (
+                                <div key={task.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                                  <Checkbox
+                                    id={`task-${task.id}`}
+                                    checked={newInvoice.selectedTasks.includes(task.id)}
+                                    onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
+                                  />
+                                  <div className="flex-1">
+                                    <label htmlFor={`task-${task.id}`} className="text-sm font-medium cursor-pointer">
+                                      {task.name}
+                                    </label>
+                                    <div className="text-xs text-gray-600">
+                                      {task.hours}h × ₹{task.projects.hourly_rate}/hr = ₹{(task.hours * task.projects.hourly_rate).toFixed(2)}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {newInvoice.selectedTasks.length > 0 && (
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">Total Hours:</span>
+                            <span className="text-lg font-bold">
+                              {getSelectedTasksTotal().totalHours.toFixed(2)}h
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {newInvoice.selectedTasks.length > 0 && (
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Total Hours:</span>
-                          <span className="text-lg font-bold">
-                            {getSelectedTasksTotal().totalHours.toFixed(2)}h
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Total Amount:</span>
-                          <span className="text-2xl font-bold text-green-600">
-                            ₹{getSelectedTasksTotal().totalAmount.toFixed(2)}
-                          </span>
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">Total Amount:</span>
+                            <span className="text-2xl font-bold text-green-600">
+                              ₹{getSelectedTasksTotal().totalAmount.toFixed(2)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <Button 
-                    onClick={handleCreateInvoice} 
-                    className="w-full"
-                    disabled={newInvoice.selectedTasks.length === 0 || createInvoiceMutation.isPending}
-                  >
-                    {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                    <Button 
+                      onClick={handleCreateInvoice} 
+                      className="w-full"
+                      disabled={newInvoice.selectedTasks.length === 0 || createInvoiceMutation.isPending}
+                    >
+                      {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         </div>
 
@@ -636,7 +639,7 @@ const Invoices = () => {
                           <Download className="h-4 w-4 mr-1" />
                           PDF
                         </Button>
-                        {invoice.status === 'Draft' && (
+                        {invoice.status === 'Draft' && hasOperationAccess('invoices', 'update') && (
                           <Button 
                             size="sm"
                             onClick={() => updateInvoiceStatus(invoice.id, 'Sent')}
@@ -646,7 +649,7 @@ const Invoices = () => {
                             Send
                           </Button>
                         )}
-                        {invoice.status === 'Sent' && (
+                        {invoice.status === 'Sent' && hasOperationAccess('invoices', 'update') && (
                           <Button 
                             size="sm"
                             onClick={() => updateInvoiceStatus(invoice.id, 'Paid')}
