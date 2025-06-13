@@ -40,107 +40,109 @@ const AppContent = () => {
   return (
     <BrowserRouter>
       {user ? (
-        <Navigation>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute pageName="dashboard">
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tasks"
-              element={
-                <ProtectedRoute pageName="tasks">
-                  <Tasks />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects"
-              element={
-                <ProtectedRoute pageName="projects">
-                  <Projects />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/clients"
-              element={
-                <ProtectedRoute pageName="clients">
-                  <Clients />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/employees"
-              element={
-                <ProtectedRoute pageName="employees">
-                  <Employees />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/invoices"
-              element={
-                <ProtectedRoute pageName="invoices">
-                  <Invoices />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payments"
-              element={
-                <ProtectedRoute pageName="payments">
-                  <Payments />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/services"
-              element={
-                <ProtectedRoute pageName="services">
-                  <Services />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/wages"
-              element={
-                <ProtectedRoute pageName="wages">
-                  <Wages />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sprints"
-              element={
-                <ProtectedRoute pageName="sprints">
-                  <Sprints />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/invitations"
-              element={
-                <ProtectedRoute requireSuperAdmin>
-                  <Invitations />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/roles"
-              element={
-                <ProtectedRoute requireSuperAdmin>
-                  <Roles />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Navigation>
+        <div className="min-h-screen w-full">
+          <Navigation>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute pageName="dashboard">
+                    <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tasks"
+                element={
+                  <ProtectedRoute pageName="tasks">
+                    <Tasks />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects"
+                element={
+                  <ProtectedRoute pageName="projects">
+                    <Projects />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/clients"
+                element={
+                  <ProtectedRoute pageName="clients">
+                    <Clients />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employees"
+                element={
+                  <ProtectedRoute pageName="employees">
+                    <Employees />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invoices"
+                element={
+                  <ProtectedRoute pageName="invoices">
+                    <Invoices />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute pageName="payments">
+                    <Payments />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/services"
+                element={
+                  <ProtectedRoute pageName="services">
+                    <Services />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/wages"
+                element={
+                  <ProtectedRoute pageName="wages">
+                    <Wages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sprints"
+                element={
+                  <ProtectedRoute pageName="sprints">
+                    <Sprints />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invitations"
+                element={
+                  <ProtectedRoute requireSuperAdmin>
+                    <Invitations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/roles"
+                element={
+                  <ProtectedRoute requireSuperAdmin>
+                    <Roles />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Navigation>
+        </div>
       ) : (
         <Routes>
           <Route path="/login" element={<Login />} />
