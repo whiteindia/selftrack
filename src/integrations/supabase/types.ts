@@ -511,6 +511,30 @@ export type Database = {
         }
         Relationships: []
       }
+      roles: {
+        Row: {
+          created_at: string
+          id: string
+          landing_page: string | null
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          landing_page?: string | null
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          landing_page?: string | null
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string
@@ -864,6 +888,16 @@ export type Database = {
       }
       get_current_user_employee_id: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_role_available_pages: {
+        Args: { role_name: string }
+        Returns: {
+          page_name: string
+        }[]
+      }
+      get_role_landing_page: {
+        Args: { role_name: string }
         Returns: string
       }
       get_user_client_id: {

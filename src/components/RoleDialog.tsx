@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import type { Database } from '@/integrations/supabase/types';
 import RoleForm from './roles/RoleForm';
 import PrivilegesMatrix from './roles/PrivilegesMatrix';
+import LandingPageSelect from './roles/LandingPageSelect';
+import { useRolesManagement } from '@/hooks/useRolesManagement';
 
 type CrudOperation = Database['public']['Enums']['crud_operation'];
 
@@ -44,6 +46,9 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
   const [rlsPolicies, setRlsPolicies] = useState<RLSPolicy[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [landingPage, setLandingPage] = useState<string | null>(null);
+  const [availablePages, setAvailablePages] = useState<string[]>([]);
+  const { fetchAvailablePages, updateRoleLandingPage } = useRolesManagement();
 
   // Updated pages list to include TrakEzy navigation items
   const pages = [
@@ -97,15 +102,35 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
         fetchRoleData(role);
       } else {
         setRoleName('');
+        setLandingPage(null);
+        setAvailablePages([]);
         initializeDefaultData();
       }
     }
   }, [open, isEditing, role]);
 
+  // Update available pages when privileges change
+  useEffect(() => {
+    const updateAvailablePages = async () => {
+      if (roleName) {
+        const validRole = getValidRole(roleName);
+        const pages = await fetchAvailablePages(validRole);
+        setAvailablePages(pages);
+        
+        // If current landing page is not in available pages, reset it
+        if (landingPage && !pages.includes(landingPage)) {
+          setLandingPage(null);
+        }
+      }
+    };
+
+    updateAvailablePages();
+  }, [privileges, roleName, fetchAvailablePages]);
+
   const fetchRoleData = async (roleToFetch: string) => {
     setLoading(true);
     try {
-      console.log('Fetching privileges and RLS policies for role:', roleToFetch);
+      console.log('Fetching privileges, RLS policies, and landing page for role:', roleToFetch);
       
       // Fetch privileges
       const { data: privilegesData, error: privilegesError } = await supabase
@@ -148,6 +173,21 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
         };
       });
       setRlsPolicies(rlsPolicies);
+
+      // Fetch landing page from roles table
+      const { data: roleData, error: roleError } = await supabase
+        .from('roles')
+        .select('landing_page')
+        .eq('role', roleToFetch)
+        .single();
+
+      if (roleError && roleError.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Error fetching role landing page:', roleError);
+      } else if (roleData) {
+        console.log('Fetched landing page:', roleData.landing_page);
+        setLandingPage(roleData.landing_page);
+      }
+
     } catch (error) {
       console.error('Error fetching role data:', error);
       toast.error('Failed to fetch role data');
@@ -232,7 +272,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
     setSaving(true);
     try {
       if (isEditing && role) {
-        console.log('Updating existing role privileges and RLS policies...');
+        console.log('Updating existing role privileges, RLS policies, and landing page...');
         
         // Update existing privileges
         for (const privilege of privileges) {
@@ -285,12 +325,15 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           }
         }
 
+        // Update landing page in roles table
+        await updateRoleLandingPage(validRole, landingPage);
+
         // Apply the RLS policies to the database
         await applyRlsPolicies();
         
         toast.success('Role updated successfully');
       } else {
-        console.log('Creating new role privileges and RLS policies...');
+        console.log('Creating new role privileges, RLS policies, and landing page...');
         
         // Check if privileges already exist for this role
         const { data: existingPrivileges, error: checkError } = await supabase
@@ -348,10 +391,23 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
           throw rlsError;
         }
 
+        // Create role with landing page
+        const { error: roleError } = await supabase
+          .from('roles')
+          .insert({
+            role: validRole,
+            landing_page: landingPage
+          });
+
+        if (roleError) {
+          console.error('Error inserting role:', roleError);
+          throw roleError;
+        }
+
         // Apply the RLS policies to the database
         await applyRlsPolicies();
 
-        toast.success(`Role "${roleName}" created successfully with privileges and RLS policies`);
+        toast.success(`Role "${roleName}" created successfully with privileges, RLS policies, and landing page`);
       }
 
       onClose();
@@ -371,7 +427,7 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
             {isEditing ? `Edit Role: ${role}` : 'Create New Role'}
           </DialogTitle>
           <DialogDescription>
-            Configure role permissions and RLS policies for different pages and operations. 
+            Configure role permissions, RLS policies, and default landing page for different pages and operations. 
             This includes main pages, TrakEzy navigation items, and configuration pages.
             RLS policies will be applied to the database when enabled, restricting data access based on the role.
           </DialogDescription>
@@ -383,6 +439,14 @@ const RoleDialog: React.FC<RoleDialogProps> = ({ open, onClose, role, isEditing 
             onRoleNameChange={setRoleName}
             isEditing={isEditing}
             getValidRole={getValidRole}
+          />
+
+          <LandingPageSelect
+            roleName={roleName}
+            currentLandingPage={landingPage}
+            availablePages={availablePages}
+            onLandingPageChange={setLandingPage}
+            disabled={!roleName || loading}
           />
 
           <PrivilegesMatrix

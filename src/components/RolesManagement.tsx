@@ -2,33 +2,37 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Home } from 'lucide-react';
 import RoleDialog from './RoleDialog';
+import { useRolesManagement } from '@/hooks/useRolesManagement';
 
-interface RoleWithPrivileges {
+interface RoleWithDetails {
   role: string;
   privilegeCount: number;
   totalEntries: number;
+  landingPage: string | null;
 }
 
 const RolesManagement = () => {
-  const [roles, setRoles] = useState<RoleWithPrivileges[]>([]);
+  const [rolesWithDetails, setRolesWithDetails] = useState<RoleWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const { roles, deleteRole } = useRolesManagement();
 
   useEffect(() => {
-    fetchRoles();
-  }, []);
+    fetchRolesWithDetails();
+  }, [roles]);
 
-  const fetchRoles = async () => {
+  const fetchRolesWithDetails = async () => {
     try {
-      console.log('Fetching roles...');
+      console.log('Fetching roles with details...');
       
-      // Get unique roles from role_privileges table
+      // Get unique roles from role_privileges table with counts
       const { data: roleData, error } = await supabase
         .from('role_privileges')
         .select('role')
@@ -70,18 +74,30 @@ const RolesManagement = () => {
             throw allowedError;
           }
 
-          console.log(`Role ${role}: ${allowedCount} allowed out of ${totalCount} total entries`);
+          // Get landing page for this role
+          const { data: roleInfo, error: roleInfoError } = await supabase
+            .from('roles')
+            .select('landing_page')
+            .eq('role', role)
+            .single();
+
+          if (roleInfoError && roleInfoError.code !== 'PGRST116') {
+            console.error(`Error fetching landing page for role ${role}:`, roleInfoError);
+          }
+
+          console.log(`Role ${role}: ${allowedCount} allowed out of ${totalCount} total entries, landing page: ${roleInfo?.landing_page || 'none'}`);
 
           return {
             role,
             privilegeCount: allowedCount || 0,
-            totalEntries: totalCount || 0
+            totalEntries: totalCount || 0,
+            landingPage: roleInfo?.landing_page || null
           };
         })
       );
 
       console.log('Final role stats:', roleStats);
-      setRoles(roleStats);
+      setRolesWithDetails(roleStats);
     } catch (error) {
       console.error('Error fetching roles:', error);
       toast.error('Failed to fetch roles');
@@ -107,33 +123,15 @@ const RolesManagement = () => {
       return;
     }
 
-    try {
-      console.log('Deleting role:', role);
-      
-      // Delete all privileges for this role
-      const { error } = await supabase
-        .from('role_privileges')
-        .delete()
-        .eq('role', role);
-
-      if (error) {
-        console.error('Error deleting role:', error);
-        throw error;
-      }
-
-      toast.success(`${role} role deleted successfully`);
-      fetchRoles();
-    } catch (error) {
-      console.error('Error deleting role:', error);
-      toast.error('Failed to delete role');
-    }
+    await deleteRole(role);
+    fetchRolesWithDetails(); // Refresh the data
   };
 
   const handleDialogClose = () => {
     setDialogOpen(false);
     setSelectedRole(null);
     setIsEditing(false);
-    fetchRoles();
+    fetchRolesWithDetails();
   };
 
   const getRoleDescription = (role: string) => {
@@ -146,6 +144,25 @@ const RolesManagement = () => {
       'sales-executive': 'Sales and client relationship management'
     };
     return descriptions[role] || 'Custom role with specific permissions';
+  };
+
+  const getPageLabel = (pageName: string): string => {
+    const labels: Record<string, string> = {
+      'dashboard': 'Dashboard',
+      'clients': 'Clients',
+      'employees': 'Employees',
+      'projects': 'Projects',
+      'tasks': 'Tasks',
+      'sprints': 'Sprints',
+      'invoices': 'Invoices',
+      'payments': 'Payments',
+      'services': 'Services',
+      'wages': 'Wages',
+      'gantt-view': 'Gantt View',
+      'agenda-cal': 'Agenda Calendar',
+      'log-cal': 'Log Calendar'
+    };
+    return labels[pageName] || pageName.charAt(0).toUpperCase() + pageName.slice(1);
   };
 
   if (loading) {
@@ -164,7 +181,7 @@ const RolesManagement = () => {
             <div>
               <CardTitle>System Roles</CardTitle>
               <CardDescription>
-                Manage roles and their permissions across the system. You can create any custom role name.
+                Manage roles, their permissions, and default landing pages across the system. You can create any custom role name.
               </CardDescription>
             </div>
             <Button onClick={handleAddRole}>
@@ -175,15 +192,23 @@ const RolesManagement = () => {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {roles.map((roleData) => (
+            {rolesWithDetails.map((roleData) => (
               <Card key={roleData.role} className="relative">
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1">
                       <CardTitle className="text-lg capitalize">{roleData.role}</CardTitle>
                       <CardDescription>
                         {roleData.privilegeCount} privileges assigned
                       </CardDescription>
+                      {roleData.landingPage && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <Home className="h-3 w-3 text-blue-600" />
+                          <Badge variant="secondary" className="text-xs">
+                            {getPageLabel(roleData.landingPage)}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -208,6 +233,11 @@ const RolesManagement = () => {
                   <div className="text-sm text-gray-600">
                     {getRoleDescription(roleData.role)}
                   </div>
+                  {!roleData.landingPage && (
+                    <div className="text-xs text-gray-400 mt-2">
+                      No custom landing page set
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

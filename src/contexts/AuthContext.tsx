@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +19,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
+  getDefaultLandingPage: () => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,6 +71,68 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Error fetching user role:', error);
       setUserRole(null);
       return null;
+    }
+  };
+
+  const getDefaultLandingPage = async (): Promise<string> => {
+    try {
+      if (!userRole) {
+        console.log('No user role, defaulting to dashboard');
+        return '/';
+      }
+
+      console.log('Getting landing page for role:', userRole);
+
+      // Check if role has a custom landing page set
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('get_role_landing_page', { role_name: userRole });
+
+      if (roleError) {
+        console.error('Error fetching role landing page:', roleError);
+      } else if (roleData) {
+        console.log('Custom landing page found:', roleData);
+        return `/${roleData}`;
+      }
+
+      // Fallback: get first accessible page from privileges
+      console.log('No custom landing page, finding first accessible page');
+      const { data: pagesData, error: pagesError } = await supabase
+        .rpc('get_role_available_pages', { role_name: userRole });
+
+      if (pagesError) {
+        console.error('Error fetching available pages:', pagesError);
+        return '/';
+      }
+
+      if (pagesData && pagesData.length > 0) {
+        const firstPage = pagesData[0].page_name;
+        console.log('First accessible page:', firstPage);
+        
+        // Convert page names to routes
+        const pageRoutes: Record<string, string> = {
+          'dashboard': '/',
+          'clients': '/clients',
+          'employees': '/employees',
+          'projects': '/projects',
+          'tasks': '/tasks',
+          'sprints': '/sprints',
+          'invoices': '/invoices',
+          'payments': '/payments',
+          'services': '/services',
+          'wages': '/wages',
+          'gantt-view': '/gantt-view',
+          'agenda-cal': '/agenda-cal',
+          'log-cal': '/log-cal'
+        };
+
+        return pageRoutes[firstPage] || '/';
+      }
+
+      console.log('No accessible pages found, defaulting to dashboard');
+      return '/';
+    } catch (error) {
+      console.error('Error determining landing page:', error);
+      return '/';
     }
   };
 
@@ -201,6 +265,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
     signUp,
     updatePassword,
+    getDefaultLandingPage,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
