@@ -51,35 +51,45 @@ export const usePrivileges = () => {
   }, [userRole]);
 
   const hasPageAccess = (pageName: string) => {
+    console.log(`=== hasPageAccess check for ${pageName} ===`);
+    console.log('User role:', userRole);
+    console.log('User email:', user?.email);
+    console.log('All privileges:', privileges);
+    
     // Admin and yugandhar@whiteindia.in have full access
     if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
       console.log(`Full access granted for ${pageName} to admin/superuser`);
       return true;
     }
 
-    // Check if user has read access to the page
+    // Check if user has read access to the page with allowed=true
     const readPrivilege = privileges.find(
       p => p.page_name === pageName && p.operation === 'read' && p.allowed === true
     );
     const hasAccess = !!readPrivilege;
-    console.log(`Page access check for ${pageName}:`, hasAccess, 'Role:', userRole, 'Privilege found:', !!readPrivilege);
+    console.log(`Page access check for ${pageName}:`, hasAccess, 'Role:', userRole, 'Read privilege found:', readPrivilege);
+    console.log(`=== End hasPageAccess ===`);
     return hasAccess;
   };
 
   const hasOperationAccess = (pageName: string, operation: 'create' | 'read' | 'update' | 'delete') => {
+    console.log(`=== hasOperationAccess check for ${pageName}-${operation} ===`);
+    console.log('User role:', userRole);
+    
     // Admin and yugandhar@whiteindia.in have full access
     if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
       console.log(`Full operation access granted for ${pageName}-${operation} to admin/superuser`);
       return true;
     }
 
-    // Find the specific privilege for this page and operation
+    // Find the specific privilege for this page and operation with allowed=true
     const privilege = privileges.find(
       p => p.page_name === pageName && p.operation === operation && p.allowed === true
     );
     
     const hasAccess = !!privilege;
-    console.log(`Operation access check for ${pageName}-${operation}:`, hasAccess, 'Privilege found:', !!privilege, 'Role:', userRole);
+    console.log(`Operation access check for ${pageName}-${operation}:`, hasAccess, 'Privilege found:', privilege, 'Role:', userRole);
+    console.log(`=== End hasOperationAccess ===`);
     return hasAccess;
   };
 

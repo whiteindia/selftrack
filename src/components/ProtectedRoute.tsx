@@ -21,10 +21,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   pageName
 }) => {
   const { user, userRole, loading, needsPasswordReset } = useAuth();
-  const { hasPageAccess, loading: privilegesLoading } = usePrivileges();
+  const { hasPageAccess, loading: privilegesLoading, privileges } = usePrivileges();
   const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   console.log('ProtectedRoute - user:', user?.email, 'userRole:', userRole, 'loading:', loading, 'needsPasswordReset:', needsPasswordReset);
+  console.log('ProtectedRoute - pageName:', pageName, 'privilegesLoading:', privilegesLoading);
+  console.log('ProtectedRoute - privileges:', privileges);
 
   if (loading || privilegesLoading) {
     return (
@@ -71,27 +73,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
-  // Special handling for yugandhar@whiteindia.in - always grant access unless explicitly checking privileges
-  if (user.email === 'yugandhar@whiteindia.in' && !pageName) {
+  // Special handling for yugandhar@whiteindia.in - always grant access
+  if (user.email === 'yugandhar@whiteindia.in') {
     console.log('Granting full access to admin user');
     return <>{children}</>;
   }
 
   // Check page-specific privileges if pageName is provided
   if (pageName) {
-    const hasAccess = hasPageAccess(pageName);
+    console.log(`Checking page access for ${pageName} with role ${userRole}`);
     
-    // If no privileges are found and user has admin role, grant access
-    if (!hasAccess && userRole === 'admin') {
+    // Admin users always have access
+    if (userRole === 'admin') {
       console.log('Granting access to admin user via role check');
       return <>{children}</>;
     }
     
-    // If no privileges are found and user is yugandhar@whiteindia.in, grant access
-    if (!hasAccess && user.email === 'yugandhar@whiteindia.in') {
-      console.log('Granting access to yugandhar@whiteindia.in');
-      return <>{children}</>;
-    }
+    const hasAccess = hasPageAccess(pageName);
+    console.log(`Page access result for ${pageName}:`, hasAccess);
+    console.log('Available privileges:', privileges.filter(p => p.page_name === pageName));
     
     if (!hasAccess) {
       return (
@@ -101,6 +101,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             <p className="text-gray-600">You don't have permission to access this page.</p>
             <p className="text-xs text-gray-400 mt-2">User: {user.email}, Role: {userRole}</p>
             <p className="text-xs text-gray-400">Page: {pageName}</p>
+            <div className="mt-4 text-xs text-gray-400">
+              <p>Debug info:</p>
+              <p>Privileges loaded: {privileges.length}</p>
+              <p>Page privileges: {JSON.stringify(privileges.filter(p => p.page_name === pageName))}</p>
+            </div>
           </div>
         </div>
       );
