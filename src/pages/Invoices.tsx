@@ -51,6 +51,8 @@ interface Project {
   status: string;
   client_id: string;
   client_name: string;
+  service: string;
+  project_amount: number | null;
 }
 
 interface InvoiceTask {
@@ -166,7 +168,11 @@ const Invoices = () => {
       console.log('Projects fetched for dropdown:', data);
       console.log('Total projects found:', data?.length || 0);
       
-      return data as Project[];
+      return (data as any[]).map((proj) => ({
+        ...proj,
+        service: proj.service ?? 'Hourly',
+        project_amount: proj.project_amount ?? null,
+      })) as Project[];
     },
     enabled: !!userId && hasOperationAccess('invoices', 'create') // Only fetch when user is authenticated and has permissions
   });
