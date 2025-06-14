@@ -13,6 +13,7 @@ interface Project {
   client_id: string;
   client_name: string;
   service: string;
+  type: string; // Billing type: Fixed or Hourly
   project_amount: number | null;
 }
 interface Task {
