@@ -28,28 +28,46 @@ export const usePrivileges = () => {
         return;
       }
 
+      // First, let's check what's in the user_roles table
+      console.log('🔍 Step 1: Checking user_roles table for user:', user.id);
+      const { data: userRoleData, error: userRoleError } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      console.log('user_roles query result:', { data: userRoleData, error: userRoleError });
+
       // Check if user has a role assigned
       if (!userRole) {
-        console.log('❌ No user role found - checking user_roles table directly');
-        
-        // Try to fetch role directly from user_roles table
-        const { data: userRoleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-        
-        if (roleError) {
-          console.error('Error fetching user role:', roleError);
-          console.log('❌ User has no role assigned in user_roles table');
-        } else {
-          console.log('✅ Found role in user_roles table:', userRoleData?.role);
-        }
-        
+        console.log('❌ No user role found in AuthContext');
         setPrivileges([]);
         setLoading(false);
         return;
       }
+
+      // Now let's check what roles exist in the roles table
+      console.log('🔍 Step 2: Checking roles table');
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('roles')
+        .select('*');
+      
+      console.log('roles table data:', { data: rolesData, error: rolesError });
+
+      // Check if the role exists in the roles table
+      const roleExists = rolesData?.find(r => r.role === userRole);
+      console.log('Does role exist in roles table?', roleExists);
+
+      // Now let's check the role_privileges table
+      console.log('🔍 Step 3: Checking role_privileges table for role:', userRole);
+      const { data: allPrivilegesData, error: allPrivilegesError } = await supabase
+        .from('role_privileges')
+        .select('*');
+      
+      console.log('ALL role_privileges data:', { data: allPrivilegesData, error: allPrivilegesError });
+
+      // Filter for the specific role
+      const roleSpecificPrivileges = allPrivilegesData?.filter(p => p.role === userRole);
+      console.log('Role-specific privileges:', roleSpecificPrivileges);
 
       try {
         console.log('✅ Fetching privileges for role:', userRole);
