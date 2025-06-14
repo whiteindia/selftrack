@@ -56,6 +56,10 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
     return project.project_amount !== null || project.brd_file_url !== null;
   };
 
+  const getBillingType = (project: ProjectData) => {
+    return isProjectBased(project) ? "Project" : "Hourly";
+  };
+
   const getAssigneeName = (project: ProjectData) => {
     // Use the new employee relationship
     if (project.assignee_employee?.name) {
@@ -80,7 +84,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
               <TableHead>Project Name</TableHead>
               <TableHead>Client</TableHead>
               <TableHead>Service</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Billing Type</TableHead>
               <TableHead>Rate/Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Assignee</TableHead>
@@ -96,8 +100,8 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                 <TableCell>{project.clients?.name}</TableCell>
                 <TableCell>{project.service}</TableCell>
                 <TableCell>
-                  <Badge variant={isProjectBased(project) ? "default" : "secondary"}>
-                    {isProjectBased(project) ? "Project" : "Hourly"}
+                  <Badge variant={getBillingType(project) === "Project" ? "default" : "secondary"}>
+                    {getBillingType(project)}
                   </Badge>
                 </TableCell>
                 <TableCell>
