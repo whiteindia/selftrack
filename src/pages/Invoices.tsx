@@ -526,7 +526,7 @@ const Invoices = () => {
   });
 
   // ⏬ Update: When project changes, check service type
-  const handleProjectChange = async (projectId: string) => {
+  const handleProjectChange = (projectId: string) => {
     setNewInvoice({
       project_id: projectId,
       selectedTasks: [],
@@ -540,67 +540,71 @@ const Invoices = () => {
       return;
     }
 
-    // Parse the true type - don't fallback!
     setSelectedProjectBillingType(selectedProject.service);
     setSelectedProjectAmount(selectedProject.project_amount ?? null);
 
-    // Fixed project: auto-create invoice
+    // For "Fixed" projects, we need to run the async creation logic
     if (selectedProject.service === "Fixed") {
-      // Prevent double creation
-      if (createInvoiceMutation.isPending) return;
-      const invoiceId = await generateUniqueInvoiceId();
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30);
+      // Inner async function to handle fixed project invoice creation
+      const createFixedInvoice = async () => {
+        if (createInvoiceMutation.isPending) return;
+        const invoiceId = await generateUniqueInvoiceId();
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
 
-      // Create invoice
-      const { error } = await supabase
-        .from('invoices')
-        .insert([{
-          id: invoiceId,
-          client_id: selectedProject.client_id,
-          project_id: selectedProject.id,
-          amount: selectedProject.project_amount,
-          hours: 0,
-          rate: 0,
-          status: 'Draft',
-          due_date: dueDate.toISOString().split('T')[0]
-        }]);
+        // Create invoice
+        const { error } = await supabase
+          .from('invoices')
+          .insert([{
+            id: invoiceId,
+            client_id: selectedProject.client_id,
+            project_id: selectedProject.id,
+            amount: selectedProject.project_amount,
+            hours: 0,
+            rate: 0,
+            status: 'Draft',
+            due_date: dueDate.toISOString().split('T')[0]
+          }]);
 
-      // Mark all project tasks as invoiced (implicit inclusion)
-      await supabase
-        .from('tasks')
-        .update({ invoiced: true })
-        .eq('project_id', selectedProject.id);
+        // Mark all project tasks as invoiced (implicit inclusion)
+        await supabase
+          .from('tasks')
+          .update({ invoiced: true })
+          .eq('project_id', selectedProject.id);
 
-      // Mark project as completed
-      await supabase
-        .from('projects')
-        .update({ status: 'Completed' })
-        .eq('id', selectedProject.id);
+        // Mark project as completed
+        await supabase
+          .from('projects')
+          .update({ status: 'Completed' })
+          .eq('id', selectedProject.id);
 
-      // Log activity
-      await logActivity({
-        action_type: 'created',
-        entity_type: 'invoice',
-        entity_id: invoiceId,
-        entity_name: invoiceId,
-        description: `Created fixed price invoice ${invoiceId} for ${selectedProject.client_name} - ₹${selectedProject.project_amount}`,
-        comment: `Project: ${selectedProject.name} (Fixed), Amount: ₹${selectedProject.project_amount}`
-      });
+        // Log activity
+        await logActivity({
+          action_type: 'created',
+          entity_type: 'invoice',
+          entity_id: invoiceId,
+          entity_name: invoiceId,
+          description: `Created fixed price invoice ${invoiceId} for ${selectedProject.client_name} - ₹${selectedProject.project_amount}`,
+          comment: `Project: ${selectedProject.name} (Fixed), Amount: ₹${selectedProject.project_amount}`
+        });
 
-      setIsDialogOpen(false);
-      setNewInvoice({ project_id: '', selectedTasks: [], description: '' });
-      toast.success('Fixed price invoice created!');
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['projects-for-invoices'] });
+        setIsDialogOpen(false);
+        setNewInvoice({ project_id: '', selectedTasks: [], description: '' });
+        toast.success('Fixed price invoice created!');
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        queryClient.invalidateQueries({ queryKey: ['projects-for-invoices'] });
 
-      // Expand the card for the newly created invoice (simulate preview)
-      setTimeout(() => {
-        setExpandedInvoice(invoiceId);
-        // Optionally: Scroll to the new invoice card
-        const el = document.getElementById(`invoice-${invoiceId}`);
-        if (el) el.scrollIntoView({ behavior: "smooth" });
-      }, 300);
+        // Expand the card for the newly created invoice (simulate preview)
+        setTimeout(() => {
+          setExpandedInvoice(invoiceId);
+          // Optionally: Scroll to the new invoice card
+          const el = document.getElementById(`invoice-${invoiceId}`);
+          if (el) el.scrollIntoView({ behavior: "smooth" });
+        }, 300);
+      };
+
+      // Immediately execute the async logic
+      void createFixedInvoice();
     }
   };
 
