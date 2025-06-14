@@ -89,7 +89,7 @@ const Invoices = () => {
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
 
-  // Add state to hold selected project's billing_type and project_amount
+  // Add state to hold selected project's billing_type (from type column) and project_amount
   const [selectedProjectBillingType, setSelectedProjectBillingType] = useState<string | null>(null);
   const [selectedProjectAmount, setSelectedProjectAmount] = useState<number | null>(null);
 
@@ -528,7 +528,7 @@ const Invoices = () => {
     }
   });
 
-  // ⏬ Update: When project changes, check service type
+  // ⏬ Update: When project changes, check billing type from project.type column
   const handleProjectChange = (projectId: string) => {
     setNewInvoice({
       project_id: projectId,
@@ -543,11 +543,13 @@ const Invoices = () => {
       return;
     }
 
-    setSelectedProjectBillingType(selectedProject.service);
+    // Use project.type for billing type, not project.service
+    console.log('Selected project billing type (from type column):', selectedProject.type);
+    setSelectedProjectBillingType(selectedProject.type);
     setSelectedProjectAmount(selectedProject.project_amount ?? null);
 
     // For "Fixed" projects, we need to run the async creation logic
-    if (selectedProject.service === "Fixed") {
+    if (selectedProject.type === "Fixed") {
       // Inner async function to handle fixed project invoice creation
       const createFixedInvoice = async () => {
         if (createInvoiceMutation.isPending) return;

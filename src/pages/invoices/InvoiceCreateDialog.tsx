@@ -61,9 +61,9 @@ const InvoiceCreateDialog: React.FC<Props> = ({
     return { totalHours, totalAmount };
   };
 
-  // Check if billing type supports task-based billing
+  // Check if billing type supports task-based billing (only Hourly projects)
   const isTaskBasedBilling = (billingType: string | null) => {
-    return billingType === 'Hourly' || billingType === 'DevOps';
+    return billingType === 'Hourly';
   };
 
   // Debug: Log the current state
@@ -84,8 +84,8 @@ const InvoiceCreateDialog: React.FC<Props> = ({
           <DialogDescription>
             {selectedProjectBillingType === 'Fixed'
               ? 'For Fixed price projects, an invoice will be generated instantly on project selection.'
-              : isTaskBasedBilling(selectedProjectBillingType)
-                ? `For ${selectedProjectBillingType} projects, select tasks to include in this invoice.`
+              : selectedProjectBillingType === 'Hourly'
+                ? 'For Hourly projects, select tasks to include in this invoice.'
                 : 'Please select a project to see billing type.'}
           </DialogDescription>
         </DialogHeader>
@@ -129,7 +129,7 @@ const InvoiceCreateDialog: React.FC<Props> = ({
           {/* Show content for any selected project */}
           {newInvoice.project_id && (
             <>
-              {/* Task-based billing projects (Hourly and DevOps) */}
+              {/* Task-based billing projects (Hourly only) */}
               {isTaskBasedBilling(selectedProjectBillingType) && (
                 <>
                   <div className="space-y-2">
@@ -203,10 +203,10 @@ const InvoiceCreateDialog: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* Unknown billing type or other services */}
+              {/* Unknown billing type or other types */}
               {selectedProjectBillingType && 
                selectedProjectBillingType !== 'Fixed' && 
-               !isTaskBasedBilling(selectedProjectBillingType) && (
+               selectedProjectBillingType !== 'Hourly' && (
                 <div className="bg-yellow-50 text-yellow-800 rounded p-3 text-sm">
                   <strong>Billing Type:</strong> {selectedProjectBillingType}
                   <br />
