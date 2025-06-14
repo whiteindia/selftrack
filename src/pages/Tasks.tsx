@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,7 +82,18 @@ const Tasks = () => {
   });
 
   // Check if user has access to tasks page
-  const hasTasksAccess = hasPageAccess('tasks') || userRole === 'admin';
+  console.log('=== Tasks Page Access Check ===');
+  console.log('User:', user?.email);
+  console.log('UserRole:', userRole);
+  console.log('PrivilegesLoading:', privilegesLoading);
+  
+  // Always allow access for admin users and yugandhar@whiteindia.in
+  const hasTasksAccess = userRole === 'admin' || 
+                        user?.email === 'yugandhar@whiteindia.in' || 
+                        hasPageAccess('tasks');
+  
+  console.log('HasTasksAccess:', hasTasksAccess);
+  console.log('HasPageAccess result:', hasPageAccess('tasks'));
 
   // Fetch tasks with calculated logged hours - RLS will filter automatically
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
@@ -336,6 +346,13 @@ const Tasks = () => {
           <div className="text-center">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
             <p className="text-gray-600">You don't have permission to access the tasks page.</p>
+            <div className="mt-4 text-xs text-gray-400 space-y-1">
+              <p>User: {user?.email}</p>
+              <p>Role: {userRole || 'No role assigned'}</p>
+              <p>Page Access Check: {String(hasPageAccess('tasks'))}</p>
+              <p>Admin Check: {String(userRole === 'admin')}</p>
+              <p>Superuser Check: {String(user?.email === 'yugandhar@whiteindia.in')}</p>
+            </div>
           </div>
         </div>
       </Navigation>
