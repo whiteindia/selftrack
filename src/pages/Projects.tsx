@@ -10,34 +10,9 @@ import ProjectTable from '@/components/projects/ProjectTable';
 import ProjectDebugInfo from '@/components/projects/ProjectDebugInfo';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
+import { ProjectData } from '@/hooks/projects/types';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface ProjectData {
-  id: string;
-  name: string;
-  client_id: string;
-  service: string;
-  hourly_rate: number;
-  project_amount: number | null;
-  total_hours: number;
-  status: string;
-  start_date: string | null;
-  deadline: string | null;
-  brd_file_url: string | null;
-  assignee_id: string | null;
-  assignee_employee_id: string | null;
-  created_at: string;
-  clients: {
-    name: string;
-  };
-  assignee_employee?: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
-}
 
 interface Client {
   id: string;
@@ -152,7 +127,8 @@ const Projects = () => {
             assignee_employee_id: project.assignee_employee_id,
             assignee_employee: project.assignee_employee,
             status: project.status,
-            client: project.clients?.name
+            client: project.clients?.name,
+            type: project.type
           });
         });
       } else if (isRlsFilteringActive('projects')) {
@@ -363,7 +339,7 @@ const Projects = () => {
   };
 
   const isProjectBased = (project: ProjectData) => {
-    return project.project_amount !== null || project.brd_file_url !== null;
+    return project.type === 'Fixed' || project.brd_file_url !== null;
   };
 
   const clearFilters = () => {

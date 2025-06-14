@@ -3,7 +3,7 @@ export interface ProjectData {
   id: string;
   name: string;
   client_id: string;
-  type: any;
+  type: string; // Billing type from database
   hourly_rate: number;
   project_amount: number | null;
   total_hours: number;

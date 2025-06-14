@@ -6,26 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
+import { ProjectData } from '@/hooks/projects/types';
 
-interface ProjectData {
-  id: string;
-  name: string;
-  client_id: string;
-  service: string;
-  hourly_rate: number;
-  project_amount: number | null;
-  total_hours: number;
-  status: string;
-  start_date: string | null;
-  deadline: string | null;
-  brd_file_url: string | null;
+interface ExtendedProjectData extends ProjectData {
   assignee_id: string | null;
   assignee_employee_id: string | null;
-  created_at: string;
-  type: string; // Billing type from database
-  clients: {
-    name: string;
-  };
   assignee_employee?: {
     id: string;
     name: string;
@@ -35,11 +20,11 @@ interface ProjectData {
 }
 
 interface ProjectTableProps {
-  projects: ProjectData[];
+  projects: ExtendedProjectData[];
   totalProjects: number;
   canUpdate: boolean;
   canDelete: boolean;
-  onEdit: (project: ProjectData) => void;
+  onEdit: (project: ExtendedProjectData) => void;
   onDelete: (id: string) => void;
   onViewBRD: (url: string) => void;
 }
@@ -53,12 +38,12 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
   onDelete,
   onViewBRD
 }) => {
-  const getBillingType = (project: ProjectData) => {
+  const getBillingType = (project: ExtendedProjectData) => {
     // Use the type column directly from the database
     return project.type || "Hourly";
   };
 
-  const getAssigneeName = (project: ProjectData) => {
+  const getAssigneeName = (project: ExtendedProjectData) => {
     // Use the new employee relationship
     if (project.assignee_employee?.name) {
       return project.assignee_employee.name;
