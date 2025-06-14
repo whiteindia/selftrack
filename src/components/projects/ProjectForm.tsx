@@ -31,6 +31,7 @@ interface ProjectData {
   name: string;
   client_id: string;
   service: string;
+  type: string; // Changed from hourly_rate to type for billing type
   hourly_rate: number;
   project_amount: number | null;
   start_date: string | null;
@@ -210,7 +211,10 @@ const ProjectForm = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="billingType">Billing Type</Label>
-              <Select onValueChange={(value: 'Hourly' | 'Fixed') => setNewProject({...newProject, billing_type: value})}>
+              <Select 
+                value={newProject.billing_type}
+                onValueChange={(value: 'Hourly' | 'Fixed') => setNewProject({...newProject, billing_type: value})}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select billing type" />
                 </SelectTrigger>

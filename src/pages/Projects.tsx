@@ -256,6 +256,7 @@ const Projects = () => {
       name: newProject.name,
       client_id: newProject.client_id,
       service: newProject.service,
+      type: newProject.billing_type, // Map billing_type to type column
       hourly_rate: newProject.service === 'BRD' ? 0 : newProject.hourly_rate,
       project_amount: newProject.billing_type === 'Fixed' || newProject.service === 'BRD' ? newProject.project_amount : null,
       start_date: newProject.start_date || null,
@@ -310,6 +311,7 @@ const Projects = () => {
         name: editingProject.name,
         client_id: editingProject.client_id,
         service: editingProject.service,
+        type: editBillingType, // Map billing type to type column
         hourly_rate: editingProject.service === 'BRD' ? 0 : editingProject.hourly_rate,
         project_amount: editBillingType === 'Fixed' || editingProject.service === 'BRD' ? editingProject.project_amount : null,
         start_date: editingProject.start_date || null,
@@ -371,7 +373,7 @@ const Projects = () => {
 
     console.log('Setting editing project:', project);
     setEditingProject(project);
-    setEditBillingType(isProjectBased(project) ? 'Fixed' : 'Hourly');
+    setEditBillingType(project.type === 'Fixed' ? 'Fixed' : 'Hourly'); // Use actual type from database
     setIsEditDialogOpen(true);
   };
 
