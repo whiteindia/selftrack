@@ -106,7 +106,7 @@ const InvoiceCreateDialog: React.FC<Props> = ({
                 ) : (
                   projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
-                      {project.name} | {project.client_name || 'N/A'} | {project.type || 'Hourly'}
+                      {project.name} | {project.client_name || 'N/A'} | {project.type}
                     </SelectItem>
                   ))
                 )}
