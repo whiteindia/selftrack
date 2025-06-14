@@ -37,7 +37,7 @@ interface Task {
     clients: {
       name: string;
     } | null;
-  };
+  } | null;
   assignee: {
     name: string;
   } | null;
@@ -196,7 +196,7 @@ const Tasks = () => {
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           task.projects.name.toLowerCase().includes(searchTerm.toLowerCase());
+                           (task.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
       const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
@@ -569,7 +569,7 @@ const Tasks = () => {
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
                         <div className="flex items-center">
                           <Building className="h-4 w-4 mr-1" />
-                          {task.projects.name}
+                          {task.projects?.name || 'No Project'}
                         </div>
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-1" />
