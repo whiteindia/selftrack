@@ -475,58 +475,127 @@ const Invoices = () => {
     updateInvoiceStatusMutation.mutate({ id: invoiceId, status: newStatus });
   };
 
-  // Generate PDF
-  const generatePDF = (invoice: Invoice) => {
-    // Simple PDF generation using browser print
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Invoice ${invoice.id}</title>
-            <style>
-              body { font-family: Arial, sans-serif; margin: 40px; }
-              .header { text-align: center; margin-bottom: 40px; }
-              .invoice-details { margin-bottom: 30px; }
-              .table { width: 100%; border-collapse: collapse; }
-              .table th, .table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-              .total { font-weight: bold; font-size: 18px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>INVOICE</h1>
-              <h2>${invoice.id}</h2>
-            </div>
-            <div class="invoice-details">
-              <p><strong>Client:</strong> ${invoice.clients?.name || 'N/A'}</p>
-              <p><strong>Project:</strong> ${invoice.projects?.name || 'N/A'}</p>
-              <p><strong>Date:</strong> ${invoice.date}</p>
-              <p><strong>Due Date:</strong> ${invoice.due_date}</p>
-            </div>
-            <table class="table">
+  // Generate PDF with tasks
+  const generatePDF = async (invoice: Invoice) => {
+    try {
+      // Fetch invoice tasks with logged hours
+      const { data: tasks, error } = await supabase
+        .rpc('get_invoice_tasks', { 
+          invoice_id_param: invoice.id 
+        });
+      
+      if (error) {
+        console.error('Error fetching invoice tasks for PDF:', error);
+        toast.error('Failed to fetch invoice tasks for PDF');
+        return;
+      }
+
+      // Create tasks table HTML
+      let tasksTableHTML = '';
+      if (tasks && tasks.length > 0) {
+        tasksTableHTML = `
+          <h3 style="margin-top: 30px; margin-bottom: 15px; font-size: 16px;">Tasks Completed:</h3>
+          <table class="table" style="margin-bottom: 20px;">
+            <tr style="background-color: #f5f5f5;">
+              <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Task Name</th>
+              <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Hours Logged</th>
+              <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Rate (₹/hr)</th>
+              <th style="border: 1px solid #ddd; padding: 12px; text-align: left; font-weight: bold;">Amount (₹)</th>
+            </tr>
+            ${tasks.map(task => `
               <tr>
-                <th>Description</th>
-                <th>Hours</th>
-                <th>Rate</th>
-                <th>Amount</th>
+                <td style="border: 1px solid #ddd; padding: 12px;">${task.name || 'N/A'}</td>
+                <td style="border: 1px solid #ddd; padding: 12px;">${task.hours || 0}h</td>
+                <td style="border: 1px solid #ddd; padding: 12px;">₹${invoice.rate}</td>
+                <td style="border: 1px solid #ddd; padding: 12px;">₹${((task.hours || 0) * invoice.rate).toFixed(2)}</td>
               </tr>
-              <tr>
-                <td>${invoice.projects?.name || 'N/A'} - Work completed</td>
-                <td>${invoice.hours}</td>
-                <td>₹${invoice.rate}</td>
-                <td>₹${invoice.amount.toFixed(2)}</td>
-              </tr>
-              <tr class="total">
-                <td colspan="3">Total</td>
-                <td>₹${invoice.amount.toFixed(2)}</td>
-              </tr>
-            </table>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
+            `).join('')}
+          </table>
+        `;
+      }
+
+      // Simple PDF generation using browser print
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Invoice ${invoice.id}</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.4; }
+                .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                .invoice-details { margin-bottom: 30px; }
+                .invoice-details div { margin-bottom: 8px; }
+                .table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                .table th, .table td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                .table th { background-color: #f5f5f5; font-weight: bold; }
+                .total { font-weight: bold; font-size: 18px; background-color: #f0f0f0; }
+                .company-info { margin-bottom: 30px; }
+                h1 { color: #333; margin-bottom: 10px; }
+                h2 { color: #666; margin-top: 0; }
+                h3 { color: #444; }
+                .summary-table { margin-top: 30px; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>INVOICE</h1>
+                <h2>${invoice.id}</h2>
+              </div>
+              
+              <div class="company-info">
+                <h3>From:</h3>
+                <div><strong>White India</strong></div>
+                <div>Software Development Company</div>
+              </div>
+              
+              <div class="invoice-details">
+                <h3>Bill To:</h3>
+                <div><strong>Client:</strong> ${invoice.clients?.name || 'N/A'}</div>
+                <div><strong>Project:</strong> ${invoice.projects?.name || 'N/A'}</div>
+                <div><strong>Service Type:</strong> ${invoice.projects?.service || 'N/A'}</div>
+                <div><strong>Invoice Date:</strong> ${invoice.date}</div>
+                <div><strong>Due Date:</strong> ${invoice.due_date}</div>
+                <div><strong>Status:</strong> ${invoice.status}</div>
+              </div>
+              
+              ${tasksTableHTML}
+              
+              <div class="summary-table">
+                <h3>Summary:</h3>
+                <table class="table">
+                  <tr>
+                    <th>Description</th>
+                    <th>Total Hours</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                  </tr>
+                  <tr>
+                    <td>${invoice.projects?.name || 'N/A'} - ${invoice.projects?.service || 'Service'}</td>
+                    <td>${invoice.hours}h</td>
+                    <td>₹${invoice.rate}/hr</td>
+                    <td>₹${invoice.amount.toFixed(2)}</td>
+                  </tr>
+                  <tr class="total">
+                    <td colspan="3"><strong>Total Amount</strong></td>
+                    <td><strong>₹${invoice.amount.toFixed(2)}</strong></td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 12px; color: #666;">
+                <p>Thank you for your business!</p>
+                <p>Please remit payment by the due date to avoid late fees.</p>
+              </div>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
     }
   };
 
