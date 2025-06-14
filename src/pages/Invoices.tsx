@@ -55,6 +55,7 @@ interface Project {
   client_id: string;
   client_name: string;
   service: string;
+  type: string; // Add the billing type field
   project_amount: number | null;
 }
 
@@ -175,10 +176,10 @@ const Invoices = () => {
       console.log('Projects fetched for dropdown:', data);
       console.log('Total projects found:', data?.length || 0);
       
-      // Map directly, now .service and .project_amount are always present
+      // Map the data to include the type field (billing type)
       return (data as any[]).map((proj) => ({
         ...proj,
-        // No default/fallback for service now
+        type: proj.type || 'Hourly', // Default to Hourly if type is not set
       })) as Project[];
     },
     enabled: !!userId && hasOperationAccess('invoices', 'create'),
@@ -536,7 +537,7 @@ const Invoices = () => {
       description: ''
     });
 
-    const selectedProject = projects.find((p: any) => p.id === projectId);
+    const selectedProject = projects.find((p: Project) => p.id === projectId);
     if (!selectedProject) {
       setSelectedProjectBillingType(null);
       setSelectedProjectAmount(null);
