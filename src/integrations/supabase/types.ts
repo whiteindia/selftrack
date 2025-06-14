@@ -899,6 +899,10 @@ export type Database = {
         }
         Returns: Json
       }
+      delete_invoice_and_unmark_tasks: {
+        Args: { invoice_id_param: string }
+        Returns: undefined
+      }
       get_active_projects_for_invoicing: {
         Args: Record<PropertyKey, never>
         Returns: {

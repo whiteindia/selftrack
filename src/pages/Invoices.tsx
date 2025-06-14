@@ -353,43 +353,16 @@ const Invoices = () => {
     }
   });
 
-  // Delete invoice mutation - properly delete invoice tasks and mark tasks as not invoiced
+  // Delete invoice mutation - use the new robust database function
   const deleteInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
-      // First, get the invoice tasks to mark them as not invoiced
-      const { data: invoiceTasks, error: fetchError } = await supabase
-        .from('invoice_tasks')
-        .select('task_id')
-        .eq('invoice_id', invoiceId);
+      // Use the new robust delete function that handles everything
+      const { error } = await supabase
+        .rpc('delete_invoice_and_unmark_tasks', { 
+          invoice_id_param: invoiceId 
+        });
       
-      if (fetchError) throw fetchError;
-
-      // Delete invoice tasks first
-      const { error: deleteTasksError } = await supabase
-        .from('invoice_tasks')
-        .delete()
-        .eq('invoice_id', invoiceId);
-      
-      if (deleteTasksError) throw deleteTasksError;
-
-      // Mark tasks as not invoiced
-      if (invoiceTasks && invoiceTasks.length > 0) {
-        const taskIds = invoiceTasks.map(it => it.task_id);
-        const { error: updateTasksError } = await supabase
-          .from('tasks')
-          .update({ invoiced: false })
-          .in('id', taskIds);
-        
-        if (updateTasksError) throw updateTasksError;
-      }
-
-      // Finally, delete the invoice
-      const { error: deleteInvoiceError } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', invoiceId);
-      
-      if (deleteInvoiceError) throw deleteInvoiceError;
+      if (error) throw error;
 
       // Log activity
       await logActivity({
