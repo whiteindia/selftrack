@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -730,6 +730,94 @@ const Invoices = () => {
   const totalRevenue = invoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.amount, 0);
   const pendingRevenue = invoices.filter(inv => inv.status === 'Sent').reduce((sum, inv) => sum + inv.amount, 0);
 
+  // Add state to hold selected project's billing_type and project_amount
+  const [selectedProjectBillingType, setSelectedProjectBillingType] = useState<string | null>(null);
+  const [selectedProjectAmount, setSelectedProjectAmount] = useState<number | null>(null);
+
+  // Fetch projects (now also pulling billing_type and project_amount)
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-for-invoices', hasOperationAccess('invoices', 'create')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_active_projects_for_invoicing');
+      if (error) throw error;
+      return data as Project[];
+    },
+    enabled: !!userId && hasOperationAccess('invoices', 'create')
+  });
+
+  // Fetch project details (billing_type and amount) when project selected
+  useQuery({
+    queryKey: ['project-info', newInvoice.project_id],
+    queryFn: async () => {
+      if (!newInvoice.project_id) {
+        setSelectedProjectBillingType(null);
+        setSelectedProjectAmount(null);
+        return null;
+      }
+      // Retrieve `billing_type` and `project_amount` from the selected project
+      const selectedProject = projects.find(p => p.id === newInvoice.project_id);
+      setSelectedProjectBillingType(selectedProject?.service || 'Hourly'); // Fallback to Hourly if missing
+      setSelectedProjectAmount(selectedProject?.project_amount || null);
+      return selectedProject;
+    },
+    enabled: !!newInvoice.project_id,
+  });
+
+  useEffect(() => {
+    if (selectedProjectBillingType === 'Fixed' && !!newInvoice.project_id && isDialogOpen) {
+      const selectedProject = projects.find(p => p.id === newInvoice.project_id);
+      if (!selectedProject) return;
+      // skip if already creating
+      if (createInvoiceMutation.isPending) return;
+
+      // Generate unique invoice ID and create invoice with just project info, no tasks
+      const createFixedInvoice = async () => {
+        const invoiceId = await generateUniqueInvoiceId();
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+
+        await supabase
+          .from('invoices')
+          .insert([{
+            id: invoiceId,
+            client_id: selectedProject.client_id,
+            project_id: selectedProject.id,
+            amount: selectedProject.project_amount,
+            hours: 0,
+            rate: 0,
+            status: 'Draft',
+            due_date: dueDate.toISOString().split('T')[0]
+          }]);
+
+        // Optionally mark the project as completed (depends on your desired workflow)
+        await supabase
+          .from('projects')
+          .update({ status: 'Completed' })
+          .eq('id', selectedProject.id);
+
+        // Log activity
+        await logActivity({
+          action_type: 'created',
+          entity_type: 'invoice',
+          entity_id: invoiceId,
+          entity_name: invoiceId,
+          description: `Created fixed price invoice ${invoiceId} for ${selectedProject.client_name} - ₹${selectedProject.project_amount}`,
+          comment: `Project: ${selectedProject.name} (Fixed), Amount: ₹${selectedProject.project_amount}`
+        });
+
+        setIsDialogOpen(false);
+        setNewInvoice({ project_id: '', selectedTasks: [], description: '' });
+        toast.success('Fixed price invoice created successfully!');
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        queryClient.invalidateQueries({ queryKey: ['projects-for-invoices'] });
+      };
+
+      createFixedInvoice();
+    }
+  // eslint-disable-next-line
+  }, [selectedProjectBillingType, newInvoice.project_id, isDialogOpen]);
+
   if (isLoading) {
     return (
       <Navigation>
@@ -783,10 +871,13 @@ const Invoices = () => {
                   <DialogHeader>
                     <DialogTitle>Create New Invoice</DialogTitle>
                     <DialogDescription>
-                      Select completed tasks to generate an invoice.
+                      {selectedProjectBillingType === 'Fixed'
+                        ? 'This project is Fixed price. An invoice will be created automatically when you select the project.'
+                        : 'Select completed tasks for hourly projects to generate an invoice.'}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
+                    {/* Project Selection */}
                     <div className="space-y-2">
                       <Label htmlFor="project">Project</Label>
                       <Select value={newInvoice.project_id} onValueChange={handleProjectChange}>
@@ -807,70 +898,81 @@ const Invoices = () => {
                           )}
                         </SelectContent>
                       </Select>
-                      {projects.length === 0 && (
-                        <p className="text-sm text-gray-500">
-                          No active projects found. Only active projects can be invoiced.
-                        </p>
-                      )}
                     </div>
 
-                    {newInvoice.project_id && (
-                      <div className="space-y-2">
-                        <Label>Select Tasks to Invoice</Label>
-                        <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
-                          {availableTasks.length === 0 ? (
-                            <p className="text-gray-500 text-sm">No completed tasks available for this project.</p>
-                          ) : (
-                            <div className="space-y-3">
-                              {availableTasks.map((task) => (
-                                <div key={task.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
-                                  <Checkbox
-                                    id={`task-${task.id}`}
-                                    checked={newInvoice.selectedTasks.includes(task.id)}
-                                    onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
-                                  />
-                                  <div className="flex-1">
-                                    <label htmlFor={`task-${task.id}`} className="text-sm font-medium cursor-pointer">
-                                      {task.name}
-                                    </label>
-                                    <div className="text-xs text-gray-600">
-                                      {task.hours}h × ₹{task.hourly_rate}/hr = ₹{(task.hours * task.hourly_rate).toFixed(2)}
+                    {/* Hourly Project: Show task selection and amount calculation */}
+                    {selectedProjectBillingType !== 'Fixed' && newInvoice.project_id && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Select Tasks to Invoice</Label>
+                          <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                            {availableTasks.length === 0 ? (
+                              <p className="text-gray-500 text-sm">No completed tasks available for this project.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {availableTasks.map((task) => (
+                                  <div key={task.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                                    <Checkbox
+                                      id={`task-${task.id}`}
+                                      checked={newInvoice.selectedTasks.includes(task.id)}
+                                      onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
+                                    />
+                                    <div className="flex-1">
+                                      <label htmlFor={`task-${task.id}`} className="text-sm font-medium cursor-pointer">
+                                        {task.name}
+                                      </label>
+                                      <div className="text-xs text-gray-600">
+                                        {task.hours}h × ₹{task.hourly_rate}/hr = ₹{(task.hours * task.hourly_rate).toFixed(2)}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {newInvoice.selectedTasks.length > 0 && (
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Total Hours:</span>
+                                <span className="text-lg font-bold">
+                                  {getSelectedTasksTotal().totalHours.toFixed(2)}h
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium">Total Amount:</span>
+                                <span className="text-2xl font-bold text-green-600">
+                                  ₹{getSelectedTasksTotal().totalAmount.toFixed(2)}
+                                </span>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
+                          </div>
+                        )}
+                        <Button 
+                          onClick={handleCreateInvoice} 
+                          className="w-full"
+                          disabled={newInvoice.selectedTasks.length === 0 || createInvoiceMutation.isPending}
+                        >
+                          {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
+                        </Button>
+                      </>
                     )}
 
-                    {newInvoice.selectedTasks.length > 0 && (
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Total Hours:</span>
-                            <span className="text-lg font-bold">
-                              {getSelectedTasksTotal().totalHours.toFixed(2)}h
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Total Amount:</span>
-                            <span className="text-2xl font-bold text-green-600">
-                              ₹{getSelectedTasksTotal().totalAmount.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
+                    {/* Fixed Price: Show amount summary only */}
+                    {(selectedProjectBillingType === 'Fixed' && newInvoice.project_id) && (
+                      <div className="bg-gray-50 rounded-lg p-4 flex flex-col space-y-2">
+                        <span>
+                          <b>Project Type:</b> Fixed Price
+                        </span>
+                        <span>
+                          <b>Invoice Amount:</b> ₹{selectedProjectAmount ? selectedProjectAmount.toFixed(2) : 'N/A'}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          An invoice will be created for this project using the fixed project amount.
+                        </span>
                       </div>
                     )}
-
-                    <Button 
-                      onClick={handleCreateInvoice} 
-                      className="w-full"
-                      disabled={newInvoice.selectedTasks.length === 0 || createInvoiceMutation.isPending}
-                    >
-                      {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
-                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>
