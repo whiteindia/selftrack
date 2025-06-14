@@ -68,6 +68,8 @@ export const usePrivileges = () => {
     );
     const hasAccess = !!readPrivilege;
     console.log(`Page access check for ${pageName}:`, hasAccess, 'Role:', userRole, 'Read privilege found:', readPrivilege);
+    console.log(`Specific privilege search: looking for page_name='${pageName}', operation='read', allowed=true`);
+    console.log(`Matching privileges:`, privileges.filter(p => p.page_name === pageName));
     console.log(`=== End hasPageAccess ===`);
     return hasAccess;
   };

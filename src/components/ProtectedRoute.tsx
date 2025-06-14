@@ -73,22 +73,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
-  // Special handling for yugandhar@whiteindia.in - always grant access
-  if (user.email === 'yugandhar@whiteindia.in') {
-    console.log('Granting full access to admin user');
-    return <>{children}</>;
-  }
-
   // Check page-specific privileges if pageName is provided
   if (pageName) {
     console.log(`Checking page access for ${pageName} with role ${userRole}`);
     
-    // Admin users always have access
+    // Special handling for yugandhar@whiteindia.in - always grant access
+    const isSuperAdmin = user.email === 'yugandhar@whiteindia.in';
+    if (isSuperAdmin) {
+      console.log('Granting full access to superadmin user');
+      return <>{children}</>;
+    }
+    
+    // Admin users always have access (but not the special superadmin case)
     if (userRole === 'admin') {
       console.log('Granting access to admin user via role check');
       return <>{children}</>;
     }
     
+    // For all other users, check privileges from the database
     const hasAccess = hasPageAccess(pageName);
     console.log(`Page access result for ${pageName}:`, hasAccess);
     console.log('Available privileges:', privileges.filter(p => p.page_name === pageName));
@@ -105,6 +107,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
               <p>Debug info:</p>
               <p>Privileges loaded: {privileges.length}</p>
               <p>Page privileges: {JSON.stringify(privileges.filter(p => p.page_name === pageName))}</p>
+              <p>Has page access result: {String(hasAccess)}</p>
             </div>
           </div>
         </div>
