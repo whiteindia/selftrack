@@ -52,11 +52,9 @@ interface Project {
 }
 
 interface InvoiceTask {
-  tasks: {
-    id: string;
-    name: string;
-    hours: number;
-  };
+  id: string;
+  name: string;
+  hours: number;
 }
 
 const Invoices = () => {
@@ -151,19 +149,19 @@ const Invoices = () => {
     enabled: !!newInvoice.project_id
   });
 
-  // Fetch tasks for expanded invoice
+  // Fetch tasks for expanded invoice using the new security definer function
   const { data: invoiceTasks = [] } = useQuery({
     queryKey: ['invoice-tasks', expandedInvoice],
     queryFn: async () => {
       if (!expandedInvoice) return [];
       
-      console.log('Fetching invoice tasks for:', expandedInvoice);
+      console.log('🔍 Fetching invoice tasks using security definer function for:', expandedInvoice);
+      
+      // Use the new security definer function that bypasses RLS restrictions
       const { data, error } = await supabase
-        .from('invoice_tasks')
-        .select(`
-          tasks(id, name, hours)
-        `)
-        .eq('invoice_id', expandedInvoice);
+        .rpc('get_invoice_tasks', { 
+          invoice_id_param: expandedInvoice 
+        });
       
       if (error) {
         console.error('Error fetching invoice tasks:', error);
@@ -920,12 +918,20 @@ const Invoices = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {invoiceTasks.map((invoiceTask, index) => (
-                              <TableRow key={index}>
-                                <TableCell className="break-words">{invoiceTask.tasks?.name || 'N/A'}</TableCell>
-                                <TableCell>{invoiceTask.tasks?.hours || 0}h</TableCell>
+                            {invoiceTasks.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={2} className="text-center text-gray-500">
+                                  No tasks found for this invoice
+                                </TableCell>
                               </TableRow>
-                            ))}
+                            ) : (
+                              invoiceTasks.map((task, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="break-words">{task.name || 'N/A'}</TableCell>
+                                  <TableCell>{task.hours || 0}h</TableCell>
+                                </TableRow>
+                              ))
+                            )}
                           </TableBody>
                         </Table>
                       </div>

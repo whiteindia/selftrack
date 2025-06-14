@@ -922,6 +922,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_invoice_tasks: {
+        Args: { invoice_id_param: string }
+        Returns: {
+          id: string
+          name: string
+          hours: number
+        }[]
+      }
       get_role_available_pages: {
         Args: { role_name: string }
         Returns: {
