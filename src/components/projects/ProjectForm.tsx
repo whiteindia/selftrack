@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,7 +45,7 @@ interface ProjectFormProps {
     name: string;
     client_id: string;
     service: string;
-    billing_type: 'Hourly' | 'Fixed Price';
+    billing_type: 'Hourly' | 'Fixed';
     hourly_rate: number;
     project_amount: number;
     start_date: string;
@@ -56,8 +55,8 @@ interface ProjectFormProps {
   };
   setNewProject: (project: any) => void;
   editingProject: ProjectData | null;
-  editBillingType: 'Hourly' | 'Fixed Price';
-  setEditBillingType: (type: 'Hourly' | 'Fixed Price') => void;
+  editBillingType: 'Hourly' | 'Fixed';
+  setEditBillingType: (type: 'Hourly' | 'Fixed') => void;
   editBrdFile: File | null;
   setEditBrdFile: (file: File | null) => void;
   isDialogOpen: boolean;
@@ -211,13 +210,13 @@ const ProjectForm = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="billingType">Billing Type</Label>
-              <Select onValueChange={(value: 'Hourly' | 'Fixed Price') => setNewProject({...newProject, billing_type: value})}>
+              <Select onValueChange={(value: 'Hourly' | 'Fixed') => setNewProject({...newProject, billing_type: value})}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select billing type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Hourly">Hourly</SelectItem>
-                  <SelectItem value="Fixed Price">Fixed Price</SelectItem>
+                  <SelectItem value="Fixed">Fixed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -233,7 +232,7 @@ const ProjectForm = ({
                 />
               </div>
             )}
-            {newProject.billing_type === 'Fixed Price' && (
+            {newProject.billing_type === 'Fixed' && (
               <div className="space-y-2">
                 <Label htmlFor="projectAmount">Project Amount</Label>
                 <Input
@@ -365,14 +364,14 @@ const ProjectForm = ({
                 <Label htmlFor="editBillingType">Billing Type</Label>
                 <Select 
                   value={editBillingType}
-                  onValueChange={(value: 'Hourly' | 'Fixed Price') => setEditBillingType(value)}
+                  onValueChange={(value: 'Hourly' | 'Fixed') => setEditBillingType(value)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select billing type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Hourly">Hourly</SelectItem>
-                    <SelectItem value="Fixed Price">Fixed Price</SelectItem>
+                    <SelectItem value="Fixed">Fixed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -388,7 +387,7 @@ const ProjectForm = ({
                   />
                 </div>
               )}
-              {editBillingType === 'Fixed Price' && (
+              {editBillingType === 'Fixed' && (
                 <div className="space-y-2">
                   <Label htmlFor="editProjectAmount">Project Amount</Label>
                   <Input
