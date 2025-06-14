@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -263,12 +264,12 @@ const Invoices = () => {
     }
   });
 
-  // Update invoice mutation
+  // Update invoice mutation - only for due_date
   const updateInvoiceMutation = useMutation({
-    mutationFn: async ({ id, updateData }: { id: string; updateData: Partial<Invoice> }) => {
+    mutationFn: async ({ id, due_date }: { id: string; due_date: string }) => {
       const { data, error } = await supabase
         .from('invoices')
-        .update(updateData)
+        .update({ due_date })
         .eq('id', id)
         .select()
         .single();
@@ -281,8 +282,8 @@ const Invoices = () => {
         entity_type: 'invoice',
         entity_id: id,
         entity_name: id,
-        description: `Updated invoice ${id}`,
-        comment: `Updated invoice details`
+        description: `Updated invoice ${id} due date`,
+        comment: `Due date changed to ${due_date}`
       });
       
       return data;
@@ -328,7 +329,7 @@ const Invoices = () => {
     }
   });
 
-  // Delete invoice mutation
+  // Delete invoice mutation - properly delete invoice tasks and mark tasks as not invoiced
   const deleteInvoiceMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
       // First, get the invoice tasks to mark them as not invoiced
@@ -339,7 +340,7 @@ const Invoices = () => {
       
       if (fetchError) throw fetchError;
 
-      // Delete invoice tasks
+      // Delete invoice tasks first
       const { error: deleteTasksError } = await supabase
         .from('invoice_tasks')
         .delete()
@@ -358,7 +359,7 @@ const Invoices = () => {
         if (updateTasksError) throw updateTasksError;
       }
 
-      // Delete the invoice
+      // Finally, delete the invoice
       const { error: deleteInvoiceError } = await supabase
         .from('invoices')
         .delete()
@@ -381,6 +382,7 @@ const Invoices = () => {
     onSuccess: (invoiceId) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['available-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-tasks'] });
       toast.success(`Invoice ${invoiceId} deleted successfully`);
     },
     onError: (error) => {
@@ -438,24 +440,19 @@ const Invoices = () => {
     setIsEditDialogOpen(true);
   };
 
-  // Handle update invoice
+  // Handle update invoice - only due_date is editable
   const handleUpdateInvoice = () => {
     if (!editInvoice) return;
     
     updateInvoiceMutation.mutate({
       id: editInvoice.id,
-      updateData: {
-        amount: editInvoice.amount,
-        hours: editInvoice.hours,
-        rate: editInvoice.rate,
-        due_date: editInvoice.due_date
-      }
+      due_date: editInvoice.due_date
     });
   };
 
   // Handle delete invoice
   const handleDeleteInvoice = (invoiceId: string) => {
-    if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to delete this invoice? This will also remove all associated invoice tasks and mark the tasks as not invoiced.')) {
       deleteInvoiceMutation.mutate(invoiceId);
     }
   };
@@ -724,54 +721,48 @@ const Invoices = () => {
           </Card>
         </div>
 
-        {/* Edit Invoice Dialog */}
+        {/* Edit Invoice Dialog - Only due_date is editable */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Invoice</DialogTitle>
               <DialogDescription>
-                Update invoice details below.
+                Update invoice due date. Amount, hours, and rate are linked to invoice tasks and cannot be edited directly.
               </DialogDescription>
             </DialogHeader>
             {editInvoice && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-amount">Amount (₹)</Label>
+                  <Label htmlFor="view-amount">Amount (₹) - Read Only</Label>
                   <Input
-                    id="edit-amount"
+                    id="view-amount"
                     type="number"
                     step="0.01"
                     value={editInvoice.amount}
-                    onChange={(e) => setEditInvoice({
-                      ...editInvoice,
-                      amount: parseFloat(e.target.value) || 0
-                    })}
+                    readOnly
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-hours">Hours</Label>
+                  <Label htmlFor="view-hours">Hours - Read Only</Label>
                   <Input
-                    id="edit-hours"
+                    id="view-hours"
                     type="number"
                     step="0.01"
                     value={editInvoice.hours}
-                    onChange={(e) => setEditInvoice({
-                      ...editInvoice,
-                      hours: parseFloat(e.target.value) || 0
-                    })}
+                    readOnly
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-rate">Rate (₹/hr)</Label>
+                  <Label htmlFor="view-rate">Rate (₹/hr) - Read Only</Label>
                   <Input
-                    id="edit-rate"
+                    id="view-rate"
                     type="number"
                     step="0.01"
                     value={editInvoice.rate}
-                    onChange={(e) => setEditInvoice({
-                      ...editInvoice,
-                      rate: parseFloat(e.target.value) || 0
-                    })}
+                    readOnly
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
@@ -791,7 +782,7 @@ const Invoices = () => {
                   className="w-full"
                   disabled={updateInvoiceMutation.isPending}
                 >
-                  {updateInvoiceMutation.isPending ? 'Updating...' : 'Update Invoice'}
+                  {updateInvoiceMutation.isPending ? 'Updating...' : 'Update Due Date'}
                 </Button>
               </div>
             )}
