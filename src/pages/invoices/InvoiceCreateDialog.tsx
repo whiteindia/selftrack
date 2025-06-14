@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -83,10 +82,10 @@ const InvoiceCreateDialog: React.FC<Props> = ({
           <DialogTitle>Create New Invoice</DialogTitle>
           <DialogDescription>
             {selectedProjectBillingType === 'Fixed'
-              ? 'For Fixed price projects, an invoice will be generated instantly on project selection.'
+              ? 'Fixed price projects generate invoices automatically upon selection.'
               : selectedProjectBillingType === 'Hourly'
-                ? 'For Hourly projects, select tasks to include in this invoice.'
-                : 'Please select a project to see billing type.'}
+                ? 'For Hourly projects, select completed tasks to include in this invoice.'
+                : 'Please select a project to see billing options.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -105,7 +104,7 @@ const InvoiceCreateDialog: React.FC<Props> = ({
                 ) : (
                   projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
-                      {project.name} ({project.client_name || 'N/A'}) [{project.service}]
+                      {project.name} | {project.client_name || 'N/A'} | {project.type || 'Hourly'}
                     </SelectItem>
                   ))
                 )}
@@ -113,23 +112,10 @@ const InvoiceCreateDialog: React.FC<Props> = ({
             </Select>
           </div>
 
-          {/* Debug Information */}
-          {newInvoice.project_id && (
-            <div className="bg-blue-50 p-3 rounded text-sm">
-              <strong>Debug Info:</strong>
-              <br />
-              Selected Project ID: {newInvoice.project_id}
-              <br />
-              Billing Type: {selectedProjectBillingType || 'Not set'}
-              <br />
-              Project Amount: {selectedProjectAmount ? `₹${selectedProjectAmount}` : 'Not set'}
-            </div>
-          )}
-
-          {/* Show content for any selected project */}
+          {/* Show content based on project selection and billing type */}
           {newInvoice.project_id && (
             <>
-              {/* Task-based billing projects (Hourly only) */}
+              {/* Hourly Projects - Task Selection */}
               {isTaskBasedBilling(selectedProjectBillingType) && (
                 <>
                   <div className="space-y-2">
@@ -188,36 +174,31 @@ const InvoiceCreateDialog: React.FC<Props> = ({
                 </>
               )}
 
-              {/* Fixed Projects */}
+              {/* Fixed Projects - Auto-generated */}
               {selectedProjectBillingType === 'Fixed' && (
-                <div className="bg-gray-50 rounded-lg p-4 flex flex-col space-y-2">
-                  <span>
-                    <b>Project Type:</b> Fixed Price
-                  </span>
-                  <span>
-                    <b>Invoice Amount:</b> ₹{selectedProjectAmount ? selectedProjectAmount.toFixed(2) : 'N/A'}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    Invoice was generated instantly for this project.
-                  </span>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="font-medium text-green-800">Fixed Price Project</span>
+                  </div>
+                  <div className="text-sm text-green-700">
+                    <div><strong>Description:</strong> Project Completion Invoice</div>
+                    <div><strong>Amount:</strong> ₹{selectedProjectAmount ? selectedProjectAmount.toFixed(2) : 'N/A'}</div>
+                    <div className="mt-2 text-xs">
+                      Invoice has been generated automatically for this fixed-price project.
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Unknown billing type or other types */}
+              {/* Unknown billing type */}
               {selectedProjectBillingType && 
                selectedProjectBillingType !== 'Fixed' && 
                selectedProjectBillingType !== 'Hourly' && (
-                <div className="bg-yellow-50 text-yellow-800 rounded p-3 text-sm">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
                   <strong>Billing Type:</strong> {selectedProjectBillingType}
                   <br />
-                  This billing type is not yet supported for invoice creation.
-                </div>
-              )}
-
-              {/* No billing type determined */}
-              {!selectedProjectBillingType && (
-                <div className="bg-red-50 text-red-600 rounded p-3 text-sm font-medium">
-                  Error: Could not determine project billing type.
+                  This billing type is not supported for invoice creation.
                 </div>
               )}
             </>
