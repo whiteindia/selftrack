@@ -4,13 +4,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import type { Database } from '@/integrations/supabase/types';
+
+type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
 interface Invoice {
   id: string;
   amount: number;
   hours: number;
   rate: number;
+  status: InvoiceStatus;
+  date: string;
   due_date: string;
+  clients: {
+    name: string;
+  };
+  projects: {
+    name: string;
+    service: string;
+  };
 }
 
 interface Props {
