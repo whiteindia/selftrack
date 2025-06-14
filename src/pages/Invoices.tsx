@@ -78,6 +78,7 @@ const Invoices = () => {
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ['invoices'],
     queryFn: async () => {
+      console.log('Fetching invoices...');
       const { data, error } = await supabase
         .from('invoices')
         .select(`
@@ -87,7 +88,11 @@ const Invoices = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching invoices:', error);
+        throw error;
+      }
+      console.log('Invoices fetched:', data);
       return data as Invoice[];
     }
   });
@@ -96,6 +101,7 @@ const Invoices = () => {
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-for-invoices'],
     queryFn: async () => {
+      console.log('Fetching projects for invoices...');
       const { data, error } = await supabase
         .from('projects')
         .select(`
@@ -104,7 +110,11 @@ const Invoices = () => {
           clients(id, name)
         `);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+      console.log('Projects fetched:', data);
       return data as Project[];
     }
   });
@@ -115,6 +125,7 @@ const Invoices = () => {
     queryFn: async () => {
       if (!newInvoice.project_id) return [];
       
+      console.log('Fetching available tasks for project:', newInvoice.project_id);
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -125,7 +136,11 @@ const Invoices = () => {
         .eq('status', 'Completed')
         .eq('invoiced', false);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        throw error;
+      }
+      console.log('Available tasks fetched:', data);
       return data as Task[];
     },
     enabled: !!newInvoice.project_id
@@ -137,6 +152,7 @@ const Invoices = () => {
     queryFn: async () => {
       if (!expandedInvoice) return [];
       
+      console.log('Fetching invoice tasks for:', expandedInvoice);
       const { data, error } = await supabase
         .from('invoice_tasks')
         .select(`
@@ -144,7 +160,11 @@ const Invoices = () => {
         `)
         .eq('invoice_id', expandedInvoice);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching invoice tasks:', error);
+        throw error;
+      }
+      console.log('Invoice tasks fetched:', data);
       return data as InvoiceTask[];
     },
     enabled: !!expandedInvoice
@@ -154,12 +174,17 @@ const Invoices = () => {
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
+      console.log('Fetching services...');
       const { data, error } = await supabase
         .from('services')
         .select('*')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching services:', error);
+        throw error;
+      }
+      console.log('Services fetched:', data);
       return data;
     }
   });
@@ -168,7 +193,7 @@ const Invoices = () => {
   const filteredInvoices = invoices.filter(invoice => {
     if (globalServiceFilter === 'all') return true;
     // Filter by project service type
-    return invoice.projects.service === globalServiceFilter;
+    return invoice.projects?.service === globalServiceFilter;
   });
 
   // Create invoice mutation
@@ -370,8 +395,8 @@ const Invoices = () => {
               <h2>${invoice.id}</h2>
             </div>
             <div class="invoice-details">
-              <p><strong>Client:</strong> ${invoice.clients.name}</p>
-              <p><strong>Project:</strong> ${invoice.projects.name}</p>
+              <p><strong>Client:</strong> ${invoice.clients?.name || 'N/A'}</p>
+              <p><strong>Project:</strong> ${invoice.projects?.name || 'N/A'}</p>
               <p><strong>Date:</strong> ${invoice.date}</p>
               <p><strong>Due Date:</strong> ${invoice.due_date}</p>
             </div>
@@ -383,7 +408,7 @@ const Invoices = () => {
                 <th>Amount</th>
               </tr>
               <tr>
-                <td>${invoice.projects.name} - Work completed</td>
+                <td>${invoice.projects?.name || 'N/A'} - Work completed</td>
                 <td>${invoice.hours}</td>
                 <td>₹${invoice.rate}</td>
                 <td>₹${invoice.amount.toFixed(2)}</td>
@@ -436,7 +461,7 @@ const Invoices = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Service Types</SelectItem>
-                  {services.map((service) => (
+                  {services.filter(service => service != null).map((service) => (
                     <SelectItem key={service.id} value={service.name}>
                       {service.name}
                     </SelectItem>
@@ -470,7 +495,7 @@ const Invoices = () => {
                         <SelectContent>
                           {projects.map((project) => (
                             <SelectItem key={project.id} value={project.id}>
-                              {project.name} ({project.clients.name})
+                              {project.name} ({project.clients?.name || 'N/A'})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -497,7 +522,7 @@ const Invoices = () => {
                                       {task.name}
                                     </label>
                                     <div className="text-xs text-gray-600">
-                                      {task.hours}h × ₹{task.projects.hourly_rate}/hr = ₹{(task.hours * task.projects.hourly_rate).toFixed(2)}
+                                      {task.hours}h × ₹{task.projects?.hourly_rate || 0}/hr = ₹{(task.hours * (task.projects?.hourly_rate || 0)).toFixed(2)}
                                     </div>
                                   </div>
                                 </div>
@@ -603,9 +628,9 @@ const Invoices = () => {
                           </Badge>
                         </div>
                       </div>
-                      <p className="text-gray-600 mb-1 break-words">{invoice.clients.name}</p>
-                      <p className="text-sm text-gray-500 break-words">{invoice.projects.name}</p>
-                      <p className="text-xs text-gray-400">Service: {invoice.projects.service}</p>
+                      <p className="text-gray-600 mb-1 break-words">{invoice.clients?.name || 'N/A'}</p>
+                      <p className="text-sm text-gray-500 break-words">{invoice.projects?.name || 'N/A'}</p>
+                      <p className="text-xs text-gray-400">Service: {invoice.projects?.service || 'N/A'}</p>
                       <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-sm text-gray-600">
                         <span className="break-words">{invoice.hours}h × ₹{invoice.rate}/hr</span>
                         <span className="break-words">Due: {invoice.due_date}</span>
@@ -677,8 +702,8 @@ const Invoices = () => {
                           <TableBody>
                             {invoiceTasks.map((invoiceTask, index) => (
                               <TableRow key={index}>
-                                <TableCell className="break-words">{invoiceTask.tasks.name}</TableCell>
-                                <TableCell>{invoiceTask.tasks.hours}h</TableCell>
+                                <TableCell className="break-words">{invoiceTask.tasks?.name || 'N/A'}</TableCell>
+                                <TableCell>{invoiceTask.tasks?.hours || 0}h</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
