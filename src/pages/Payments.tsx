@@ -513,9 +513,9 @@ const Payments = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {projectInvoices.length === 0 ? (
-                            <SelectItem value="no-invoices" disabled>
+                            <div className="px-3 py-2 text-sm text-gray-500">
                               No unpaid invoices found
-                            </SelectItem>
+                            </div>
                           ) : (
                             projectInvoices.map((invoice) => (
                               <SelectItem key={invoice.id} value={invoice.id}>
@@ -628,7 +628,6 @@ const Payments = () => {
                     <SelectValue placeholder="All clients" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All clients</SelectItem>
                     {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name}
@@ -644,7 +643,6 @@ const Payments = () => {
                     <SelectValue placeholder="All projects" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All projects</SelectItem>
                     {allProjects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
