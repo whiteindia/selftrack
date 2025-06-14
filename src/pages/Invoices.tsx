@@ -525,7 +525,7 @@ const Invoices = () => {
     }
   });
 
-  // ⏬ Update: When project changes, check service type and take action
+  // ⏬ Update: When project changes, check service type
   const handleProjectChange = async (projectId: string) => {
     setNewInvoice({
       project_id: projectId,
@@ -534,12 +534,17 @@ const Invoices = () => {
     });
 
     const selectedProject = projects.find((p: any) => p.id === projectId);
-    if (!selectedProject) return;
+    if (!selectedProject) {
+      setSelectedProjectBillingType(null);
+      setSelectedProjectAmount(null);
+      return;
+    }
 
-    setSelectedProjectBillingType(selectedProject.service || 'Hourly');
-    setSelectedProjectAmount(selectedProject.project_amount || null);
+    // Parse the true type - don't fallback!
+    setSelectedProjectBillingType(selectedProject.service);
+    setSelectedProjectAmount(selectedProject.project_amount ?? null);
 
-    // If Fixed, immediately create invoice & show result
+    // Fixed project: auto-create invoice
     if (selectedProject.service === "Fixed") {
       // Prevent double creation
       if (createInvoiceMutation.isPending) return;
@@ -860,7 +865,9 @@ const Invoices = () => {
                     <DialogDescription>
                       {selectedProjectBillingType === 'Fixed'
                         ? 'For Fixed price projects, an invoice will be generated instantly on project selection.'
-                        : 'For Hourly projects, select tasks to include in this invoice.'}
+                        : selectedProjectBillingType === 'Hourly'
+                          ? 'For Hourly projects, select tasks to include in this invoice.'
+                          : 'Please select a project to see billing type.'}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -887,7 +894,7 @@ const Invoices = () => {
                       </Select>
                     </div>
 
-                    {/* Only show below if hourly and a project is selected */}
+                    {/* Show ONLY if hourly and a project is selected */}
                     {selectedProjectBillingType === 'Hourly' && newInvoice.project_id && (
                       <>
                         <div className="space-y-2">
@@ -945,7 +952,8 @@ const Invoices = () => {
                         </Button>
                       </>
                     )}
-                    {/* For Fixed: No task input, just show summary */}
+
+                    {/* Fixed: Only show summary, no button */}
                     {selectedProjectBillingType === 'Fixed' && newInvoice.project_id && (
                       <div className="bg-gray-50 rounded-lg p-4 flex flex-col space-y-2">
                         <span>
@@ -957,6 +965,13 @@ const Invoices = () => {
                         <span className="text-sm text-gray-500">
                           Invoice was generated instantly for this project.
                         </span>
+                      </div>
+                    )}
+
+                    {/* No type found */}
+                    {!selectedProjectBillingType && newInvoice.project_id && (
+                      <div className="bg-red-50 text-red-600 rounded p-3 text-sm font-medium">
+                        Error: Could not determine project billing type.
                       </div>
                     )}
                   </div>
