@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { logPaymentCreated } from '@/utils/activity/financialActivity';
+import { usePrivileges } from '@/hooks/usePrivileges';
 
 interface Payment {
   id: string;
@@ -47,6 +49,7 @@ interface Invoice {
 
 const Payments = () => {
   const { userRole } = useAuth();
+  const { hasOperationAccess } = usePrivileges();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -281,7 +284,7 @@ const Payments = () => {
             <p className="text-gray-600 mt-2">Track and manage payment records</p>
           </div>
           
-          {userRole === 'admin' && (
+          {hasOperationAccess('payments', 'create') && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-blue-600 hover:bg-blue-700">
