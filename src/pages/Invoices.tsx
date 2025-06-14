@@ -40,9 +40,7 @@ interface Task {
   id: string;
   name: string;
   hours: number;
-  projects: {
-    hourly_rate: number;
-  };
+  hourly_rate: number;
 }
 
 interface Project {
@@ -127,22 +125,19 @@ const Invoices = () => {
     enabled: !!userId && hasOperationAccess('invoices', 'create') // Only fetch when user is authenticated and has permissions
   });
 
-  // Fetch available tasks for selected project
+  // Fetch available tasks using the new security definer function
   const { data: availableTasks = [] } = useQuery({
     queryKey: ['available-tasks', newInvoice.project_id],
     queryFn: async () => {
       if (!newInvoice.project_id) return [];
       
-      console.log('Fetching available tasks for project:', newInvoice.project_id);
+      console.log('🔍 Fetching available tasks for project using security definer function:', newInvoice.project_id);
+      
+      // Use the security definer function that bypasses RLS restrictions
       const { data, error } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          projects(hourly_rate)
-        `)
-        .eq('project_id', newInvoice.project_id)
-        .eq('status', 'Completed')
-        .eq('invoiced', false);
+        .rpc('get_completed_tasks_for_invoicing', { 
+          project_uuid: newInvoice.project_id 
+        });
       
       if (error) {
         console.error('Error fetching tasks:', error);
@@ -220,7 +215,7 @@ const Invoices = () => {
       );
       
       const totalHours = selectedTasksData.reduce((sum, task) => sum + task.hours, 0);
-      const rate = selectedTasksData[0]?.projects.hourly_rate || 0;
+      const rate = selectedTasksData[0]?.hourly_rate || 0;
       const totalAmount = totalHours * rate;
       
       // Get project and client info
@@ -348,7 +343,7 @@ const Invoices = () => {
       newInvoice.selectedTasks.includes(task.id)
     );
     const totalHours = selectedTasks.reduce((sum, task) => sum + task.hours, 0);
-    const rate = selectedTasks[0]?.projects.hourly_rate || 0;
+    const rate = selectedTasks[0]?.hourly_rate || 0;
     const totalAmount = totalHours * rate;
     return { totalHours, totalAmount };
   };
@@ -541,7 +536,7 @@ const Invoices = () => {
                                       {task.name}
                                     </label>
                                     <div className="text-xs text-gray-600">
-                                      {task.hours}h × ₹{task.projects?.hourly_rate || 0}/hr = ₹{(task.hours * (task.projects?.hourly_rate || 0)).toFixed(2)}
+                                      {task.hours}h × ₹{task.hourly_rate}/hr = ₹{(task.hours * task.hourly_rate).toFixed(2)}
                                     </div>
                                   </div>
                                 </div>

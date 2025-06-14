@@ -896,6 +896,15 @@ export type Database = {
           client_name: string
         }[]
       }
+      get_completed_tasks_for_invoicing: {
+        Args: { project_uuid: string }
+        Returns: {
+          id: string
+          name: string
+          hours: number
+          hourly_rate: number
+        }[]
+      }
       get_current_user_employee_id: {
         Args: Record<PropertyKey, never>
         Returns: string
