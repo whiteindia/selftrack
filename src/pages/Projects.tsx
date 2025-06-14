@@ -31,6 +31,17 @@ interface Employee {
   role: string;
 }
 
+// Extended interface for data returned from the database query
+interface ExtendedProjectData extends ProjectData {
+  assignee_id: string | null;
+  assignee_employee?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
 const Projects = () => {
   const { hasOperationAccess, isRlsFilteringActive, userId, userRole, employeeId, loading: privilegesLoading } = usePrivileges();
   
@@ -59,7 +70,7 @@ const Projects = () => {
     assignee_employee_id: '',
     brd_file: null as File | null
   });
-  const [editingProject, setEditingProject] = useState<ProjectData | null>(null);
+  const [editingProject, setEditingProject] = useState<ExtendedProjectData | null>(null);
   const [editBillingType, setEditBillingType] = useState<'Hourly' | 'Fixed'>('Hourly');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -128,7 +139,8 @@ const Projects = () => {
             assignee_employee: project.assignee_employee,
             status: project.status,
             client: project.clients?.name,
-            type: project.type
+            type: project.type,
+            service: project.service
           });
         });
       } else if (isRlsFilteringActive('projects')) {
@@ -140,7 +152,7 @@ const Projects = () => {
       }
       
       console.log('=== PROJECTS QUERY END ===');
-      return data as ProjectData[];
+      return data as ExtendedProjectData[];
     },
     enabled: canRead && !!userId
   });
@@ -338,7 +350,7 @@ const Projects = () => {
     window.open(url, '_blank');
   };
 
-  const isProjectBased = (project: ProjectData) => {
+  const isProjectBased = (project: ExtendedProjectData) => {
     return project.type === 'Fixed' || project.brd_file_url !== null;
   };
 
@@ -351,7 +363,7 @@ const Projects = () => {
     setSearchTerm('');
   };
 
-  const handleEditProject = (project: ProjectData) => {
+  const handleEditProject = (project: ExtendedProjectData) => {
     if (!canUpdate) {
       toast.error('You do not have permission to edit projects');
       return;
@@ -363,7 +375,7 @@ const Projects = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSetEditingProject = (updatedProject: ProjectData) => {
+  const handleSetEditingProject = (updatedProject: ExtendedProjectData) => {
     console.log('Updating editing project:', updatedProject);
     setEditingProject(updatedProject);
   };

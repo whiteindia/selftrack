@@ -1,8 +1,10 @@
 
+
 export interface ProjectData {
   id: string;
   name: string;
   client_id: string;
+  service: string; // Added missing service property
   type: string; // Billing type from database
   hourly_rate: number;
   project_amount: number | null;
@@ -11,6 +13,7 @@ export interface ProjectData {
   start_date: string | null;
   deadline: string | null;
   brd_file_url: string | null;
+  assignee_employee_id: string | null; // Added missing assignee_employee_id property
   created_at: string;
   clients: {
     name: string;
@@ -33,3 +36,4 @@ export interface UpdateProjectParams {
   updates: any;
   brdFile: File | null;
 }
+

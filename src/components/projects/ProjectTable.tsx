@@ -10,7 +10,6 @@ import { ProjectData } from '@/hooks/projects/types';
 
 interface ExtendedProjectData extends ProjectData {
   assignee_id: string | null;
-  assignee_employee_id: string | null;
   assignee_employee?: {
     id: string;
     name: string;
@@ -158,3 +157,4 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
 };
 
 export default ProjectTable;
+
