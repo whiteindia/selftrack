@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,7 +48,7 @@ interface Invoice {
 
 const Payments = () => {
   const { userRole } = useAuth();
-  const { hasOperationAccess } = usePrivileges();
+  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -265,7 +264,12 @@ const Payments = () => {
     })
     .reduce((sum, payment) => sum + payment.amount, 0);
 
-  if (isLoading) {
+  console.log('=== Payments Page Debug ===');
+  console.log('User role:', userRole);
+  console.log('Privileges loading:', privilegesLoading);
+  console.log('Has create access:', hasOperationAccess('payments', 'create'));
+
+  if (isLoading || privilegesLoading) {
     return (
       <Navigation>
         <div className="flex items-center justify-center py-8">
@@ -403,6 +407,14 @@ const Payments = () => {
                 </div>
               </DialogContent>
             </Dialog>
+          )}
+          
+          {/* Debug info for troubleshooting */}
+          {userRole !== 'admin' && (
+            <div className="text-xs text-gray-400 ml-4">
+              <p>Role: {userRole}</p>
+              <p>Create access: {String(hasOperationAccess('payments', 'create'))}</p>
+            </div>
           )}
         </div>
 
