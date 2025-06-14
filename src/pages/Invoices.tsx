@@ -172,13 +172,13 @@ const Invoices = () => {
       console.log('Projects fetched for dropdown:', data);
       console.log('Total projects found:', data?.length || 0);
       
+      // Map directly, now .service and .project_amount are always present
       return (data as any[]).map((proj) => ({
         ...proj,
-        service: proj.service ?? 'Hourly',
-        project_amount: proj.project_amount ?? null,
+        // No default/fallback for service now
       })) as Project[];
     },
-    enabled: !!userId && hasOperationAccess('invoices', 'create') // Only fetch when user is authenticated and has permissions
+    enabled: !!userId && hasOperationAccess('invoices', 'create'),
   });
 
   // Fetch available tasks using the new security definer function

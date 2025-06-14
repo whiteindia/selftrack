@@ -990,6 +990,8 @@ export type Database = {
           status: string
           client_id: string
           client_name: string
+          service: string
+          project_amount: number
         }[]
       }
       get_completed_tasks_for_invoicing: {
