@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, DollarSign, Calendar, Filter } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Plus, DollarSign, Calendar, Filter, Trash2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,6 +24,9 @@ interface Payment {
   clients: { name: string } | null;
   projects: { name: string } | null;
   invoices: { id: string } | null;
+  client_id: string;
+  project_id: string;
+  invoice_id: string;
 }
 
 interface Client {
@@ -51,6 +55,8 @@ const Payments = () => {
   const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [filters, setFilters] = useState({
     client_id: '',
     start_date: '',
@@ -208,6 +214,71 @@ const Payments = () => {
     }
   });
 
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      // Get payment details first to find the invoice
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .select('invoice_id')
+        .eq('id', paymentId)
+        .single();
+      
+      if (paymentError) throw paymentError;
+
+      // Delete the payment
+      const { error: deleteError } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', paymentId);
+      
+      if (deleteError) throw deleteError;
+
+      // Update invoice status back to Sent
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({ status: 'Sent' })
+        .eq('id', payment.invoice_id);
+      
+      if (updateError) throw updateError;
+
+      return payment.invoice_id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['project-invoices'] });
+      toast.success('Payment deleted and invoice status updated to Sent');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete payment: ' + error.message);
+    }
+  });
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: async (updatedPayment: any) => {
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          amount: parseFloat(updatedPayment.amount),
+          payment_method: updatedPayment.payment_method,
+          payment_date: updatedPayment.payment_date
+        })
+        .eq('id', updatedPayment.id);
+      
+      if (error) throw error;
+      return updatedPayment;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      setIsEditDialogOpen(false);
+      setEditingPayment(null);
+      toast.success('Payment updated successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to update payment: ' + error.message);
+    }
+  });
+
   const handleClientChange = (clientId: string) => {
     setNewPayment({
       ...newPayment,
@@ -248,6 +319,24 @@ const Payments = () => {
       ...newPayment,
       client_name: selectedClient?.name || 'Unknown Client'
     });
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePayment = () => {
+    if (!editingPayment || !editingPayment.amount) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    updatePaymentMutation.mutate(editingPayment);
+  };
+
+  const handleDeletePayment = (paymentId: string) => {
+    deletePaymentMutation.mutate(paymentId);
   };
 
   const clearFilters = () => {
@@ -508,6 +597,7 @@ const Payments = () => {
                   <TableHead>Amount</TableHead>
                   <TableHead>Payment Date</TableHead>
                   <TableHead>Payment Method</TableHead>
+                  {hasOperationAccess('payments', 'update') && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -527,6 +617,43 @@ const Payments = () => {
                     </TableCell>
                     <TableCell>{payment.payment_date}</TableCell>
                     <TableCell>{payment.payment_method || 'N/A'}</TableCell>
+                    {hasOperationAccess('payments', 'update') && (
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditPayment(payment)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will delete the payment record and change the invoice status back to "Sent". This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeletePayment(payment.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -538,6 +665,76 @@ const Payments = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Payment Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Payment</DialogTitle>
+              <DialogDescription>
+                Update payment details.
+              </DialogDescription>
+            </DialogHeader>
+            {editingPayment && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editAmount">Amount</Label>
+                  <Input
+                    id="editAmount"
+                    type="number"
+                    step="0.01"
+                    value={editingPayment.amount}
+                    onChange={(e) => setEditingPayment({
+                      ...editingPayment,
+                      amount: parseFloat(e.target.value) || 0
+                    })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editPaymentMethod">Payment Method</Label>
+                  <Select 
+                    value={editingPayment.payment_method || ''} 
+                    onValueChange={(value) => setEditingPayment({
+                      ...editingPayment,
+                      payment_method: value
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="UPI">UPI</SelectItem>
+                      <SelectItem value="Credit Card">Credit Card</SelectItem>
+                      <SelectItem value="Cash">Cash</SelectItem>
+                      <SelectItem value="Cheque">Cheque</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editPaymentDate">Payment Date</Label>
+                  <Input
+                    id="editPaymentDate"
+                    type="date"
+                    value={editingPayment.payment_date}
+                    onChange={(e) => setEditingPayment({
+                      ...editingPayment,
+                      payment_date: e.target.value
+                    })}
+                  />
+                </div>
+                <Button 
+                  onClick={handleUpdatePayment} 
+                  className="w-full"
+                  disabled={updatePaymentMutation.isPending}
+                >
+                  {updatePaymentMutation.isPending ? 'Updating...' : 'Update Payment'}
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Navigation>
   );
