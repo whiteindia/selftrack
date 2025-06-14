@@ -65,10 +65,12 @@ const Projects = () => {
   const canDelete = hasOperationAccess('projects', 'delete');
   const canRead = hasOperationAccess('projects', 'read');
 
+  console.log('=== PROJECTS PAGE PERMISSIONS DEBUG ===');
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
   console.log('Should apply user filtering:', isRlsFilteringActive('projects'), 'User ID:', userId, 'Employee ID:', employeeId);
   console.log('User role:', userRole);
   console.log('Privileges loading:', privilegesLoading);
+  console.log('User email from auth context:', userId);
 
   const [newProject, setNewProject] = useState({
     name: '',
@@ -250,9 +252,17 @@ const Projects = () => {
 
   const handleCreateProject = () => {
     if (!canCreate) {
+      console.error('=== CREATE PROJECT BLOCKED ===');
+      console.error('User does not have create permission');
+      console.error('canCreate:', canCreate);
+      console.error('User role:', userRole);
       toast.error('You do not have permission to create projects');
       return;
     }
+
+    console.log('=== CREATING PROJECT ===');
+    console.log('User has create permission, proceeding...');
+    console.log('New project data:', newProject);
 
     const projectData = {
       name: newProject.name,
@@ -265,10 +275,13 @@ const Projects = () => {
       assignee_employee_id: newProject.assignee_employee_id || null
     };
     
+    console.log('Final project data to insert:', projectData);
+    
     createProjectMutation.mutate(
       { projectData, brdFile: newProject.brd_file },
       {
         onSuccess: () => {
+          console.log('Project creation successful, resetting form');
           setNewProject({
             name: '',
             client_id: '',
@@ -282,6 +295,9 @@ const Projects = () => {
             brd_file: null
           });
           setIsDialogOpen(false);
+        },
+        onError: (error) => {
+          console.error('Project creation failed in component:', error);
         }
       }
     );
@@ -289,9 +305,17 @@ const Projects = () => {
 
   const handleUpdateProject = () => {
     if (!canUpdate) {
+      console.error('=== UPDATE PROJECT BLOCKED ===');
+      console.error('User does not have update permission');
+      console.error('canUpdate:', canUpdate);
+      console.error('User role:', userRole);
       toast.error('You do not have permission to update projects');
       return;
     }
+
+    console.log('=== UPDATING PROJECT ===');
+    console.log('User has update permission, proceeding...');
+    console.log('Editing project:', editingProject);
 
     if (editingProject) {
       const updates = {
@@ -306,13 +330,19 @@ const Projects = () => {
         assignee_employee_id: editingProject.assignee_employee_id || null
       };
       
+      console.log('Final project updates to apply:', updates);
+      
       updateProjectMutation.mutate(
         { id: editingProject.id, updates, brdFile: editBrdFile },
         {
           onSuccess: () => {
+            console.log('Project update successful, closing dialog');
             setEditingProject(null);
             setEditBrdFile(null);
             setIsEditDialogOpen(false);
+          },
+          onError: (error) => {
+            console.error('Project update failed in component:', error);
           }
         }
       );
