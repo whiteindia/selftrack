@@ -504,6 +504,24 @@ const Tasks = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="edit-project">Project</Label>
+                  <Select 
+                    value={editingTask.project_id} 
+                    onValueChange={(value) => setEditingTask({ ...editingTask, project_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name} - {project.service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="edit-status">Status</Label>
                   <Select 
                     value={editingTask.status} 
@@ -567,6 +585,7 @@ const Tasks = () => {
                   <Button 
                     onClick={() => handleUpdateTask({
                       name: editingTask.name,
+                      project_id: editingTask.project_id,
                       status: editingTask.status,
                       assignee_id: editingTask.assignee_id,
                       deadline: editingTask.deadline,
