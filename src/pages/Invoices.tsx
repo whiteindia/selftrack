@@ -919,57 +919,60 @@ const Invoices = () => {
               </ToggleGroup>
             </div>
 
-            {/* Due Date Filters */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Due Date</Label>
-              <Select value={dueDateFilter} onValueChange={setDueDateFilter}>
-                <SelectTrigger className="w-full sm:w-64">
-                  <SelectValue placeholder="Filter by due date" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Due Dates</SelectItem>
-                  <SelectItem value="today">Due Today</SelectItem>
-                  <SelectItem value="week">Due This Week</SelectItem>
-                  <SelectItem value="month">Due This Month</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Horizontal Layout for Due Date, Client, and Project Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Due Date Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Due Date</Label>
+                <Select value={dueDateFilter} onValueChange={setDueDateFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by due date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Due Dates</SelectItem>
+                    <SelectItem value="today">Due Today</SelectItem>
+                    <SelectItem value="week">Due This Week</SelectItem>
+                    <SelectItem value="month">Due This Month</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Client Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Client</Label>
-              <Select value={clientFilter} onValueChange={setClientFilter}>
-                <SelectTrigger className="w-full sm:w-64">
-                  <SelectValue placeholder="Filter by client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Client Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Client</Label>
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Project Filter */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Project</Label>
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
-                <SelectTrigger className="w-full sm:w-64">
-                  <SelectValue placeholder="Filter by project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Project Filter */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Project</Label>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Filter Summary */}
