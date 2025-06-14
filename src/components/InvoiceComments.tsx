@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,7 +38,7 @@ const InvoiceComments: React.FC<InvoiceCommentsProps> = ({ invoiceId }) => {
         .from('invoice_comments')
         .select(`
           *,
-          profiles!invoice_comments_user_id_fkey(full_name)
+          profiles!fk_invoice_comments_user_id(full_name)
         `)
         .eq('invoice_id', invoiceId)
         .order('created_at', { ascending: false });
