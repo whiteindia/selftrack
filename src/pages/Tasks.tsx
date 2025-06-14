@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,7 +65,7 @@ interface Project {
 
 const Tasks = () => {
   const { user, userRole } = useAuth();
-  const { hasOperationAccess } = usePrivileges();
+  const { hasPageAccess, hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -77,10 +78,14 @@ const Tasks = () => {
     estimated_duration: ''
   });
 
-  // Fetch tasks with calculated logged hours
+  // Check if user has access to tasks page
+  const hasTasksAccess = hasPageAccess('tasks') || userRole === 'admin';
+
+  // Fetch tasks with calculated logged hours - RLS will filter automatically
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
+      console.log('Fetching tasks with RLS filtering active');
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
@@ -102,7 +107,12 @@ const Tasks = () => {
         `)
         .order('created_at', { ascending: false });
 
-      if (tasksError) throw tasksError;
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
+        throw tasksError;
+      }
+
+      console.log(`Fetched ${tasksData?.length || 0} tasks after RLS filtering`);
 
       // Calculate total logged hours for each task
       const tasksWithLoggedHours = await Promise.all(
@@ -129,7 +139,8 @@ const Tasks = () => {
       );
 
       return tasksWithLoggedHours as Task[];
-    }
+    },
+    enabled: hasTasksAccess && !privilegesLoading
   });
 
   // Fetch employees
@@ -142,7 +153,8 @@ const Tasks = () => {
         .order('name');
       if (error) throw error;
       return data as Employee[];
-    }
+    },
+    enabled: hasTasksAccess
   });
 
   // Fetch projects
@@ -162,7 +174,8 @@ const Tasks = () => {
         .order('name');
       if (error) throw error;
       return data as Project[];
-    }
+    },
+    enabled: hasTasksAccess
   });
 
   // Create task mutation
@@ -282,6 +295,29 @@ const Tasks = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
   };
 
+  if (privilegesLoading) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (!hasTasksAccess) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-gray-600">You don't have permission to access the tasks page.</p>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
   if (tasksLoading) {
     return (
       <Navigation>
@@ -388,101 +424,109 @@ const Tasks = () => {
           )}
         </div>
 
-        <div className="grid gap-4">
-          {tasks.map((task) => (
-            <Card key={task.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{task.name}</CardTitle>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
-                      <div className="flex items-center">
-                        <Building className="h-4 w-4 mr-1" />
-                        {task.projects.name}
-                      </div>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 mr-1" />
-                        {task.assignee?.name || 'Unassigned'}
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1" />
-                        {task.total_logged_hours?.toFixed(2) || '0.00'}h logged
-                        {task.estimated_duration && ` / ${task.estimated_duration}h estimated`}
-                      </div>
-                      {task.deadline && (
+        {tasks.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-gray-600">No tasks found. You can only see tasks where you are assigned or are the creator.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {tasks.map((task) => (
+              <Card key={task.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">{task.name}</CardTitle>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
                         <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          Due: {format(new Date(task.deadline), 'MMM d, yyyy')}
+                          <Building className="h-4 w-4 mr-1" />
+                          {task.projects.name}
                         </div>
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-1" />
+                          {task.assignee?.name || 'Unassigned'}
+                        </div>
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-1" />
+                          {task.total_logged_hours?.toFixed(2) || '0.00'}h logged
+                          {task.estimated_duration && ` / ${task.estimated_duration}h estimated`}
+                        </div>
+                        {task.deadline && (
+                          <div className="flex items-center">
+                            <Calendar className="h-4 w-4 mr-1" />
+                            Due: {format(new Date(task.deadline), 'MMM d, yyyy')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge className={getStatusColor(task.status)}>
+                        {task.status}
+                      </Badge>
+                      {task.status === 'In Progress' && (
+                        <TimeTrackerWithComment 
+                          task={{ id: task.id, name: task.name }}
+                          onSuccess={handleTimeUpdate}
+                        />
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                      {hasOperationAccess('tasks', 'update') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingTask(task)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {hasOperationAccess('tasks', 'delete') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteTaskMutation.mutate(task.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge className={getStatusColor(task.status)}>
-                      {task.status}
-                    </Badge>
-                    {task.status === 'In Progress' && (
-                      <TimeTrackerWithComment 
-                        task={{ id: task.id, name: task.name }}
-                        onSuccess={handleTimeUpdate}
-                      />
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </Button>
-                    {hasOperationAccess('tasks', 'update') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingTask(task)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {hasOperationAccess('tasks', 'delete') && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteTaskMutation.mutate(task.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              
-              {expandedTask === task.id && (
-                <CardContent className="border-t">
-                  <div className="space-y-4">
-                    {hasOperationAccess('tasks', 'update') && (
-                      <div className="flex items-center space-x-2">
-                        <Label htmlFor="status">Status:</Label>
-                        <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Not Started">Not Started</SelectItem>
-                            <SelectItem value="In Progress">In Progress</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                            <SelectItem value="On Hold">On Hold</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    
-                    <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          ))}
-        </div>
+                </CardHeader>
+                
+                {expandedTask === task.id && (
+                  <CardContent className="border-t">
+                    <div className="space-y-4">
+                      {hasOperationAccess('tasks', 'update') && (
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor="status">Status:</Label>
+                          <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Not Started">Not Started</SelectItem>
+                              <SelectItem value="In Progress">In Progress</SelectItem>
+                              <SelectItem value="Completed">Completed</SelectItem>
+                              <SelectItem value="On Hold">On Hold</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      
+                      <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Edit Task Dialog */}
         {editingTask && (

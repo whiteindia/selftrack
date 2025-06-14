@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,15 +67,19 @@ const Wages = () => {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
-  const { hasOperationAccess, loading: privilegesLoading, userRole, userId } = usePrivileges();
+  const { hasPageAccess, hasOperationAccess, loading: privilegesLoading, userRole, userId } = usePrivileges();
+  
+  // Check if user has access to wages page
+  const hasWagesAccess = hasPageAccess('wages') || userRole === 'admin';
   
   // Check specific permissions for wages page - allow managers and admins
   const canUpdate = hasOperationAccess('wages', 'update') || userRole === 'admin' || userRole === 'manager';
 
-  // Fetch time entries with employee hourly rate data and comments
+  // Fetch time entries with employee hourly rate data and comments - RLS will filter automatically
   const { data: timeEntries = [], isLoading } = useQuery({
     queryKey: ['time-entries', selectedEmployee, selectedMonth],
     queryFn: async () => {
+      console.log('Fetching time entries with RLS filtering active');
       const startDate = startOfMonth(selectedMonth).toISOString();
       const endDate = endOfMonth(selectedMonth).toISOString();
 
@@ -112,8 +117,10 @@ const Wages = () => {
         throw error;
       }
 
+      console.log(`Fetched ${data?.length || 0} time entries after RLS filtering`);
       return data as TimeEntry[];
-    }
+    },
+    enabled: hasWagesAccess && !privilegesLoading
   });
 
   // Fetch employees
@@ -131,7 +138,8 @@ const Wages = () => {
       }
 
       return data as Employee[];
-    }
+    },
+    enabled: hasWagesAccess
   });
 
   // Fetch services
@@ -149,7 +157,8 @@ const Wages = () => {
       }
 
       return data as Service[];
-    }
+    },
+    enabled: hasWagesAccess
   });
 
   // Update wage status mutation
@@ -164,6 +173,10 @@ const Wages = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time-entries'] });
+      toast.success('Wage status updated successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to update wage status: ' + error.message);
     }
   });
 
@@ -367,7 +380,30 @@ const Wages = () => {
     toast.success('Wage report exported successfully!');
   };
 
-  if (isLoading || privilegesLoading) {
+  if (privilegesLoading) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (!hasWagesAccess) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-gray-600">You don't have permission to access the wages page.</p>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (isLoading) {
     return (
       <Navigation>
         <div className="flex items-center justify-center py-8">
@@ -521,128 +557,142 @@ const Wages = () => {
               Employee wage records for {format(selectedMonth, "MMMM yyyy")} (calculated using individual employee hourly rates)
               {globalServiceFilter !== 'all' && ` filtered by ${globalServiceFilter} service type`}
               {wageStatusFilter !== 'all' && ` - ${wageStatusFilter === 'wpaid' ? 'Paid' : 'Not Paid'} wages`}
+              {Object.keys(groupedWageRecords).length === 0 && ' - No wage records found for the selected filters'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Service Type</TableHead>
-                  <TableHead>Total Hours</TableHead>
-                  <TableHead>Employee Rate</TableHead>
-                  <TableHead>Total Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {Object.entries(groupedWageRecords).map(([taskId, group]) => (
-                  <React.Fragment key={taskId}>
-                    {/* Main task row */}
-                    <TableRow className="border-b-2">
-                      <TableCell>
-                        <Collapsible>
-                          <CollapsibleTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="p-0 h-auto font-normal justify-start"
-                              onClick={() => toggleTaskExpansion(taskId)}
-                            >
-                              {expandedTasks.has(taskId) ? (
-                                <ChevronDown className="h-4 w-4 mr-2" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4 mr-2" />
-                              )}
-                              {group.task?.name}
-                            </Button>
-                          </CollapsibleTrigger>
-                        </Collapsible>
-                      </TableCell>
-                      <TableCell>{group.employee?.name}</TableCell>
-                      <TableCell>{group.task?.projects?.name}</TableCell>
-                      <TableCell>{group.project_service_type}</TableCell>
-                      <TableCell className="font-semibold">{group.totalHours.toFixed(2)}</TableCell>
-                      <TableCell>₹{group.hourly_rate}</TableCell>
-                      <TableCell className="font-semibold">₹{group.totalAmount.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant={group.wage_status === 'wpaid' ? 'default' : 'destructive'}>
-                          {group.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {canUpdate || userRole === 'admin' || userRole === 'manager' ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                Actions
+            {Object.keys(groupedWageRecords).length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">
+                  No wage records found for the selected filters. This could be because:
+                </p>
+                <ul className="text-sm text-gray-500 mt-2 space-y-1">
+                  <li>• No time entries exist for the selected month</li>
+                  <li>• RLS policies are filtering data based on your permissions</li>
+                  <li>• No tasks match the selected filters</li>
+                </ul>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Task</TableHead>
+                    <TableHead>Employee</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Service Type</TableHead>
+                    <TableHead>Total Hours</TableHead>
+                    <TableHead>Employee Rate</TableHead>
+                    <TableHead>Total Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(groupedWageRecords).map(([taskId, group]) => (
+                    <React.Fragment key={taskId}>
+                      {/* Main task row */}
+                      <TableRow className="border-b-2">
+                        <TableCell>
+                          <Collapsible>
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-0 h-auto font-normal justify-start"
+                                onClick={() => toggleTaskExpansion(taskId)}
+                              >
+                                {expandedTasks.has(taskId) ? (
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 mr-2" />
+                                )}
+                                {group.task?.name}
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem
-                                onClick={() => handleWageStatusChange(taskId, 'wpaid')}
-                                disabled={group.wage_status === 'wpaid'}
-                              >
-                                <Check className="h-4 w-4 mr-2" />
-                                Mark as Paid
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleWageStatusChange(taskId, 'wnotpaid')}
-                                disabled={group.wage_status === 'wnotpaid'}
-                              >
-                                <X className="h-4 w-4 mr-2" />
-                                Mark as Not Paid
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : (
-                          <span className="text-sm text-gray-500">No permission</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Collapsible time entries */}
-                    {expandedTasks.has(taskId) && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="p-0">
-                          <div className="bg-gray-50 border-l-4 border-blue-200">
-                            <Table>
-                              <TableBody>
-                                {group.entries.map((entry: any) => (
-                                  <TableRow key={entry.id} className="bg-gray-50">
-                                    <TableCell className="pl-8 text-sm text-gray-600">
-                                      <div className="flex flex-col">
-                                        <span className="font-medium">{format(new Date(entry.date), "PPP")}</span>
-                                        {entry.comment && (
-                                          <span className="text-xs text-gray-500 mt-1 italic">
-                                            "{entry.comment}"
-                                          </span>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-sm">-</TableCell>
-                                    <TableCell className="text-sm">-</TableCell>
-                                    <TableCell className="text-sm">-</TableCell>
-                                    <TableCell className="text-sm">{entry.hours_worked.toFixed(2)}</TableCell>
-                                    <TableCell className="text-sm">-</TableCell>
-                                    <TableCell className="text-sm">₹{entry.wage_amount.toFixed(2)}</TableCell>
-                                    <TableCell className="text-sm">-</TableCell>
-                                    <TableCell className="text-sm">-</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
+                            </CollapsibleTrigger>
+                          </Collapsible>
+                        </TableCell>
+                        <TableCell>{group.employee?.name}</TableCell>
+                        <TableCell>{group.task?.projects?.name}</TableCell>
+                        <TableCell>{group.project_service_type}</TableCell>
+                        <TableCell className="font-semibold">{group.totalHours.toFixed(2)}</TableCell>
+                        <TableCell>₹{group.hourly_rate}</TableCell>
+                        <TableCell className="font-semibold">₹{group.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant={group.wage_status === 'wpaid' ? 'default' : 'destructive'}>
+                            {group.wage_status === 'wpaid' ? 'Paid' : 'Not Paid'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {canUpdate || userRole === 'admin' || userRole === 'manager' ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  Actions
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem
+                                  onClick={() => handleWageStatusChange(taskId, 'wpaid')}
+                                  disabled={group.wage_status === 'wpaid'}
+                                >
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Mark as Paid
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleWageStatusChange(taskId, 'wnotpaid')}
+                                  disabled={group.wage_status === 'wnotpaid'}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Mark as Not Paid
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <span className="text-sm text-gray-500">No permission</span>
+                          )}
                         </TableCell>
                       </TableRow>
-                    )}
-                  </React.Fragment>
-                ))}
-              </TableBody>
-            </Table>
+
+                      {/* Collapsible time entries */}
+                      {expandedTasks.has(taskId) && (
+                        <TableRow>
+                          <TableCell colSpan={9} className="p-0">
+                            <div className="bg-gray-50 border-l-4 border-blue-200">
+                              <Table>
+                                <TableBody>
+                                  {group.entries.map((entry: any) => (
+                                    <TableRow key={entry.id} className="bg-gray-50">
+                                      <TableCell className="pl-8 text-sm text-gray-600">
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{format(new Date(entry.date), "PPP")}</span>
+                                          {entry.comment && (
+                                            <span className="text-xs text-gray-500 mt-1 italic">
+                                              "{entry.comment}"
+                                            </span>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-sm">-</TableCell>
+                                      <TableCell className="text-sm">-</TableCell>
+                                      <TableCell className="text-sm">-</TableCell>
+                                      <TableCell className="text-sm">{entry.hours_worked.toFixed(2)}</TableCell>
+                                      <TableCell className="text-sm">-</TableCell>
+                                      <TableCell className="text-sm">₹{entry.wage_amount.toFixed(2)}</TableCell>
+                                      <TableCell className="text-sm">-</TableCell>
+                                      <TableCell className="text-sm">-</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
