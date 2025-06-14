@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -503,6 +502,23 @@ const Tasks = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select 
+                    value={editingTask.status} 
+                    onValueChange={(value) => setEditingTask({ ...editingTask, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Not Started">Not Started</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="On Hold">On Hold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="edit-assignee">Assignee</Label>
                   <Select 
                     value={editingTask.assignee_id || ''} 
@@ -549,6 +565,7 @@ const Tasks = () => {
                   <Button 
                     onClick={() => handleUpdateTask({
                       name: editingTask.name,
+                      status: editingTask.status,
                       assignee_id: editingTask.assignee_id,
                       deadline: editingTask.deadline,
                       estimated_duration: editingTask.estimated_duration
