@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, FileText, Download, Eye, DollarSign, ChevronDown, ChevronUp, Filter, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { Plus, FileText, Download, Eye, DollarSign, ChevronDown, ChevronUp, Filter, TrendingUp, Edit, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +17,7 @@ import Navigation from '@/components/Navigation';
 import InvoiceComments from '@/components/InvoiceComments';
 import { logActivity } from '@/utils/activityLogger';
 import { usePrivileges } from '@/hooks/usePrivileges';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -71,6 +72,10 @@ const Invoices = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
+  
+  // New filter states
+  const [statusFilters, setStatusFilters] = useState<string[]>(['Sent', 'Draft']);
+  const [dueDateFilter, setDueDateFilter] = useState<string>('all');
 
   // Fetch invoices with client and project data including service type
   const { data: invoices = [], isLoading } = useQuery({
@@ -193,11 +198,77 @@ const Invoices = () => {
     }
   });
 
-  // Filter invoices based on global service filter
+  // Helper function to check if an invoice is overdue
+  const isOverdue = (invoice: Invoice) => {
+    if (invoice.status === 'Paid') return false;
+    const today = new Date();
+    const dueDate = new Date(invoice.due_date);
+    return dueDate < today;
+  };
+
+  // Helper function to check if invoice is due today
+  const isDueToday = (invoice: Invoice) => {
+    if (invoice.status === 'Paid') return false;
+    const today = new Date();
+    const dueDate = new Date(invoice.due_date);
+    return dueDate.toDateString() === today.toDateString();
+  };
+
+  // Helper function to check if invoice is due this week
+  const isDueThisWeek = (invoice: Invoice) => {
+    if (invoice.status === 'Paid') return false;
+    const today = new Date();
+    const dueDate = new Date(invoice.due_date);
+    const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return dueDate >= today && dueDate <= weekFromNow;
+  };
+
+  // Helper function to check if invoice is due this month
+  const isDueThisMonth = (invoice: Invoice) => {
+    if (invoice.status === 'Paid') return false;
+    const today = new Date();
+    const dueDate = new Date(invoice.due_date);
+    return dueDate.getMonth() === today.getMonth() && dueDate.getFullYear() === today.getFullYear();
+  };
+
+  // Filter invoices based on all filters
   const filteredInvoices = invoices.filter(invoice => {
-    if (globalServiceFilter === 'all') return true;
-    // Filter by project service type
-    return invoice.projects?.service === globalServiceFilter;
+    // Service filter
+    if (globalServiceFilter !== 'all' && invoice.projects?.service !== globalServiceFilter) {
+      return false;
+    }
+
+    // Status filter with special handling for overdue
+    let statusMatch = false;
+    if (statusFilters.includes('Overdue') && isOverdue(invoice)) {
+      statusMatch = true;
+    } else if (statusFilters.includes(invoice.status)) {
+      statusMatch = true;
+    }
+    
+    if (!statusMatch && statusFilters.length > 0) {
+      return false;
+    }
+
+    // Due date filter
+    if (dueDateFilter !== 'all') {
+      switch (dueDateFilter) {
+        case 'today':
+          if (!isDueToday(invoice)) return false;
+          break;
+        case 'week':
+          if (!isDueThisWeek(invoice)) return false;
+          break;
+        case 'month':
+          if (!isDueThisMonth(invoice)) return false;
+          break;
+        case 'overdue':
+          if (!isOverdue(invoice)) return false;
+          break;
+      }
+    }
+
+    return true;
   });
 
   // Generate unique invoice ID function
@@ -627,7 +698,7 @@ const Invoices = () => {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="flex items-center gap-2 whitespace-nowrap">
                 <Filter className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                <span className="text-sm font-medium">Filter:</span>
+                <span className="text-sm font-medium">Service:</span>
               </div>
               <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
                 <SelectTrigger className="w-full sm:w-48 min-w-0">
@@ -751,6 +822,79 @@ const Invoices = () => {
           </div>
         </div>
 
+        {/* New Filter Section */}
+        <Card className="mb-6">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Filters</CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Status Filters */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Status</Label>
+              <ToggleGroup 
+                type="multiple" 
+                value={statusFilters} 
+                onValueChange={handleStatusFilterChange}
+                className="justify-start flex-wrap"
+              >
+                <ToggleGroupItem value="Draft" className="data-[state=on]:bg-yellow-100 data-[state=on]:text-yellow-800">
+                  Draft
+                </ToggleGroupItem>
+                <ToggleGroupItem value="Sent" className="data-[state=on]:bg-blue-100 data-[state=on]:text-blue-800">
+                  Sent
+                </ToggleGroupItem>
+                <ToggleGroupItem value="Paid" className="data-[state=on]:bg-green-100 data-[state=on]:text-green-800">
+                  Paid
+                </ToggleGroupItem>
+                <ToggleGroupItem value="Overdue" className="data-[state=on]:bg-red-100 data-[state=on]:text-red-800">
+                  Overdue
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            {/* Due Date Filters */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Due Date</Label>
+              <Select value={dueDateFilter} onValueChange={setDueDateFilter}>
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="Filter by due date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Due Dates</SelectItem>
+                  <SelectItem value="today">Due Today</SelectItem>
+                  <SelectItem value="week">Due This Week</SelectItem>
+                  <SelectItem value="month">Due This Month</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filter Summary */}
+            <div className="pt-2 border-t">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>Showing {filteredInvoices.length} of {invoices.length} invoices</span>
+                {(statusFilters.length > 0 || dueDateFilter !== 'all' || globalServiceFilter !== 'all') && (
+                  <div className="flex items-center gap-1">
+                    <span>•</span>
+                    <span>Filters active</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Revenue Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card>
@@ -779,8 +923,8 @@ const Invoices = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Invoices</p>
-                  <p className="text-2xl font-bold text-gray-900">{invoices.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Filtered Invoices</p>
+                  <p className="text-2xl font-bold text-gray-900">{filteredInvoices.length}</p>
                 </div>
                 <FileText className="h-8 w-8 text-gray-600" />
               </div>
@@ -788,7 +932,7 @@ const Invoices = () => {
           </Card>
         </div>
 
-        {/* Edit Invoice Dialog - Only due_date is editable */}
+        {/* Edit Invoice Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
@@ -862,9 +1006,15 @@ const Invoices = () => {
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500">
-                  No invoices found
-                  {globalServiceFilter !== 'all' && ` for ${globalServiceFilter} service type`}.
+                  No invoices found with the current filters.
                 </p>
+                <Button 
+                  variant="outline" 
+                  onClick={clearFilters}
+                  className="mt-2"
+                >
+                  Clear Filters
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -876,9 +1026,14 @@ const Invoices = () => {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                         <h3 className="text-lg font-semibold break-words">{invoice.id}</h3>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge className={getStatusColor(invoice.status)}>
-                            {invoice.status}
+                          <Badge className={getStatusColor(isOverdue(invoice) && invoice.status !== 'Paid' ? 'Overdue' : invoice.status)}>
+                            {isOverdue(invoice) && invoice.status !== 'Paid' ? 'Overdue' : invoice.status}
                           </Badge>
+                          {isDueToday(invoice) && (
+                            <Badge variant="outline" className="border-orange-300 text-orange-600">
+                              Due Today
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <p className="text-gray-600 mb-1 break-words">{invoice.clients?.name || 'N/A'}</p>
