@@ -18,6 +18,9 @@ import InvoiceComments from '@/components/InvoiceComments';
 import { logActivity } from '@/utils/activityLogger';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import InvoiceCreateDialog from './invoices/InvoiceCreateDialog';
+import InvoiceEditDialog from './invoices/InvoiceEditDialog';
+import InvoiceCard from './invoices/InvoiceCard';
 
 type InvoiceStatus = Database['public']['Enums']['invoice_status'];
 
@@ -856,131 +859,22 @@ const Invoices = () => {
             </div>
 
             {hasOperationAccess('invoices', 'create') && (
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto whitespace-nowrap">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Invoice
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Create New Invoice</DialogTitle>
-                    <DialogDescription>
-                      {selectedProjectBillingType === 'Fixed'
-                        ? 'For Fixed price projects, an invoice will be generated instantly on project selection.'
-                        : selectedProjectBillingType === 'Hourly'
-                          ? 'For Hourly projects, select tasks to include in this invoice.'
-                          : 'Please select a project to see billing type.'}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    {/* Project Selection */}
-                    <div className="space-y-2">
-                      <Label htmlFor="project">Project</Label>
-                      <Select value={newInvoice.project_id} onValueChange={handleProjectChange}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {projects.length === 0 ? (
-                            <SelectItem value="no-projects" disabled>
-                              No active projects available
-                            </SelectItem>
-                          ) : (
-                            projects.map((project: any) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name} ({project.client_name || 'N/A'}) [{project.service}]
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Show ONLY if hourly and a project is selected */}
-                    {selectedProjectBillingType === 'Hourly' && newInvoice.project_id && (
-                      <>
-                        <div className="space-y-2">
-                          <Label>Select Tasks to Invoice</Label>
-                          <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
-                            {availableTasks.length === 0 ? (
-                              <p className="text-gray-500 text-sm">No completed tasks available for this project.</p>
-                            ) : (
-                              <div className="space-y-3">
-                                {availableTasks.map((task: any) => (
-                                  <div key={task.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
-                                    <Checkbox
-                                      id={`task-${task.id}`}
-                                      checked={newInvoice.selectedTasks.includes(task.id)}
-                                      onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
-                                    />
-                                    <div className="flex-1">
-                                      <label htmlFor={`task-${task.id}`} className="text-sm font-medium cursor-pointer">
-                                        {task.name}
-                                      </label>
-                                      <div className="text-xs text-gray-600">
-                                        {task.hours}h × ₹{task.hourly_rate}/hr = ₹{(task.hours * task.hourly_rate).toFixed(2)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {newInvoice.selectedTasks.length > 0 && (
-                          <div className="p-4 bg-gray-50 rounded-lg">
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">Total Hours:</span>
-                                <span className="text-lg font-bold">
-                                  {getSelectedTasksTotal().totalHours.toFixed(2)}h
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="font-medium">Total Amount:</span>
-                                <span className="text-2xl font-bold text-green-600">
-                                  ₹{getSelectedTasksTotal().totalAmount.toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <Button 
-                          onClick={handleCreateInvoice} 
-                          className="w-full"
-                          disabled={newInvoice.selectedTasks.length === 0 || createInvoiceMutation.isPending}
-                        >
-                          {createInvoiceMutation.isPending ? 'Creating...' : 'Create Invoice'}
-                        </Button>
-                      </>
-                    )}
-
-                    {/* Fixed: Only show summary, no button */}
-                    {selectedProjectBillingType === 'Fixed' && newInvoice.project_id && (
-                      <div className="bg-gray-50 rounded-lg p-4 flex flex-col space-y-2">
-                        <span>
-                          <b>Project Type:</b> Fixed Price
-                        </span>
-                        <span>
-                          <b>Invoice Amount:</b> ₹{selectedProjectAmount ? selectedProjectAmount.toFixed(2) : 'N/A'}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          Invoice was generated instantly for this project.
-                        </span>
-                      </div>
-                    )}
-
-                    {/* No type found */}
-                    {!selectedProjectBillingType && newInvoice.project_id && (
-                      <div className="bg-red-50 text-red-600 rounded p-3 text-sm font-medium">
-                        Error: Could not determine project billing type.
-                      </div>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <InvoiceCreateDialog
+                open={isDialogOpen}
+                onOpenChange={setIsDialogOpen}
+                projects={projects}
+                availableTasks={availableTasks}
+                services={services}
+                selectedProjectBillingType={selectedProjectBillingType}
+                selectedProjectAmount={selectedProjectAmount}
+                hasOperationAccess={hasOperationAccess}
+                newInvoice={newInvoice}
+                setNewInvoice={setNewInvoice}
+                handleProjectChange={handleProjectChange}
+                handleCreateInvoice={handleCreateInvoice}
+                handleTaskSelection={handleTaskSelection}
+                createInvoiceMutationPending={createInvoiceMutation.isPending}
+              />
             )}
           </div>
         </div>
@@ -1135,72 +1029,17 @@ const Invoices = () => {
         </div>
 
         {/* Edit Invoice Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Invoice</DialogTitle>
-              <DialogDescription>
-                Update invoice due date. Amount, hours, and rate are linked to invoice tasks and cannot be edited directly.
-              </DialogDescription>
-            </DialogHeader>
-            {editInvoice && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="view-amount">Amount (₹) - Read Only</Label>
-                  <Input
-                    id="view-amount"
-                    type="number"
-                    step="0.01"
-                    value={editInvoice.amount}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="view-hours">Hours - Read Only</Label>
-                  <Input
-                    id="view-hours"
-                    type="number"
-                    step="0.01"
-                    value={editInvoice.hours}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="view-rate">Rate (₹/hr) - Read Only</Label>
-                  <Input
-                    id="view-rate"
-                    type="number"
-                    step="0.01"
-                    value={editInvoice.rate}
-                    readOnly
-                    className="bg-gray-100 cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-due-date">Due Date</Label>
-                  <Input
-                    id="edit-due-date"
-                    type="date"
-                    value={editInvoice.due_date}
-                    onChange={(e) => setEditInvoice({
-                      ...editInvoice,
-                      due_date: e.target.value
-                    })}
-                  />
-                </div>
-                <Button 
-                  onClick={handleUpdateInvoice} 
-                  className="w-full"
-                  disabled={updateInvoiceMutation.isPending}
-                >
-                  {updateInvoiceMutation.isPending ? 'Updating...' : 'Update Due Date'}
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <InvoiceEditDialog
+          open={isEditDialogOpen}
+          invoice={editInvoice}
+          onOpenChange={setIsEditDialogOpen}
+          setEditInvoice={setEditInvoice}
+          onDueDateChange={(date) => {
+            if (editInvoice) setEditInvoice({ ...editInvoice, due_date: date });
+          }}
+          onUpdateInvoice={handleUpdateInvoice}
+          isPending={updateInvoiceMutation.isPending}
+        />
 
         {/* Invoices List */}
         <div className="space-y-4">
@@ -1221,140 +1060,23 @@ const Invoices = () => {
             </Card>
           ) : (
             filteredInvoices.map((invoice) => (
-              <Card key={invoice.id} id={`invoice-${invoice.id}`} className="hover:shadow-lg transition-shadow duration-200">
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold break-words">{invoice.id}</h3>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge className={getStatusColor(isOverdue(invoice) && invoice.status !== 'Paid' ? 'Overdue' : invoice.status)}>
-                            {isOverdue(invoice) && invoice.status !== 'Paid' ? 'Overdue' : invoice.status}
-                          </Badge>
-                          {isDueToday(invoice) && (
-                            <Badge variant="outline" className="border-orange-300 text-orange-600">
-                              Due Today
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-gray-600 mb-1 break-words">{invoice.clients?.name || 'N/A'}</p>
-                      <p className="text-sm text-gray-500 break-words">{invoice.projects?.name || 'N/A'}</p>
-                      <p className="text-xs text-gray-400">Service: {invoice.projects?.service || 'N/A'}</p>
-                      <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-sm text-gray-600">
-                        <span className="break-words">{invoice.hours}h × ₹{invoice.rate}/hr</span>
-                        <span className="break-words">Due: {invoice.due_date}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <p className="text-xl lg:text-2xl font-bold text-gray-900 text-center sm:text-right">
-                        ₹{invoice.amount.toFixed(2)}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setExpandedInvoice(expandedInvoice === invoice.id ? null : invoice.id)}
-                          className="flex-shrink-0"
-                        >
-                          {expandedInvoice === invoice.id ? (
-                            <ChevronUp className="h-4 w-4 mr-1" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 mr-1" />
-                          )}
-                          Tasks
-                        </Button>
-                        <InvoiceComments invoiceId={invoice.id} />
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => generatePDF(invoice)}
-                          className="flex-shrink-0"
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          PDF
-                        </Button>
-                        {hasOperationAccess('invoices', 'update') && (
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditInvoice(invoice)}
-                            className="flex-shrink-0"
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                        )}
-                        {hasOperationAccess('invoices', 'delete') && (
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteInvoice(invoice.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
-                            disabled={deleteInvoiceMutation.isPending}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        )}
-                        {invoice.status === 'Draft' && hasOperationAccess('invoices', 'update') && (
-                          <Button 
-                            size="sm"
-                            onClick={() => updateInvoiceStatus(invoice.id, 'Sent')}
-                            disabled={updateInvoiceStatusMutation.isPending}
-                            className="flex-shrink-0"
-                          >
-                            Send
-                          </Button>
-                        )}
-                        {invoice.status === 'Sent' && hasOperationAccess('invoices', 'update') && (
-                          <Button 
-                            size="sm"
-                            onClick={() => updateInvoiceStatus(invoice.id, 'Paid')}
-                            className="bg-green-600 hover:bg-green-700 flex-shrink-0"
-                            disabled={updateInvoiceStatusMutation.isPending}
-                          >
-                            Mark Paid
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {expandedInvoice === invoice.id && (
-                    <div className="mt-4 pt-4 border-t">
-                      <h4 className="font-medium mb-3">Tasks in this invoice:</h4>
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Task Name</TableHead>
-                              <TableHead>Hours</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {invoiceTasks.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={2} className="text-center text-gray-500">
-                                  No tasks found for this invoice
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              invoiceTasks.map((task, index) => (
-                                <TableRow key={index}>
-                                  <TableCell className="break-words">{task.name || 'N/A'}</TableCell>
-                                  <TableCell>{task.hours || 0}h</TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <InvoiceCard
+                key={invoice.id}
+                invoice={invoice}
+                invoiceTasks={expandedInvoice === invoice.id ? invoiceTasks : []}
+                expanded={expandedInvoice === invoice.id}
+                onExpand={setExpandedInvoice}
+                isOverdue={isOverdue}
+                isDueToday={isDueToday}
+                getStatusColor={getStatusColor}
+                hasOperationAccess={hasOperationAccess}
+                onPDF={generatePDF}
+                onEdit={handleEditInvoice}
+                onDelete={handleDeleteInvoice}
+                deletePending={deleteInvoiceMutation.isPending}
+                onUpdateStatus={updateInvoiceStatus}
+                updateStatusPending={updateInvoiceStatusMutation.isPending}
+              />
             ))
           )}
         </div>
