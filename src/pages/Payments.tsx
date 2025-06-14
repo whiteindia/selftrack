@@ -179,11 +179,11 @@ const Payments = () => {
     enabled: !!newPayment.project_id
   });
 
-  // Generate advance payment ID
-  const generateAdvanceId = async () => {
-    const { data, error } = await supabase.rpc('nextval', { seq_name: 'advance_payment_seq' });
-    if (error) throw error;
-    return `ADV-${String(data).padStart(6, '0')}`;
+  // Generate advance payment ID using timestamp-based approach
+  const generateAdvanceId = () => {
+    const timestamp = Date.now();
+    const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `ADV-${timestamp}-${randomSuffix}`;
   };
 
   const addPaymentMutation = useMutation({
