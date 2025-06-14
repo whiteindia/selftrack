@@ -150,7 +150,7 @@ const Invoices = () => {
     }
   });
 
-  // Fetch projects using the new security definer function that bypasses RLS
+  // Fetch projects using the updated security definer function that now includes type
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-for-invoices', hasOperationAccess('invoices', 'create')],
     queryFn: async () => {
@@ -174,10 +174,10 @@ const Invoices = () => {
       console.log('Projects fetched for dropdown:', data);
       console.log('Total projects found:', data?.length || 0);
       
-      // Map the data to include the type field (billing type)
+      // The function now returns the type column directly
       return (data as any[]).map((proj) => ({
         ...proj,
-        type: proj.type || 'Hourly', // Default to Hourly if type is not set
+        // No need to default type anymore since it comes from the database
       })) as Project[];
     },
     enabled: !!userId && hasOperationAccess('invoices', 'create'),
@@ -541,7 +541,7 @@ const Invoices = () => {
       return;
     }
 
-    // Use project.type for billing type
+    // Use project.type for billing type (now coming directly from database)
     console.log('Selected project billing type (from type column):', selectedProject.type);
     setSelectedProjectBillingType(selectedProject.type);
     setSelectedProjectAmount(selectedProject.project_amount ?? null);

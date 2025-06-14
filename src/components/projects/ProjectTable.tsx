@@ -22,6 +22,7 @@ interface ProjectData {
   assignee_id: string | null;
   assignee_employee_id: string | null;
   created_at: string;
+  type: string; // Billing type from database
   clients: {
     name: string;
   };
@@ -52,12 +53,9 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
   onDelete,
   onViewBRD
 }) => {
-  const isProjectBased = (project: ProjectData) => {
-    return project.project_amount !== null || project.brd_file_url !== null;
-  };
-
   const getBillingType = (project: ProjectData) => {
-    return isProjectBased(project) ? "Fixed" : "Hourly";
+    // Use the type column directly from the database
+    return project.type || "Hourly";
   };
 
   const getAssigneeName = (project: ProjectData) => {
@@ -108,7 +106,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {isProjectBased(project) 
+                  {getBillingType(project) === "Fixed"
                     ? `₹${project.project_amount?.toLocaleString() || 0}` 
                     : `₹${project.hourly_rate}/hr`}
                 </TableCell>

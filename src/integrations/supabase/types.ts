@@ -450,6 +450,7 @@ export type Database = {
           start_date: string | null
           status: string
           total_hours: number
+          type: string
           updated_at: string
         }
         Insert: {
@@ -467,6 +468,7 @@ export type Database = {
           start_date?: string | null
           status?: string
           total_hours?: number
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -484,6 +486,7 @@ export type Database = {
           start_date?: string | null
           status?: string
           total_hours?: number
+          type?: string
           updated_at?: string
         }
         Relationships: [
@@ -991,6 +994,7 @@ export type Database = {
           client_id: string
           client_name: string
           service: string
+          type: string
           project_amount: number
         }[]
       }
