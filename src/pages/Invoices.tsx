@@ -97,39 +97,30 @@ const Invoices = () => {
     }
   });
 
-  // Fetch projects for dropdown with role-based access
+  // Fetch projects for dropdown - simplified for invoice creation
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects-for-invoices', userRole, userId, employeeId],
+    queryKey: ['projects-for-invoices', hasOperationAccess('invoices', 'create')],
     queryFn: async () => {
       console.log('🔍 Fetching projects for invoices dropdown...');
-      console.log('User role:', userRole, 'User ID:', userId, 'Employee ID:', employeeId);
+      console.log('User has invoice create access:', hasOperationAccess('invoices', 'create'));
       
-      let query = supabase
+      // If user has invoice create permissions, they should see all active projects
+      // regardless of their project table privileges
+      if (!hasOperationAccess('invoices', 'create')) {
+        console.log('User does not have invoice create permissions');
+        return [];
+      }
+      
+      const { data, error } = await supabase
         .from('projects')
         .select(`
           id,
           name,
+          status,
           clients(id, name)
-        `);
-
-      // Apply role-based filtering
-      if (userRole === 'admin') {
-        console.log('Admin user - fetching all projects');
-        // Admin can see all projects
-      } else if (userRole === 'manager' && employeeId) {
-        console.log('Manager user - filtering by assignee_employee_id:', employeeId);
-        // Manager can only see projects assigned to them
-        query = query.eq('assignee_employee_id', employeeId);
-      } else if (userRole === 'accountant') {
-        console.log('Accountant user - fetching all active projects');
-        // Accountant can see all active projects for invoicing
-        query = query.eq('status', 'Active');
-      } else {
-        console.log('Other role - no specific filtering applied');
-        // For other roles, let RLS handle the filtering
-      }
-      
-      const { data, error } = await query.order('name');
+        `)
+        .eq('status', 'Active')  // Only show active projects for invoicing
+        .order('name');
       
       if (error) {
         console.error('Error fetching projects for dropdown:', error);
@@ -141,7 +132,7 @@ const Invoices = () => {
       
       return data as Project[];
     },
-    enabled: !!userId // Only fetch when user is authenticated
+    enabled: !!userId && hasOperationAccess('invoices', 'create') // Only fetch when user is authenticated and has permissions
   });
 
   // Fetch available tasks for selected project
@@ -520,7 +511,7 @@ const Invoices = () => {
                         <SelectContent>
                           {projects.length === 0 ? (
                             <SelectItem value="no-projects" disabled>
-                              No projects available
+                              No active projects available
                             </SelectItem>
                           ) : (
                             projects.map((project) => (
@@ -533,7 +524,7 @@ const Invoices = () => {
                       </Select>
                       {projects.length === 0 && (
                         <p className="text-sm text-gray-500">
-                          No projects found. Contact your administrator if you believe this is an error.
+                          No active projects found. Only active projects can be invoiced.
                         </p>
                       )}
                     </div>
