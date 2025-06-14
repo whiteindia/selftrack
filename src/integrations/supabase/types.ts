@@ -340,9 +340,10 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
-          invoice_id: string
+          invoice_id: string | null
           payment_date: string
           payment_method: string | null
+          payment_type: string
           project_id: string
           updated_at: string
         }
@@ -351,9 +352,10 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
-          invoice_id: string
+          invoice_id?: string | null
           payment_date?: string
           payment_method?: string | null
+          payment_type?: string
           project_id: string
           updated_at?: string
         }
@@ -362,9 +364,10 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
-          invoice_id?: string
+          invoice_id?: string | null
           payment_date?: string
           payment_method?: string | null
+          payment_type?: string
           project_id?: string
           updated_at?: string
         }

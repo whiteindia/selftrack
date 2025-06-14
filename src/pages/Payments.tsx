@@ -21,12 +21,13 @@ interface Payment {
   amount: number;
   payment_date: string;
   payment_method: string | null;
+  payment_type: 'invoice' | 'advance';
   clients: { name: string } | null;
   projects: { name: string } | null;
   invoices: { id: string } | null;
   client_id: string;
   project_id: string;
-  invoice_id: string;
+  invoice_id: string | null;
 }
 
 interface Client {
@@ -59,6 +60,7 @@ const Payments = () => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [filters, setFilters] = useState({
     client_id: '',
+    project_id: '',
     start_date: '',
     end_date: ''
   });
@@ -68,6 +70,7 @@ const Payments = () => {
     invoice_id: '',
     amount: '',
     payment_method: '',
+    payment_type: 'invoice' as 'invoice' | 'advance',
     payment_date: new Date().toISOString().split('T')[0]
   });
 
@@ -87,6 +90,9 @@ const Payments = () => {
       if (filters.client_id) {
         query = query.eq('client_id', filters.client_id);
       }
+      if (filters.project_id) {
+        query = query.eq('project_id', filters.project_id);
+      }
       if (filters.start_date) {
         query = query.gte('payment_date', filters.start_date);
       }
@@ -100,6 +106,7 @@ const Payments = () => {
     }
   });
 
+  // Fetch clients for payment records
   const { data: clients = [] } = useQuery({
     queryKey: ['clients-for-payments'],
     queryFn: async () => {
@@ -110,6 +117,20 @@ const Payments = () => {
       
       if (error) throw error;
       return data as Client[];
+    }
+  });
+
+  // Fetch projects for filter dropdown
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ['all-projects-for-payments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name, client_id')
+        .order('name');
+      
+      if (error) throw error;
+      return data as Project[];
     }
   });
 
@@ -158,17 +179,32 @@ const Payments = () => {
     enabled: !!newPayment.project_id
   });
 
+  // Generate advance payment ID
+  const generateAdvanceId = async () => {
+    const { data, error } = await supabase.rpc('nextval', { seq_name: 'advance_payment_seq' });
+    if (error) throw error;
+    return `ADV-${String(data).padStart(6, '0')}`;
+  };
+
   const addPaymentMutation = useMutation({
     mutationFn: async (paymentData: any) => {
+      let invoiceId = paymentData.invoice_id;
+      
+      // Generate advance ID if it's an advance payment
+      if (paymentData.payment_type === 'advance') {
+        invoiceId = null;
+      }
+
       // Create payment
       const { data, error } = await supabase
         .from('payments')
         .insert([{
           client_id: paymentData.client_id,
           project_id: paymentData.project_id,
-          invoice_id: paymentData.invoice_id,
+          invoice_id: invoiceId,
           amount: parseFloat(paymentData.amount),
           payment_method: paymentData.payment_method,
+          payment_type: paymentData.payment_type,
           payment_date: paymentData.payment_date
         }])
         .select()
@@ -176,19 +212,21 @@ const Payments = () => {
       
       if (error) throw error;
 
-      // Update invoice status to Paid
-      const { error: updateError } = await supabase
-        .from('invoices')
-        .update({ status: 'Paid' })
-        .eq('id', paymentData.invoice_id);
-      
-      if (updateError) throw updateError;
+      // Update invoice status to Paid only for invoice payments
+      if (paymentData.payment_type === 'invoice' && paymentData.invoice_id) {
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({ status: 'Paid' })
+          .eq('id', paymentData.invoice_id);
+        
+        if (updateError) throw updateError;
+      }
 
       // Log activity using the financial activity logger
       await logPaymentCreated(
         parseFloat(paymentData.amount),
         paymentData.client_name,
-        paymentData.invoice_id,
+        paymentData.payment_type === 'invoice' ? paymentData.invoice_id : 'Advance Payment',
         data.id
       );
 
@@ -204,6 +242,7 @@ const Payments = () => {
         invoice_id: '',
         amount: '',
         payment_method: '',
+        payment_type: 'invoice',
         payment_date: new Date().toISOString().split('T')[0]
       });
       setIsDialogOpen(false);
@@ -219,7 +258,7 @@ const Payments = () => {
       // Get payment details first to find the invoice
       const { data: payment, error: paymentError } = await supabase
         .from('payments')
-        .select('invoice_id')
+        .select('invoice_id, payment_type')
         .eq('id', paymentId)
         .single();
       
@@ -233,13 +272,15 @@ const Payments = () => {
       
       if (deleteError) throw deleteError;
 
-      // Update invoice status back to Sent
-      const { error: updateError } = await supabase
-        .from('invoices')
-        .update({ status: 'Sent' })
-        .eq('id', payment.invoice_id);
-      
-      if (updateError) throw updateError;
+      // Update invoice status back to Sent only for invoice payments
+      if (payment.payment_type === 'invoice' && payment.invoice_id) {
+        const { error: updateError } = await supabase
+          .from('invoices')
+          .update({ status: 'Sent' })
+          .eq('id', payment.invoice_id);
+        
+        if (updateError) throw updateError;
+      }
 
       return payment.invoice_id;
     },
@@ -247,7 +288,7 @@ const Payments = () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['project-invoices'] });
-      toast.success('Payment deleted and invoice status updated to Sent');
+      toast.success('Payment deleted successfully');
     },
     onError: (error) => {
       toast.error('Failed to delete payment: ' + error.message);
@@ -298,6 +339,15 @@ const Payments = () => {
     });
   };
 
+  const handlePaymentTypeChange = (paymentType: 'invoice' | 'advance') => {
+    setNewPayment({
+      ...newPayment,
+      payment_type: paymentType,
+      invoice_id: '',
+      amount: ''
+    });
+  };
+
   const handleInvoiceChange = (invoiceId: string) => {
     const invoice = projectInvoices.find(inv => inv.id === invoiceId);
     setNewPayment({
@@ -308,8 +358,13 @@ const Payments = () => {
   };
 
   const handleAddPayment = () => {
-    if (!newPayment.client_id || !newPayment.project_id || !newPayment.invoice_id || !newPayment.amount) {
+    if (!newPayment.client_id || !newPayment.project_id || !newPayment.amount) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    if (newPayment.payment_type === 'invoice' && !newPayment.invoice_id) {
+      toast.error('Please select an invoice for invoice payments');
       return;
     }
     
@@ -340,7 +395,14 @@ const Payments = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ client_id: '', start_date: '', end_date: '' });
+    setFilters({ client_id: '', project_id: '', start_date: '', end_date: '' });
+  };
+
+  const getPaymentId = (payment: Payment) => {
+    if (payment.payment_type === 'advance') {
+      return `ADV-${String(payment.id).slice(-6).padStart(6, '0')}`;
+    }
+    return payment.invoices?.id ? `INV-${payment.invoices.id}` : 'N/A';
   };
 
   const totalRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -389,7 +451,7 @@ const Payments = () => {
                 <DialogHeader>
                   <DialogTitle>Record New Payment</DialogTitle>
                   <DialogDescription>
-                    Record a payment for an invoice.
+                    Record a payment for an invoice or advance payment.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -426,8 +488,23 @@ const Payments = () => {
                       </Select>
                     </div>
                   )}
-                  
+
                   {newPayment.project_id && (
+                    <div className="space-y-2">
+                      <Label htmlFor="paymentType">Payment Type</Label>
+                      <Select value={newPayment.payment_type} onValueChange={handlePaymentTypeChange}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payment type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="invoice">Invoice</SelectItem>
+                          <SelectItem value="advance">Advance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {newPayment.project_id && newPayment.payment_type === 'invoice' && (
                     <div className="space-y-2">
                       <Label htmlFor="invoice">Invoice</Label>
                       <Select value={newPayment.invoice_id} onValueChange={handleInvoiceChange}>
@@ -460,6 +537,7 @@ const Payments = () => {
                       value={newPayment.amount}
                       onChange={(e) => setNewPayment({...newPayment, amount: e.target.value})}
                       placeholder="0.00"
+                      disabled={newPayment.payment_type === 'invoice' && !!newPayment.invoice_id}
                     />
                   </div>
                   <div className="space-y-2">
@@ -542,7 +620,7 @@ const Payments = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
               <div className="space-y-2">
                 <Label>Client</Label>
                 <Select value={filters.client_id} onValueChange={(value) => setFilters({...filters, client_id: value})}>
@@ -550,10 +628,26 @@ const Payments = () => {
                     <SelectValue placeholder="All clients" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All clients</SelectItem>
+                    <SelectItem value="">All clients</SelectItem>
                     {clients.map((client) => (
                       <SelectItem key={client.id} value={client.id}>
                         {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <Select value={filters.project_id} onValueChange={(value) => setFilters({...filters, project_id: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All projects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All projects</SelectItem>
+                    {allProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -592,8 +686,9 @@ const Payments = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
-                  <TableHead>Invoice ID</TableHead>
+                  <TableHead>Payment ID</TableHead>
                   <TableHead>Project</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Payment Date</TableHead>
                   <TableHead>Payment Method</TableHead>
@@ -607,10 +702,19 @@ const Payments = () => {
                       {payment.clients?.name || 'Unknown Client'}
                     </TableCell>
                     <TableCell>
-                      {payment.invoices?.id || 'N/A'}
+                      {getPaymentId(payment)}
                     </TableCell>
                     <TableCell>
                       {payment.projects?.name || 'Unknown Project'}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        payment.payment_type === 'invoice' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}>
+                        {payment.payment_type === 'invoice' ? 'Invoice' : 'Advance'}
+                      </span>
                     </TableCell>
                     <TableCell className="font-semibold text-green-600">
                       ₹{payment.amount.toFixed(2)}
