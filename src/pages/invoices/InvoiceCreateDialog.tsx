@@ -61,9 +61,9 @@ const InvoiceCreateDialog: React.FC<Props> = ({
     return { totalHours, totalAmount };
   };
 
-  // Check if service type supports task-based billing
-  const isTaskBasedBilling = (serviceType: string | null) => {
-    return serviceType === 'Hourly' || serviceType === 'DevOps';
+  // Check if billing type supports task-based billing
+  const isTaskBasedBilling = (billingType: string | null) => {
+    return billingType === 'Hourly' || billingType === 'DevOps';
   };
 
   // Debug: Log the current state
@@ -208,9 +208,9 @@ const InvoiceCreateDialog: React.FC<Props> = ({
                selectedProjectBillingType !== 'Fixed' && 
                !isTaskBasedBilling(selectedProjectBillingType) && (
                 <div className="bg-yellow-50 text-yellow-800 rounded p-3 text-sm">
-                  <strong>Service Type:</strong> {selectedProjectBillingType}
+                  <strong>Billing Type:</strong> {selectedProjectBillingType}
                   <br />
-                  This service type is not yet supported for invoice creation.
+                  This billing type is not yet supported for invoice creation.
                 </div>
               )}
 
