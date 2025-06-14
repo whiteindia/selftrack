@@ -1033,7 +1033,7 @@ const Invoices = () => {
           open={isEditDialogOpen}
           invoice={editInvoice}
           onOpenChange={setIsEditDialogOpen}
-          setEditInvoice={setEditInvoice}
+          setEditInvoice={inv => setEditInvoice(inv)}
           onDueDateChange={(date) => {
             if (editInvoice) setEditInvoice({ ...editInvoice, due_date: date });
           }}
