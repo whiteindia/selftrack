@@ -48,10 +48,9 @@ interface Task {
 interface Project {
   id: string;
   name: string;
-  clients: {
-    id: string;
-    name: string;
-  };
+  status: string;
+  client_id: string;
+  client_name: string;
 }
 
 interface InvoiceTask {
@@ -97,30 +96,23 @@ const Invoices = () => {
     }
   });
 
-  // Fetch projects for dropdown - simplified for invoice creation
+  // Fetch projects using the new security definer function that bypasses RLS
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-for-invoices', hasOperationAccess('invoices', 'create')],
     queryFn: async () => {
-      console.log('🔍 Fetching projects for invoices dropdown...');
+      console.log('🔍 Fetching projects for invoices using security definer function...');
       console.log('User has invoice create access:', hasOperationAccess('invoices', 'create'));
       
       // If user has invoice create permissions, they should see all active projects
-      // regardless of their project table privileges
+      // using the security definer function that bypasses RLS
       if (!hasOperationAccess('invoices', 'create')) {
         console.log('User does not have invoice create permissions');
         return [];
       }
       
+      // Use the security definer function that bypasses RLS restrictions
       const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          id,
-          name,
-          status,
-          clients(id, name)
-        `)
-        .eq('status', 'Active')  // Only show active projects for invoicing
-        .order('name');
+        .rpc('get_active_projects_for_invoicing');
       
       if (error) {
         console.error('Error fetching projects for dropdown:', error);
@@ -242,7 +234,7 @@ const Invoices = () => {
         .from('invoices')
         .insert([{
           id: invoiceId,
-          client_id: project?.clients.id,
+          client_id: project?.client_id,
           project_id: newInvoice.project_id,
           amount: totalAmount,
           hours: totalHours,
@@ -281,7 +273,7 @@ const Invoices = () => {
         entity_type: 'invoice',
         entity_id: invoiceId,
         entity_name: invoiceId,
-        description: `Created invoice ${invoiceId} for ${project?.clients.name} - ₹${totalAmount}`,
+        description: `Created invoice ${invoiceId} for ${project?.client_name} - ₹${totalAmount}`,
         comment: `${totalHours} hours at ₹${rate}/hr`
       });
       
@@ -516,7 +508,7 @@ const Invoices = () => {
                           ) : (
                             projects.map((project) => (
                               <SelectItem key={project.id} value={project.id}>
-                                {project.name} ({project.clients?.name || 'N/A'})
+                                {project.name} ({project.client_name || 'N/A'})
                               </SelectItem>
                             ))
                           )}

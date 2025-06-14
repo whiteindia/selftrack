@@ -886,6 +886,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      get_active_projects_for_invoicing: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          status: string
+          client_id: string
+          client_name: string
+        }[]
+      }
       get_current_user_employee_id: {
         Args: Record<PropertyKey, never>
         Returns: string
