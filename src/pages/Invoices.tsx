@@ -199,15 +199,40 @@ const Invoices = () => {
     return invoice.projects?.service === globalServiceFilter;
   });
 
+  // Generate unique invoice ID function
+  const generateUniqueInvoiceId = async (): Promise<string> => {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      // Use timestamp + random number for better uniqueness
+      const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+      const random = Math.floor(Math.random() * 999).toString().padStart(3, '0');
+      const invoiceId = `INV-${timestamp}${random}`;
+      
+      // Check if this ID already exists
+      const { data: existingInvoice } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('id', invoiceId)
+        .single();
+      
+      if (!existingInvoice) {
+        return invoiceId;
+      }
+      
+      attempts++;
+    }
+    
+    // Fallback: use UUID-like format
+    return `INV-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  };
+
   // Create invoice mutation using the new security definer function
   const createInvoiceMutation = useMutation({
     mutationFn: async (invoiceData: any) => {
-      // Generate invoice ID
-      const { data: invoiceCount } = await supabase
-        .from('invoices')
-        .select('id', { count: 'exact' });
-      
-      const invoiceId = `INV-${String((invoiceCount?.length || 0) + 1).padStart(3, '0')}`;
+      // Generate unique invoice ID
+      const invoiceId = await generateUniqueInvoiceId();
       
       // Calculate totals
       const selectedTasksData = availableTasks.filter(task => 
