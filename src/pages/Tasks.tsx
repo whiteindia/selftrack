@@ -421,10 +421,12 @@ const Tasks = () => {
                     <Badge className={getStatusColor(task.status)}>
                       {task.status}
                     </Badge>
-                    <TimeTrackerWithComment 
-                      task={{ id: task.id, name: task.name }}
-                      onSuccess={handleTimeUpdate}
-                    />
+                    {task.status === 'In Progress' && (
+                      <TimeTrackerWithComment 
+                        task={{ id: task.id, name: task.name }}
+                        onSuccess={handleTimeUpdate}
+                      />
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
