@@ -740,18 +740,6 @@ const Invoices = () => {
   const [selectedProjectBillingType, setSelectedProjectBillingType] = useState<string | null>(null);
   const [selectedProjectAmount, setSelectedProjectAmount] = useState<number | null>(null);
 
-  // Fetch projects (now also pulling billing_type and project_amount)
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects-for-invoices', hasOperationAccess('invoices', 'create')],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_active_projects_for_invoicing');
-      if (error) throw error;
-      return data as Project[];
-    },
-    enabled: !!userId && hasOperationAccess('invoices', 'create')
-  });
-
   // Fetch project details (billing_type and amount) when project selected
   useQuery({
     queryKey: ['project-info', newInvoice.project_id],
