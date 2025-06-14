@@ -36,11 +36,7 @@ interface TimeEntry {
     id: string;
     name: string;
     wage_status: string;
-    projects: {
-      name: string;
-      hourly_rate: number;
-      service: string;
-    };
+    project_id: string;
   };
   employees: {
     name: string;
@@ -59,12 +55,20 @@ interface Service {
   name: string;
 }
 
+interface ProjectInfo {
+  id: string;
+  name: string;
+  service: string;
+  client_name: string;
+}
+
 const Wages = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
   const [wageStatusFilter, setWageStatusFilter] = useState<string>('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [projectsData, setProjectsData] = useState<Record<string, ProjectInfo>>({});
   const queryClient = useQueryClient();
 
   const { hasPageAccess, hasOperationAccess, loading: privilegesLoading, userRole, userId } = usePrivileges();
@@ -72,8 +76,9 @@ const Wages = () => {
   // Check if user has access to wages page
   const hasWagesAccess = hasPageAccess('wages') || userRole === 'admin';
   
-  // Check specific permissions for wages page - allow managers and admins
-  const canUpdate = hasOperationAccess('wages', 'update') || userRole === 'admin' || userRole === 'manager';
+  // Check specific permissions for wages page operations
+  const canUpdate = hasOperationAccess('wages', 'update') || userRole === 'admin';
+  const canDelete = hasOperationAccess('wages', 'delete') || userRole === 'admin';
 
   // Fetch time entries with employee hourly rate data and comments - RLS will filter automatically
   const { data: timeEntries = [], isLoading } = useQuery({
@@ -91,11 +96,7 @@ const Wages = () => {
             id,
             name,
             wage_status,
-            projects(
-              name,
-              hourly_rate,
-              service
-            )
+            project_id
           ),
           employees(
             name,
@@ -118,6 +119,43 @@ const Wages = () => {
       }
 
       console.log(`Fetched ${data?.length || 0} time entries after RLS filtering`);
+      
+      // Fetch project information for all unique project IDs
+      if (data && data.length > 0) {
+        const uniqueProjectIds = [...new Set(data.map(entry => entry.tasks?.project_id).filter(Boolean))];
+        
+        const projectInfoPromises = uniqueProjectIds.map(async (projectId) => {
+          try {
+            const { data: projectInfo, error: projectError } = await supabase
+              .rpc('get_project_info_for_task', { project_uuid: projectId });
+            
+            if (projectError) {
+              console.error(`Error fetching project info for ${projectId}:`, projectError);
+              return null;
+            }
+            
+            return projectInfo && projectInfo[0] ? { 
+              id: projectId, 
+              info: projectInfo[0] 
+            } : null;
+          } catch (err) {
+            console.error(`Exception fetching project info for ${projectId}:`, err);
+            return null;
+          }
+        });
+
+        const projectInfoResults = await Promise.all(projectInfoPromises);
+        const projectsMap: Record<string, ProjectInfo> = {};
+        
+        projectInfoResults.forEach(result => {
+          if (result && result.info) {
+            projectsMap[result.id] = result.info;
+          }
+        });
+        
+        setProjectsData(projectsMap);
+      }
+
       return data as TimeEntry[];
     },
     enabled: hasWagesAccess && !privilegesLoading
@@ -181,27 +219,32 @@ const Wages = () => {
   });
 
   // Calculate wages from time entries using employee hourly rates
-  const wageRecords = timeEntries.map(entry => ({
-    id: entry.id,
-    employee_id: entry.employee_id,
-    task_id: entry.task_id,
-    hours_worked: entry.duration_minutes ? entry.duration_minutes / 60 : 0,
-    hourly_rate: entry.employees?.hourly_rate || 0,
-    wage_amount: entry.duration_minutes && entry.employees?.hourly_rate ? 
-      (entry.duration_minutes / 60) * entry.employees.hourly_rate : 0,
-    date: entry.start_time,
-    wage_status: entry.tasks?.wage_status || 'wnotpaid',
-    tasks: entry.tasks,
-    employees: entry.employees,
-    project_service_type: entry.tasks?.projects?.service,
-    comment: entry.comment
-  }));
+  const wageRecords = timeEntries.map(entry => {
+    const projectInfo = projectsData[entry.tasks?.project_id || ''];
+    
+    return {
+      id: entry.id,
+      employee_id: entry.employee_id,
+      task_id: entry.task_id,
+      hours_worked: entry.duration_minutes ? entry.duration_minutes / 60 : 0,
+      hourly_rate: entry.employees?.hourly_rate || 0,
+      wage_amount: entry.duration_minutes && entry.employees?.hourly_rate ? 
+        (entry.duration_minutes / 60) * entry.employees.hourly_rate : 0,
+      date: entry.start_time,
+      wage_status: entry.tasks?.wage_status || 'wnotpaid',
+      tasks: entry.tasks,
+      employees: entry.employees,
+      project_info: projectInfo,
+      project_service_type: projectInfo?.service,
+      comment: entry.comment
+    };
+  });
 
   // Filter wage records based on all filters
   const filteredWageRecords = wageRecords.filter(record => {
     const matchesEmployee = selectedEmployee === 'all' || record.employee_id === selectedEmployee;
     
-    // Service filter - check project service type instead of employee service
+    // Service filter - check project service type
     const matchesService = globalServiceFilter === 'all' || 
       record.project_service_type === globalServiceFilter;
     
@@ -218,6 +261,7 @@ const Wages = () => {
       groups[taskId] = {
         task: record.tasks,
         employee: record.employees,
+        project_info: record.project_info,
         project_service_type: record.project_service_type,
         wage_status: record.wage_status,
         hourly_rate: record.hourly_rate,
@@ -243,8 +287,8 @@ const Wages = () => {
     .reduce((sum, record) => sum + record.wage_amount, 0);
 
   const handleWageStatusChange = (taskId: string, status: string) => {
-    // Allow admin, manager roles, or users with specific update permission
-    if (!canUpdate && userRole !== 'admin' && userRole !== 'manager') {
+    // Allow admin, or users with specific update permission
+    if (!canUpdate && userRole !== 'admin') {
       toast.error('You do not have permission to update wage status');
       return;
     }
@@ -284,7 +328,7 @@ const Wages = () => {
     }
     
     if (globalServiceFilter !== 'all') {
-      doc.text(`Service Type: ${globalServiceFilter}`, 20, yPosition);
+      doc.text(`Service: ${globalServiceFilter}`, 20, yPosition);
       yPosition += 10;
     }
     
@@ -313,7 +357,7 @@ const Wages = () => {
       tableData.push([
         group.task?.name || '',
         group.employee?.name || '',
-        group.task?.projects?.name || '',
+        group.project_info?.name || '',
         group.project_service_type || '',
         group.totalHours.toFixed(2),
         `₹${group.hourly_rate}`,
@@ -338,7 +382,7 @@ const Wages = () => {
     
     // Create the table using autoTable
     (doc as any).autoTable({
-      head: [['Task/Date', 'Employee', 'Project', 'Service Type', 'Hours', 'Rate', 'Amount', 'Status']],
+      head: [['Task/Date', 'Employee', 'Project', 'Service', 'Hours', 'Rate', 'Amount', 'Status']],
       body: tableData,
       startY: yPosition,
       styles: {
@@ -481,13 +525,13 @@ const Wages = () => {
             {/* Second row of filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Project Service Type</Label>
+                <Label>Service</Label>
                 <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Filter by project service type" />
+                    <SelectValue placeholder="Filter by service" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Service Types</SelectItem>
+                    <SelectItem value="all">All Services</SelectItem>
                     {services.map((service) => (
                       <SelectItem key={service.id} value={service.name}>
                         {service.name}
@@ -555,7 +599,7 @@ const Wages = () => {
             <CardTitle>Wage Records</CardTitle>
             <CardDescription>
               Employee wage records for {format(selectedMonth, "MMMM yyyy")} (calculated using individual employee hourly rates)
-              {globalServiceFilter !== 'all' && ` filtered by ${globalServiceFilter} service type`}
+              {globalServiceFilter !== 'all' && ` filtered by ${globalServiceFilter} service`}
               {wageStatusFilter !== 'all' && ` - ${wageStatusFilter === 'wpaid' ? 'Paid' : 'Not Paid'} wages`}
               {Object.keys(groupedWageRecords).length === 0 && ' - No wage records found for the selected filters'}
             </CardDescription>
@@ -579,7 +623,7 @@ const Wages = () => {
                     <TableHead>Task</TableHead>
                     <TableHead>Employee</TableHead>
                     <TableHead>Project</TableHead>
-                    <TableHead>Service Type</TableHead>
+                    <TableHead>Service</TableHead>
                     <TableHead>Total Hours</TableHead>
                     <TableHead>Employee Rate</TableHead>
                     <TableHead>Total Amount</TableHead>
@@ -612,8 +656,8 @@ const Wages = () => {
                           </Collapsible>
                         </TableCell>
                         <TableCell>{group.employee?.name}</TableCell>
-                        <TableCell>{group.task?.projects?.name}</TableCell>
-                        <TableCell>{group.project_service_type}</TableCell>
+                        <TableCell>{group.project_info?.name || 'N/A'}</TableCell>
+                        <TableCell>{group.project_service_type || 'N/A'}</TableCell>
                         <TableCell className="font-semibold">{group.totalHours.toFixed(2)}</TableCell>
                         <TableCell>₹{group.hourly_rate}</TableCell>
                         <TableCell className="font-semibold">₹{group.totalAmount.toFixed(2)}</TableCell>
@@ -623,7 +667,7 @@ const Wages = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {canUpdate || userRole === 'admin' || userRole === 'manager' ? (
+                          {canUpdate || userRole === 'admin' ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm">
