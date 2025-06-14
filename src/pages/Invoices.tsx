@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, FileText, Download, Eye, DollarSign, ChevronDown, ChevronUp, Filter, TrendingUp } from 'lucide-react';
+import { Plus, FileText, Download, Eye, DollarSign, ChevronDown, ChevronUp, Filter, TrendingUp, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,7 +67,9 @@ const Invoices = () => {
     selectedTasks: [] as string[],
     description: ''
   });
+  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
 
@@ -263,6 +265,41 @@ const Invoices = () => {
     }
   });
 
+  // Update invoice mutation
+  const updateInvoiceMutation = useMutation({
+    mutationFn: async ({ id, updateData }: { id: string; updateData: Partial<Invoice> }) => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Log activity
+      await logActivity({
+        action_type: 'updated',
+        entity_type: 'invoice',
+        entity_id: id,
+        entity_name: id,
+        description: `Updated invoice ${id}`,
+        comment: `Updated invoice details`
+      });
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      setIsEditDialogOpen(false);
+      setEditInvoice(null);
+      toast.success(`Invoice ${data.id} updated successfully`);
+    },
+    onError: (error) => {
+      toast.error('Failed to update invoice: ' + error.message);
+    }
+  });
+
   // Update invoice status mutation
   const updateInvoiceStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: InvoiceStatus }) => {
@@ -293,6 +330,67 @@ const Invoices = () => {
     }
   });
 
+  // Delete invoice mutation
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      // First, get the invoice tasks to mark them as not invoiced
+      const { data: invoiceTasks, error: fetchError } = await supabase
+        .from('invoice_tasks')
+        .select('task_id')
+        .eq('invoice_id', invoiceId);
+      
+      if (fetchError) throw fetchError;
+
+      // Delete invoice tasks
+      const { error: deleteTasksError } = await supabase
+        .from('invoice_tasks')
+        .delete()
+        .eq('invoice_id', invoiceId);
+      
+      if (deleteTasksError) throw deleteTasksError;
+
+      // Mark tasks as not invoiced
+      if (invoiceTasks && invoiceTasks.length > 0) {
+        const taskIds = invoiceTasks.map(it => it.task_id);
+        const { error: updateTasksError } = await supabase
+          .from('tasks')
+          .update({ invoiced: false })
+          .in('id', taskIds);
+        
+        if (updateTasksError) throw updateTasksError;
+      }
+
+      // Delete the invoice
+      const { error: deleteInvoiceError } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoiceId);
+      
+      if (deleteInvoiceError) throw deleteInvoiceError;
+
+      // Log activity
+      await logActivity({
+        action_type: 'deleted',
+        entity_type: 'invoice',
+        entity_id: invoiceId,
+        entity_name: invoiceId,
+        description: `Deleted invoice ${invoiceId}`,
+        comment: `Invoice and related tasks have been removed`
+      });
+      
+      return invoiceId;
+    },
+    onSuccess: (invoiceId) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['available-tasks'] });
+      toast.success(`Invoice ${invoiceId} deleted successfully`);
+    },
+    onError: (error) => {
+      toast.error('Failed to delete invoice: ' + error.message);
+    }
+  });
+
+  // Handle project change
   const handleProjectChange = (projectId: string) => {
     setNewInvoice({
       ...newInvoice,
@@ -301,6 +399,7 @@ const Invoices = () => {
     });
   };
 
+  // Handle task selection
   const handleTaskSelection = (taskId: string, checked: boolean) => {
     if (checked) {
       setNewInvoice({
@@ -315,6 +414,7 @@ const Invoices = () => {
     }
   };
 
+  // Get selected tasks total
   const getSelectedTasksTotal = () => {
     const selectedTasks = availableTasks.filter(task => 
       newInvoice.selectedTasks.includes(task.id)
@@ -325,6 +425,7 @@ const Invoices = () => {
     return { totalHours, totalAmount };
   };
 
+  // Handle create invoice
   const handleCreateInvoice = () => {
     if (!newInvoice.project_id || newInvoice.selectedTasks.length === 0) {
       toast.error('Please select a project and at least one task');
@@ -333,6 +434,35 @@ const Invoices = () => {
     createInvoiceMutation.mutate({});
   };
 
+  // Handle edit invoice
+  const handleEditInvoice = (invoice: Invoice) => {
+    setEditInvoice(invoice);
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle update invoice
+  const handleUpdateInvoice = () => {
+    if (!editInvoice) return;
+    
+    updateInvoiceMutation.mutate({
+      id: editInvoice.id,
+      updateData: {
+        amount: editInvoice.amount,
+        hours: editInvoice.hours,
+        rate: editInvoice.rate,
+        due_date: editInvoice.due_date
+      }
+    });
+  };
+
+  // Handle delete invoice
+  const handleDeleteInvoice = (invoiceId: string) => {
+    if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      deleteInvoiceMutation.mutate(invoiceId);
+    }
+  };
+
+  // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Paid':
@@ -348,10 +478,12 @@ const Invoices = () => {
     }
   };
 
+  // Update invoice status
   const updateInvoiceStatus = (invoiceId: string, newStatus: InvoiceStatus) => {
     updateInvoiceStatusMutation.mutate({ id: invoiceId, status: newStatus });
   };
 
+  // Generate PDF
   const generatePDF = (invoice: Invoice) => {
     // Simple PDF generation using browser print
     const printWindow = window.open('', '_blank');
@@ -594,6 +726,80 @@ const Invoices = () => {
           </Card>
         </div>
 
+        {/* Edit Invoice Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Invoice</DialogTitle>
+              <DialogDescription>
+                Update invoice details below.
+              </DialogDescription>
+            </DialogHeader>
+            {editInvoice && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">Amount (₹)</Label>
+                  <Input
+                    id="edit-amount"
+                    type="number"
+                    step="0.01"
+                    value={editInvoice.amount}
+                    onChange={(e) => setEditInvoice({
+                      ...editInvoice,
+                      amount: parseFloat(e.target.value) || 0
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-hours">Hours</Label>
+                  <Input
+                    id="edit-hours"
+                    type="number"
+                    step="0.01"
+                    value={editInvoice.hours}
+                    onChange={(e) => setEditInvoice({
+                      ...editInvoice,
+                      hours: parseFloat(e.target.value) || 0
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-rate">Rate (₹/hr)</Label>
+                  <Input
+                    id="edit-rate"
+                    type="number"
+                    step="0.01"
+                    value={editInvoice.rate}
+                    onChange={(e) => setEditInvoice({
+                      ...editInvoice,
+                      rate: parseFloat(e.target.value) || 0
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-due-date">Due Date</Label>
+                  <Input
+                    id="edit-due-date"
+                    type="date"
+                    value={editInvoice.due_date}
+                    onChange={(e) => setEditInvoice({
+                      ...editInvoice,
+                      due_date: e.target.value
+                    })}
+                  />
+                </div>
+                <Button 
+                  onClick={handleUpdateInvoice} 
+                  className="w-full"
+                  disabled={updateInvoiceMutation.isPending}
+                >
+                  {updateInvoiceMutation.isPending ? 'Updating...' : 'Update Invoice'}
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Invoices List */}
         <div className="space-y-4">
           {filteredInvoices.length === 0 ? (
@@ -655,6 +861,29 @@ const Invoices = () => {
                           <Download className="h-4 w-4 mr-1" />
                           PDF
                         </Button>
+                        {hasOperationAccess('invoices', 'update') && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditInvoice(invoice)}
+                            className="flex-shrink-0"
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        {hasOperationAccess('invoices', 'delete') && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteInvoice(invoice.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                            disabled={deleteInvoiceMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete
+                          </Button>
+                        )}
                         {invoice.status === 'Draft' && hasOperationAccess('invoices', 'update') && (
                           <Button 
                             size="sm"
