@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { logActivity } from '@/utils/activityLogger';
+import { logPaymentCreated } from '@/utils/activity/financialActivity';
 
 interface Payment {
   id: string;
@@ -156,8 +156,12 @@ const Payments = () => {
       const { data, error } = await supabase
         .from('payments')
         .insert([{
-          ...paymentData,
-          amount: parseFloat(paymentData.amount)
+          client_id: paymentData.client_id,
+          project_id: paymentData.project_id,
+          invoice_id: paymentData.invoice_id,
+          amount: parseFloat(paymentData.amount),
+          payment_method: paymentData.payment_method,
+          payment_date: paymentData.payment_date
         }])
         .select()
         .single();
@@ -172,14 +176,13 @@ const Payments = () => {
       
       if (updateError) throw updateError;
 
-      // Log activity
-      await logActivity({
-        action_type: 'created',
-        entity_type: 'payment',
-        entity_id: data.id,
-        entity_name: `Payment for ${paymentData.client_name}`,
-        description: `Recorded payment of ₹${paymentData.amount} for invoice ${paymentData.invoice_id}`
-      });
+      // Log activity using the financial activity logger
+      await logPaymentCreated(
+        parseFloat(paymentData.amount),
+        paymentData.client_name,
+        paymentData.invoice_id,
+        data.id
+      );
 
       return data;
     },
