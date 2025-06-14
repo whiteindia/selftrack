@@ -57,7 +57,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
   };
 
   const getBillingType = (project: ProjectData) => {
-    return isProjectBased(project) ? "Project" : "Hourly";
+    return isProjectBased(project) ? "Fixed Price" : "Hourly";
   };
 
   const getAssigneeName = (project: ProjectData) => {
@@ -100,7 +100,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                 <TableCell>{project.clients?.name}</TableCell>
                 <TableCell>{project.service}</TableCell>
                 <TableCell>
-                  <Badge variant={getBillingType(project) === "Project" ? "default" : "secondary"}>
+                  <Badge variant={getBillingType(project) === "Fixed Price" ? "default" : "secondary"}>
                     {getBillingType(project)}
                   </Badge>
                 </TableCell>

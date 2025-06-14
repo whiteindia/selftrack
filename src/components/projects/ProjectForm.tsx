@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,7 @@ interface ProjectFormProps {
     name: string;
     client_id: string;
     service: string;
-    billing_type: 'hourly' | 'project';
+    billing_type: 'Hourly' | 'Fixed Price';
     hourly_rate: number;
     project_amount: number;
     start_date: string;
@@ -55,8 +56,8 @@ interface ProjectFormProps {
   };
   setNewProject: (project: any) => void;
   editingProject: ProjectData | null;
-  editBillingType: 'hourly' | 'project';
-  setEditBillingType: (type: 'hourly' | 'project') => void;
+  editBillingType: 'Hourly' | 'Fixed Price';
+  setEditBillingType: (type: 'Hourly' | 'Fixed Price') => void;
   editBrdFile: File | null;
   setEditBrdFile: (file: File | null) => void;
   isDialogOpen: boolean;
@@ -132,7 +133,7 @@ const ProjectForm = ({
       name: '',
       client_id: '',
       service: '',
-      billing_type: 'hourly',
+      billing_type: 'Hourly',
       hourly_rate: 0,
       project_amount: 0,
       start_date: '',
@@ -210,17 +211,17 @@ const ProjectForm = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="billingType">Billing Type</Label>
-              <Select onValueChange={(value: 'hourly' | 'project') => setNewProject({...newProject, billing_type: value})}>
+              <Select onValueChange={(value: 'Hourly' | 'Fixed Price') => setNewProject({...newProject, billing_type: value})}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select billing type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="hourly">Hourly</SelectItem>
-                  <SelectItem value="project">Fixed Price</SelectItem>
+                  <SelectItem value="Hourly">Hourly</SelectItem>
+                  <SelectItem value="Fixed Price">Fixed Price</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {newProject.billing_type === 'hourly' && (
+            {newProject.billing_type === 'Hourly' && (
               <div className="space-y-2">
                 <Label htmlFor="hourlyRate">Hourly Rate</Label>
                 <Input
@@ -232,7 +233,7 @@ const ProjectForm = ({
                 />
               </div>
             )}
-            {newProject.billing_type === 'project' && (
+            {newProject.billing_type === 'Fixed Price' && (
               <div className="space-y-2">
                 <Label htmlFor="projectAmount">Project Amount</Label>
                 <Input
@@ -364,18 +365,18 @@ const ProjectForm = ({
                 <Label htmlFor="editBillingType">Billing Type</Label>
                 <Select 
                   value={editBillingType}
-                  onValueChange={(value: 'hourly' | 'project') => setEditBillingType(value)}
+                  onValueChange={(value: 'Hourly' | 'Fixed Price') => setEditBillingType(value)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select billing type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hourly">Hourly</SelectItem>
-                    <SelectItem value="project">Fixed Price</SelectItem>
+                    <SelectItem value="Hourly">Hourly</SelectItem>
+                    <SelectItem value="Fixed Price">Fixed Price</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {editBillingType === 'hourly' && (
+              {editBillingType === 'Hourly' && (
                 <div className="space-y-2">
                   <Label htmlFor="editHourlyRate">Hourly Rate</Label>
                   <Input
@@ -387,7 +388,7 @@ const ProjectForm = ({
                   />
                 </div>
               )}
-              {editBillingType === 'project' && (
+              {editBillingType === 'Fixed Price' && (
                 <div className="space-y-2">
                   <Label htmlFor="editProjectAmount">Project Amount</Label>
                   <Input

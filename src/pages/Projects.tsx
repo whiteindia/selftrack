@@ -76,7 +76,7 @@ const Projects = () => {
     name: '',
     client_id: '',
     service: '',
-    billing_type: 'hourly' as 'hourly' | 'project',
+    billing_type: 'Hourly' as 'Hourly' | 'Fixed Price',
     hourly_rate: 0,
     project_amount: 0,
     start_date: '',
@@ -85,7 +85,7 @@ const Projects = () => {
     brd_file: null as File | null
   });
   const [editingProject, setEditingProject] = useState<ProjectData | null>(null);
-  const [editBillingType, setEditBillingType] = useState<'hourly' | 'project'>('hourly');
+  const [editBillingType, setEditBillingType] = useState<'Hourly' | 'Fixed Price'>('Hourly');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [uploadingBRD, setUploadingBRD] = useState(false);
@@ -269,9 +269,9 @@ const Projects = () => {
       client_id: newProject.client_id,
       service: newProject.service,
       hourly_rate: newProject.service === 'BRD' ? 0 : newProject.hourly_rate,
-      project_amount: newProject.billing_type === 'project' || newProject.service === 'BRD' ? newProject.project_amount : null,
+      project_amount: newProject.billing_type === 'Fixed Price' || newProject.service === 'BRD' ? newProject.project_amount : null,
       start_date: newProject.start_date || null,
-      deadline: newProject.billing_type === 'project' && newProject.deadline ? newProject.deadline : null,
+      deadline: newProject.billing_type === 'Fixed Price' && newProject.deadline ? newProject.deadline : null,
       assignee_employee_id: newProject.assignee_employee_id || null
     };
     
@@ -286,7 +286,7 @@ const Projects = () => {
             name: '',
             client_id: '',
             service: '',
-            billing_type: 'hourly',
+            billing_type: 'Hourly',
             hourly_rate: 0,
             project_amount: 0,
             start_date: '',
@@ -323,9 +323,9 @@ const Projects = () => {
         client_id: editingProject.client_id,
         service: editingProject.service,
         hourly_rate: editingProject.service === 'BRD' ? 0 : editingProject.hourly_rate,
-        project_amount: editBillingType === 'project' || editingProject.service === 'BRD' ? editingProject.project_amount : null,
+        project_amount: editBillingType === 'Fixed Price' || editingProject.service === 'BRD' ? editingProject.project_amount : null,
         start_date: editingProject.start_date || null,
-        deadline: editBillingType === 'project' && editingProject.deadline ? editingProject.deadline : null,
+        deadline: editBillingType === 'Fixed Price' && editingProject.deadline ? editingProject.deadline : null,
         status: editingProject.status,
         assignee_employee_id: editingProject.assignee_employee_id || null
       };
@@ -383,7 +383,7 @@ const Projects = () => {
 
     console.log('Setting editing project:', project);
     setEditingProject(project);
-    setEditBillingType(isProjectBased(project) ? 'project' : 'hourly');
+    setEditBillingType(isProjectBased(project) ? 'Fixed Price' : 'Hourly');
     setIsEditDialogOpen(true);
   };
 
