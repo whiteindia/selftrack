@@ -39,7 +39,7 @@ const InvoiceComments: React.FC<InvoiceCommentsProps> = ({ invoiceId }) => {
         .from('invoice_comments')
         .select(`
           *,
-          profiles(full_name)
+          profiles!inner(full_name)
         `)
         .eq('invoice_id', invoiceId)
         .order('created_at', { ascending: false });
