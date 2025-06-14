@@ -86,6 +86,10 @@ const Invoices = () => {
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
 
+  // Add state to hold selected project's billing_type and project_amount
+  const [selectedProjectBillingType, setSelectedProjectBillingType] = useState<string | null>(null);
+  const [selectedProjectAmount, setSelectedProjectAmount] = useState<number | null>(null);
+
   // Clear all filters
   const clearFilters = () => {
     setStatusFilters(['Sent', 'Draft']);
@@ -521,13 +525,78 @@ const Invoices = () => {
     }
   });
 
-  // Handle project change
-  const handleProjectChange = (projectId: string) => {
+  // ⏬ Update: When project changes, check service type and take action
+  const handleProjectChange = async (projectId: string) => {
     setNewInvoice({
-      ...newInvoice,
       project_id: projectId,
-      selectedTasks: []
+      selectedTasks: [],
+      description: ''
     });
+
+    const selectedProject = projects.find((p: any) => p.id === projectId);
+    if (!selectedProject) return;
+
+    setSelectedProjectBillingType(selectedProject.service || 'Hourly');
+    setSelectedProjectAmount(selectedProject.project_amount || null);
+
+    // If Fixed, immediately create invoice & show result
+    if (selectedProject.service === "Fixed") {
+      // Prevent double creation
+      if (createInvoiceMutation.isPending) return;
+      const invoiceId = await generateUniqueInvoiceId();
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      // Create invoice
+      const { error } = await supabase
+        .from('invoices')
+        .insert([{
+          id: invoiceId,
+          client_id: selectedProject.client_id,
+          project_id: selectedProject.id,
+          amount: selectedProject.project_amount,
+          hours: 0,
+          rate: 0,
+          status: 'Draft',
+          due_date: dueDate.toISOString().split('T')[0]
+        }]);
+
+      // Mark all project tasks as invoiced (implicit inclusion)
+      await supabase
+        .from('tasks')
+        .update({ invoiced: true })
+        .eq('project_id', selectedProject.id);
+
+      // Mark project as completed
+      await supabase
+        .from('projects')
+        .update({ status: 'Completed' })
+        .eq('id', selectedProject.id);
+
+      // Log activity
+      await logActivity({
+        action_type: 'created',
+        entity_type: 'invoice',
+        entity_id: invoiceId,
+        entity_name: invoiceId,
+        description: `Created fixed price invoice ${invoiceId} for ${selectedProject.client_name} - ₹${selectedProject.project_amount}`,
+        comment: `Project: ${selectedProject.name} (Fixed), Amount: ₹${selectedProject.project_amount}`
+      });
+
+      setIsDialogOpen(false);
+      setNewInvoice({ project_id: '', selectedTasks: [], description: '' });
+      toast.success('Fixed price invoice created!');
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['projects-for-invoices'] });
+
+      // Expand the card for the newly created invoice (simulate preview)
+      setTimeout(() => {
+        setExpandedInvoice(invoiceId);
+        // Optionally: Scroll to the new invoice card
+        const el = document.getElementById(`invoice-${invoiceId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    }
   };
 
   // Handle task selection
@@ -736,82 +805,6 @@ const Invoices = () => {
   const totalRevenue = invoices.filter(inv => inv.status === 'Paid').reduce((sum, inv) => sum + inv.amount, 0);
   const pendingRevenue = invoices.filter(inv => inv.status === 'Sent').reduce((sum, inv) => sum + inv.amount, 0);
 
-  // Add state to hold selected project's billing_type and project_amount
-  const [selectedProjectBillingType, setSelectedProjectBillingType] = useState<string | null>(null);
-  const [selectedProjectAmount, setSelectedProjectAmount] = useState<number | null>(null);
-
-  // Fetch project details (billing_type and amount) when project selected
-  useQuery({
-    queryKey: ['project-info', newInvoice.project_id],
-    queryFn: async () => {
-      if (!newInvoice.project_id) {
-        setSelectedProjectBillingType(null);
-        setSelectedProjectAmount(null);
-        return null;
-      }
-      // Retrieve `billing_type` and `project_amount` from the selected project
-      const selectedProject = projects.find(p => p.id === newInvoice.project_id);
-      setSelectedProjectBillingType(selectedProject?.service || 'Hourly'); // Fallback to Hourly if missing
-      setSelectedProjectAmount(selectedProject?.project_amount || null);
-      return selectedProject;
-    },
-    enabled: !!newInvoice.project_id,
-  });
-
-  useEffect(() => {
-    if (selectedProjectBillingType === 'Fixed' && !!newInvoice.project_id && isDialogOpen) {
-      const selectedProject = projects.find(p => p.id === newInvoice.project_id);
-      if (!selectedProject) return;
-      // skip if already creating
-      if (createInvoiceMutation.isPending) return;
-
-      // Generate unique invoice ID and create invoice with just project info, no tasks
-      const createFixedInvoice = async () => {
-        const invoiceId = await generateUniqueInvoiceId();
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 30);
-
-        await supabase
-          .from('invoices')
-          .insert([{
-            id: invoiceId,
-            client_id: selectedProject.client_id,
-            project_id: selectedProject.id,
-            amount: selectedProject.project_amount,
-            hours: 0,
-            rate: 0,
-            status: 'Draft',
-            due_date: dueDate.toISOString().split('T')[0]
-          }]);
-
-        // Optionally mark the project as completed (depends on your desired workflow)
-        await supabase
-          .from('projects')
-          .update({ status: 'Completed' })
-          .eq('id', selectedProject.id);
-
-        // Log activity
-        await logActivity({
-          action_type: 'created',
-          entity_type: 'invoice',
-          entity_id: invoiceId,
-          entity_name: invoiceId,
-          description: `Created fixed price invoice ${invoiceId} for ${selectedProject.client_name} - ₹${selectedProject.project_amount}`,
-          comment: `Project: ${selectedProject.name} (Fixed), Amount: ₹${selectedProject.project_amount}`
-        });
-
-        setIsDialogOpen(false);
-        setNewInvoice({ project_id: '', selectedTasks: [], description: '' });
-        toast.success('Fixed price invoice created successfully!');
-        queryClient.invalidateQueries({ queryKey: ['invoices'] });
-        queryClient.invalidateQueries({ queryKey: ['projects-for-invoices'] });
-      };
-
-      createFixedInvoice();
-    }
-  // eslint-disable-next-line
-  }, [selectedProjectBillingType, newInvoice.project_id, isDialogOpen]);
-
   if (isLoading) {
     return (
       <Navigation>
@@ -866,8 +859,8 @@ const Invoices = () => {
                     <DialogTitle>Create New Invoice</DialogTitle>
                     <DialogDescription>
                       {selectedProjectBillingType === 'Fixed'
-                        ? 'This project is Fixed price. An invoice will be created automatically when you select the project.'
-                        : 'Select completed tasks for hourly projects to generate an invoice.'}
+                        ? 'For Fixed price projects, an invoice will be generated instantly on project selection.'
+                        : 'For Hourly projects, select tasks to include in this invoice.'}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -884,9 +877,9 @@ const Invoices = () => {
                               No active projects available
                             </SelectItem>
                           ) : (
-                            projects.map((project) => (
+                            projects.map((project: any) => (
                               <SelectItem key={project.id} value={project.id}>
-                                {project.name} ({project.client_name || 'N/A'})
+                                {project.name} ({project.client_name || 'N/A'}) [{project.service}]
                               </SelectItem>
                             ))
                           )}
@@ -894,8 +887,8 @@ const Invoices = () => {
                       </Select>
                     </div>
 
-                    {/* Hourly Project: Show task selection and amount calculation */}
-                    {selectedProjectBillingType !== 'Fixed' && newInvoice.project_id && (
+                    {/* Only show below if hourly and a project is selected */}
+                    {selectedProjectBillingType === 'Hourly' && newInvoice.project_id && (
                       <>
                         <div className="space-y-2">
                           <Label>Select Tasks to Invoice</Label>
@@ -904,7 +897,7 @@ const Invoices = () => {
                               <p className="text-gray-500 text-sm">No completed tasks available for this project.</p>
                             ) : (
                               <div className="space-y-3">
-                                {availableTasks.map((task) => (
+                                {availableTasks.map((task: any) => (
                                   <div key={task.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
                                     <Checkbox
                                       id={`task-${task.id}`}
@@ -952,9 +945,8 @@ const Invoices = () => {
                         </Button>
                       </>
                     )}
-
-                    {/* Fixed Price: Show amount summary only */}
-                    {(selectedProjectBillingType === 'Fixed' && newInvoice.project_id) && (
+                    {/* For Fixed: No task input, just show summary */}
+                    {selectedProjectBillingType === 'Fixed' && newInvoice.project_id && (
                       <div className="bg-gray-50 rounded-lg p-4 flex flex-col space-y-2">
                         <span>
                           <b>Project Type:</b> Fixed Price
@@ -963,7 +955,7 @@ const Invoices = () => {
                           <b>Invoice Amount:</b> ₹{selectedProjectAmount ? selectedProjectAmount.toFixed(2) : 'N/A'}
                         </span>
                         <span className="text-sm text-gray-500">
-                          An invoice will be created for this project using the fixed project amount.
+                          Invoice was generated instantly for this project.
                         </span>
                       </div>
                     )}
@@ -1210,7 +1202,7 @@ const Invoices = () => {
             </Card>
           ) : (
             filteredInvoices.map((invoice) => (
-              <Card key={invoice.id} className="hover:shadow-lg transition-shadow duration-200">
+              <Card key={invoice.id} id={`invoice-${invoice.id}`} className="hover:shadow-lg transition-shadow duration-200">
                 <CardContent className="p-6">
                   <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
                     <div className="flex-1 min-w-0">
