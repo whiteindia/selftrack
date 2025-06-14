@@ -65,6 +65,13 @@ interface ProjectInfo {
   type: string; // Added billing type
 }
 
+interface TaskWageAmount {
+  id: string;
+  task_id: string;
+  user_id: string;
+  amount: number;
+}
+
 const Wages = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
@@ -85,6 +92,24 @@ const Wages = () => {
   // Check specific permissions for wages page operations
   const canUpdate = hasOperationAccess('wages', 'update') || userRole === 'admin';
   const canDelete = hasOperationAccess('wages', 'delete') || userRole === 'admin';
+
+  // Fetch task wage amounts for fixed projects
+  const { data: taskWageAmounts = [] } = useQuery({
+    queryKey: ['task-wage-amounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('task_wage_amounts')
+        .select('*');
+
+      if (error) {
+        console.error("Error fetching task wage amounts:", error);
+        throw error;
+      }
+
+      return data as TaskWageAmount[];
+    },
+    enabled: hasWagesAccess && !privilegesLoading
+  });
 
   // Fetch time entries with employee hourly rate data and comments - RLS will filter automatically
   const { data: timeEntries = [], isLoading } = useQuery({
@@ -245,15 +270,12 @@ const Wages = () => {
   // Update task amount mutation for fixed projects
   const updateTaskAmountMutation = useMutation({
     mutationFn: async ({ taskId, amount }: { taskId: string; amount: number }) => {
-      // For now, we'll store this in a comment or create a separate table
-      // This is a simplified approach - in production you might want a separate wage_amounts table
       const { error } = await supabase
-        .from('task_comments')
+        .from('task_wage_amounts')
         .upsert({
           task_id: taskId,
           user_id: userId,
-          comment: `Fixed project wage amount: ₹${amount}`,
-          hours_logged: 0
+          amount: amount
         }, {
           onConflict: 'task_id,user_id'
         });
@@ -261,6 +283,7 @@ const Wages = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-wage-amounts'] });
       queryClient.invalidateQueries({ queryKey: ['time-entries'] });
       toast.success('Task amount updated successfully!');
       setEditingTaskAmount(null);
@@ -310,6 +333,8 @@ const Wages = () => {
   const groupedWageRecords = filteredWageRecords.reduce((groups, record) => {
     const taskId = record.task_id;
     if (!groups[taskId]) {
+      const customWageAmount = taskWageAmounts.find(twa => twa.task_id === taskId)?.amount || 0;
+      
       groups[taskId] = {
         task: record.tasks,
         employee: record.employees,
@@ -321,7 +346,7 @@ const Wages = () => {
         entries: [],
         totalHours: 0,
         totalAmount: 0,
-        customAmount: 0 // For fixed projects
+        customAmount: customWageAmount
       };
     }
     groups[taskId].entries.push(record);
