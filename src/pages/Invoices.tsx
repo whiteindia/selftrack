@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import Navigation from '@/components/Navigation';
+import InvoiceComments from '@/components/InvoiceComments';
 import { logActivity } from '@/utils/activityLogger';
 import { usePrivileges } from '@/hooks/usePrivileges';
 
@@ -907,6 +908,7 @@ const Invoices = () => {
                           )}
                           Tasks
                         </Button>
+                        <InvoiceComments invoiceId={invoice.id} />
                         <Button 
                           variant="outline" 
                           size="sm"
