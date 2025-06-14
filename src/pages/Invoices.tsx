@@ -59,6 +59,11 @@ interface InvoiceTask {
   hours: number;
 }
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 const Invoices = () => {
   const queryClient = useQueryClient();
   const { hasOperationAccess, userRole, userId, employeeId } = usePrivileges();
@@ -73,9 +78,25 @@ const Invoices = () => {
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
   
-  // New filter states
+  // Filter states
   const [statusFilters, setStatusFilters] = useState<string[]>(['Sent', 'Draft']);
   const [dueDateFilter, setDueDateFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+
+  // Clear all filters
+  const clearFilters = () => {
+    setStatusFilters(['Sent', 'Draft']);
+    setDueDateFilter('all');
+    setClientFilter('all');
+    setProjectFilter('all');
+    setGlobalServiceFilter('all');
+  };
+
+  // Handle status filter changes
+  const handleStatusFilterChange = (value: string[]) => {
+    setStatusFilters(value);
+  };
 
   // Fetch invoices with client and project data including service type
   const { data: invoices = [], isLoading } = useQuery({
@@ -97,6 +118,25 @@ const Invoices = () => {
       }
       console.log('Invoices fetched:', data);
       return data as Invoice[];
+    }
+  });
+
+  // Fetch clients for filter
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      console.log('Fetching clients for filter...');
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .order('name');
+      
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+      console.log('Clients fetched for filter:', data);
+      return data as Client[];
     }
   });
 
@@ -236,6 +276,22 @@ const Invoices = () => {
     // Service filter
     if (globalServiceFilter !== 'all' && invoice.projects?.service !== globalServiceFilter) {
       return false;
+    }
+
+    // Client filter
+    if (clientFilter !== 'all') {
+      const clientMatch = clients.find(client => client.id === clientFilter);
+      if (clientMatch && invoice.clients?.name !== clientMatch.name) {
+        return false;
+      }
+    }
+
+    // Project filter
+    if (projectFilter !== 'all') {
+      const projectMatch = projects.find(project => project.id === projectFilter);
+      if (projectMatch && invoice.projects?.name !== projectMatch.name) {
+        return false;
+      }
     }
 
     // Status filter with special handling for overdue
@@ -822,7 +878,7 @@ const Invoices = () => {
           </div>
         </div>
 
-        {/* New Filter Section */}
+        {/* Enhanced Filter Section */}
         <Card className="mb-6">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -880,11 +936,47 @@ const Invoices = () => {
               </Select>
             </div>
 
+            {/* Client Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Client</Label>
+              <Select value={clientFilter} onValueChange={setClientFilter}>
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="Filter by client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Project Filter */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Project</Label>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="Filter by project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Filter Summary */}
             <div className="pt-2 border-t">
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <span>Showing {filteredInvoices.length} of {invoices.length} invoices</span>
-                {(statusFilters.length > 0 || dueDateFilter !== 'all' || globalServiceFilter !== 'all') && (
+                {(statusFilters.length > 0 || dueDateFilter !== 'all' || clientFilter !== 'all' || projectFilter !== 'all' || globalServiceFilter !== 'all') && (
                   <div className="flex items-center gap-1">
                     <span>•</span>
                     <span>Filters active</span>
