@@ -61,6 +61,11 @@ const InvoiceCreateDialog: React.FC<Props> = ({
     return { totalHours, totalAmount };
   };
 
+  // Check if service type supports task-based billing
+  const isTaskBasedBilling = (serviceType: string | null) => {
+    return serviceType === 'Hourly' || serviceType === 'DevOps';
+  };
+
   // Debug: Log the current state
   console.log('InvoiceCreateDialog - selectedProjectBillingType:', selectedProjectBillingType);
   console.log('InvoiceCreateDialog - newInvoice.project_id:', newInvoice.project_id);
@@ -79,8 +84,8 @@ const InvoiceCreateDialog: React.FC<Props> = ({
           <DialogDescription>
             {selectedProjectBillingType === 'Fixed'
               ? 'For Fixed price projects, an invoice will be generated instantly on project selection.'
-              : selectedProjectBillingType === 'Hourly'
-                ? 'For Hourly projects, select tasks to include in this invoice.'
+              : isTaskBasedBilling(selectedProjectBillingType)
+                ? `For ${selectedProjectBillingType} projects, select tasks to include in this invoice.`
                 : 'Please select a project to see billing type.'}
           </DialogDescription>
         </DialogHeader>
@@ -124,8 +129,8 @@ const InvoiceCreateDialog: React.FC<Props> = ({
           {/* Show content for any selected project */}
           {newInvoice.project_id && (
             <>
-              {/* Hourly Projects */}
-              {selectedProjectBillingType === 'Hourly' && (
+              {/* Task-based billing projects (Hourly and DevOps) */}
+              {isTaskBasedBilling(selectedProjectBillingType) && (
                 <>
                   <div className="space-y-2">
                     <Label>Select Tasks to Invoice</Label>
@@ -199,7 +204,9 @@ const InvoiceCreateDialog: React.FC<Props> = ({
               )}
 
               {/* Unknown billing type or other services */}
-              {selectedProjectBillingType && selectedProjectBillingType !== 'Fixed' && selectedProjectBillingType !== 'Hourly' && (
+              {selectedProjectBillingType && 
+               selectedProjectBillingType !== 'Fixed' && 
+               !isTaskBasedBilling(selectedProjectBillingType) && (
                 <div className="bg-yellow-50 text-yellow-800 rounded p-3 text-sm">
                   <strong>Service Type:</strong> {selectedProjectBillingType}
                   <br />
