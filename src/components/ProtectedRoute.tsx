@@ -24,9 +24,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { hasPageAccess, loading: privilegesLoading, privileges } = usePrivileges();
   const [showPasswordReset, setShowPasswordReset] = useState(false);
 
-  console.log('ProtectedRoute - user:', user?.email, 'userRole:', userRole, 'loading:', loading, 'needsPasswordReset:', needsPasswordReset);
-  console.log('ProtectedRoute - pageName:', pageName, 'privilegesLoading:', privilegesLoading);
-  console.log('ProtectedRoute - privileges:', privileges);
+  console.log('=== ProtectedRoute ===');
+  console.log('User:', user?.email);
+  console.log('UserRole:', userRole);
+  console.log('Loading:', loading);
+  console.log('PrivilegesLoading:', privilegesLoading);
+  console.log('NeedsPasswordReset:', needsPasswordReset);
+  console.log('PageName:', pageName);
+  console.log('Privileges:', privileges);
 
   if (loading || privilegesLoading) {
     return (
@@ -75,19 +80,42 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Check page-specific privileges if pageName is provided
   if (pageName) {
-    console.log(`Checking page access for ${pageName} with role ${userRole}`);
+    console.log(`=== ProtectedRoute: Checking page access for ${pageName} ===`);
+    console.log('User role:', userRole);
+    console.log('User email:', user.email);
     
     // Special handling for yugandhar@whiteindia.in - always grant access
     const isSuperAdmin = user.email === 'yugandhar@whiteindia.in';
     if (isSuperAdmin) {
-      console.log('Granting full access to superadmin user');
+      console.log('✅ Granting full access to superadmin user');
       return <>{children}</>;
     }
     
     // Admin users always have access (but not the special superadmin case)
     if (userRole === 'admin') {
-      console.log('Granting access to admin user via role check');
+      console.log('✅ Granting access to admin user via role check');
       return <>{children}</>;
+    }
+    
+    // Check if user has a role at all
+    if (!userRole) {
+      console.log('❌ User has no role assigned, denying access');
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+            <p className="text-gray-600">No role assigned to your account.</p>
+            <p className="text-xs text-gray-400 mt-2">User: {user.email}</p>
+            <p className="text-xs text-gray-400">Role: Not assigned</p>
+            <p className="text-xs text-gray-400">Page: {pageName}</p>
+            <div className="mt-4 text-xs text-gray-400">
+              <p>🔍 Debug info:</p>
+              <p>User has no role in user_roles table</p>
+              <p>Contact admin to assign a role</p>
+            </div>
+          </div>
+        </div>
+      );
     }
     
     // For all other users, check privileges from the database
@@ -104,15 +132,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             <p className="text-xs text-gray-400 mt-2">User: {user.email}, Role: {userRole}</p>
             <p className="text-xs text-gray-400">Page: {pageName}</p>
             <div className="mt-4 text-xs text-gray-400">
-              <p>Debug info:</p>
+              <p>🔍 Debug info:</p>
               <p>Privileges loaded: {privileges.length}</p>
               <p>Page privileges: {JSON.stringify(privileges.filter(p => p.page_name === pageName))}</p>
               <p>Has page access result: {String(hasAccess)}</p>
+              <p>Role has privileges but no 'read' permission for this page</p>
             </div>
           </div>
         </div>
       );
     }
+    console.log('✅ Access granted via privilege check');
     return <>{children}</>;
   }
 

@@ -18,14 +18,41 @@ export const usePrivileges = () => {
 
   useEffect(() => {
     const fetchPrivileges = async () => {
+      console.log('=== usePrivileges fetchPrivileges START ===');
+      console.log('User:', user?.email);
+      console.log('UserRole from AuthContext:', userRole);
+      
+      if (!user) {
+        console.log('No user found, setting loading to false');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user has a role assigned
       if (!userRole) {
-        console.log('No user role found, setting loading to false');
+        console.log('❌ No user role found - checking user_roles table directly');
+        
+        // Try to fetch role directly from user_roles table
+        const { data: userRoleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (roleError) {
+          console.error('Error fetching user role:', roleError);
+          console.log('❌ User has no role assigned in user_roles table');
+        } else {
+          console.log('✅ Found role in user_roles table:', userRoleData?.role);
+        }
+        
+        setPrivileges([]);
         setLoading(false);
         return;
       }
 
       try {
-        console.log('Fetching privileges for role:', userRole);
+        console.log('✅ Fetching privileges for role:', userRole);
         
         const { data, error } = await supabase
           .from('role_privileges')
@@ -33,22 +60,29 @@ export const usePrivileges = () => {
           .eq('role', userRole);
 
         if (error) {
-          console.error('Error fetching privileges:', error);
+          console.error('❌ Error fetching privileges:', error);
           setPrivileges([]);
         } else {
-          console.log('Privileges fetched for role', userRole, ':', data);
+          console.log('✅ Privileges fetched for role', userRole, ':', data);
+          console.log('Total privileges found:', data?.length || 0);
+          
+          // Log specific invoices privileges
+          const invoicesPrivileges = data?.filter(p => p.page_name === 'invoices') || [];
+          console.log('Invoices specific privileges:', invoicesPrivileges);
+          
           setPrivileges(data || []);
         }
       } catch (error) {
-        console.error('Error fetching privileges:', error);
+        console.error('❌ Exception while fetching privileges:', error);
         setPrivileges([]);
       } finally {
         setLoading(false);
+        console.log('=== usePrivileges fetchPrivileges END ===');
       }
     };
 
     fetchPrivileges();
-  }, [userRole]);
+  }, [userRole, user]);
 
   const hasPageAccess = (pageName: string) => {
     console.log(`=== hasPageAccess check for ${pageName} ===`);
@@ -58,8 +92,14 @@ export const usePrivileges = () => {
     
     // Admin and yugandhar@whiteindia.in have full access
     if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
-      console.log(`Full access granted for ${pageName} to admin/superuser`);
+      console.log(`✅ Full access granted for ${pageName} to admin/superuser`);
       return true;
+    }
+
+    // If no role, deny access
+    if (!userRole) {
+      console.log(`❌ No role assigned, denying access to ${pageName}`);
+      return false;
     }
 
     // Check if user has read access to the page with allowed=true
@@ -80,8 +120,14 @@ export const usePrivileges = () => {
     
     // Admin and yugandhar@whiteindia.in have full access
     if (userRole === 'admin' || user?.email === 'yugandhar@whiteindia.in') {
-      console.log(`Full operation access granted for ${pageName}-${operation} to admin/superuser`);
+      console.log(`✅ Full operation access granted for ${pageName}-${operation} to admin/superuser`);
       return true;
+    }
+
+    // If no role, deny access
+    if (!userRole) {
+      console.log(`❌ No role assigned, denying ${operation} access to ${pageName}`);
+      return false;
     }
 
     // Find the specific privilege for this page and operation with allowed=true
