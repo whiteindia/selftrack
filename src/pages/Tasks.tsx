@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit } from 'lucide-react';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,6 +70,10 @@ const Tasks = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
   const [newTask, setNewTask] = useState({
     name: '',
     project_id: '',
@@ -177,6 +181,19 @@ const Tasks = () => {
     },
     enabled: hasTasksAccess
   });
+
+  // Filter tasks based on filters
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           task.projects.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+      const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
+      const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
+      
+      return matchesSearch && matchesStatus && matchesAssignee && matchesProject;
+    });
+  }, [tasks, searchTerm, statusFilter, assigneeFilter, projectFilter]);
 
   // Create task mutation
   const createTaskMutation = useMutation({
@@ -293,6 +310,13 @@ const Tasks = () => {
 
   const handleTimeUpdate = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setAssigneeFilter('all');
+    setProjectFilter('all');
   };
 
   if (privilegesLoading) {
@@ -424,15 +448,102 @@ const Tasks = () => {
           )}
         </div>
 
-        {tasks.length === 0 ? (
+        {/* Filters Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="search">Search</Label>
+                <Input
+                  id="search"
+                  placeholder="Search tasks or projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status-filter">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Not Started">Not Started</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="On Hold">On Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="assignee-filter">Assignee</Label>
+                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Assignees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Assignees</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project-filter">Project</Label>
+                <Select value={projectFilter} onValueChange={setProjectFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Projects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button variant="outline" onClick={clearFilters} className="w-full">
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Results Summary */}
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>
+            Showing {filteredTasks.length} of {tasks.length} tasks
+          </span>
+        </div>
+
+        {filteredTasks.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
-              <p className="text-gray-600">No tasks found. You can only see tasks where you are assigned or are the creator.</p>
+              <p className="text-gray-600">
+                {tasks.length === 0 
+                  ? "No tasks found. You can only see tasks where you are assigned or are the creator."
+                  : "No tasks match your current filters."
+                }
+              </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4">
-            {tasks.map((task) => (
+            {filteredTasks.map((task) => (
               <Card key={task.id} className="hover:shadow-md transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
