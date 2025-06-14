@@ -66,10 +66,10 @@ const Wages = () => {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
-  const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
+  const { hasOperationAccess, loading: privilegesLoading, userRole, userId } = usePrivileges();
   
-  // Check specific permissions for wages page
-  const canUpdate = hasOperationAccess('wages', 'update');
+  // Check specific permissions for wages page - allow managers and admins
+  const canUpdate = hasOperationAccess('wages', 'update') || userRole === 'admin' || userRole === 'manager';
 
   // Fetch time entries with employee hourly rate data and comments
   const { data: timeEntries = [], isLoading } = useQuery({
@@ -230,11 +230,13 @@ const Wages = () => {
     .reduce((sum, record) => sum + record.wage_amount, 0);
 
   const handleWageStatusChange = (taskId: string, status: string) => {
-    if (!canUpdate) {
+    // Allow admin, manager roles, or users with specific update permission
+    if (!canUpdate && userRole !== 'admin' && userRole !== 'manager') {
       toast.error('You do not have permission to update wage status');
       return;
     }
 
+    console.log('Updating wage status:', { taskId, status, userRole, canUpdate });
     updateWageStatusMutation.mutate({ taskId, status });
   };
 
@@ -572,7 +574,7 @@ const Wages = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {canUpdate ? (
+                        {canUpdate || userRole === 'admin' || userRole === 'manager' ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="outline" size="sm">
