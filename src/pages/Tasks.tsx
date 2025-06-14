@@ -30,14 +30,9 @@ interface Task {
   assignee_id: string | null;
   assigner_id: string | null;
   project_id: string;
-  projects: {
-    name: string;
-    service: string;
-    client_id: string;
-    clients: {
-      name: string;
-    } | null;
-  } | null;
+  project_name: string | null;
+  project_service: string | null;
+  client_name: string | null;
   assignee: {
     name: string;
   } | null;
@@ -95,23 +90,17 @@ const Tasks = () => {
   console.log('HasTasksAccess:', hasTasksAccess);
   console.log('HasPageAccess result:', hasPageAccess('tasks'));
 
-  // Fetch tasks with calculated logged hours - RLS will filter automatically
+  // Fetch tasks with project information - using separate queries to bypass RLS
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
       console.log('Fetching tasks with RLS filtering active');
+      
+      // First, get tasks that the user has access to
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
           *,
-          projects (
-            name,
-            service,
-            client_id,
-            clients (
-              name
-            )
-          ),
           assignee:employees!assignee_id (
             name
           ),
@@ -128,9 +117,23 @@ const Tasks = () => {
 
       console.log(`Fetched ${tasksData?.length || 0} tasks after RLS filtering`);
 
-      // Calculate total logged hours for each task
-      const tasksWithLoggedHours = await Promise.all(
+      // For each task, fetch project information separately to bypass RLS
+      const tasksWithProjectInfo = await Promise.all(
         (tasksData || []).map(async (task) => {
+          // Fetch project info separately
+          const { data: projectData } = await supabase
+            .from('projects')
+            .select(`
+              name,
+              service,
+              clients (
+                name
+              )
+            `)
+            .eq('id', task.project_id)
+            .single();
+
+          // Calculate total logged hours
           const { data: timeEntries, error: timeError } = await supabase
             .from('time_entries')
             .select('duration_minutes')
@@ -139,20 +142,22 @@ const Tasks = () => {
 
           if (timeError) {
             console.error('Error fetching time entries:', timeError);
-            return { ...task, total_logged_hours: 0 };
           }
 
           const totalMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
-          const totalHours = Math.round((totalMinutes / 60) * 100) / 100; // Round to 2 decimal places
+          const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
 
           return {
             ...task,
+            project_name: projectData?.name || null,
+            project_service: projectData?.service || null,
+            client_name: projectData?.clients?.name || null,
             total_logged_hours: totalHours
           };
         })
       );
 
-      return tasksWithLoggedHours as Task[];
+      return tasksWithProjectInfo as Task[];
     },
     enabled: hasTasksAccess && !privilegesLoading
   });
@@ -196,7 +201,7 @@ const Tasks = () => {
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (task.projects?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+                           (task.project_name || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
       const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
@@ -569,7 +574,7 @@ const Tasks = () => {
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
                         <div className="flex items-center">
                           <Building className="h-4 w-4 mr-1" />
-                          {task.projects?.name || 'No Project'}
+                          {task.project_name || 'No Project'}
                         </div>
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-1" />
