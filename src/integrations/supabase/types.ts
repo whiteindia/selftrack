@@ -886,6 +886,19 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_invoice_with_tasks: {
+        Args: {
+          p_invoice_id: string
+          p_client_id: string
+          p_project_id: string
+          p_amount: number
+          p_hours: number
+          p_rate: number
+          p_due_date: string
+          p_task_ids: string[]
+        }
+        Returns: Json
+      }
       get_active_projects_for_invoicing: {
         Args: Record<PropertyKey, never>
         Returns: {

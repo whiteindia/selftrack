@@ -199,7 +199,7 @@ const Invoices = () => {
     return invoice.projects?.service === globalServiceFilter;
   });
 
-  // Create invoice mutation
+  // Create invoice mutation using the new security definer function
   const createInvoiceMutation = useMutation({
     mutationFn: async (invoiceData: any) => {
       // Generate invoice ID
@@ -224,43 +224,20 @@ const Invoices = () => {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 30);
       
-      // Create invoice
-      const { data: invoice, error: invoiceError } = await supabase
-        .from('invoices')
-        .insert([{
-          id: invoiceId,
-          client_id: project?.client_id,
-          project_id: newInvoice.project_id,
-          amount: totalAmount,
-          hours: totalHours,
-          rate: rate,
-          status: 'Draft',
-          due_date: dueDate.toISOString().split('T')[0]
-        }])
-        .select()
-        .single();
+      // Use the security definer function to create invoice with tasks
+      const { data: invoice, error } = await supabase
+        .rpc('create_invoice_with_tasks', {
+          p_invoice_id: invoiceId,
+          p_client_id: project?.client_id,
+          p_project_id: newInvoice.project_id,
+          p_amount: totalAmount,
+          p_hours: totalHours,
+          p_rate: rate,
+          p_due_date: dueDate.toISOString().split('T')[0],
+          p_task_ids: newInvoice.selectedTasks
+        });
       
-      if (invoiceError) throw invoiceError;
-      
-      // Link tasks to invoice
-      const invoiceTasksData = newInvoice.selectedTasks.map(taskId => ({
-        invoice_id: invoiceId,
-        task_id: taskId
-      }));
-      
-      const { error: taskLinkError } = await supabase
-        .from('invoice_tasks')
-        .insert(invoiceTasksData);
-      
-      if (taskLinkError) throw taskLinkError;
-      
-      // Mark tasks as invoiced
-      const { error: updateTasksError } = await supabase
-        .from('tasks')
-        .update({ invoiced: true })
-        .in('id', newInvoice.selectedTasks);
-      
-      if (updateTasksError) throw updateTasksError;
+      if (error) throw error;
       
       // Log activity
       await logActivity({
