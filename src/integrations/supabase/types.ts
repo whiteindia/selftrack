@@ -325,6 +325,13 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payments: {
@@ -381,6 +388,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
             referencedColumns: ["id"]
           },
         ]
@@ -700,6 +714,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sprints_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sprints_sprint_leader_id_fkey"
             columns: ["sprint_leader_id"]
             isOneToOne: false
@@ -824,6 +845,13 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
+            referencedColumns: ["id"]
+          },
         ]
       }
       time_entries: {
@@ -907,6 +935,15 @@ export type Database = {
       }
     }
     Views: {
+      task_project_info: {
+        Row: {
+          client_name: string | null
+          id: string | null
+          name: string | null
+          service: string | null
+        }
+        Relationships: []
+      }
       task_project_managers: {
         Row: {
           project_manager_id: string | null
@@ -974,6 +1011,15 @@ export type Database = {
           id: string
           name: string
           hours: number
+        }[]
+      }
+      get_project_info_for_task: {
+        Args: { project_uuid: string }
+        Returns: {
+          id: string
+          name: string
+          service: string
+          client_name: string
         }[]
       }
       get_role_available_pages: {

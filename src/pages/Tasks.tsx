@@ -90,11 +90,11 @@ const Tasks = () => {
   console.log('HasTasksAccess:', hasTasksAccess);
   console.log('HasPageAccess result:', hasPageAccess('tasks'));
 
-  // Fetch tasks with project information - using separate queries to bypass RLS
+  // Fetch tasks with project information using the secure view
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      console.log('Fetching tasks with RLS filtering active');
+      console.log('Fetching tasks with project info using secure view');
       
       // First, get tasks that the user has access to
       const { data: tasksData, error: tasksError } = await supabase
@@ -117,21 +117,14 @@ const Tasks = () => {
 
       console.log(`Fetched ${tasksData?.length || 0} tasks after RLS filtering`);
 
-      // For each task, fetch project information separately to bypass RLS
+      // For each task, fetch project information using the secure view
       const tasksWithProjectInfo = await Promise.all(
         (tasksData || []).map(async (task) => {
-          // Fetch project info separately
+          // Use the secure function to get project info
           const { data: projectData } = await supabase
-            .from('projects')
-            .select(`
-              name,
-              service,
-              clients (
-                name
-              )
-            `)
-            .eq('id', task.project_id)
-            .single();
+            .rpc('get_project_info_for_task', { 
+              project_uuid: task.project_id 
+            });
 
           // Calculate total logged hours
           const { data: timeEntries, error: timeError } = await supabase
@@ -147,11 +140,14 @@ const Tasks = () => {
           const totalMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
           const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
 
+          // Get the first project info record (should only be one)
+          const projectInfo = projectData?.[0];
+
           return {
             ...task,
-            project_name: projectData?.name || null,
-            project_service: projectData?.service || null,
-            client_name: projectData?.clients?.name || null,
+            project_name: projectInfo?.name || null,
+            project_service: projectInfo?.service || null,
+            client_name: projectInfo?.client_name || null,
             total_logged_hours: totalHours
           };
         })
@@ -176,23 +172,23 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
-  // Fetch projects
+  // Fetch projects - use the secure view for projects list in create/edit dialogs
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          id,
-          name,
-          service,
-          clients (
-            name
-          )
-        `)
+        .from('task_project_info')
+        .select('*')
         .order('name');
       if (error) throw error;
-      return data as Project[];
+      
+      // Transform the data to match the Project interface
+      return data.map(p => ({
+        id: p.id,
+        name: p.name,
+        service: p.service,
+        clients: p.client_name ? { name: p.client_name } : null
+      })) as Project[];
     },
     enabled: hasTasksAccess
   });
