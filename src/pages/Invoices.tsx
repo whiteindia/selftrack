@@ -64,7 +64,7 @@ interface InvoiceTask {
 
 const Invoices = () => {
   const queryClient = useQueryClient();
-  const { hasOperationAccess } = usePrivileges();
+  const { hasOperationAccess, userRole, userId, employeeId } = usePrivileges();
   const [newInvoice, setNewInvoice] = useState({
     project_id: '',
     selectedTasks: [] as string[],
@@ -97,26 +97,51 @@ const Invoices = () => {
     }
   });
 
-  // Fetch projects for dropdown
+  // Fetch projects for dropdown with role-based access
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects-for-invoices'],
+    queryKey: ['projects-for-invoices', userRole, userId, employeeId],
     queryFn: async () => {
-      console.log('Fetching projects for invoices...');
-      const { data, error } = await supabase
+      console.log('🔍 Fetching projects for invoices dropdown...');
+      console.log('User role:', userRole, 'User ID:', userId, 'Employee ID:', employeeId);
+      
+      let query = supabase
         .from('projects')
         .select(`
           id,
           name,
           clients(id, name)
         `);
+
+      // Apply role-based filtering
+      if (userRole === 'admin') {
+        console.log('Admin user - fetching all projects');
+        // Admin can see all projects
+      } else if (userRole === 'manager' && employeeId) {
+        console.log('Manager user - filtering by assignee_employee_id:', employeeId);
+        // Manager can only see projects assigned to them
+        query = query.eq('assignee_employee_id', employeeId);
+      } else if (userRole === 'accountant') {
+        console.log('Accountant user - fetching all active projects');
+        // Accountant can see all active projects for invoicing
+        query = query.eq('status', 'Active');
+      } else {
+        console.log('Other role - no specific filtering applied');
+        // For other roles, let RLS handle the filtering
+      }
+      
+      const { data, error } = await query.order('name');
       
       if (error) {
-        console.error('Error fetching projects:', error);
+        console.error('Error fetching projects for dropdown:', error);
         throw error;
       }
-      console.log('Projects fetched:', data);
+      
+      console.log('Projects fetched for dropdown:', data);
+      console.log('Total projects found:', data?.length || 0);
+      
       return data as Project[];
-    }
+    },
+    enabled: !!userId // Only fetch when user is authenticated
   });
 
   // Fetch available tasks for selected project
@@ -493,13 +518,24 @@ const Invoices = () => {
                           <SelectValue placeholder="Select a project" />
                         </SelectTrigger>
                         <SelectContent>
-                          {projects.map((project) => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name} ({project.clients?.name || 'N/A'})
+                          {projects.length === 0 ? (
+                            <SelectItem value="no-projects" disabled>
+                              No projects available
                             </SelectItem>
-                          ))}
+                          ) : (
+                            projects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name} ({project.clients?.name || 'N/A'})
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
+                      {projects.length === 0 && (
+                        <p className="text-sm text-gray-500">
+                          No projects found. Contact your administrator if you believe this is an error.
+                        </p>
+                      )}
                     </div>
 
                     {newInvoice.project_id && (
