@@ -70,7 +70,6 @@ const Wages = () => {
   const [wageStatusFilter, setWageStatusFilter] = useState<string>('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [projectsData, setProjectsData] = useState<Record<string, ProjectInfo>>({});
-  const [currentUserEmployeeId, setCurrentUserEmployeeId] = useState<string>('');
   const queryClient = useQueryClient();
 
   const { hasPageAccess, hasOperationAccess, loading: privilegesLoading, userRole, userId } = usePrivileges();
@@ -81,24 +80,6 @@ const Wages = () => {
   // Check specific permissions for wages page operations
   const canUpdate = hasOperationAccess('wages', 'update') || userRole === 'admin';
   const canDelete = hasOperationAccess('wages', 'delete') || userRole === 'admin';
-
-  // Fetch current user's employee ID
-  useQuery({
-    queryKey: ['current-user-employee'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_current_user_employee_id');
-      
-      if (error) {
-        console.error('Error fetching current user employee ID:', error);
-        return null;
-      }
-      
-      setCurrentUserEmployeeId(data || '');
-      return data;
-    },
-    enabled: hasWagesAccess && !privilegesLoading
-  });
 
   // Fetch time entries with employee hourly rate data and comments - RLS will filter automatically
   const { data: timeEntries = [], isLoading } = useQuery({
@@ -308,27 +289,9 @@ const Wages = () => {
     .filter(record => record.wage_status === 'wnotpaid')
     .reduce((sum, record) => sum + record.wage_amount, 0);
 
-  // Helper function to check if user can update a specific task's wage status
-  const canUpdateTaskWageStatus = (task: any) => {
-    // Admin can update all
-    if (userRole === 'admin') return true;
-    
-    // Users with general wages update permission can update all
-    if (canUpdate) return true;
-    
-    // Users with wages read permission can update tasks they are assigned to or assigned by them
-    if (hasPageAccess('wages') && currentUserEmployeeId) {
-      return task?.assignee_id === currentUserEmployeeId || task?.assigner_id === currentUserEmployeeId;
-    }
-    
-    return false;
-  };
-
   const handleWageStatusChange = (taskId: string, status: string) => {
-    const task = Object.values(groupedWageRecords).find(group => group.task?.id === taskId)?.task;
-    
-    if (!canUpdateTaskWageStatus(task)) {
-      toast.error('You do not have permission to update wage status for this task');
+    if (!canUpdate) {
+      toast.error('You do not have permission to update wage status');
       return;
     }
 
@@ -346,6 +309,7 @@ const Wages = () => {
     setExpandedTasks(newExpanded);
   };
 
+  // Export to PDF
   const exportToPDF = () => {
     const doc = new jsPDF();
     
@@ -706,7 +670,7 @@ const Wages = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {canUpdateTaskWageStatus(group.task) ? (
+                          {canUpdate ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm">
