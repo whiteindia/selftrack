@@ -423,8 +423,8 @@ const Tasks = () => {
                       {task.status}
                     </Badge>
                     <TimeTrackerWithComment 
-                      taskId={task.id} 
-                      onUpdate={handleTimeUpdate}
+                      task={{ id: task.id, name: task.name }}
+                      onSuccess={handleTimeUpdate}
                     />
                     <Button
                       variant="outline"
