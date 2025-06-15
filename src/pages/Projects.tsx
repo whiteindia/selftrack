@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import ProjectForm from '@/components/projects/ProjectForm';
 import ProjectFilters from '@/components/projects/ProjectFilters';
 import ProjectTable from '@/components/projects/ProjectTable';
-import ProjectDebugInfo from '@/components/projects/ProjectDebugInfo';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useCurrentEmployee } from '@/hooks/useCurrentEmployee';
@@ -442,12 +441,6 @@ const Projects = () => {
             </Button>
           )}
         </div>
-
-        <ProjectDebugInfo 
-          userRole={userRole}
-          employeeId={employeeId}
-          userId={userId}
-        />
 
         <ProjectFilters
           selectedClient={selectedClient}
