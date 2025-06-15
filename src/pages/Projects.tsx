@@ -10,6 +10,7 @@ import ProjectTable from '@/components/projects/ProjectTable';
 import ProjectDebugInfo from '@/components/projects/ProjectDebugInfo';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
+import { useCurrentEmployee } from '@/hooks/useCurrentEmployee';
 import { ProjectData } from '@/hooks/projects/types';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -44,6 +45,7 @@ interface ExtendedProjectData extends ProjectData {
 
 const Projects = () => {
   const { hasOperationAccess, isRlsFilteringActive, userId, userRole, employeeId, loading: privilegesLoading } = usePrivileges();
+  const { employee: currentEmployee } = useCurrentEmployee();
   
   // Check specific permissions for projects page
   const canCreate = hasOperationAccess('projects', 'create');
@@ -55,8 +57,8 @@ const Projects = () => {
   console.log('Projects page permissions:', { canCreate, canUpdate, canDelete, canRead });
   console.log('Should apply user filtering:', isRlsFilteringActive('projects'), 'User ID:', userId, 'Employee ID:', employeeId);
   console.log('User role:', userRole);
+  console.log('Current employee:', currentEmployee);
   console.log('Privileges loading:', privilegesLoading);
-  console.log('User email from auth context:', userId);
 
   const [newProject, setNewProject] = useState({
     name: '',
@@ -87,24 +89,17 @@ const Projects = () => {
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
-  // Enhanced projects query with proper employee relationship
+  // Enhanced projects query with proper assignee filtering
   const { data: projects = [], isLoading, error: projectsError } = useQuery({
-    queryKey: ['projects', userId, userRole, employeeId],
+    queryKey: ['projects', userId, userRole, employeeId, currentEmployee?.email],
     queryFn: async () => {
       console.log('=== PROJECTS QUERY START ===');
       console.log('Fetching projects...');
       console.log('User ID:', userId);
       console.log('Employee ID:', employeeId);
+      console.log('Current employee email:', currentEmployee?.email);
       console.log('User role:', userRole);
       console.log('RLS filtering active:', isRlsFilteringActive('projects'));
-      
-      // Get current user's info for debugging
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current auth user:', {
-        id: user?.id,
-        email: user?.email,
-        user_metadata: user?.user_metadata
-      });
 
       let query = supabase
         .from('projects')
@@ -114,10 +109,11 @@ const Projects = () => {
           assignee_employee:employees!assignee_employee_id(id, name, email, role)
         `);
 
-      // For manager role with RLS active, the RLS policy should handle filtering automatically
-      if (isRlsFilteringActive('projects') && userRole === 'manager') {
-        console.log('Manager role with RLS - letting RLS policies handle filtering');
-        console.log('Expected: Projects where assignee_employee_id matches current user employee ID');
+      // Apply client-side filtering for non-admin users to ensure proper row-level security
+      if (userRole !== 'admin' && currentEmployee) {
+        console.log('Applying assignee filtering for non-admin user');
+        console.log('Filtering by assignee_employee_id:', currentEmployee.id);
+        query = query.eq('assignee_employee_id', currentEmployee.id);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -127,12 +123,24 @@ const Projects = () => {
         throw error;
       }
       
-      console.log('Final projects data returned:', data);
+      console.log('Raw projects data returned:', data);
       console.log('Number of projects found:', data?.length || 0);
       
-      if (data && data.length > 0) {
-        data.forEach((project, index) => {
-          console.log(`Returned Project ${index + 1}:`, {
+      // Additional client-side filtering as a safety measure
+      let filteredData = data || [];
+      
+      if (userRole !== 'admin' && currentEmployee) {
+        filteredData = (data || []).filter(project => {
+          const isAssignee = project.assignee_employee_id === currentEmployee.id;
+          console.log(`Project ${project.name}: assignee_employee_id=${project.assignee_employee_id}, current_employee_id=${currentEmployee.id}, isAssignee=${isAssignee}`);
+          return isAssignee;
+        });
+        console.log('After client-side filtering:', filteredData.length, 'projects');
+      }
+      
+      if (filteredData && filteredData.length > 0) {
+        filteredData.forEach((project, index) => {
+          console.log(`Final Project ${index + 1}:`, {
             id: project.id,
             name: project.name,
             assignee_employee_id: project.assignee_employee_id,
@@ -143,18 +151,15 @@ const Projects = () => {
             service: project.service
           });
         });
-      } else if (isRlsFilteringActive('projects')) {
-        console.log('=== NO PROJECTS FOUND - DEBUGGING ===');
-        console.log('This could mean:');
-        console.log('1. No projects have assignee_employee_id matching employee ID:', employeeId);
-        console.log('2. RLS policy is not matching correctly');
-        console.log('3. Employee record does not exist for current user');
+      } else if (userRole !== 'admin') {
+        console.log('=== NO PROJECTS FOUND FOR NON-ADMIN USER ===');
+        console.log('This means no projects have assignee_employee_id matching:', currentEmployee?.id);
       }
       
       console.log('=== PROJECTS QUERY END ===');
-      return data as ExtendedProjectData[];
+      return filteredData as ExtendedProjectData[];
     },
-    enabled: canRead && !!userId
+    enabled: canRead && !!userId && !!currentEmployee
   });
 
   // Fetch clients for dropdown
@@ -256,7 +261,7 @@ const Projects = () => {
       name: newProject.name,
       client_id: newProject.client_id,
       service: newProject.service,
-      type: newProject.billing_type, // Map billing_type to type column
+      type: newProject.billing_type,
       hourly_rate: newProject.service === 'BRD' ? 0 : newProject.hourly_rate,
       project_amount: newProject.billing_type === 'Fixed' || newProject.service === 'BRD' ? newProject.project_amount : null,
       start_date: newProject.start_date || null,
@@ -311,7 +316,7 @@ const Projects = () => {
         name: editingProject.name,
         client_id: editingProject.client_id,
         service: editingProject.service,
-        type: editBillingType, // Map billing type to type column
+        type: editBillingType,
         hourly_rate: editingProject.service === 'BRD' ? 0 : editingProject.hourly_rate,
         project_amount: editBillingType === 'Fixed' || editingProject.service === 'BRD' ? editingProject.project_amount : null,
         start_date: editingProject.start_date || null,
@@ -373,7 +378,7 @@ const Projects = () => {
 
     console.log('Setting editing project:', project);
     setEditingProject(project);
-    setEditBillingType(project.type === 'Fixed' ? 'Fixed' : 'Hourly'); // Use actual type from database
+    setEditBillingType(project.type === 'Fixed' ? 'Fixed' : 'Hourly');
     setIsEditDialogOpen(true);
   };
 
@@ -426,7 +431,7 @@ const Projects = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
             <p className="text-gray-600 mt-2">
-              {userRole === 'manager' ? 'Projects assigned to you' : 'Manage your client projects'}
+              {userRole === 'admin' ? 'Manage all projects' : 'Projects assigned to you'}
             </p>
           </div>
           
