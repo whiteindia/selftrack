@@ -70,6 +70,7 @@ const Tasks = () => {
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
+  const [globalClientFilter, setGlobalClientFilter] = useState('all');
   const [newTask, setNewTask] = useState({
     name: '',
     project_id: '',
@@ -209,6 +210,20 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
+  // Fetch clients for global filter
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: hasTasksAccess
+  });
+
   // Filter tasks based on filters
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -219,9 +234,13 @@ const Tasks = () => {
       const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
       const matchesService = globalServiceFilter === 'all' || task.project_service === globalServiceFilter;
       
-      return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService;
+      // Find the client ID for this task through its project
+      const taskProject = projects.find(p => p.id === task.project_id);
+      const matchesClient = globalClientFilter === 'all' || taskProject?.clients?.name === clients.find(c => c.id === globalClientFilter)?.name;
+      
+      return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
     });
-  }, [tasks, searchTerm, statusFilter, assigneeFilter, projectFilter, globalServiceFilter]);
+  }, [tasks, searchTerm, statusFilter, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
 
   // Create task mutation
   const createTaskMutation = useMutation({
@@ -346,6 +365,7 @@ const Tasks = () => {
     setAssigneeFilter('all');
     setProjectFilter('all');
     setGlobalServiceFilter('all');
+    setGlobalClientFilter('all');
   };
 
   if (privilegesLoading) {
@@ -394,7 +414,10 @@ const Tasks = () => {
         <TasksHeader
           globalServiceFilter={globalServiceFilter}
           setGlobalServiceFilter={setGlobalServiceFilter}
+          globalClientFilter={globalClientFilter}
+          setGlobalClientFilter={setGlobalClientFilter}
           services={services}
+          clients={clients}
           canCreate={hasOperationAccess('tasks', 'create')}
           onCreateTask={() => setIsCreateDialogOpen(true)}
         />
@@ -460,6 +483,22 @@ const Tasks = () => {
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="client-filter">Client</Label>
+                <Select value={globalClientFilter} onValueChange={setGlobalClientFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Clients" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

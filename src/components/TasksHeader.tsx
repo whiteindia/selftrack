@@ -9,10 +9,18 @@ interface Service {
   name: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 interface TasksHeaderProps {
   globalServiceFilter: string;
   setGlobalServiceFilter: (value: string) => void;
+  globalClientFilter: string;
+  setGlobalClientFilter: (value: string) => void;
   services: Service[];
+  clients: Client[];
   canCreate: boolean;
   onCreateTask: () => void;
 }
@@ -20,7 +28,10 @@ interface TasksHeaderProps {
 const TasksHeader: React.FC<TasksHeaderProps> = ({
   globalServiceFilter,
   setGlobalServiceFilter,
+  globalClientFilter,
+  setGlobalClientFilter,
   services,
+  clients,
   canCreate,
   onCreateTask
 }) => {
@@ -28,21 +39,39 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <h1 className="text-3xl font-bold">Tasks</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-600">Service:</span>
-          <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="All Services" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Services</SelectItem>
-              {services.map((service) => (
-                <SelectItem key={service.id} value={service.name}>
-                  {service.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">Service:</span>
+            <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Services" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Services</SelectItem>
+                {services.map((service) => (
+                  <SelectItem key={service.id} value={service.name}>
+                    {service.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">Client:</span>
+            <Select value={globalClientFilter} onValueChange={setGlobalClientFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Clients" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
       
