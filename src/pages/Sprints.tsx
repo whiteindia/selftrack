@@ -663,14 +663,13 @@ const Sprints = () => {
     setSelectedAssignee('all');
     setSelectedAssigner('all');
     setSelectedSprintLeader('all');
-    setSelectedService('all');
     setSelectedStatus('active');
     setSelectedYear('all');
     setSelectedMonth('all');
     setGlobalServiceFilter('all');
   };
 
-  const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedSprintLeader !== 'all' || selectedService !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
+  const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedSprintLeader !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
 
   const handleCreateSprint = () => {
     if (!canCreate) {
@@ -753,8 +752,6 @@ const Sprints = () => {
           setSelectedAssigner={setSelectedAssigner}
           selectedSprintLeader={selectedSprintLeader}
           setSelectedSprintLeader={setSelectedSprintLeader}
-          selectedService={selectedService}
-          setSelectedService={setSelectedService}
           selectedStatus={selectedStatus}
           setSelectedStatus={setSelectedStatus}
           selectedYear={selectedYear}

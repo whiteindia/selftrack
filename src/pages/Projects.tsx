@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import ProjectForm from '@/components/projects/ProjectForm';
 import ProjectFilters from '@/components/projects/ProjectFilters';
 import ProjectTable from '@/components/projects/ProjectTable';
+import ProjectsHeader from '@/components/ProjectsHeader';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useCurrentEmployee } from '@/hooks/useCurrentEmployee';
@@ -85,6 +86,7 @@ const Projects = () => {
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
@@ -224,6 +226,7 @@ const Projects = () => {
       const matchesClient = selectedClient === 'all' || project.client_id === selectedClient;
       const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
       const matchesService = selectedService === 'all' || project.service === selectedService;
+      const matchesGlobalService = globalServiceFilter === 'all' || project.service === globalServiceFilter;
       const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            project.clients?.name.toLowerCase().includes(searchTerm.toLowerCase());
       
@@ -232,9 +235,9 @@ const Projects = () => {
       const matchesYear = selectedYear === 'all' || projectDate.getFullYear().toString() === selectedYear;
       const matchesMonth = selectedMonth === 'all' || (projectDate.getMonth() + 1).toString() === selectedMonth;
       
-      return matchesClient && matchesStatus && matchesService && matchesSearch && matchesYear && matchesMonth;
+      return matchesClient && matchesStatus && matchesService && matchesGlobalService && matchesSearch && matchesYear && matchesMonth;
     });
-  }, [projects, selectedClient, selectedStatus, selectedService, selectedYear, selectedMonth, searchTerm]);
+  }, [projects, selectedClient, selectedStatus, selectedService, selectedYear, selectedMonth, searchTerm, globalServiceFilter]);
 
   // Get unique years from projects
   const availableYears = React.useMemo(() => {
@@ -367,6 +370,7 @@ const Projects = () => {
     setSelectedYear('all');
     setSelectedMonth('all');
     setSearchTerm('');
+    setGlobalServiceFilter('all');
   };
 
   const handleEditProject = (project: ExtendedProjectData) => {
@@ -426,21 +430,14 @@ const Projects = () => {
   return (
     <Navigation>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-            <p className="text-gray-600 mt-2">
-              {userRole === 'admin' ? 'Manage all projects' : 'Projects assigned to you'}
-            </p>
-          </div>
-          
-          {canCreate && (
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Project
-            </Button>
-          )}
-        </div>
+        <ProjectsHeader
+          globalServiceFilter={globalServiceFilter}
+          setGlobalServiceFilter={setGlobalServiceFilter}
+          services={services}
+          canCreate={canCreate}
+          onCreateProject={() => setIsDialogOpen(true)}
+          userRole={userRole}
+        />
 
         <ProjectFilters
           selectedClient={selectedClient}

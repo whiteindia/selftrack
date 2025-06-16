@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import TaskHistory from '@/components/TaskHistory';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
+import TasksHeader from '@/components/TasksHeader';
 
 interface Task {
   id: string;
@@ -69,6 +69,7 @@ const Tasks = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
+  const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
   const [newTask, setNewTask] = useState({
     name: '',
     project_id: '',
@@ -194,6 +195,20 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
+  // Fetch services for global filter
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: hasTasksAccess
+  });
+
   // Filter tasks based on filters
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
@@ -202,10 +217,11 @@ const Tasks = () => {
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
       const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
+      const matchesService = globalServiceFilter === 'all' || task.project_service === globalServiceFilter;
       
-      return matchesSearch && matchesStatus && matchesAssignee && matchesProject;
+      return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService;
     });
-  }, [tasks, searchTerm, statusFilter, assigneeFilter, projectFilter]);
+  }, [tasks, searchTerm, statusFilter, assigneeFilter, projectFilter, globalServiceFilter]);
 
   // Create task mutation
   const createTaskMutation = useMutation({
@@ -329,6 +345,7 @@ const Tasks = () => {
     setStatusFilter('all');
     setAssigneeFilter('all');
     setProjectFilter('all');
+    setGlobalServiceFilter('all');
   };
 
   if (privilegesLoading) {
@@ -374,98 +391,13 @@ const Tasks = () => {
   return (
     <Navigation>
       <div className="space-y-6 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold">Tasks</h1>
-          {hasOperationAccess('tasks', 'create') && (
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Task
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Task</DialogTitle>
-                  <DialogDescription>
-                    Create a new task and assign it to a team member.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="task-name">Task Name</Label>
-                    <Input
-                      id="task-name"
-                      value={newTask.name}
-                      onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
-                      placeholder="Enter task name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="project">Project</Label>
-                    <Select value={newTask.project_id} onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name} - {project.service}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assignee">Assignee</Label>
-                    <Select value={newTask.assignee_id} onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="deadline">Deadline</Label>
-                      <Input
-                        id="deadline"
-                        type="date"
-                        value={newTask.deadline}
-                        onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="estimated-duration">Estimated Hours</Label>
-                      <Input
-                        id="estimated-duration"
-                        type="number"
-                        step="0.5"
-                        value={newTask.estimated_duration}
-                        onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
-                        placeholder="0.0"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateTask} disabled={createTaskMutation.isPending}>
-                      {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
+        <TasksHeader
+          globalServiceFilter={globalServiceFilter}
+          setGlobalServiceFilter={setGlobalServiceFilter}
+          services={services}
+          canCreate={hasOperationAccess('tasks', 'create')}
+          onCreateTask={() => setIsCreateDialogOpen(true)}
+        />
 
         {/* Filters Section */}
         <Card>

@@ -37,8 +37,6 @@ interface SprintsFiltersProps {
   setSelectedAssigner: (value: string) => void;
   selectedSprintLeader: string;
   setSelectedSprintLeader: (value: string) => void;
-  selectedService: string;
-  setSelectedService: (value: string) => void;
   selectedStatus: string;
   setSelectedStatus: (value: string) => void;
   selectedYear: string;
@@ -73,8 +71,6 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
   setSelectedAssigner,
   selectedSprintLeader,
   setSelectedSprintLeader,
-  selectedService,
-  setSelectedService,
   selectedStatus,
   setSelectedStatus,
   selectedYear,
@@ -157,7 +153,7 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
         </div>
 
         {/* Second row - Sprint and Task-based filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Sprint Leader</label>
             <Select value={selectedSprintLeader} onValueChange={setSelectedSprintLeader}>
@@ -225,23 +221,6 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
               </SelectContent>
             </Select>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Service</label>
-            <Select value={selectedService} onValueChange={setSelectedService}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Services" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Services</SelectItem>
-                {services.map((service) => (
-                  <SelectItem key={service.id} value={service.name}>
-                    {service.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
         
         {hasActiveFilters && (
@@ -282,11 +261,6 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
             {selectedAssignee !== 'all' && (
               <Badge variant="secondary">
                 Assignee: {employees.find(e => e.id === selectedAssignee)?.name}
-              </Badge>
-            )}
-            {selectedService !== 'all' && (
-              <Badge variant="secondary">
-                Task Service: {services.find(s => s.name === selectedService)?.name}
               </Badge>
             )}
           </div>
