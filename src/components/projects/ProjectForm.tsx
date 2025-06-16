@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,6 +93,17 @@ const ProjectForm = ({
   employees
 }: ProjectFormProps) => {
   const { createProjectMutation, updateProjectMutation } = useProjectOperations();
+
+  // Available status options including new ones
+  const statusOptions = [
+    'Active',
+    'On Hold', 
+    'Completed',
+    'Imp',
+    'On-Head',
+    'Targeted',
+    'OverDue'
+  ];
 
   // Fetch clients and services for dropdowns
   const { data: clients = [] } = useQuery({
@@ -431,9 +443,11 @@ const ProjectForm = ({
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="On Hold">On Hold</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

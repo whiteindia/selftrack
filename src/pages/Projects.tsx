@@ -267,7 +267,7 @@ const Projects = () => {
       hourly_rate: newProject.service === 'BRD' ? 0 : newProject.hourly_rate,
       project_amount: newProject.billing_type === 'Fixed' || newProject.service === 'BRD' ? newProject.project_amount : null,
       start_date: newProject.start_date || null,
-      deadline: newProject.billing_type === 'Fixed' && newProject.deadline ? newProject.deadline : null,
+      deadline: newProject.deadline || null, // Ensure deadline is passed correctly
       assignee_employee_id: newProject.assignee_employee_id || null
     };
     
@@ -322,7 +322,7 @@ const Projects = () => {
         hourly_rate: editingProject.service === 'BRD' ? 0 : editingProject.hourly_rate,
         project_amount: editBillingType === 'Fixed' || editingProject.service === 'BRD' ? editingProject.project_amount : null,
         start_date: editingProject.start_date || null,
-        deadline: editBillingType === 'Fixed' && editingProject.deadline ? editingProject.deadline : null,
+        deadline: editingProject.deadline || null, // Ensure deadline is passed correctly
         status: editingProject.status,
         assignee_employee_id: editingProject.assignee_employee_id || null
       };
