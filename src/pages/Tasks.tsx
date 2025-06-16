@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -372,13 +373,13 @@ const Tasks = () => {
 
   return (
     <Navigation>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-3xl font-bold">Tasks</h1>
           {hasOperationAccess('tasks', 'create') && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Task
                 </Button>
@@ -563,79 +564,94 @@ const Tasks = () => {
           <div className="grid gap-4">
             {filteredTasks.map((task) => (
               <Card key={task.id} className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{task.name}</CardTitle>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
-                        <div className="flex items-center">
-                          <Building className="h-4 w-4 mr-1" />
-                          {task.project_name || 'No Project'}
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col gap-4">
+                    {/* Task Title and Basic Info - Always on top */}
+                    <div className="flex flex-col gap-2">
+                      <CardTitle className="text-lg leading-tight">{task.name}</CardTitle>
+                      
+                      {/* Task Details - Stack on mobile, wrap on larger screens */}
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Building className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{task.project_name || 'No Project'}</span>
                         </div>
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 mr-1" />
-                          {task.assignee?.name || 'Unassigned'}
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
                         </div>
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {task.total_logged_hours?.toFixed(2) || '0.00'}h logged
-                          {task.estimated_duration && ` / ${task.estimated_duration}h estimated`}
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4 flex-shrink-0" />
+                          <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
+                          {task.estimated_duration && <span> / {task.estimated_duration}h estimated</span>}
                         </div>
                         {task.deadline && (
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-1" />
-                            Due: {format(new Date(task.deadline), 'MMM d, yyyy')}
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 flex-shrink-0" />
+                            <span>Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(task.status)}>
-                        {task.status}
-                      </Badge>
-                      {task.status === 'In Progress' && (
-                        <TimeTrackerWithComment 
-                          task={{ id: task.id, name: task.name }}
-                          onSuccess={handleTimeUpdate}
-                        />
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                      </Button>
-                      {hasOperationAccess('tasks', 'update') && (
+                    
+                    {/* Status Badge and Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                      {/* Status Badge - Full width on mobile */}
+                      <div className="flex items-start">
+                        <Badge className={`${getStatusColor(task.status)} w-full sm:w-auto justify-center sm:justify-start`}>
+                          {task.status}
+                        </Badge>
+                      </div>
+                      
+                      {/* Action Buttons - Stack on mobile, align right on larger screens */}
+                      <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
+                        {task.status === 'In Progress' && (
+                          <TimeTrackerWithComment 
+                            task={{ id: task.id, name: task.name }}
+                            onSuccess={handleTimeUpdate}
+                          />
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setEditingTask(task)}
+                          onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                          className="flex-shrink-0"
                         >
-                          <Edit className="h-4 w-4" />
+                          <MessageSquare className="h-4 w-4" />
                         </Button>
-                      )}
-                      {hasOperationAccess('tasks', 'delete') && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deleteTaskMutation.mutate(task.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                        {hasOperationAccess('tasks', 'update') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingTask(task)}
+                            className="flex-shrink-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {hasOperationAccess('tasks', 'delete') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteTaskMutation.mutate(task.id)}
+                            className="flex-shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
                 
                 {expandedTask === task.id && (
-                  <CardContent className="border-t">
+                  <CardContent className="border-t pt-4">
                     <div className="space-y-4">
                       {hasOperationAccess('tasks', 'update') && (
-                        <div className="flex items-center space-x-2">
-                          <Label htmlFor="status">Status:</Label>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
                           <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
-                            <SelectTrigger className="w-40">
+                            <SelectTrigger className="w-full sm:w-40">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
