@@ -54,6 +54,17 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
   availableYears,
   onClearFilters
 }) => {
+  // Available status options including new ones
+  const statusOptions = [
+    'Active',
+    'On Hold', 
+    'Completed',
+    'Imp',
+    'On-Head',
+    'Targeted',
+    'OverDue'
+  ];
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -96,9 +107,11 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="On Hold">On Hold</SelectItem>
+                {statusOptions.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {status}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
