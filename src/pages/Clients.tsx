@@ -23,6 +23,12 @@ interface Client {
   company: string | null;
   created_at: string;
   updated_at: string;
+  services?: string[];
+}
+
+interface Service {
+  id: string;
+  name: string;
 }
 
 const Clients = () => {
@@ -30,7 +36,8 @@ const Clients = () => {
     name: '',
     email: '',
     phone: '',
-    company: ''
+    company: '',
+    services: [] as string[]
   });
   
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -38,6 +45,7 @@ const Clients = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
+  const [selectedService, setSelectedService] = useState('all');
 
   const { hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   
@@ -48,6 +56,20 @@ const Clients = () => {
   const canRead = hasOperationAccess('clients', 'read');
 
   console.log('Clients page permissions:', { canCreate, canUpdate, canDelete, canRead });
+
+  // Fetch services
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      return data as Service[];
+    }
+  });
 
   const { data: clients = [], isLoading, error: clientsError, refetch } = useQuery({
     queryKey: ['clients'],
@@ -69,12 +91,17 @@ const Clients = () => {
     enabled: canRead // Only fetch if user has read permission
   });
 
-  // Filter clients based on search term
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.company && client.company.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter clients based on search term and selected service
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.company && client.company.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesService = selectedService === 'all' || 
+      (client.services && client.services.includes(selectedService));
+    
+    return matchesSearch && matchesService;
+  });
 
   const handleCreateClient = async () => {
     if (!canCreate) {
@@ -83,14 +110,22 @@ const Clients = () => {
     }
 
     try {
+      const clientData = {
+        name: newClient.name,
+        email: newClient.email,
+        phone: newClient.phone || null,
+        company: newClient.company || null,
+        services: newClient.services
+      };
+
       const { error } = await supabase
         .from('clients')
-        .insert([newClient]);
+        .insert([clientData]);
 
       if (error) throw error;
 
       toast.success('Client created successfully');
-      setNewClient({ name: '', email: '', phone: '', company: '' });
+      setNewClient({ name: '', email: '', phone: '', company: '', services: [] });
       setIsDialogOpen(false);
       refetch();
     } catch (error: any) {
@@ -114,7 +149,8 @@ const Clients = () => {
           name: editingClient.name,
           email: editingClient.email,
           phone: editingClient.phone,
-          company: editingClient.company
+          company: editingClient.company,
+          services: editingClient.services
         })
         .eq('id', editingClient.id);
 
@@ -151,6 +187,29 @@ const Clients = () => {
     } catch (error: any) {
       console.error('Error deleting client:', error);
       toast.error('Failed to delete client: ' + error.message);
+    }
+  };
+
+  const handleServiceToggle = (serviceId: string, isEditing = false) => {
+    if (isEditing && editingClient) {
+      const currentServices = editingClient.services || [];
+      const updatedServices = currentServices.includes(serviceId)
+        ? currentServices.filter(id => id !== serviceId)
+        : [...currentServices, serviceId];
+      
+      setEditingClient({
+        ...editingClient,
+        services: updatedServices
+      });
+    } else {
+      const updatedServices = newClient.services.includes(serviceId)
+        ? newClient.services.filter(id => id !== serviceId)
+        : [...newClient.services, serviceId];
+      
+      setNewClient({
+        ...newClient,
+        services: updatedServices
+      });
     }
   };
 
@@ -250,6 +309,25 @@ const Clients = () => {
                       placeholder="Company name"
                     />
                   </div>
+                  <div>
+                    <Label>Services</Label>
+                    <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                      {services.map((service) => (
+                        <div key={service.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`service-${service.id}`}
+                            checked={newClient.services.includes(service.id)}
+                            onChange={() => handleServiceToggle(service.id)}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`service-${service.id}`} className="text-sm">
+                            {service.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex justify-end space-x-2">
                     <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                       Cancel
@@ -280,6 +358,19 @@ const Clients = () => {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Select value={selectedService} onValueChange={setSelectedService}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Services</SelectItem>
+                    {services.map((service) => (
+                      <SelectItem key={service.id} value={service.id}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Sort by" />
@@ -312,6 +403,7 @@ const Clients = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Company</TableHead>
+                  <TableHead>Services</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -323,6 +415,22 @@ const Clients = () => {
                     <TableCell>{client.email}</TableCell>
                     <TableCell>{client.phone || '-'}</TableCell>
                     <TableCell>{client.company || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {client.services && client.services.length > 0 ? (
+                          client.services.map((serviceId) => {
+                            const service = services.find(s => s.id === serviceId);
+                            return service ? (
+                              <Badge key={serviceId} variant="secondary" className="text-xs">
+                                {service.name}
+                              </Badge>
+                            ) : null;
+                          })
+                        ) : (
+                          <span className="text-gray-500">-</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{new Date(client.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
@@ -400,6 +508,25 @@ const Clients = () => {
                     onChange={(e) => setEditingClient({...editingClient, company: e.target.value})}
                     placeholder="Company name"
                   />
+                </div>
+                <div>
+                  <Label>Services</Label>
+                  <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                    {services.map((service) => (
+                      <div key={service.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`edit-service-${service.id}`}
+                          checked={(editingClient.services || []).includes(service.id)}
+                          onChange={() => handleServiceToggle(service.id, true)}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor={`edit-service-${service.id}`} className="text-sm">
+                          {service.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
