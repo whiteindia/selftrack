@@ -10,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit, Filter } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit, Filter, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,7 +68,7 @@ const Tasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilters, setStatusFilters] = useState<string[]>(['all']);
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
@@ -78,6 +80,17 @@ const Tasks = () => {
     deadline: '',
     estimated_duration: ''
   });
+
+  // Define all available status options
+  const statusOptions = [
+    'Not Started',
+    'In Progress', 
+    'Completed',
+    'On Hold',
+    'On-Head',
+    'Targeted',
+    'Imp'
+  ];
 
   // Check if user has access to tasks page
   console.log('=== Tasks Page Access Check ===');
@@ -224,12 +237,12 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
-  // Filter tasks based on filters
+  // Filter tasks based on filters - updated to handle multi-select status
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
       const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (task.project_name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+      const matchesStatus = statusFilters.includes('all') || statusFilters.includes(task.status);
       const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
       const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
       const matchesService = globalServiceFilter === 'all' || task.project_service === globalServiceFilter;
@@ -240,7 +253,7 @@ const Tasks = () => {
       
       return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
     });
-  }, [tasks, searchTerm, statusFilter, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
+  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
 
   // Create task mutation
   const createTaskMutation = useMutation({
@@ -351,6 +364,9 @@ const Tasks = () => {
       case 'In Progress': return 'bg-blue-500';
       case 'Completed': return 'bg-green-500';
       case 'On Hold': return 'bg-yellow-500';
+      case 'On-Head': return 'bg-purple-500';
+      case 'Targeted': return 'bg-orange-500';
+      case 'Imp': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
@@ -361,11 +377,27 @@ const Tasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('all');
+    setStatusFilters(['all']);
     setAssigneeFilter('all');
     setProjectFilter('all');
     setGlobalServiceFilter('all');
     setGlobalClientFilter('all');
+  };
+
+  const handleStatusFilterChange = (status: string, checked: boolean) => {
+    if (status === 'all') {
+      setStatusFilters(checked ? ['all'] : []);
+    } else {
+      setStatusFilters(prev => {
+        const newFilters = prev.filter(f => f !== 'all');
+        if (checked) {
+          return [...newFilters, status];
+        } else {
+          const filtered = newFilters.filter(f => f !== status);
+          return filtered.length === 0 ? ['all'] : filtered;
+        }
+      });
+    }
   };
 
   if (privilegesLoading) {
@@ -443,18 +475,45 @@ const Tasks = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status-filter">Status</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Not Started">Not Started</SelectItem>
-                    <SelectItem value="In Progress">In Progress</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                    <SelectItem value="On Hold">On Hold</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      {statusFilters.includes('all') 
+                        ? 'All Statuses' 
+                        : statusFilters.length === 1 
+                          ? statusFilters[0]
+                          : `${statusFilters.length} selected`
+                      }
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-3 bg-white border shadow-lg z-50">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="status-all"
+                          checked={statusFilters.includes('all')}
+                          onCheckedChange={(checked) => handleStatusFilterChange('all', !!checked)}
+                        />
+                        <Label htmlFor="status-all" className="text-sm font-medium">
+                          All Statuses
+                        </Label>
+                      </div>
+                      {statusOptions.map((status) => (
+                        <div key={status} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`status-${status}`}
+                            checked={statusFilters.includes(status)}
+                            onCheckedChange={(checked) => handleStatusFilterChange(status, !!checked)}
+                          />
+                          <Label htmlFor={`status-${status}`} className="text-sm">
+                            {status}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="assignee-filter">Assignee</Label>
@@ -644,6 +703,98 @@ const Tasks = () => {
           </div>
         )}
 
+        {/* Create Task Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Task</DialogTitle>
+              <DialogDescription>
+                Add a new task to the system.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="task-name">Task Name</Label>
+                <Input
+                  id="task-name"
+                  placeholder="Enter task name"
+                  value={newTask.name}
+                  onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project">Project</Label>
+                <Select 
+                  value={newTask.project_id} 
+                  onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name} - {project.service}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="assignee">Assignee</Label>
+                <Select 
+                  value={newTask.assignee_id} 
+                  onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deadline">Deadline</Label>
+                  <Input
+                    id="deadline"
+                    type="date"
+                    value={newTask.deadline}
+                    onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="estimated-duration">Estimated Hours</Label>
+                  <Input
+                    id="estimated-duration"
+                    type="number"
+                    step="0.5"
+                    value={newTask.estimated_duration}
+                    onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
+                    placeholder="0.0"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateTask}
+                  disabled={createTaskMutation.isPending}
+                >
+                  {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Edit Task Dialog */}
         {editingTask && (
           <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
@@ -691,10 +842,11 @@ const Tasks = () => {
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Not Started">Not Started</SelectItem>
-                      <SelectItem value="In Progress">In Progress</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                      <SelectItem value="On Hold">On Hold</SelectItem>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
