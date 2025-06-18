@@ -1099,7 +1099,14 @@ export type Database = {
     Enums: {
       crud_operation: "create" | "read" | "update" | "delete"
       invoice_status: "Draft" | "Sent" | "Paid" | "Overdue"
-      task_status: "Not Started" | "In Progress" | "Completed"
+      task_status:
+        | "Not Started"
+        | "In Progress"
+        | "Completed"
+        | "On Hold"
+        | "On-Head"
+        | "Targeted"
+        | "Imp"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1217,7 +1224,15 @@ export const Constants = {
     Enums: {
       crud_operation: ["create", "read", "update", "delete"],
       invoice_status: ["Draft", "Sent", "Paid", "Overdue"],
-      task_status: ["Not Started", "In Progress", "Completed"],
+      task_status: [
+        "Not Started",
+        "In Progress",
+        "Completed",
+        "On Hold",
+        "On-Head",
+        "Targeted",
+        "Imp",
+      ],
     },
   },
 } as const
