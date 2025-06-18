@@ -7,49 +7,34 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Filter } from 'lucide-react';
 
-interface Client {
-  id: string;
-  name: string;
-}
-
 interface Service {
   id: string;
   name: string;
 }
 
 interface ProjectFiltersProps {
-  selectedClient: string;
-  setSelectedClient: (value: string) => void;
   selectedStatus: string;
   setSelectedStatus: (value: string) => void;
-  selectedType: string;
-  setSelectedType: (value: string) => void;
   selectedYear: string;
   setSelectedYear: (value: string) => void;
   selectedMonth: string;
   setSelectedMonth: (value: string) => void;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
-  clients: Client[];
   services: Service[];
   availableYears: number[];
   onClearFilters: () => void;
 }
 
 const ProjectFilters: React.FC<ProjectFiltersProps> = ({
-  selectedClient,
-  setSelectedClient,
   selectedStatus,
   setSelectedStatus,
-  selectedType,
-  setSelectedType,
   selectedYear,
   setSelectedYear,
   selectedMonth,
   setSelectedMonth,
   searchTerm,
   setSearchTerm,
-  clients,
   services,
   availableYears,
   onClearFilters
@@ -74,7 +59,7 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div className="space-y-2">
             <Label>Search</Label>
             <Input
@@ -82,22 +67,6 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Client</Label>
-            <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger>
-                <SelectValue placeholder="All clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div className="space-y-2">
             <Label>Status</Label>
@@ -110,22 +79,6 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
                 {statusOptions.map((status) => (
                   <SelectItem key={status} value={status}>
                     {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Type</Label>
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger>
-                <SelectValue placeholder="All types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {services.map((service) => (
-                  <SelectItem key={service.id} value={service.name}>
-                    {service.name}
                   </SelectItem>
                 ))}
               </SelectContent>

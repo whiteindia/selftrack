@@ -79,14 +79,13 @@ const Projects = () => {
   const [uploadingBRD, setUploadingBRD] = useState(false);
   const [editBrdFile, setEditBrdFile] = useState<File | null>(null);
 
-  // Filter states
-  const [selectedClient, setSelectedClient] = useState('all');
+  // Filter states - updated to remove selectedClient and selectedType
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedService, setSelectedService] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
 
   const { createProjectMutation, updateProjectMutation, deleteProjectMutation } = useProjectOperations();
 
@@ -220,12 +219,11 @@ const Projects = () => {
     }
   });
 
-  // Filter projects based on selected filters
+  // Filter projects based on selected filters - updated filtering logic
   const filteredProjects = React.useMemo(() => {
     return projects.filter(project => {
-      const matchesClient = selectedClient === 'all' || project.client_id === selectedClient;
+      const matchesClient = clientFilter === 'all' || project.client_id === clientFilter;
       const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
-      const matchesService = selectedService === 'all' || project.service === selectedService;
       const matchesGlobalService = globalServiceFilter === 'all' || project.service === globalServiceFilter;
       const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            project.clients?.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -235,9 +233,9 @@ const Projects = () => {
       const matchesYear = selectedYear === 'all' || projectDate.getFullYear().toString() === selectedYear;
       const matchesMonth = selectedMonth === 'all' || (projectDate.getMonth() + 1).toString() === selectedMonth;
       
-      return matchesClient && matchesStatus && matchesService && matchesGlobalService && matchesSearch && matchesYear && matchesMonth;
+      return matchesClient && matchesStatus && matchesGlobalService && matchesSearch && matchesYear && matchesMonth;
     });
-  }, [projects, selectedClient, selectedStatus, selectedService, selectedYear, selectedMonth, searchTerm, globalServiceFilter]);
+  }, [projects, clientFilter, selectedStatus, selectedYear, selectedMonth, searchTerm, globalServiceFilter]);
 
   // Get unique years from projects
   const availableYears = React.useMemo(() => {
@@ -364,13 +362,12 @@ const Projects = () => {
   };
 
   const clearFilters = () => {
-    setSelectedClient('all');
     setSelectedStatus('all');
-    setSelectedService('all');
     setSelectedYear('all');
     setSelectedMonth('all');
     setSearchTerm('');
     setGlobalServiceFilter('all');
+    setClientFilter('all');
   };
 
   const handleEditProject = (project: ExtendedProjectData) => {
@@ -433,26 +430,24 @@ const Projects = () => {
         <ProjectsHeader
           globalServiceFilter={globalServiceFilter}
           setGlobalServiceFilter={setGlobalServiceFilter}
+          clientFilter={clientFilter}
+          setClientFilter={setClientFilter}
           services={services}
+          clients={clients}
           canCreate={canCreate}
           onCreateProject={() => setIsDialogOpen(true)}
           userRole={userRole}
         />
 
         <ProjectFilters
-          selectedClient={selectedClient}
-          setSelectedClient={setSelectedClient}
           selectedStatus={selectedStatus}
           setSelectedStatus={setSelectedStatus}
-          selectedType={selectedService}
-          setSelectedType={setSelectedService}
           selectedYear={selectedYear}
           setSelectedYear={setSelectedYear}
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
-          clients={clients}
           services={services}
           availableYears={availableYears}
           onClearFilters={clearFilters}

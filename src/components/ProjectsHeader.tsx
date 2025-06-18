@@ -9,10 +9,18 @@ interface Service {
   name: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 interface ProjectsHeaderProps {
   globalServiceFilter: string;
   setGlobalServiceFilter: (value: string) => void;
+  clientFilter: string;
+  setClientFilter: (value: string) => void;
   services: Service[];
+  clients: Client[];
   canCreate: boolean;
   onCreateProject: () => void;
   userRole?: string;
@@ -21,7 +29,10 @@ interface ProjectsHeaderProps {
 const ProjectsHeader: React.FC<ProjectsHeaderProps> = ({
   globalServiceFilter,
   setGlobalServiceFilter,
+  clientFilter,
+  setClientFilter,
   services,
+  clients,
   canCreate,
   onCreateProject,
   userRole
@@ -42,6 +53,22 @@ const ProjectsHeader: React.FC<ProjectsHeaderProps> = ({
                 {services.map((service) => (
                   <SelectItem key={service.id} value={service.name}>
                     {service.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">Client:</span>
+            <Select value={clientFilter} onValueChange={setClientFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Clients" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
                   </SelectItem>
                 ))}
               </SelectContent>
