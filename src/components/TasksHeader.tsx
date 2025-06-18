@@ -14,13 +14,25 @@ interface Client {
   name: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  service: string;
+  clients: {
+    name: string;
+  } | null;
+}
+
 interface TasksHeaderProps {
   globalServiceFilter: string;
   setGlobalServiceFilter: (value: string) => void;
   globalClientFilter: string;
   setGlobalClientFilter: (value: string) => void;
+  projectFilter: string;
+  setProjectFilter: (value: string) => void;
   services: Service[];
   clients: Client[];
+  projects: Project[];
   canCreate: boolean;
   onCreateTask: () => void;
 }
@@ -30,8 +42,11 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
   setGlobalServiceFilter,
   globalClientFilter,
   setGlobalClientFilter,
+  projectFilter,
+  setProjectFilter,
   services,
   clients,
+  projects,
   canCreate,
   onCreateTask
 }) => {
@@ -67,6 +82,22 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
                 {clients.map((client) => (
                   <SelectItem key={client.id} value={client.id}>
                     {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">Project:</span>
+            <Select value={projectFilter} onValueChange={setProjectFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -448,8 +448,11 @@ const Tasks = () => {
           setGlobalServiceFilter={setGlobalServiceFilter}
           globalClientFilter={globalClientFilter}
           setGlobalClientFilter={setGlobalClientFilter}
+          projectFilter={projectFilter}
+          setProjectFilter={setProjectFilter}
           services={services}
           clients={clients}
+          projects={projects}
           canCreate={hasOperationAccess('tasks', 'create')}
           onCreateTask={() => setIsCreateDialogOpen(true)}
         />
@@ -463,7 +466,7 @@ const Tasks = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="search">Search</Label>
                 <Input
@@ -526,38 +529,6 @@ const Tasks = () => {
                     {employees.map((employee) => (
                       <SelectItem key={employee.id} value={employee.id}>
                         {employee.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-filter">Project</Label>
-                <Select value={projectFilter} onValueChange={setProjectFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Projects" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Projects</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="client-filter">Client</Label>
-                <Select value={globalClientFilter} onValueChange={setGlobalClientFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Clients" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
