@@ -68,8 +68,11 @@ const Tasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<string[]>(['On-Head', 'Targeted', 'Imp']);
+  const [statusFilters, setStatusFilters] = useState<string[]>(['all']);
   const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
+  const [globalClientFilter, setGlobalClientFilter] = useState('all');
   const [newTask, setNewTask] = useState({
     name: '',
     project_id: '',
@@ -374,8 +377,11 @@ const Tasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilters(['On-Head', 'Targeted', 'Imp']);
+    setStatusFilters(['all']);
     setAssigneeFilter('all');
+    setProjectFilter('all');
+    setGlobalServiceFilter('all');
+    setGlobalClientFilter('all');
   };
 
   const handleStatusFilterChange = (status: string, checked: boolean) => {
