@@ -36,7 +36,7 @@ export const useSubtasks = (taskId: string) => {
       console.log('Fetching subtasks for task:', taskId);
       
       const { data: subtasksData, error: subtasksError } = await supabase
-        .from('subtasks')
+        .from('subtasks' as any)
         .select(`
           *,
           assignee:employees!assignee_id (
@@ -56,7 +56,7 @@ export const useSubtasks = (taskId: string) => {
 
       // Calculate total logged hours for each subtask
       const subtasksWithHours = await Promise.all(
-        (subtasksData || []).map(async (subtask) => {
+        (subtasksData || []).map(async (subtask: any) => {
           const { data: timeEntries, error: timeError } = await supabase
             .from('time_entries')
             .select('duration_minutes')
@@ -96,7 +96,7 @@ export const useSubtasks = (taskId: string) => {
       }
 
       const { data, error } = await supabase
-        .from('subtasks')
+        .from('subtasks' as any)
         .insert([{
           ...subtaskData,
           assigner_id: employee.id,
@@ -123,7 +123,7 @@ export const useSubtasks = (taskId: string) => {
   const updateSubtaskMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
       const { data, error } = await supabase
-        .from('subtasks')
+        .from('subtasks' as any)
         .update(updates)
         .eq('id', id)
         .select()
@@ -146,7 +146,7 @@ export const useSubtasks = (taskId: string) => {
   const deleteSubtaskMutation = useMutation({
     mutationFn: async (subtaskId: string) => {
       const { error } = await supabase
-        .from('subtasks')
+        .from('subtasks' as any)
         .delete()
         .eq('id', subtaskId);
       

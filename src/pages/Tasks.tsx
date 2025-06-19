@@ -386,7 +386,7 @@ const Tasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilters(['all']);
+    setStatusFilters(['On-Head','Targeted','Imp']);
     setAssigneeFilter('all');
     setProjectFilter('all');
     setGlobalServiceFilter('all');
@@ -813,6 +813,31 @@ const Tasks = () => {
           </Dialog>
         )}
       </div>
+
+      {/* Subtask Dialog */}
+      <SubtaskDialog
+        isOpen={subtaskDialogOpen}
+        onClose={() => {
+          setSubtaskDialogOpen(false);
+          setEditingSubtask(null);
+          setCurrentTaskId('');
+        }}
+        onSave={(subtaskData) => {
+          if (editingSubtask) {
+            // Handle update
+            console.log('Update subtask:', subtaskData);
+          } else {
+            // Handle create
+            console.log('Create subtask:', subtaskData);
+          }
+          setSubtaskDialogOpen(false);
+          setEditingSubtask(null);
+          setCurrentTaskId('');
+        }}
+        taskId={currentTaskId}
+        editingSubtask={editingSubtask}
+        employees={employees}
+      />
     </Navigation>
   );
 };

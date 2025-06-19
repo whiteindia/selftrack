@@ -738,6 +738,83 @@ export type Database = {
           },
         ]
       }
+      subtasks: {
+        Row: {
+          assignee_id: string | null
+          assigner_id: string | null
+          completion_date: string | null
+          created_at: string
+          date: string | null
+          deadline: string | null
+          estimated_duration: number | null
+          hours: number | null
+          id: string
+          name: string
+          status: string
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          assigner_id?: string | null
+          completion_date?: string | null
+          created_at?: string
+          date?: string | null
+          deadline?: string | null
+          estimated_duration?: number | null
+          hours?: number | null
+          id?: string
+          name: string
+          status?: string
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          assigner_id?: string | null
+          completion_date?: string | null
+          created_at?: string
+          date?: string | null
+          deadline?: string | null
+          estimated_duration?: number | null
+          hours?: number | null
+          id?: string
+          name?: string
+          status?: string
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtasks_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtasks_assigner_id_fkey"
+            columns: ["assigner_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_managers"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_comments: {
         Row: {
           comment: string
