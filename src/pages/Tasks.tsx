@@ -20,6 +20,9 @@ import { usePrivileges } from '@/hooks/usePrivileges';
 import TaskHistory from '@/components/TaskHistory';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import TasksHeader from '@/components/TasksHeader';
+import SubtaskCard from '@/components/SubtaskCard';
+import SubtaskDialog from '@/components/SubtaskDialog';
+import { useSubtasks } from '@/hooks/useSubtasks';
 
 interface Task {
   id: string;
@@ -73,6 +76,12 @@ const Tasks = () => {
   const [projectFilter, setProjectFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
   const [globalClientFilter, setGlobalClientFilter] = useState('all');
+  
+  // Subtask states
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string>('');
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
+  
   const [newTask, setNewTask] = useState({
     name: '',
     project_id: '',
@@ -400,6 +409,18 @@ const Tasks = () => {
     }
   };
 
+  const handleCreateSubtask = (taskId: string) => {
+    setCurrentTaskId(taskId);
+    setEditingSubtask(null);
+    setSubtaskDialogOpen(true);
+  };
+
+  const handleEditSubtask = (taskId: string, subtask: any) => {
+    setCurrentTaskId(taskId);
+    setEditingSubtask(subtask);
+    setSubtaskDialogOpen(true);
+  };
+
   if (privilegesLoading) {
     return (
       <Navigation>
@@ -564,112 +585,20 @@ const Tasks = () => {
         ) : (
           <div className="grid gap-4">
             {filteredTasks.map((task) => (
-              <Card key={task.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col gap-4">
-                    {/* Task Title and Basic Info - Always on top */}
-                    <div className="flex flex-col gap-2">
-                      <CardTitle className="text-lg leading-tight">{task.name}</CardTitle>
-                      
-                      {/* Task Details - Stack on mobile, wrap on larger screens */}
-                      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Building className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{task.project_name || 'No Project'}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 flex-shrink-0" />
-                          <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
-                          {task.estimated_duration && <span> / {task.estimated_duration}h estimated</span>}
-                        </div>
-                        {task.deadline && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4 flex-shrink-0" />
-                            <span>Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Status Badge and Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                      {/* Status Badge - Full width on mobile */}
-                      <div className="flex items-start">
-                        <Badge className={`${getStatusColor(task.status)} w-full sm:w-auto justify-center sm:justify-start`}>
-                          {task.status}
-                        </Badge>
-                      </div>
-                      
-                      {/* Action Buttons - Stack on mobile, align right on larger screens */}
-                      <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
-                        {task.status === 'In Progress' && (
-                          <TimeTrackerWithComment 
-                            task={{ id: task.id, name: task.name }}
-                            onSuccess={handleTimeUpdate}
-                          />
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                          className="flex-shrink-0"
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
-                        {hasOperationAccess('tasks', 'update') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingTask(task)}
-                            className="flex-shrink-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {hasOperationAccess('tasks', 'delete') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteTaskMutation.mutate(task.id)}
-                            className="flex-shrink-0"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                {expandedTask === task.id && (
-                  <CardContent className="border-t pt-4">
-                    <div className="space-y-4">
-                      {hasOperationAccess('tasks', 'update') && (
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                          <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
-                          <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
-                            <SelectTrigger className="w-full sm:w-40">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Not Started">Not Started</SelectItem>
-                              <SelectItem value="In Progress">In Progress</SelectItem>
-                              <SelectItem value="Completed">Completed</SelectItem>
-                              <SelectItem value="On Hold">On Hold</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      
-                      <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
+              <TaskWithSubtasks
+                key={task.id}
+                task={task}
+                expandedTask={expandedTask}
+                setExpandedTask={setExpandedTask}
+                hasOperationAccess={hasOperationAccess}
+                handleStatusChange={handleStatusChange}
+                handleTimeUpdate={handleTimeUpdate}
+                deleteTaskMutation={deleteTaskMutation}
+                setEditingTask={setEditingTask}
+                onCreateSubtask={handleCreateSubtask}
+                onEditSubtask={handleEditSubtask}
+                employees={employees}
+              />
             ))}
           </div>
         )}
@@ -885,6 +814,209 @@ const Tasks = () => {
         )}
       </div>
     </Navigation>
+  );
+};
+
+// New component to handle task with its subtasks
+const TaskWithSubtasks: React.FC<{
+  task: Task;
+  expandedTask: string | null;
+  setExpandedTask: (id: string | null) => void;
+  hasOperationAccess: (resource: string, operation: string) => boolean;
+  handleStatusChange: (taskId: string, newStatus: string) => void;
+  handleTimeUpdate: () => void;
+  deleteTaskMutation: any;
+  setEditingTask: (task: Task) => void;
+  onCreateSubtask: (taskId: string) => void;
+  onEditSubtask: (taskId: string, subtask: any) => void;
+  employees: any[];
+}> = ({
+  task,
+  expandedTask,
+  setExpandedTask,
+  hasOperationAccess,
+  handleStatusChange,
+  handleTimeUpdate,
+  deleteTaskMutation,
+  setEditingTask,
+  onCreateSubtask,
+  onEditSubtask,
+  employees
+}) => {
+  const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Not Started': return 'bg-gray-500';
+      case 'In Progress': return 'bg-blue-500';
+      case 'Completed': return 'bg-green-500';
+      case 'On Hold': return 'bg-yellow-500';
+      case 'On-Head': return 'bg-purple-500';
+      case 'Targeted': return 'bg-orange-500';
+      case 'Imp': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const handleSubtaskStatusChange = (subtaskId: string, newStatus: string) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'Completed') {
+      updates.completion_date = new Date().toISOString();
+    } else if (newStatus !== 'Completed') {
+      updates.completion_date = null;
+    }
+    updateSubtaskMutation.mutate({ id: subtaskId, updates });
+  };
+
+  const handleSubtaskSave = (subtaskData: any) => {
+    if (subtaskData.id) {
+      updateSubtaskMutation.mutate({
+        id: subtaskData.id,
+        updates: subtaskData
+      });
+    } else {
+      createSubtaskMutation.mutate({
+        ...subtaskData,
+        task_id: task.id
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Card className="hover:shadow-md transition-shadow">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-4">
+            {/* Task Title and Basic Info - Always on top */}
+            <div className="flex flex-col gap-2">
+              <CardTitle className="text-lg leading-tight">{task.name}</CardTitle>
+              
+              {/* Task Details - Stack on mobile, wrap on larger screens */}
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <Building className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{task.project_name || 'No Project'}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-4 w-4 flex-shrink-0" />
+                  <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
+                  {task.estimated_duration && <span> / {task.estimated_duration}h estimated</span>}
+                </div>
+                {task.deadline && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                    <span>Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/*  Status Badge and Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              {/* Status Badge - Full width on mobile */}
+              <div className="flex items-start">
+                <Badge className={`${getStatusColor(task.status)} w-full sm:w-auto justify-center sm:justify-start`}>
+                  {task.status}
+                </Badge>
+              </div>
+              
+              {/* Action Buttons - Stack on mobile, align right on larger screens */}
+              <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
+                {task.status === 'In Progress' && (
+                  <TimeTrackerWithComment 
+                    task={{ id: task.id, name: task.name }}
+                    onSuccess={handleTimeUpdate}
+                  />
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCreateSubtask(task.id)}
+                  className="flex-shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                  className="flex-shrink-0"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+                {hasOperationAccess('tasks', 'update') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingTask(task)}
+                    className="flex-shrink-0"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+                {hasOperationAccess('tasks', 'delete') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => deleteTaskMutation.mutate(task.id)}
+                    className="flex-shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        
+        {expandedTask === task.id && (
+          <CardContent className="border-t pt-4">
+            <div className="space-y-4">
+              {hasOperationAccess('tasks', 'update') && (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
+                  <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Not Started">Not Started</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="On Hold">On Hold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Subtasks */}
+      {subtasks.length > 0 && (
+        <div className="space-y-2">
+          {subtasks.map((subtask) => (
+            <SubtaskCard
+              key={subtask.id}
+              subtask={subtask}
+              onEdit={(subtask) => onEditSubtask(task.id, subtask)}
+              onDelete={(id) => deleteSubtaskMutation.mutate(id)}
+              onStatusChange={handleSubtaskStatusChange}
+              onTimeUpdate={handleTimeUpdate}
+              canUpdate={hasOperationAccess('tasks', 'update')}
+              canDelete={hasOperationAccess('tasks', 'delete')}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
