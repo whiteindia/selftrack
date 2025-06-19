@@ -813,31 +813,6 @@ const Tasks = () => {
           </Dialog>
         )}
       </div>
-
-      {/* Subtask Dialog */}
-      <SubtaskDialog
-        isOpen={subtaskDialogOpen}
-        onClose={() => {
-          setSubtaskDialogOpen(false);
-          setEditingSubtask(null);
-          setCurrentTaskId('');
-        }}
-        onSave={(subtaskData) => {
-          if (editingSubtask) {
-            // Handle update
-            console.log('Update subtask:', subtaskData);
-          } else {
-            // Handle create
-            console.log('Create subtask:', subtaskData);
-          }
-          setSubtaskDialogOpen(false);
-          setEditingSubtask(null);
-          setCurrentTaskId('');
-        }}
-        taskId={currentTaskId}
-        editingSubtask={editingSubtask}
-        employees={employees}
-      />
     </Navigation>
   );
 };
@@ -870,6 +845,8 @@ const TaskWithSubtasks: React.FC<{
 }) => {
   const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
   const [showSubtasks, setShowSubtasks] = useState(false);
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -894,151 +871,205 @@ const TaskWithSubtasks: React.FC<{
     updateSubtaskMutation.mutate({ id: subtaskId, updates });
   };
 
+  const handleCreateSubtask = () => {
+    setEditingSubtask(null);
+    setSubtaskDialogOpen(true);
+  };
+
+  const handleEditSubtask = (subtask: any) => {
+    setEditingSubtask(subtask);
+    setSubtaskDialogOpen(true);
+  };
+
+  const handleSubtaskSave = (subtaskData: any) => {
+    if (editingSubtask) {
+      // Update existing subtask
+      updateSubtaskMutation.mutate({ 
+        id: editingSubtask.id, 
+        updates: {
+          name: subtaskData.name,
+          status: subtaskData.status,
+          assignee_id: subtaskData.assignee_id,
+          deadline: subtaskData.deadline,
+          estimated_duration: subtaskData.estimated_duration
+        }
+      });
+    } else {
+      // Create new subtask
+      createSubtaskMutation.mutate({
+        name: subtaskData.name,
+        status: subtaskData.status,
+        assignee_id: subtaskData.assignee_id,
+        deadline: subtaskData.deadline,
+        estimated_duration: subtaskData.estimated_duration,
+        task_id: task.id
+      });
+    }
+    setSubtaskDialogOpen(false);
+    setEditingSubtask(null);
+  };
+
   return (
-    <div className="space-y-2">
-      <Card className="hover:shadow-md transition-shadow">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-4">
-            {/* Task Title and Basic Info - Always on top */}
-            <div className="flex flex-col gap-2">
-              <CardTitle className="text-lg leading-tight">{task.name}</CardTitle>
-              
-              {/* Task Details - Stack on mobile, wrap on larger screens */}
-              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Building className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{task.project_name || 'No Project'}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <User className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-4 w-4 flex-shrink-0" />
-                  <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
-                  {task.estimated_duration && <span> / {task.estimated_duration}h estimated</span>}
-                </div>
-                {task.deadline && (
+    <>
+      <div className="space-y-2">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-4">
+              {/* Task Title and Basic Info - Always on top */}
+              <div className="flex flex-col gap-2">
+                <CardTitle className="text-lg leading-tight">{task.name}</CardTitle>
+                
+                {/* Task Details - Stack on mobile, wrap on larger screens */}
+                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
                   <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4 flex-shrink-0" />
-                    <span>Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
+                    <Building className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{task.project_name || 'No Project'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <User className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4 flex-shrink-0" />
+                    <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
+                    {task.estimated_duration && <span> / {task.estimated_duration}h estimated</span>}
+                  </div>
+                  {task.deadline && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4 flex-shrink-0" />
+                      <span>Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/*  Status Badge and Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                {/* Status Badge - Full width on mobile */}
+                <div className="flex items-start">
+                  <Badge className={`${getStatusColor(task.status)} w-full sm:w-auto justify-center sm:justify-start`}>
+                    {task.status}
+                  </Badge>
+                </div>
+                
+                {/* Action Buttons - Stack on mobile, align right on larger screens */}
+                <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
+                  {task.status === 'In Progress' && (
+                    <TimeTrackerWithComment 
+                      task={{ id: task.id, name: task.name }}
+                      onSuccess={handleTimeUpdate}
+                    />
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCreateSubtask}
+                    className="flex-shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  {subtasks.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowSubtasks(!showSubtasks)}
+                      className="flex-shrink-0"
+                    >
+                      {showSubtasks ? 'Hide' : 'Show'} Subtasks ({subtasks.length})
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                    className="flex-shrink-0"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                  {hasOperationAccess('tasks', 'update') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingTask(task)}
+                      className="flex-shrink-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {hasOperationAccess('tasks', 'delete') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteTaskMutation.mutate(task.id)}
+                      className="flex-shrink-0"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          
+          {expandedTask === task.id && (
+            <CardContent className="border-t pt-4">
+              <div className="space-y-4">
+                {hasOperationAccess('tasks', 'update') && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
+                    <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
+                      <SelectTrigger className="w-full sm:w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Not Started">Not Started</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="On Hold">On Hold</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
+                
+                <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
               </div>
-            </div>
-            
-            {/*  Status Badge and Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-              {/* Status Badge - Full width on mobile */}
-              <div className="flex items-start">
-                <Badge className={`${getStatusColor(task.status)} w-full sm:w-auto justify-center sm:justify-start`}>
-                  {task.status}
-                </Badge>
-              </div>
-              
-              {/* Action Buttons - Stack on mobile, align right on larger screens */}
-              <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
-                {task.status === 'In Progress' && (
-                  <TimeTrackerWithComment 
-                    task={{ id: task.id, name: task.name }}
-                    onSuccess={handleTimeUpdate}
-                  />
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onCreateSubtask(task.id)}
-                  className="flex-shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                {subtasks.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowSubtasks(!showSubtasks)}
-                    className="flex-shrink-0"
-                  >
-                    {showSubtasks ? 'Hide' : 'Show'} Subtasks ({subtasks.length})
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                  className="flex-shrink-0"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                </Button>
-                {hasOperationAccess('tasks', 'update') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingTask(task)}
-                    className="flex-shrink-0"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                )}
-                {hasOperationAccess('tasks', 'delete') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteTaskMutation.mutate(task.id)}
-                    className="flex-shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        
-        {expandedTask === task.id && (
-          <CardContent className="border-t pt-4">
-            <div className="space-y-4">
-              {hasOperationAccess('tasks', 'update') && (
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
-                  <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
-                    <SelectTrigger className="w-full sm:w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Not Started">Not Started</SelectItem>
-                      <SelectItem value="In Progress">In Progress</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                      <SelectItem value="On Hold">On Hold</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              
-              <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
-            </div>
-          </CardContent>
-        )}
-      </Card>
+            </CardContent>
+          )}
+        </Card>
 
-      {/* Subtasks - Only show when showSubtasks is true */}
-      {showSubtasks && subtasks.length > 0 && (
-        <div className="space-y-2">
-          {subtasks.map((subtask) => (
-            <SubtaskCard
-              key={subtask.id}
-              subtask={subtask}
-              onEdit={(subtask) => onEditSubtask(task.id, subtask)}
-              onDelete={(id) => deleteSubtaskMutation.mutate(id)}
-              onStatusChange={handleSubtaskStatusChange}
-              onTimeUpdate={handleTimeUpdate}
-              canUpdate={hasOperationAccess('tasks', 'update')}
-              canDelete={hasOperationAccess('tasks', 'delete')}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+        {/* Subtasks - Only show when showSubtasks is true */}
+        {showSubtasks && subtasks.length > 0 && (
+          <div className="space-y-2">
+            {subtasks.map((subtask) => (
+              <SubtaskCard
+                key={subtask.id}
+                subtask={subtask}
+                onEdit={handleEditSubtask}
+                onDelete={(id) => deleteSubtaskMutation.mutate(id)}
+                onStatusChange={handleSubtaskStatusChange}
+                onTimeUpdate={handleTimeUpdate}
+                canUpdate={hasOperationAccess('tasks', 'update')}
+                canDelete={hasOperationAccess('tasks', 'delete')}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Subtask Dialog for this specific task */}
+      <SubtaskDialog
+        isOpen={subtaskDialogOpen}
+        onClose={() => {
+          setSubtaskDialogOpen(false);
+          setEditingSubtask(null);
+        }}
+        onSave={handleSubtaskSave}
+        taskId={task.id}
+        editingSubtask={editingSubtask}
+        employees={employees}
+        isLoading={createSubtaskMutation.isPending || updateSubtaskMutation.isPending}
+      />
+    </>
   );
 };
 
