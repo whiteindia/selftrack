@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Filter } from 'lucide-react';
+import ReactSelect from 'react-select';
 
 interface Service {
   id: string;
@@ -13,8 +14,8 @@ interface Service {
 }
 
 interface ProjectFiltersProps {
-  selectedStatus: string;
-  setSelectedStatus: (value: string) => void;
+  selectedStatus: string[];
+  setSelectedStatus: (value: string[]) => void;
   selectedYear: string;
   setSelectedYear: (value: string) => void;
   selectedMonth: string;
@@ -70,19 +71,28 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
           </div>
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {statusOptions.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <ReactSelect
+  isMulti
+  options={[
+    { value: '', label: 'All Statuses' },
+    ...statusOptions.map(s => ({ value: s, label: s })),
+  ]}
+  value={
+    selectedStatus.length === 0
+      ? [{ value: '', label: 'All Statuses' }]
+      : statusOptions
+          .filter(s => selectedStatus.includes(s))
+          .map(s => ({ value: s, label: s }))
+  }
+  onChange={opts => {
+    if (opts.some(o => o.value === '')) {
+      setSelectedStatus([]);
+    } else {
+      setSelectedStatus(opts.map(o => o.value));
+    }
+  }}
+  placeholder="All Statuses"
+/>
           </div>
           <div className="space-y-2">
             <Label>Year</Label>
