@@ -869,6 +869,7 @@ const TaskWithSubtasks: React.FC<{
   employees
 }) => {
   const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
+  const [showSubtasks, setShowSubtasks] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -891,20 +892,6 @@ const TaskWithSubtasks: React.FC<{
       updates.completion_date = null;
     }
     updateSubtaskMutation.mutate({ id: subtaskId, updates });
-  };
-
-  const handleSubtaskSave = (subtaskData: any) => {
-    if (subtaskData.id) {
-      updateSubtaskMutation.mutate({
-        id: subtaskData.id,
-        updates: subtaskData
-      });
-    } else {
-      createSubtaskMutation.mutate({
-        ...subtaskData,
-        task_id: task.id
-      });
-    }
   };
 
   return (
@@ -965,6 +952,16 @@ const TaskWithSubtasks: React.FC<{
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
+                {subtasks.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSubtasks(!showSubtasks)}
+                    className="flex-shrink-0"
+                  >
+                    {showSubtasks ? 'Hide' : 'Show'} Subtasks ({subtasks.length})
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1024,8 +1021,8 @@ const TaskWithSubtasks: React.FC<{
         )}
       </Card>
 
-      {/* Subtasks */}
-      {subtasks.length > 0 && (
+      {/* Subtasks - Only show when showSubtasks is true */}
+      {showSubtasks && subtasks.length > 0 && (
         <div className="space-y-2">
           {subtasks.map((subtask) => (
             <SubtaskCard
