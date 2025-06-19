@@ -108,6 +108,7 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
                 <TimeTrackerWithComment 
                   task={{ id: subtask.id, name: subtask.name }}
                   onSuccess={onTimeUpdate}
+                  isSubtask={true}
                 />
               )}
               <Button

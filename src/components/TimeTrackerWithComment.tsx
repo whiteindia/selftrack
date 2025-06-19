@@ -19,6 +19,7 @@ interface Task {
 interface TimeTrackerWithCommentProps {
   task: Task;
   onSuccess: () => void;
+  isSubtask?: boolean; // Add this prop to identify if it's a subtask
 }
 
 interface ActiveTimer {
@@ -28,7 +29,11 @@ interface ActiveTimer {
   entryId: string;
 }
 
-const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, onSuccess }) => {
+const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ 
+  task, 
+  onSuccess, 
+  isSubtask = false 
+}) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
@@ -91,18 +96,39 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
         throw new Error('Employee record not found. Please contact admin.');
       }
 
-      // Get task and project details for activity logging
-      const { data: taskDetails, error: taskError } = await supabase
-        .from('tasks')
-        .select(`
-          name,
-          projects(name)
-        `)
-        .eq('id', task.id)
-        .single();
+      // Get task/subtask details for activity logging
+      let taskDetails;
+      if (isSubtask) {
+        const { data: subtaskData, error: subtaskError } = await supabase
+          .from('subtasks')
+          .select(`
+            name,
+            tasks!inner(
+              name,
+              projects!inner(name)
+            )
+          `)
+          .eq('id', task.id)
+          .single();
 
-      if (taskError) {
-        throw new Error('Failed to fetch task details');
+        if (subtaskError) {
+          throw new Error('Failed to fetch subtask details');
+        }
+        taskDetails = subtaskData;
+      } else {
+        const { data: taskData, error: taskError } = await supabase
+          .from('tasks')
+          .select(`
+            name,
+            projects(name)
+          `)
+          .eq('id', task.id)
+          .single();
+
+        if (taskError) {
+          throw new Error('Failed to fetch task details');
+        }
+        taskDetails = taskData;
       }
 
       const { data, error } = await supabase
@@ -118,9 +144,10 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       if (error) throw error;
 
       // Log timer started activity
-      await logTimerStarted(task.name, task.id, taskDetails.projects?.name);
+      const projectName = isSubtask ? taskDetails.tasks?.projects?.name : taskDetails.projects?.name;
+      await logTimerStarted(task.name, task.id, projectName);
       
-      return { data, projectName: taskDetails.projects?.name };
+      return { data, projectName };
     },
     onSuccess: async (result) => {
       setActiveTimer({
@@ -147,18 +174,39 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
     mutationFn: async (commentText: string) => {
       if (!activeTimer) throw new Error('No active timer');
       
-      // Get task and project details for activity logging
-      const { data: taskDetails, error: taskError } = await supabase
-        .from('tasks')
-        .select(`
-          name,
-          projects(name)
-        `)
-        .eq('id', task.id)
-        .single();
+      // Get task/subtask details for activity logging
+      let taskDetails;
+      if (isSubtask) {
+        const { data: subtaskData, error: subtaskError } = await supabase
+          .from('subtasks')
+          .select(`
+            name,
+            tasks!inner(
+              name,
+              projects!inner(name)
+            )
+          `)
+          .eq('id', task.id)
+          .single();
 
-      if (taskError) {
-        throw new Error('Failed to fetch task details');
+        if (subtaskError) {
+          throw new Error('Failed to fetch subtask details');
+        }
+        taskDetails = subtaskData;
+      } else {
+        const { data: taskData, error: taskError } = await supabase
+          .from('tasks')
+          .select(`
+            name,
+            projects(name)
+          `)
+          .eq('id', task.id)
+          .single();
+
+        if (taskError) {
+          throw new Error('Failed to fetch task details');
+        }
+        taskDetails = taskData;
       }
       
       const endTime = new Date();
@@ -177,7 +225,8 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ task, o
       
       if (error) throw error;
       
-      return { data, projectName: taskDetails.projects?.name };
+      const projectName = isSubtask ? taskDetails.tasks?.projects?.name : taskDetails.projects?.name;
+      return { data, projectName };
     },
     onSuccess: async (result) => {
       // Clear local state immediately
