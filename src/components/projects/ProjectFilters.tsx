@@ -13,8 +13,8 @@ interface Service {
 }
 
 interface ProjectFiltersProps {
-  selectedStatus: string;
-  setSelectedStatus: (value: string) => void;
+  selectedStatus: string[];
+  setSelectedStatus: (value: string[]) => void;
   selectedYear: string;
   setSelectedYear: (value: string) => void;
   selectedMonth: string;

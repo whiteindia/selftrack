@@ -80,7 +80,8 @@ const Projects = () => {
   const [editBrdFile, setEditBrdFile] = useState<File | null>(null);
 
   // Filter states - updated to remove selectedClient and selectedType
-  const [selectedStatus, setSelectedStatus] = useState('all');
+  const DEFAULT_STATUSES = ['On-Head', 'Targeted', 'Imp', 'Overdue'];
+  const [selectedStatus, setSelectedStatus] = useState<string[]>(DEFAULT_STATUSES);
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -223,7 +224,7 @@ const Projects = () => {
   const filteredProjects = React.useMemo(() => {
     return projects.filter(project => {
       const matchesClient = clientFilter === 'all' || project.client_id === clientFilter;
-      const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
+      const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(project.status);
       const matchesGlobalService = globalServiceFilter === 'all' || project.service === globalServiceFilter;
       const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            project.clients?.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -362,7 +363,7 @@ const Projects = () => {
   };
 
   const clearFilters = () => {
-    setSelectedStatus('all');
+    setSelectedStatus(DEFAULT_STATUSES);
     setSelectedYear('all');
     setSelectedMonth('all');
     setSearchTerm('');
