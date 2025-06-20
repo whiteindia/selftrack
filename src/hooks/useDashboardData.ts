@@ -14,14 +14,8 @@ export const useDashboardData = () => {
         .select(`
           id,
           start_time,
-          tasks (
-            id,
-            name,
-            projects (
-              name,
-              clients (name)
-            )
-          )
+          task_id,
+          entry_type
         `)
         .is('end_time', null)
         .order('start_time', { ascending: false });
@@ -30,8 +24,76 @@ export const useDashboardData = () => {
         console.error('Running tasks error:', error);
         throw error;
       }
-      console.log('Running tasks data:', data);
-      return data || [];
+
+      console.log('Running time entries data:', data);
+
+      // Now fetch the details for each entry based on entry_type
+      const enrichedEntries = await Promise.all(
+        (data || []).map(async (entry) => {
+          if (entry.entry_type === 'subtask') {
+            // Fetch subtask details
+            const { data: subtaskData, error: subtaskError } = await supabase
+              .from('subtasks')
+              .select(`
+                id,
+                name,
+                tasks!inner(
+                  id,
+                  name,
+                  projects!inner(
+                    name,
+                    clients!inner(name)
+                  )
+                )
+              `)
+              .eq('id', entry.task_id)
+              .single();
+
+            if (subtaskError) {
+              console.error('Subtask fetch error:', subtaskError);
+              return null;
+            }
+
+            return {
+              ...entry,
+              tasks: {
+                id: subtaskData.tasks.id,
+                name: `${subtaskData.tasks.name} > ${subtaskData.name}`, // Show parent task > subtask
+                projects: subtaskData.tasks.projects
+              }
+            };
+          } else {
+            // Fetch task details
+            const { data: taskData, error: taskError } = await supabase
+              .from('tasks')
+              .select(`
+                id,
+                name,
+                projects!inner(
+                  name,
+                  clients!inner(name)
+                )
+              `)
+              .eq('id', entry.task_id)
+              .single();
+
+            if (taskError) {
+              console.error('Task fetch error:', taskError);
+              return null;
+            }
+
+            return {
+              ...entry,
+              tasks: taskData
+            };
+          }
+        })
+      );
+
+      // Filter out any null entries (failed fetches)
+      const validEntries = enrichedEntries.filter(entry => entry !== null);
+      console.log('Enriched running tasks:', validEntries);
+      return validEntries;
     },
     refetchInterval: 2000 // More frequent updates
   });
