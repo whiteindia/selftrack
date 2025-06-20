@@ -32,18 +32,18 @@ interface TimeEntry {
   created_at: string;
   start_time: string;
   comment?: string;
-  tasks: {
-    id: string;
-    name: string;
-    wage_status: string;
-    project_id: string;
-    assignee_id: string | null;
-    assigner_id: string | null;
-  };
-  employees: {
-    name: string;
-    hourly_rate: number;
-  };
+  entry_type: string;
+  task_name: string;
+  wage_status: string;
+  project_id: string;
+  assignee_id: string | null;
+  assigner_id: string | null;
+  employee_name: string;
+  hourly_rate: number;
+  project_name: string;
+  project_service: string;
+  client_name: string;
+  project_type: string;
 }
 
 interface Employee {
@@ -122,16 +122,15 @@ const Wages = () => {
       let query = supabase
         .from('time_entries')
         .select(`
-          *,
-          tasks(
-            id,
-            name,
-            wage_status,
-            project_id,
-            assignee_id,
-            assigner_id
-          ),
-          employees(
+          id,
+          task_id,
+          employee_id,
+          start_time,
+          end_time,
+          duration_minutes,
+          comment,
+          entry_type,
+          employees!employee_id(
             name,
             hourly_rate
           )
@@ -153,59 +152,117 @@ const Wages = () => {
 
       console.log(`Fetched ${data?.length || 0} time entries after RLS filtering`);
       
-      // Fetch project information for all unique project IDs
-      if (data && data.length > 0) {
-        const uniqueProjectIds = [...new Set(data.map(entry => entry.tasks?.project_id).filter(Boolean))];
-        
-        const projectInfoPromises = uniqueProjectIds.map(async (projectId) => {
-          try {
-            // Get project info including billing type
-            const { data: projectInfo, error: projectError } = await supabase
-              .from('projects')
-              .select(`
-                id,
+      // Process each entry to get task/subtask details
+      const enrichedEntries: TimeEntry[] = [];
+      
+      for (const entry of data || []) {
+        let taskDetails = null;
+
+        if (entry.entry_type === 'task') {
+          // Get task details
+          const { data: taskData } = await supabase
+            .from('tasks')
+            .select(`
+              id,
+              name,
+              wage_status,
+              project_id,
+              assignee_id,
+              assigner_id,
+              projects (
                 name,
                 service,
                 type,
-                clients(name)
-              `)
-              .eq('id', projectId)
-              .single();
-            
-            if (projectError) {
-              console.error(`Error fetching project info for ${projectId}:`, projectError);
-              return null;
-            }
-            
-            return projectInfo ? { 
-              id: projectId, 
-              info: {
-                id: projectInfo.id,
-                name: projectInfo.name,
-                service: projectInfo.service,
-                client_name: projectInfo.clients?.name || 'Unknown',
-                type: projectInfo.type
-              }
-            } : null;
-          } catch (err) {
-            console.error(`Exception fetching project info for ${projectId}:`, err);
-            return null;
-          }
-        });
+                client_id,
+                clients (
+                  name
+                )
+              )
+            `)
+            .eq('id', entry.task_id)
+            .single();
 
-        const projectInfoResults = await Promise.all(projectInfoPromises);
-        const projectsMap: Record<string, ProjectInfo> = {};
-        
-        projectInfoResults.forEach(result => {
-          if (result && result.info) {
-            projectsMap[result.id] = result.info;
+          if (taskData) {
+            taskDetails = {
+              name: taskData.name,
+              wage_status: taskData.wage_status,
+              project_id: taskData.project_id,
+              assignee_id: taskData.assignee_id,
+              assigner_id: taskData.assigner_id,
+              project_name: taskData.projects?.name || 'Unknown Project',
+              project_service: taskData.projects?.service || 'Unknown Service',
+              client_name: taskData.projects?.clients?.name || 'Unknown Client',
+              project_type: taskData.projects?.type || 'Hourly'
+            };
           }
-        });
-        
-        setProjectsData(projectsMap);
+        } else if (entry.entry_type === 'subtask') {
+          // Get subtask details
+          const { data: subtaskData } = await supabase
+            .from('subtasks')
+            .select(`
+              id,
+              name,
+              assignee_id,
+              assigner_id,
+              task_id,
+              tasks!inner (
+                wage_status,
+                project_id,
+                projects (
+                  name,
+                  service,
+                  type,
+                  client_id,
+                  clients (
+                    name
+                  )
+                )
+              )
+            `)
+            .eq('id', entry.task_id)
+            .single();
+
+          if (subtaskData) {
+            taskDetails = {
+              name: subtaskData.name,
+              wage_status: subtaskData.tasks?.wage_status || 'wnotpaid',
+              project_id: subtaskData.tasks?.project_id,
+              assignee_id: subtaskData.assignee_id,
+              assigner_id: subtaskData.assigner_id,
+              project_name: subtaskData.tasks?.projects?.name || 'Unknown Project',
+              project_service: subtaskData.tasks?.projects?.service || 'Unknown Service',
+              client_name: subtaskData.tasks?.projects?.clients?.name || 'Unknown Client',
+              project_type: subtaskData.tasks?.projects?.type || 'Hourly'
+            };
+          }
+        }
+
+        if (taskDetails && entry.employees) {
+          enrichedEntries.push({
+            id: entry.id,
+            employee_id: entry.employee_id,
+            task_id: entry.task_id,
+            duration_minutes: entry.duration_minutes || 0,
+            created_at: entry.start_time,
+            start_time: entry.start_time,
+            comment: entry.comment,
+            entry_type: entry.entry_type,
+            task_name: taskDetails.name,
+            wage_status: taskDetails.wage_status,
+            project_id: taskDetails.project_id,
+            assignee_id: taskDetails.assignee_id,
+            assigner_id: taskDetails.assigner_id,
+            employee_name: entry.employees.name,
+            hourly_rate: entry.employees.hourly_rate,
+            project_name: taskDetails.project_name,
+            project_service: taskDetails.project_service,
+            client_name: taskDetails.client_name,
+            project_type: taskDetails.project_type
+          });
+        }
       }
 
-      return data as TimeEntry[];
+      return enrichedEntries;
     },
     enabled: hasWagesAccess && !privilegesLoading
   });
@@ -295,27 +352,24 @@ const Wages = () => {
   });
 
   // Calculate wages from time entries using employee hourly rates
-  const wageRecords = timeEntries.map(entry => {
-    const projectInfo = projectsData[entry.tasks?.project_id || ''];
-    
-    return {
-      id: entry.id,
-      employee_id: entry.employee_id,
-      task_id: entry.task_id,
-      hours_worked: entry.duration_minutes ? entry.duration_minutes / 60 : 0,
-      hourly_rate: entry.employees?.hourly_rate || 0,
-      wage_amount: entry.duration_minutes && entry.employees?.hourly_rate ? 
-        (entry.duration_minutes / 60) * entry.employees.hourly_rate : 0,
-      date: entry.start_time,
-      wage_status: entry.tasks?.wage_status || 'wnotpaid',
-      tasks: entry.tasks,
-      employees: entry.employees,
-      project_info: projectInfo,
-      project_service_type: projectInfo?.service,
-      project_billing_type: projectInfo?.type,
-      comment: entry.comment
-    };
-  });
+  const wageRecords = timeEntries.map(entry => ({
+    id: entry.id,
+    employee_id: entry.employee_id,
+    task_id: entry.task_id,
+    hours_worked: entry.duration_minutes ? entry.duration_minutes / 60 : 0,
+    hourly_rate: entry.hourly_rate || 0,
+    wage_amount: entry.duration_minutes && entry.hourly_rate ? 
+      (entry.duration_minutes / 60) * entry.hourly_rate : 0,
+    date: entry.start_time,
+    wage_status: entry.wage_status || 'wnotpaid',
+    task_name: entry.task_name,
+    employee_name: entry.employee_name,
+    project_name: entry.project_name,
+    project_service_type: entry.project_service,
+    project_billing_type: entry.project_type,
+    comment: entry.comment,
+    project_id: entry.project_id
+  }));
 
   // Filter wage records based on all filters and billing type
   const filteredWageRecords = wageRecords.filter(record => {
@@ -336,9 +390,9 @@ const Wages = () => {
       const customWageAmount = taskWageAmounts.find(twa => twa.task_id === taskId)?.amount || 0;
       
       groups[taskId] = {
-        task: record.tasks,
-        employee: record.employees,
-        project_info: record.project_info,
+        task_name: record.task_name,
+        employee_name: record.employee_name,
+        project_name: record.project_name,
         project_service_type: record.project_service_type,
         project_billing_type: record.project_billing_type,
         wage_status: record.wage_status,
@@ -447,9 +501,9 @@ const Wages = () => {
       // Add main task row
       const amount = activeTab === 'hourly' ? group.totalAmount : (group.customAmount || 0);
       tableData.push([
-        group.task?.name || '',
-        group.employee?.name || '',
-        group.project_info?.name || '',
+        group.task_name || '',
+        group.employee_name || '',
+        group.project_name || '',
         group.project_service_type || '',
         group.totalHours.toFixed(2),
         activeTab === 'hourly' ? `₹${group.hourly_rate}` : 'Custom',
@@ -744,13 +798,13 @@ const Wages = () => {
                                     ) : (
                                       <ChevronRight className="h-4 w-4 mr-2" />
                                     )}
-                                    {group.task?.name}
+                                    {group.task_name}
                                   </Button>
                                 </CollapsibleTrigger>
                               </Collapsible>
                             </TableCell>
-                            <TableCell>{group.employee?.name}</TableCell>
-                            <TableCell>{group.project_info?.name || 'N/A'}</TableCell>
+                            <TableCell>{group.employee_name}</TableCell>
+                            <TableCell>{group.project_name || 'N/A'}</TableCell>
                             <TableCell>{group.project_service_type || 'N/A'}</TableCell>
                             <TableCell className="font-semibold">{group.totalHours.toFixed(2)}</TableCell>
                             <TableCell>₹{group.hourly_rate}</TableCell>
@@ -887,13 +941,13 @@ const Wages = () => {
                                     ) : (
                                       <ChevronRight className="h-4 w-4 mr-2" />
                                     )}
-                                    {group.task?.name}
+                                    {group.task_name}
                                   </Button>
                                 </CollapsibleTrigger>
                               </Collapsible>
                             </TableCell>
-                            <TableCell>{group.employee?.name}</TableCell>
-                            <TableCell>{group.project_info?.name || 'N/A'}</TableCell>
+                            <TableCell>{group.employee_name}</TableCell>
+                            <TableCell>{group.project_name || 'N/A'}</TableCell>
                             <TableCell>{group.project_service_type || 'N/A'}</TableCell>
                             <TableCell className="font-semibold">{group.totalHours.toFixed(2)}</TableCell>
                             <TableCell>₹{group.hourly_rate}</TableCell>

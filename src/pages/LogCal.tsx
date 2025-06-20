@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,33 +16,15 @@ interface TimeEntry {
   end_time: string | null;
   duration_minutes: number | null;
   comment: string | null;
-  tasks: {
-    id: string;
-    name: string;
-    project_id: string;
-    assignee_id: string | null;
-    assigner_id: string | null;
-    projects: {
-      name: string;
-      service: string;
-      client_id: string;
-      clients: {
-        name: string;
-      };
-    };
-    assignee: {
-      name: string;
-    } | null;
-    assigner: {
-      name: string;
-    } | null;
-  };
-  employee: {
-    name: string;
-  };
-  sprints?: {
-    title: string;
-  }[];
+  entry_type: string;
+  task_name: string;
+  project_name: string;
+  project_service: string;
+  client_name: string;
+  assignee_name: string | null;
+  assigner_name: string | null;
+  employee_name: string;
+  sprint_title: string | null;
 }
 
 interface CalendarSlot {
@@ -126,6 +107,7 @@ const LogCal = () => {
       const dayStart = startOfDay(currentDate);
       const dayEnd = endOfDay(currentDate);
 
+      // First get all time entries for the day
       const { data: entriesData, error: entriesError } = await supabase
         .from('time_entries')
         .select(`
@@ -136,28 +118,8 @@ const LogCal = () => {
           end_time,
           duration_minutes,
           comment,
-          tasks (
-            id,
-            name,
-            project_id,
-            assignee_id,
-            assigner_id,
-            projects (
-              name,
-              service,
-              client_id,
-              clients (
-                name
-              )
-            ),
-            assignee:employees!assignee_id (
-              name
-            ),
-            assigner:employees!assigner_id (
-              name
-            )
-          ),
-          employee:employees!employee_id (
+          entry_type,
+          employees!employee_id (
             name
           )
         `)
@@ -168,26 +130,140 @@ const LogCal = () => {
 
       if (entriesError) throw entriesError;
 
-      // Fetch sprint data for each task
-      const entriesWithSprints: TimeEntry[] = [];
+      // Process each entry to get task/subtask details
+      const enrichedEntries: TimeEntry[] = [];
       
       for (const entry of entriesData || []) {
-        const { data: sprintTasks } = await supabase
-          .from('sprint_tasks')
-          .select(`
-            sprints (
-              title
-            )
-          `)
-          .eq('task_id', entry.task_id);
+        let taskDetails = null;
+        let sprintTitle = null;
 
-        entriesWithSprints.push({
-          ...entry,
-          sprints: sprintTasks?.map(st => st.sprints).filter(Boolean) || []
-        });
+        if (entry.entry_type === 'task') {
+          // Get task details
+          const { data: taskData } = await supabase
+            .from('tasks')
+            .select(`
+              id,
+              name,
+              project_id,
+              assignee_id,
+              assigner_id,
+              projects (
+                name,
+                service,
+                client_id,
+                clients (
+                  name
+                )
+              ),
+              assignee:employees!assignee_id (
+                name
+              ),
+              assigner:employees!assigner_id (
+                name
+              )
+            `)
+            .eq('id', entry.task_id)
+            .single();
+
+          if (taskData) {
+            taskDetails = taskData;
+            
+            // Get sprint info for task
+            const { data: sprintTasks } = await supabase
+              .from('sprint_tasks')
+              .select(`
+                sprints (
+                  title
+                )
+              `)
+              .eq('task_id', entry.task_id);
+
+            if (sprintTasks && sprintTasks.length > 0) {
+              sprintTitle = sprintTasks[0].sprints?.title || null;
+            }
+          }
+        } else if (entry.entry_type === 'subtask') {
+          // Get subtask details
+          const { data: subtaskData } = await supabase
+            .from('subtasks')
+            .select(`
+              id,
+              name,
+              assignee_id,
+              assigner_id,
+              task_id,
+              tasks!inner (
+                project_id,
+                projects (
+                  name,
+                  service,
+                  client_id,
+                  clients (
+                    name
+                  )
+                )
+              ),
+              assignee:employees!assignee_id (
+                name
+              ),
+              assigner:employees!assigner_id (
+                name
+              )
+            `)
+            .eq('id', entry.task_id)
+            .single();
+
+          if (subtaskData) {
+            taskDetails = {
+              id: subtaskData.id,
+              name: subtaskData.name,
+              project_id: subtaskData.tasks?.project_id,
+              assignee_id: subtaskData.assignee_id,
+              assigner_id: subtaskData.assigner_id,
+              projects: subtaskData.tasks?.projects,
+              assignee: subtaskData.assignee,
+              assigner: subtaskData.assigner
+            };
+
+            // Get sprint info for the parent task
+            const { data: sprintTasks } = await supabase
+              .from('sprint_tasks')
+              .select(`
+                sprints (
+                  title
+                )
+              `)
+              .eq('task_id', subtaskData.task_id);
+
+            if (sprintTasks && sprintTasks.length > 0) {
+              sprintTitle = sprintTasks[0].sprints?.title || null;
+            }
+          }
+        }
+
+        if (taskDetails) {
+          enrichedEntries.push({
+            id: entry.id,
+            task_id: entry.task_id,
+            employee_id: entry.employee_id,
+            start_time: entry.start_time,
+            end_time: entry.end_time,
+            duration_minutes: entry.duration_minutes,
+            comment: entry.comment,
+            entry_type: entry.entry_type,
+            task_name: taskDetails.name,
+            project_name: taskDetails.projects?.name || 'Unknown Project',
+            project_service: taskDetails.projects?.service || 'Unknown Service',
+            client_name: taskDetails.projects?.clients?.name || 'Unknown Client',
+            assignee_name: taskDetails.assignee?.name || null,
+            assigner_name: taskDetails.assigner?.name || null,
+            employee_name: entry.employees?.name || 'Unknown Employee',
+            sprint_title: sprintTitle
+          });
+        }
       }
 
-      return entriesWithSprints;
+      return enrichedEntries;
     }
   });
 
@@ -200,14 +276,12 @@ const LogCal = () => {
   // Apply filters to time entries
   const filteredTimeEntries = useMemo(() => {
     return timeEntries.filter(entry => {
-      if (!entry.tasks || !entry.tasks.projects) return false;
-      
       // Apply filters
-      if (serviceFilter !== 'all' && entry.tasks.projects.service !== serviceFilter) return false;
-      if (clientFilter !== 'all' && entry.tasks.projects.client_id !== clientFilter) return false;
-      if (projectFilter !== 'all' && entry.tasks.project_id !== projectFilter) return false;
-      if (assigneeFilter !== 'all' && entry.tasks.assignee_id !== assigneeFilter) return false;
-      if (assignerFilter !== 'all' && entry.tasks.assigner_id !== assignerFilter) return false;
+      if (serviceFilter !== 'all' && entry.project_service !== serviceFilter) return false;
+      if (clientFilter !== 'all' && entry.client_name !== clientFilter) return false;
+      if (projectFilter !== 'all' && entry.project_name !== projectFilter) return false;
+      if (assigneeFilter !== 'all' && entry.assignee_name !== assigneeFilter) return false;
+      if (assignerFilter !== 'all' && entry.assigner_name !== assignerFilter) return false;
 
       return true;
     });
@@ -292,7 +366,7 @@ const LogCal = () => {
                 <SelectContent>
                   <SelectItem value="all">All Clients</SelectItem>
                   {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
+                    <SelectItem key={client.id} value={client.name}>
                       {client.name}
                     </SelectItem>
                   ))}
@@ -310,7 +384,7 @@ const LogCal = () => {
                 <SelectContent>
                   <SelectItem value="all">All Assignees</SelectItem>
                   {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
+                    <SelectItem key={employee.id} value={employee.name}>
                       {employee.name}
                     </SelectItem>
                   ))}
@@ -328,7 +402,7 @@ const LogCal = () => {
                 <SelectContent>
                   <SelectItem value="all">All Assigners</SelectItem>
                   {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
+                    <SelectItem key={employee.id} value={employee.name}>
                       {employee.name}
                     </SelectItem>
                   ))}
@@ -353,9 +427,9 @@ const LogCal = () => {
                   <div
                     key={project.id}
                     className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                      projectFilter === project.id ? 'bg-blue-50 text-blue-700' : ''
+                      projectFilter === project.name ? 'bg-blue-50 text-blue-700' : ''
                     }`}
-                    onClick={() => setProjectFilter(project.id)}
+                    onClick={() => setProjectFilter(project.name)}
                   >
                     <Circle className="h-3 w-3 fill-current" />
                     <span className="text-sm truncate">{project.name}</span>
@@ -397,33 +471,27 @@ const LogCal = () => {
                         {formatHour(slot.hour)}
                       </div>
                       <div className="space-y-2 ml-4">
-                        {slot.entries.map((entry, index) => {
-                          const sprintName = entry.sprints && entry.sprints.length > 0 
-                            ? entry.sprints[0].title 
-                            : 'No Sprint';
-                          
-                          return (
-                            <Card 
-                              key={`${entry.id}-${index}`} 
-                              className="border-l-4 border-l-green-500 bg-green-50"
-                            >
-                              <CardContent className="p-3">
-                                <div className="space-y-2">
-                                  <div className="text-sm font-medium text-green-800 break-words">
-                                    {entry.comment || 'No Comment'} || {entry.tasks.name} || {sprintName} || {entry.tasks.assignee?.name || 'Unassigned'}
-                                  </div>
-                                  <div className="text-xs text-gray-600 flex items-center gap-2">
-                                    <Clock className="h-3 w-3" />
-                                    {formatTimeRange(entry.start_time, entry.end_time)}
-                                  </div>
-                                  <div className="text-xs text-gray-500 break-words">
-                                    {entry.tasks.projects.name} • {entry.tasks.projects.clients?.name} • Logged by: {entry.employee.name}
-                                  </div>
+                        {slot.entries.map((entry, index) => (
+                          <Card 
+                            key={`${entry.id}-${index}`} 
+                            className="border-l-4 border-l-green-500 bg-green-50"
+                          >
+                            <CardContent className="p-3">
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium text-green-800 break-words">
+                                  {entry.comment || 'No Comment'} || {entry.task_name} || {entry.sprint_title || 'No Sprint'} || {entry.assignee_name || 'Unassigned'}
                                 </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
+                                <div className="text-xs text-gray-600 flex items-center gap-2">
+                                  <Clock className="h-3 w-3" />
+                                  {formatTimeRange(entry.start_time, entry.end_time)}
+                                </div>
+                                <div className="text-xs text-gray-500 break-words">
+                                  {entry.project_name} • {entry.client_name} • Logged by: {entry.employee_name}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
                     </div>
                   )
@@ -450,33 +518,27 @@ const LogCal = () => {
                     <div className="flex-1 p-2 relative">
                       {slot.entries.length > 0 ? (
                         <div className="space-y-1">
-                          {slot.entries.map((entry, index) => {
-                            const sprintName = entry.sprints && entry.sprints.length > 0 
-                              ? entry.sprints[0].title 
-                              : 'No Sprint';
-                            
-                            return (
-                              <Card 
-                                key={`${entry.id}-${index}`} 
-                                className="border-l-4 border-l-green-500 bg-green-50"
-                              >
-                                <CardContent className="p-3">
-                                  <div className="space-y-1">
-                                    <div className="text-sm font-medium text-green-800">
-                                      {entry.comment || 'No Comment'} || {entry.tasks.name} || {sprintName} || {entry.tasks.assignee?.name || 'Unassigned'}
-                                    </div>
-                                    <div className="text-xs text-gray-600 flex items-center gap-2">
-                                      <Clock className="h-3 w-3" />
-                                      {formatTimeRange(entry.start_time, entry.end_time)}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      {entry.tasks.projects.name} • {entry.tasks.projects.clients?.name} • Logged by: {entry.employee.name}
-                                    </div>
+                          {slot.entries.map((entry, index) => (
+                            <Card 
+                              key={`${entry.id}-${index}`} 
+                              className="border-l-4 border-l-green-500 bg-green-50"
+                            >
+                              <CardContent className="p-3">
+                                <div className="space-y-1">
+                                  <div className="text-sm font-medium text-green-800">
+                                    {entry.comment || 'No Comment'} || {entry.task_name} || {entry.sprint_title || 'No Sprint'} || {entry.assignee_name || 'Unassigned'}
                                   </div>
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
+                                  <div className="text-xs text-gray-600 flex items-center gap-2">
+                                    <Clock className="h-3 w-3" />
+                                    {formatTimeRange(entry.start_time, entry.end_time)}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    {entry.project_name} • {entry.client_name} • Logged by: {entry.employee_name}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
                       ) : (
                         <div className="h-full flex items-center justify-center text-gray-400 text-sm">
