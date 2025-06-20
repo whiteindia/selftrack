@@ -19,9 +19,10 @@ interface TimeEntry {
 interface TaskHistoryProps {
   taskId: string;
   onUpdate?: () => void;
+  isSubtask?: boolean;
 }
 
-const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate }) => {
+const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate, isSubtask = false }) => {
   const { data: timeEntries = [], isLoading } = useQuery({
     queryKey: ['time-entries', taskId],
     queryFn: async () => {
@@ -59,9 +60,13 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate }) => {
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-gray-700 flex items-center">
           <MessageSquare className="h-4 w-4 mr-1" />
-          Work History
+          Work History ({timeEntries.length})
         </h4>
-        <ManualTimeLog taskId={taskId} onSuccess={() => onUpdate?.()} />
+        <ManualTimeLog 
+          taskId={taskId} 
+          onSuccess={() => onUpdate?.()} 
+          isSubtask={isSubtask}
+        />
       </div>
       
       {timeEntries.length === 0 ? (

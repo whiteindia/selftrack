@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import TaskHistory from '@/components/TaskHistory';
 import ManualTimeLog from '@/components/ManualTimeLog';
+import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
 
 interface Subtask {
   id: string;
@@ -52,6 +52,7 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
   canDelete
 }) => {
   const [expandedSubtask, setExpandedSubtask] = useState<string | null>(null);
+  const { data: timeEntryCount = 0 } = useTimeEntryCount(subtask.id);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -124,6 +125,9 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
                 className="flex-shrink-0"
               >
                 <MessageSquare className="h-4 w-4" />
+                {timeEntryCount > 0 && (
+                  <span className="ml-1 text-xs">({timeEntryCount})</span>
+                )}
               </Button>
               {canUpdate && (
                 <Button
@@ -170,7 +174,7 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
               </div>
             )}
             
-            <TaskHistory taskId={subtask.id} onUpdate={onTimeUpdate} />
+            <TaskHistory taskId={subtask.id} onUpdate={onTimeUpdate} isSubtask={true} />
           </div>
         </CardContent>
       )}

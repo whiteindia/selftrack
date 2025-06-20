@@ -23,6 +23,7 @@ import TasksHeader from '@/components/TasksHeader';
 import SubtaskCard from '@/components/SubtaskCard';
 import SubtaskDialog from '@/components/SubtaskDialog';
 import { useSubtasks } from '@/hooks/useSubtasks';
+import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
 
 interface Task {
   id: string;
@@ -844,6 +845,7 @@ const TaskWithSubtasks: React.FC<{
   employees
 }) => {
   const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
+  const { data: timeEntryCount = 0 } = useTimeEntryCount(task.id);
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [editingSubtask, setEditingSubtask] = useState<any>(null);
@@ -985,6 +987,9 @@ const TaskWithSubtasks: React.FC<{
                     className="flex-shrink-0"
                   >
                     <MessageSquare className="h-4 w-4" />
+                    {timeEntryCount > 0 && (
+                      <span className="ml-1 text-xs">({timeEntryCount})</span>
+                    )}
                   </Button>
                   {hasOperationAccess('tasks', 'update') && (
                     <Button
