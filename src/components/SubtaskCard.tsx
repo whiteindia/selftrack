@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import TaskHistory from '@/components/TaskHistory';
+import ManualTimeLog from '@/components/ManualTimeLog';
 
 interface Subtask {
   id: string;
@@ -111,6 +112,11 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
                   isSubtask={true}
                 />
               )}
+              <ManualTimeLog 
+                taskId={subtask.id}
+                onSuccess={onTimeUpdate}
+                isSubtask={true}
+              />
               <Button
                 variant="outline"
                 size="sm"

@@ -15,9 +15,10 @@ import { logTimeEntry } from '@/utils/activityLogger';
 interface ManualTimeLogProps {
   taskId: string;
   onSuccess: () => void;
+  isSubtask?: boolean;
 }
 
-const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess }) => {
+const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess, isSubtask = false }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -40,18 +41,45 @@ const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess }) => {
         throw new Error('Employee record not found. Please contact admin.');
       }
 
-      // Get task and project details for activity logging
-      const { data: task, error: taskError } = await supabase
-        .from('tasks')
-        .select(`
-          name,
-          projects(name)
-        `)
-        .eq('id', taskId)
-        .single();
+      // Get task/subtask and project details for activity logging
+      let taskDetails;
+      let projectName;
 
-      if (taskError) {
-        throw new Error('Failed to fetch task details');
+      if (isSubtask) {
+        const { data: subtaskData, error: subtaskError } = await supabase
+          .from('subtasks')
+          .select(`
+            name,
+            tasks!inner(
+              name,
+              projects!inner(name)
+            )
+          `)
+          .eq('id', taskId)
+          .single();
+
+        if (subtaskError) {
+          throw new Error('Failed to fetch subtask details');
+        }
+        
+        taskDetails = { name: subtaskData.name };
+        projectName = subtaskData.tasks?.projects?.name;
+      } else {
+        const { data: taskData, error: taskError } = await supabase
+          .from('tasks')
+          .select(`
+            name,
+            projects(name)
+          `)
+          .eq('id', taskId)
+          .single();
+
+        if (taskError) {
+          throw new Error('Failed to fetch task details');
+        }
+        
+        taskDetails = taskData;
+        projectName = taskData.projects?.name;
       }
 
       // Create a completed time entry
@@ -66,7 +94,8 @@ const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess }) => {
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           duration_minutes: Math.floor(hours * 60),
-          comment
+          comment,
+          entry_type: isSubtask ? 'subtask' : 'task'
         }])
         .select()
         .single();
@@ -76,11 +105,11 @@ const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess }) => {
       // Log the activity
       const durationText = hours === 1 ? '1 hour' : `${hours} hours`;
       await logTimeEntry(
-        task.name,
+        taskDetails.name,
         taskId,
         durationText,
         comment,
-        task.projects?.name
+        projectName
       );
       
       return data;
@@ -88,6 +117,7 @@ const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess }) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['time-entries'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       onSuccess();
       setFormData({ hours: '', comment: '', date: new Date().toISOString().split('T')[0] });
       setIsOpen(false);
@@ -129,7 +159,7 @@ const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess }) => {
         <DialogHeader>
           <DialogTitle>Log Work Time</DialogTitle>
           <DialogDescription>
-            Manually log time spent on this task.
+            Manually log time spent on this {isSubtask ? 'subtask' : 'task'}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
