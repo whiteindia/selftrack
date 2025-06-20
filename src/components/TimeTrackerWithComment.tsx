@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +47,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
         .from('time_entries')
         .select('*')
         .eq('task_id', task.id)
+        .eq('entry_type', isSubtask ? 'subtask' : 'task')
         .is('end_time', null)
         .order('start_time', { ascending: false })
         .limit(1);
@@ -64,7 +64,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     };
 
     checkActiveTimer();
-  }, [task.id]);
+  }, [task.id, isSubtask]);
 
   // Update elapsed time every second when timer is active
   useEffect(() => {
@@ -136,7 +136,8 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
         .insert([{
           task_id: task.id,
           employee_id: employee.id,
-          start_time: new Date().toISOString()
+          start_time: new Date().toISOString(),
+          entry_type: isSubtask ? 'subtask' : 'task'
         }])
         .select()
         .single();
