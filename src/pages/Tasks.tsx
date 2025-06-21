@@ -464,7 +464,7 @@ const Tasks = () => {
 
   return (
     <Navigation>
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6">
         <TasksHeader
           globalServiceFilter={globalServiceFilter}
           setGlobalServiceFilter={setGlobalServiceFilter}
@@ -481,28 +481,29 @@ const Tasks = () => {
 
         {/* Filters Section */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Filter className="h-4 w-4" />
               Filters
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="search">Search</Label>
+                <Label htmlFor="search" className="text-sm">Search</Label>
                 <Input
                   id="search"
                   placeholder="Search tasks or projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-9"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status-filter">Status</Label>
+                <Label htmlFor="status-filter" className="text-sm">Status</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
+                    <Button variant="outline" className="w-full justify-between h-9 text-sm">
                       {statusFilters.includes('all') 
                         ? 'All Statuses' 
                         : statusFilters.length === 1 
@@ -541,9 +542,9 @@ const Tasks = () => {
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="assignee-filter">Assignee</Label>
+                <Label htmlFor="assignee-filter" className="text-sm">Assignee</Label>
                 <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="All Assignees" />
                   </SelectTrigger>
                   <SelectContent>
@@ -557,7 +558,7 @@ const Tasks = () => {
                 </Select>
               </div>
               <div className="flex items-end">
-                <Button variant="outline" onClick={clearFilters} className="w-full">
+                <Button variant="outline" onClick={clearFilters} className="w-full h-9 text-sm">
                   Clear Filters
                 </Button>
               </div>
@@ -566,7 +567,7 @@ const Tasks = () => {
         </Card>
 
         {/* Results Summary */}
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center justify-between text-sm text-gray-600 px-1">
           <span>
             Showing {filteredTasks.length} of {tasks.length} tasks
           </span>
@@ -575,7 +576,7 @@ const Tasks = () => {
         {filteredTasks.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
-              <p className="text-gray-600">
+              <p className="text-gray-600 text-sm">
                 {tasks.length === 0 
                   ? "No tasks found. You can only see tasks where you are assigned or are the creator."
                   : "No tasks match your current filters."
@@ -584,7 +585,7 @@ const Tasks = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {filteredTasks.map((task) => (
               <TaskWithSubtasks
                 key={task.id}
@@ -606,7 +607,7 @@ const Tasks = () => {
 
         {/* Create Task Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
               <DialogDescription>
@@ -699,7 +700,7 @@ const Tasks = () => {
         {/* Edit Task Dialog */}
         {editingTask && (
           <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Edit Task</DialogTitle>
                 <DialogDescription>
@@ -818,7 +819,7 @@ const Tasks = () => {
   );
 };
 
-// New component to handle task with its subtasks
+// New component to handle task with its subtasks - Updated for mobile responsiveness
 const TaskWithSubtasks: React.FC<{
   task: Task;
   expandedTask: string | null;
@@ -915,78 +916,83 @@ const TaskWithSubtasks: React.FC<{
     <>
       <div className="space-y-2">
         <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col gap-4">
-              {/* Task Title and Basic Info - Always on top */}
-              <div className="flex flex-col gap-2">
-                <CardTitle className="text-lg leading-tight">{task.name}</CardTitle>
-                
-                {/* Task Details - Stack on mobile, wrap on larger screens */}
-                <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
-                  <div className="flex items-center gap-1">
-                    <Building className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{task.project_name || 'No Project'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <User className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4 flex-shrink-0" />
-                    <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
-                    {task.estimated_duration && <span> / {task.estimated_duration}h estimated</span>}
-                  </div>
-                  {task.deadline && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4 flex-shrink-0" />
-                      <span>Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
-                    </div>
-                  )}
+          <CardHeader className="pb-3 px-3 sm:px-6">
+            <div className="space-y-3">
+              {/* Task Title */}
+              <CardTitle className="text-base sm:text-lg leading-tight break-words pr-2">
+                {task.name}
+              </CardTitle>
+              
+              {/* Task Details - Always stacked on mobile */}
+              <div className="space-y-2 text-xs sm:text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <Building className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="truncate">{task.project_name || 'No Project'}</span>
                 </div>
+                <div className="flex items-center gap-1">
+                  <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <span className="text-xs sm:text-sm">
+                    {task.total_logged_hours?.toFixed(2) || '0.00'}h logged
+                    {task.estimated_duration && <span> / {task.estimated_duration}h est.</span>}
+                  </span>
+                </div>
+                {task.deadline && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <span className="text-xs sm:text-sm">Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
+                  </div>
+                )}
               </div>
               
-              {/*  Status Badge and Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                {/* Status Badge - Full width on mobile */}
+              {/* Status and Actions */}
+              <div className="flex flex-col gap-3">
+                {/* Status Badge - Mobile optimized */}
                 <div className="flex items-start">
-                  <Badge className={`${getStatusColor(task.status)} w-full sm:w-auto justify-center sm:justify-start`}>
+                  <Badge className={`${getStatusColor(task.status)} text-xs px-2 py-1`}>
                     {task.status}
                   </Badge>
                 </div>
                 
-                {/* Action Buttons - Stack on mobile, align right on larger screens */}
-                <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
+                {/* Action Buttons - Mobile responsive grid */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                   {task.status === 'In Progress' && (
-                    <TimeTrackerWithComment 
-                      task={{ id: task.id, name: task.name }}
-                      onSuccess={handleTimeUpdate}
-                    />
+                    <div className="col-span-2 sm:col-span-1">
+                      <TimeTrackerWithComment 
+                        task={{ id: task.id, name: task.name }}
+                        onSuccess={handleTimeUpdate}
+                      />
+                    </div>
                   )}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleCreateSubtask}
-                    className="flex-shrink-0"
+                    className="h-8 px-2 text-xs"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3 w-3" />
+                    <span className="ml-1 hidden sm:inline">Add</span>
                   </Button>
                   {subtasks.length > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowSubtasks(!showSubtasks)}
-                      className="flex-shrink-0"
+                      className="h-8 px-2 text-xs"
                     >
-                      {showSubtasks ? 'Hide' : 'Show'} Subtasks ({subtasks.length})
+                      <span className="truncate">{showSubtasks ? 'Hide' : 'Show'} ({subtasks.length})</span>
                     </Button>
                   )}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                    className="flex-shrink-0"
+                    className="h-8 px-2 text-xs"
                   >
-                    <MessageSquare className="h-4 w-4" />
+                    <MessageSquare className="h-3 w-3" />
                     {timeEntryCount > 0 && (
                       <span className="ml-1 text-xs">({timeEntryCount})</span>
                     )}
@@ -996,9 +1002,9 @@ const TaskWithSubtasks: React.FC<{
                       variant="outline"
                       size="sm"
                       onClick={() => setEditingTask(task)}
-                      className="flex-shrink-0"
+                      className="h-8 px-2 text-xs"
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-3 w-3" />
                     </Button>
                   )}
                   {hasOperationAccess('tasks', 'delete') && (
@@ -1006,9 +1012,9 @@ const TaskWithSubtasks: React.FC<{
                       variant="outline"
                       size="sm"
                       onClick={() => deleteTaskMutation.mutate(task.id)}
-                      className="flex-shrink-0"
+                      className="h-8 px-2 text-xs"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
                   )}
                 </div>
@@ -1017,13 +1023,13 @@ const TaskWithSubtasks: React.FC<{
           </CardHeader>
           
           {expandedTask === task.id && (
-            <CardContent className="border-t pt-4">
+            <CardContent className="border-t pt-4 px-3 sm:px-6">
               <div className="space-y-4">
                 {hasOperationAccess('tasks', 'update') && (
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="space-y-2">
                     <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
                     <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
-                      <SelectTrigger className="w-full sm:w-40">
+                      <SelectTrigger className="w-full sm:w-48 h-8 text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1031,6 +1037,9 @@ const TaskWithSubtasks: React.FC<{
                         <SelectItem value="In Progress">In Progress</SelectItem>
                         <SelectItem value="Completed">Completed</SelectItem>
                         <SelectItem value="On Hold">On Hold</SelectItem>
+                        <SelectItem value="On-Head">On-Head</SelectItem>
+                        <SelectItem value="Targeted">Targeted</SelectItem>
+                        <SelectItem value="Imp">Imp</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1042,9 +1051,9 @@ const TaskWithSubtasks: React.FC<{
           )}
         </Card>
 
-        {/* Subtasks - Only show when showSubtasks is true */}
+        {/* Subtasks - Mobile optimized */}
         {showSubtasks && subtasks.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-2 pl-2 sm:pl-4">
             {subtasks.map((subtask) => (
               <SubtaskCard
                 key={subtask.id}
