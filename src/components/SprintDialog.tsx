@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -144,7 +143,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
     enabled: open
   });
 
-  // Fetch available tasks based on selected project - only show "Not Started" tasks
+  // Fetch available tasks based on selected project - include multiple statuses
   const { data: tasks = [] } = useQuery({
     queryKey: ['available-tasks', selectedProjectId],
     queryFn: async () => {
@@ -164,7 +163,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
             )
           )
         `)
-        .eq('status', 'Not Started')
+        .in('status', ['Not Started', 'On-Head', 'Targeted', 'Imp'])
         .eq('project_id', selectedProjectId)
         .order('created_at', { ascending: false });
 
@@ -427,13 +426,13 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
           </div>
 
           <div className="space-y-2">
-            <Label>Select Tasks (Not Started Only)</Label>
+            <Label>Select Tasks (Not Started, On-Head, Targeted, Imp)</Label>
             {selectedProjectId === 'none' ? (
               <p className="text-sm text-gray-500">Please select a project first to see available tasks</p>
             ) : (
               <div className="border rounded-md p-4 max-h-60 overflow-y-auto">
                 {tasks.length === 0 ? (
-                  <p className="text-sm text-gray-500">No "Not Started" tasks available for this project</p>
+                  <p className="text-sm text-gray-500">No available tasks for this project (statuses: Not Started, On-Head, Targeted, Imp)</p>
                 ) : (
                   <div className="space-y-2">
                     {tasks.map((task) => (
@@ -449,7 +448,7 @@ const SprintDialog: React.FC<SprintDialogProps> = ({
                         >
                           <div className="font-medium">{task.name}</div>
                           <div className="text-xs text-gray-500">
-                            {task.projects?.name} - {task.projects?.clients?.name}
+                            {task.projects?.name} - {task.projects?.clients?.name} • Status: {task.status}
                           </div>
                         </label>
                       </div>
