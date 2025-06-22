@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { logActivity, logUserLogin, logTaskCreated } from '@/utils/activityLogger';
+import { logActivity, logTaskCreated } from '@/utils/activityLogger';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ActivityFeedTest = () => {
@@ -20,7 +20,7 @@ const ActivityFeedTest = () => {
       comment: 'Testing the activity feed functionality'
     });
 
-    await logUserLogin(user.email || 'test@example.com');
+    // Note: User login activities are no longer logged
     
     // Simulate task creation
     await logTaskCreated('Sample Task', 'test-task-id', 'Sample Project');
