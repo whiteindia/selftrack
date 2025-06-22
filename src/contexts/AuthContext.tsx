@@ -1,8 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { logUserLogin } from '@/utils/activityLogger';
 import { toast } from 'sonner';
 
 interface AuthProviderProps {
@@ -156,8 +154,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (session?.user) {
         fetchUserRole(session.user.id);
         checkPasswordResetNeeded(session.user);
-        // Log user login activity
-        logUserLogin(session.user.email || 'Unknown user');
       }
       setLoading(false);
     });
@@ -176,12 +172,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (session?.user) {
           fetchUserRole(session.user.id);
           checkPasswordResetNeeded(session.user);
-          // Log user login activity for sign in events
-          if (event === 'SIGNED_IN') {
-            setTimeout(() => {
-              logUserLogin(session.user.email || 'Unknown user');
-            }, 0);
-          }
         } else {
           setUserRole(null);
           setNeedsPasswordReset(false);
