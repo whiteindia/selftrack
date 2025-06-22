@@ -13,9 +13,7 @@ export {
   logTimerStopped
 } from './activity/taskActivity';
 
-// User activities
-export { logUserLogin } from './activity/userActivity';
-
+// Note: User login activities are no longer logged
 // Project activities
 export {
   logProjectActivity,
