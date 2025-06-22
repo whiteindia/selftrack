@@ -218,21 +218,21 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   );
 
   const DesktopNavigation = () => (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link to="/" className="text-xl font-bold text-blue-600">
+    <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
+        <div className="flex justify-between items-center h-16 min-w-0">
+          <Link to="/" className="text-xl font-bold text-blue-600 flex-shrink-0">
             WhiteIndia
           </Link>
           
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-6 flex-1 justify-center min-w-0 overflow-hidden">
             {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
                     isActive(item.path)
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -247,7 +247,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowTrakEzyMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2">
+                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
                     <Calendar className="h-4 w-4" />
                     <span>TrakEzy</span>
                     <ChevronDown className="h-4 w-4" />
@@ -279,7 +279,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {visibleConfigItems.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2">
+                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
                     <Settings className="h-4 w-4" />
                     <span>Config</span>
                     <ChevronDown className="h-4 w-4" />
@@ -309,7 +309,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             )}
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
@@ -340,14 +340,14 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   if (isMobile) {
     return (
       <div className="min-h-screen w-full">
-        <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-          <div className="flex justify-between items-center h-16 px-4">
-            <Link to="/" className="text-xl font-bold text-blue-600">
+        <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
+          <div className="flex justify-between items-center h-16 px-4 min-w-0">
+            <Link to="/" className="text-xl font-bold text-blue-600 flex-shrink-0">
               WhiteIndia
             </Link>
             <Drawer>
               <DrawerTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="flex-shrink-0">
                   <Menu className="h-6 w-6" />
                 </Button>
               </DrawerTrigger>
@@ -359,7 +359,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             </Drawer>
           </div>
         </header>
-        <main className="p-4">
+        <main className="p-4 min-w-0">
           {children}
         </main>
       </div>
@@ -369,7 +369,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   return (
     <div className="min-h-screen w-full">
       <DesktopNavigation />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-w-0">
         {children}
       </main>
     </div>
