@@ -30,6 +30,11 @@ interface TimeEntry {
 interface CalendarSlot {
   hour: number;
   entries: TimeEntry[];
+  spanningEntries: Array<{
+    entry: TimeEntry;
+    position: 'start' | 'middle' | 'end';
+    totalHours: number;
+  }>;
 }
 
 const LogCal = () => {
@@ -287,19 +292,48 @@ const LogCal = () => {
     });
   }, [timeEntries, serviceFilter, clientFilter, projectFilter, assigneeFilter, assignerFilter]);
 
-  // Generate 24-hour calendar slots
+  // Generate 24-hour calendar slots with spanning entries
   const calendarSlots = useMemo(() => {
     const slots: CalendarSlot[] = [];
     
+    // Initialize all slots
     for (let hour = 0; hour < 24; hour++) {
-      const entries = filteredTimeEntries.filter(entry => {
-        const entryStart = parseISO(entry.start_time);
-        const entryHour = entryStart.getHours();
-        return entryHour === hour;
+      slots.push({ 
+        hour, 
+        entries: [], 
+        spanningEntries: [] 
       });
-      
-      slots.push({ hour, entries });
     }
+
+    // Process each time entry to handle spanning
+    filteredTimeEntries.forEach(entry => {
+      if (!entry.end_time) return;
+
+      const entryStart = parseISO(entry.start_time);
+      const entryEnd = parseISO(entry.end_time);
+      const startHour = entryStart.getHours();
+      const endHour = entryEnd.getHours();
+      const durationHours = Math.ceil((entryEnd.getTime() - entryStart.getTime()) / (1000 * 60 * 60));
+
+      // If the task spans multiple hours
+      if (durationHours > 1 || startHour !== endHour) {
+        for (let hour = startHour; hour <= endHour && hour < 24; hour++) {
+          let position: 'start' | 'middle' | 'end' = 'middle';
+          
+          if (hour === startHour) position = 'start';
+          else if (hour === endHour) position = 'end';
+
+          slots[hour].spanningEntries.push({
+            entry,
+            position,
+            totalHours: durationHours
+          });
+        }
+      } else {
+        // Single hour entry - add to regular entries
+        slots[startHour].entries.push(entry);
+      }
+    });
     
     return slots;
   }, [filteredTimeEntries]);
@@ -315,6 +349,48 @@ const LogCal = () => {
   const formatTimeRange = (startTime: string, endTime: string | null) => {
     if (!endTime) return format(parseISO(startTime), 'HH:mm') + ' - Running';
     return `${format(parseISO(startTime), 'HH:mm')} - ${format(parseISO(endTime), 'HH:mm')}`;
+  };
+
+  const renderTimeEntry = (entry: TimeEntry, isSpanning = false, position?: 'start' | 'middle' | 'end', totalHours?: number) => {
+    const baseClasses = "border-l-4 border-l-green-500 bg-green-50";
+    const spanningClasses = isSpanning ? (
+      position === 'start' ? 'rounded-t-md rounded-b-none border-b-0' :
+      position === 'end' ? 'rounded-b-md rounded-t-none border-t-0' :
+      'rounded-none border-t-0 border-b-0'
+    ) : '';
+
+    return (
+      <Card className={`${baseClasses} ${spanningClasses}`}>
+        <CardContent className="p-3">
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-green-800 break-words">
+              {entry.comment || 'No Comment'} || {entry.task_name} || {entry.sprint_title || 'No Sprint'} || {entry.assignee_name || 'Unassigned'}
+              {isSpanning && position === 'start' && totalHours && (
+                <span className="ml-2 text-xs bg-green-200 px-2 py-1 rounded">
+                  {totalHours}h total
+                </span>
+              )}
+            </div>
+            {position !== 'middle' && (
+              <>
+                <div className="text-xs text-gray-600 flex items-center gap-2">
+                  <Clock className="h-3 w-3" />
+                  {formatTimeRange(entry.start_time, entry.end_time)}
+                </div>
+                <div className="text-xs text-gray-500 break-words">
+                  {entry.project_name} • {entry.client_name} • Logged by: {entry.employee_name}
+                </div>
+              </>
+            )}
+            {position === 'middle' && (
+              <div className="text-xs text-gray-400 italic text-center">
+                — continues —
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (isLoading) {
@@ -465,38 +541,29 @@ const LogCal = () => {
             <div className="block lg:hidden">
               <div className="space-y-2 p-3">
                 {calendarSlots.map((slot) => (
-                  slot.entries.length > 0 && (
+                  (slot.entries.length > 0 || slot.spanningEntries.length > 0) && (
                     <div key={slot.hour}>
                       <div className="text-sm font-medium text-gray-700 mb-2 sticky top-0 bg-white py-1">
                         {formatHour(slot.hour)}
                       </div>
-                      <div className="space-y-2 ml-4">
+                      <div className="space-y-1 ml-4">
+                        {/* Regular entries */}
                         {slot.entries.map((entry, index) => (
-                          <Card 
-                            key={`${entry.id}-${index}`} 
-                            className="border-l-4 border-l-green-500 bg-green-50"
-                          >
-                            <CardContent className="p-3">
-                              <div className="space-y-2">
-                                <div className="text-sm font-medium text-green-800 break-words">
-                                  {entry.comment || 'No Comment'} || {entry.task_name} || {entry.sprint_title || 'No Sprint'} || {entry.assignee_name || 'Unassigned'}
-                                </div>
-                                <div className="text-xs text-gray-600 flex items-center gap-2">
-                                  <Clock className="h-3 w-3" />
-                                  {formatTimeRange(entry.start_time, entry.end_time)}
-                                </div>
-                                <div className="text-xs text-gray-500 break-words">
-                                  {entry.project_name} • {entry.client_name} • Logged by: {entry.employee_name}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
+                          <div key={`regular-${entry.id}-${index}`}>
+                            {renderTimeEntry(entry)}
+                          </div>
+                        ))}
+                        {/* Spanning entries */}
+                        {slot.spanningEntries.map((spanEntry, index) => (
+                          <div key={`span-${spanEntry.entry.id}-${index}`}>
+                            {renderTimeEntry(spanEntry.entry, true, spanEntry.position, spanEntry.totalHours)}
+                          </div>
                         ))}
                       </div>
                     </div>
                   )
                 ))}
-                {calendarSlots.every(slot => slot.entries.length === 0) && (
+                {calendarSlots.every(slot => slot.entries.length === 0 && slot.spanningEntries.length === 0) && (
                   <div className="text-center text-gray-500 py-8">
                     No time logs for this day
                   </div>
@@ -516,28 +583,19 @@ const LogCal = () => {
                     
                     {/* Time Slot Content */}
                     <div className="flex-1 p-2 relative">
-                      {slot.entries.length > 0 ? (
+                      {(slot.entries.length > 0 || slot.spanningEntries.length > 0) ? (
                         <div className="space-y-1">
+                          {/* Regular entries */}
                           {slot.entries.map((entry, index) => (
-                            <Card 
-                              key={`${entry.id}-${index}`} 
-                              className="border-l-4 border-l-green-500 bg-green-50"
-                            >
-                              <CardContent className="p-3">
-                                <div className="space-y-1">
-                                  <div className="text-sm font-medium text-green-800">
-                                    {entry.comment || 'No Comment'} || {entry.task_name} || {entry.sprint_title || 'No Sprint'} || {entry.assignee_name || 'Unassigned'}
-                                  </div>
-                                  <div className="text-xs text-gray-600 flex items-center gap-2">
-                                    <Clock className="h-3 w-3" />
-                                    {formatTimeRange(entry.start_time, entry.end_time)}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {entry.project_name} • {entry.client_name} • Logged by: {entry.employee_name}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
+                            <div key={`regular-${entry.id}-${index}`}>
+                              {renderTimeEntry(entry)}
+                            </div>
+                          ))}
+                          {/* Spanning entries */}
+                          {slot.spanningEntries.map((spanEntry, index) => (
+                            <div key={`span-${spanEntry.entry.id}-${index}`}>
+                              {renderTimeEntry(spanEntry.entry, true, spanEntry.position, spanEntry.totalHours)}
+                            </div>
                           ))}
                         </div>
                       ) : (
