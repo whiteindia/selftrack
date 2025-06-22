@@ -114,11 +114,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const MobileMenuContent = () => (
     <div className="p-4 space-y-6">
-      <div className="border-b pb-4">
-        <Link to="/" className="text-xl font-bold text-blue-600">
-          WhiteIndia
-        </Link>
-      </div>
+    
       
       <div className="space-y-4">
         {visibleMainNavItems.length > 0 && (
@@ -221,10 +217,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
-          <Link to="/" className="text-xl font-bold text-blue-600 flex-shrink-0">
-            WhiteIndia
-          </Link>
-          
+                
           <div className="hidden md:flex items-center space-x-6 flex-1 justify-center min-w-0 overflow-hidden">
             {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
