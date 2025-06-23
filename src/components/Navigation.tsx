@@ -335,9 +335,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       <div className="min-h-screen w-full">
         <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
           <div className="flex justify-between items-center h-16 px-4 min-w-0">
-            <Link to="/" className="text-xl font-bold text-blue-600 flex-shrink-0">
-              WhiteIndia
-            </Link>
+        
             <Drawer>
               <DrawerTrigger asChild>
                 <Button variant="ghost" size="icon" className="flex-shrink-0">
