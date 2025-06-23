@@ -74,9 +74,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getDefaultLandingPage = async (): Promise<string> => {
     try {
-      if (!userRole) {
-        console.log('No user role, defaulting to dashboard');
+      console.log('Getting landing page for user:', user?.email, 'role:', userRole);
+
+      // Superadmin always gets dashboard
+      if (user?.email === 'yugandhar@whiteindia.in') {
+        console.log('Superadmin user, defaulting to dashboard');
         return '/';
+      }
+
+      if (!userRole) {
+        console.log('No user role, checking for first accessible page');
+        
+        // Get all user privileges to find first accessible page
+        const { data: userPrivileges, error: privilegesError } = await supabase
+          .from('role_privileges')
+          .select('page_name, operation, allowed')
+          .eq('role', 'guest') // fallback role or could be determined differently
+          .eq('operation', 'read')
+          .eq('allowed', true)
+          .order('page_name');
+
+        if (privilegesError) {
+          console.error('Error fetching privileges:', privilegesError);
+          return '/login'; // Redirect to login if no access
+        }
+
+        if (userPrivileges && userPrivileges.length > 0) {
+          const firstPage = userPrivileges[0].page_name;
+          console.log('First accessible page for user without role:', firstPage);
+          return getRouteFromPageName(firstPage);
+        }
+
+        return '/login'; // No accessible pages
       }
 
       console.log('Getting landing page for role:', userRole);
@@ -89,49 +118,84 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.error('Error fetching role landing page:', roleError);
       } else if (roleData) {
         console.log('Custom landing page found:', roleData);
-        return `/${roleData}`;
+        
+        // Verify user has access to this landing page
+        const hasAccess = await checkPageAccess(roleData);
+        if (hasAccess) {
+          return `/${roleData}`;
+        } else {
+          console.log('User does not have access to custom landing page, finding alternative');
+        }
       }
 
       // Fallback: get first accessible page from privileges
-      console.log('No custom landing page, finding first accessible page');
+      console.log('No custom landing page or no access, finding first accessible page');
       const { data: pagesData, error: pagesError } = await supabase
         .rpc('get_role_available_pages', { role_name: userRole });
 
       if (pagesError) {
         console.error('Error fetching available pages:', pagesError);
-        return '/';
+        return '/login';
       }
 
       if (pagesData && pagesData.length > 0) {
         const firstPage = pagesData[0].page_name;
         console.log('First accessible page:', firstPage);
-        
-        // Convert page names to routes
-        const pageRoutes: Record<string, string> = {
-          'dashboard': '/',
-          'clients': '/clients',
-          'employees': '/employees',
-          'projects': '/projects',
-          'tasks': '/tasks',
-          'sprints': '/sprints',
-          'invoices': '/invoices',
-          'payments': '/payments',
-          'services': '/services',
-          'wages': '/wages',
-          'gantt-view': '/gantt-view',
-          'agenda-cal': '/agenda-cal',
-          'log-cal': '/log-cal'
-        };
-
-        return pageRoutes[firstPage] || '/';
+        return getRouteFromPageName(firstPage);
       }
 
-      console.log('No accessible pages found, defaulting to dashboard');
-      return '/';
+      console.log('No accessible pages found, redirecting to login');
+      return '/login';
     } catch (error) {
       console.error('Error determining landing page:', error);
-      return '/';
+      return '/login';
     }
+  };
+
+  // Helper function to check if user has read access to a specific page
+  const checkPageAccess = async (pageName: string): Promise<boolean> => {
+    if (!userRole) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('role_privileges')
+        .select('allowed')
+        .eq('role', userRole)
+        .eq('page_name', pageName)
+        .eq('operation', 'read')
+        .single();
+
+      if (error) {
+        console.error('Error checking page access:', error);
+        return false;
+      }
+
+      return data?.allowed || false;
+    } catch (error) {
+      console.error('Error checking page access:', error);
+      return false;
+    }
+  };
+
+  // Helper function to convert page names to routes
+  const getRouteFromPageName = (pageName: string): string => {
+    const pageRoutes: Record<string, string> = {
+      'dashboard': '/',
+      'clients': '/clients',
+      'employees': '/employees',
+      'projects': '/projects',
+      'tasks': '/tasks',
+      'sprints': '/sprints',
+      'invoices': '/invoices',
+      'payments': '/payments',
+      'services': '/services',
+      'wages': '/wages',
+      'gantt-view': '/gantt-view',
+      'agenda-cal': '/agenda-cal',
+      'log-cal': '/log-cal'
+    };
+
+    return pageRoutes[pageName] || '/login';
   };
 
   const checkPasswordResetNeeded = (user: User) => {
