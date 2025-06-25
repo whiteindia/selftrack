@@ -1,10 +1,13 @@
 
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, MessageSquare, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import ManualTimeLog from './ManualTimeLog';
+import { logTimeEntry } from '@/utils/activity/taskActivity';
 
 interface TimeEntry {
   id: string;
@@ -23,6 +26,8 @@ interface TaskHistoryProps {
 }
 
 const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate, isSubtask = false }) => {
+  const queryClient = useQueryClient();
+  
   const { data: timeEntries = [], isLoading } = useQuery({
     queryKey: ['time-entries', taskId],
     queryFn: async () => {
@@ -40,6 +45,28 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate, isSubtask =
     }
   });
 
+  // Delete time entry mutation
+  const deleteTimeEntryMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      const { error } = await supabase
+        .from('time_entries')
+        .delete()
+        .eq('id', entryId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['time-entries', taskId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks', taskId] });
+      onUpdate?.();
+      toast.success('Time entry deleted successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete time entry: ' + error.message);
+    }
+  });
+
   const formatDuration = (minutes: number | null) => {
     if (!minutes) return 'In progress...';
     const hours = Math.floor(minutes / 60);
@@ -49,6 +76,12 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate, isSubtask =
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  const handleDeleteTimeEntry = (entryId: string) => {
+    if (window.confirm('Are you sure you want to delete this time entry?')) {
+      deleteTimeEntryMutation.mutate(entryId);
+    }
   };
 
   if (isLoading) {
@@ -86,6 +119,15 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ taskId, onUpdate, isSubtask =
                   <span>•</span>
                   <span>{formatDateTime(entry.start_time)}</span>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteTimeEntry(entry.id)}
+                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  disabled={deleteTimeEntryMutation.isPending}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
               {entry.comment && (
                 <p className="text-sm text-gray-700">{entry.comment}</p>
