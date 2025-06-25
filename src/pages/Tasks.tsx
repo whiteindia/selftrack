@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit, Filter, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,8 +22,10 @@ import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import TasksHeader from '@/components/TasksHeader';
 import SubtaskCard from '@/components/SubtaskCard';
 import SubtaskDialog from '@/components/SubtaskDialog';
+import TaskKanban from '@/components/TaskKanban';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
+import { Toggle } from '@/components/ui/toggle';
 
 interface Task {
   id: string;
@@ -77,6 +79,7 @@ const Tasks = () => {
   const [projectFilter, setProjectFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
   const [globalClientFilter, setGlobalClientFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'kanban'>('cards');
   
   // Subtask states
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
@@ -102,26 +105,15 @@ const Tasks = () => {
     'Imp'
   ];
 
-  // Check if user has access to tasks page
-  console.log('=== Tasks Page Access Check ===');
-  console.log('User:', user?.email);
-  console.log('UserRole:', userRole);
-  console.log('PrivilegesLoading:', privilegesLoading);
-  
   // Always allow access for admin users and yugandhar@whiteindia.in
   const hasTasksAccess = userRole === 'admin' || 
                         user?.email === 'yugandhar@whiteindia.in' || 
                         hasPageAccess('tasks');
-  
-  console.log('HasTasksAccess:', hasTasksAccess);
-  console.log('HasPageAccess result:', hasPageAccess('tasks'));
 
   // Fetch tasks with project information using the secure view
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      console.log('Fetching tasks with project info using secure view');
-      
       // First, get tasks that the user has access to
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
@@ -137,11 +129,8 @@ const Tasks = () => {
         .order('created_at', { ascending: false });
 
       if (tasksError) {
-        console.error('Error fetching tasks:', tasksError);
         throw tasksError;
       }
-
-      console.log(`Fetched ${tasksData?.length || 0} tasks after RLS filtering`);
 
       // For each task, fetch project information using the secure view
       const tasksWithProjectInfo = await Promise.all(
@@ -368,6 +357,16 @@ const Tasks = () => {
     updateTaskMutation.mutate({ id: taskId, updates });
   };
 
+  const handleTaskStatusChange = (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed') => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'Completed') {
+      updates.completion_date = new Date().toISOString();
+    } else if (newStatus !== 'Completed') {
+      updates.completion_date = null;
+    }
+    updateTaskMutation.mutate({ id: taskId, updates });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Not Started': return 'bg-gray-500';
@@ -479,15 +478,38 @@ const Tasks = () => {
           onCreateTask={() => setIsCreateDialogOpen(true)}
         />
 
-        {/* Filters Section */}
+        {/* View Toggle */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Filter className="h-4 w-4" />
-              Filters
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Filter className="h-4 w-4" />
+                View & Filters
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Toggle
+                  pressed={viewMode === 'cards'}
+                  onPressedChange={() => setViewMode('cards')}
+                  variant="outline"
+                  size="sm"
+                >
+                  <LayoutList className="h-4 w-4 mr-1" />
+                  Cards
+                </Toggle>
+                <Toggle
+                  pressed={viewMode === 'kanban'}
+                  onPressedChange={() => setViewMode('kanban')}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Kanban className="h-4 w-4 mr-1" />
+                  Kanban
+                </Toggle>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Filters Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="search" className="text-sm">Search</Label>
@@ -584,6 +606,18 @@ const Tasks = () => {
               </p>
             </CardContent>
           </Card>
+        ) : viewMode === 'kanban' ? (
+          <TaskKanban
+            tasks={filteredTasks.map(task => ({
+              ...task,
+              hours: task.total_logged_hours || 0
+            }))}
+            canCreate={hasOperationAccess('tasks', 'create')}
+            canUpdate={hasOperationAccess('tasks', 'update')}
+            canDelete={hasOperationAccess('tasks', 'delete')}
+            onTaskStatusChange={handleTaskStatusChange}
+            onAddTask={() => setIsCreateDialogOpen(true)}
+          />
         ) : (
           <div className="grid gap-3">
             {filteredTasks.map((task) => (
