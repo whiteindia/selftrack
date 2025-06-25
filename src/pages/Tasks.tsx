@@ -385,7 +385,7 @@ const Tasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilters(['On-Head','Targeted','Imp']);
+    setStatusFilters(['In Progress','On-Head','Targeted','Imp']);
     setAssigneeFilter('all');
     setProjectFilter('all');
     setGlobalServiceFilter('all');
