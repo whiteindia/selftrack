@@ -6,13 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar, Clock, User, Building, Plus, MessageSquare, Play, Square, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban } from 'lucide-react';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -357,7 +356,7 @@ const Tasks = () => {
     updateTaskMutation.mutate({ id: taskId, updates });
   };
 
-  const handleTaskStatusChange = (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed') => {
+  const handleTaskStatusChange = (taskId: string, newStatus: string) => {
     const updates: any = { status: newStatus };
     if (newStatus === 'Completed') {
       updates.completion_date = new Date().toISOString();
