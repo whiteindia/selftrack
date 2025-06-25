@@ -73,7 +73,7 @@ const Tasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress''On-Head','Targeted','Imp']);
+  const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress','On-Head','Targeted','Imp']);
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
