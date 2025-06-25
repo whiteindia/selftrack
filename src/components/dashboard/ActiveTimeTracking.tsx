@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock } from 'lucide-react';
+import { Play, Clock, User } from 'lucide-react';
 import LiveTimer from './LiveTimer';
 
 interface ActiveTimeTrackingProps {
@@ -41,11 +41,15 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                 onClick={onRunningTaskClick}
               >
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-medium text-green-900">{entry.tasks.name}</h4>
                     <p className="text-sm text-green-700">
                       {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
                     </p>
+                    <div className="flex items-center mt-1 text-sm text-green-600">
+                      <User className="h-3 w-3 mr-1" />
+                      <span>{entry.employee?.name || 'Unknown User'}</span>
+                    </div>
                   </div>
                   <div className="text-right">
                     <Badge variant="default" className="bg-green-600">

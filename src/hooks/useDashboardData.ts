@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -15,7 +14,13 @@ export const useDashboardData = () => {
           id,
           start_time,
           task_id,
-          entry_type
+          entry_type,
+          employee_id,
+          employees!inner(
+            id,
+            name,
+            email
+          )
         `)
         .is('end_time', null)
         .order('start_time', { ascending: false });
@@ -60,7 +65,8 @@ export const useDashboardData = () => {
                 id: subtaskData.tasks.id,
                 name: `${subtaskData.tasks.name} > ${subtaskData.name}`, // Show parent task > subtask
                 projects: subtaskData.tasks.projects
-              }
+              },
+              employee: entry.employees
             };
           } else {
             // Fetch task details
@@ -84,7 +90,8 @@ export const useDashboardData = () => {
 
             return {
               ...entry,
-              tasks: taskData
+              tasks: taskData,
+              employee: entry.employees
             };
           }
         })
