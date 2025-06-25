@@ -25,7 +25,7 @@ interface TaskKanbanProps {
   canCreate?: boolean;
   canUpdate?: boolean;
   canDelete?: boolean;
-  onTaskStatusChange: (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed') => void;
+  onTaskStatusChange: (taskId: string, newStatus: string) => void;
   onAddTask?: () => void;
 }
 
@@ -37,9 +37,13 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
   onTaskStatusChange,
   onAddTask 
 }) => {
-  const statuses: Array<'Not Started' | 'In Progress' | 'Completed'> = [
+  const statuses = [
     'Not Started',
     'In Progress', 
+    'On Hold',
+    'On-Head',
+    'Targeted',
+    'Imp',
     'Completed'
   ];
 
@@ -49,6 +53,14 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
         return 'bg-gray-100 text-gray-800';
       case 'In Progress':
         return 'bg-blue-100 text-blue-800';
+      case 'On Hold':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'On-Head':
+        return 'bg-purple-100 text-purple-800';
+      case 'Targeted':
+        return 'bg-orange-100 text-orange-800';
+      case 'Imp':
+        return 'bg-red-100 text-red-800';
       case 'Completed':
         return 'bg-green-100 text-green-800';
       default:
@@ -72,7 +84,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent, status: 'Not Started' | 'In Progress' | 'Completed') => {
+  const handleDrop = (e: React.DragEvent, status: string) => {
     if (!canUpdate) {
       e.preventDefault();
       return;
@@ -82,7 +94,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     onTaskStatusChange(taskId, status);
   };
 
-  const getTasksByStatus = (status: 'Not Started' | 'In Progress' | 'Completed') => {
+  const getTasksByStatus = (status: string) => {
     return tasks.filter(task => task.status === status);
   };
 
@@ -99,7 +111,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
       )}
 
       {/* Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
         {statuses.map((status) => (
           <div
             key={status}
@@ -107,11 +119,11 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <Card>
+            <Card className="min-h-[200px]">
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between">
-                  <span>{status}</span>
-                  <Badge variant="secondary" className={getStatusColor(status)}>
+                <CardTitle className="flex items-center justify-between text-sm">
+                  <span className="truncate">{status}</span>
+                  <Badge variant="secondary" className={`${getStatusColor(status)} text-xs`}>
                     {getTasksByStatus(status).length}
                   </Badge>
                 </CardTitle>
@@ -124,33 +136,33 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                     draggable={canUpdate}
                     onDragStart={(e) => handleDragStart(e, task.id)}
                   >
-                    <CardContent className="p-4">
-                      <h4 className="font-medium text-sm mb-2">{task.name}</h4>
+                    <CardContent className="p-3">
+                      <h4 className="font-medium text-xs mb-2 break-words">{task.name}</h4>
                       
-                      <div className="space-y-2 text-xs text-gray-600">
+                      <div className="space-y-1 text-xs text-gray-600">
                         {task.assignee && (
                           <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            <span>Assigned: {task.assignee.name}</span>
+                            <User className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{task.assignee.name}</span>
                           </div>
                         )}
                         
                         {task.deadline && (
                           <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>Due: {new Date(task.deadline).toLocaleDateString()}</span>
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span className="text-xs">{new Date(task.deadline).toLocaleDateString()}</span>
                           </div>
                         )}
                         
                         {task.estimated_duration && (
                           <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
+                            <Clock className="h-3 w-3 flex-shrink-0" />
                             <span>Est: {task.estimated_duration}h</span>
                           </div>
                         )}
                         
                         <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
+                          <Clock className="h-3 w-3 flex-shrink-0" />
                           <span>Logged: {task.hours}h</span>
                         </div>
                       </div>
@@ -159,8 +171,8 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                 ))}
                 
                 {getTasksByStatus(status).length === 0 && (
-                  <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                    <p className="text-sm">No tasks in {status.toLowerCase()}</p>
+                  <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                    <p className="text-xs">No tasks</p>
                   </div>
                 )}
               </CardContent>
