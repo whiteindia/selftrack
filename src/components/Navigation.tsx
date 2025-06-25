@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -52,9 +51,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/projects', label: 'Projects', icon: FolderOpen, pageName: 'projects' },
     { path: '/tasks', label: 'Tasks', icon: CheckSquare, pageName: 'tasks' },
     { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' },
-    { path: '/invoices', label: 'Invoices', icon: FileText, pageName: 'invoices' },
-    { path: '/payments', label: 'Payments', icon: DollarSign, pageName: 'payments' },
-    { path: '/wages', label: 'Wages', icon: Wallet, pageName: 'wages' },
   ];
 
   const trakEzyItems = [
@@ -65,9 +61,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const configItems = [
     { path: '/clients', label: 'Clients', icon: Users, pageName: 'clients' },
-    { path: '/employees', label: 'Employees', icon: UserCheck, pageName: 'employees' },
     { path: '/services', label: 'Services', icon: Settings, pageName: 'services' },
-    { path: '/roles', label: 'Roles', icon: UserCheck, pageName: 'roles' },
   ];
 
   // Filter items based on actual database privileges
