@@ -281,7 +281,7 @@ const GanttView = () => {
 
   return (
     <Navigation>
-      <div className="space-y-4 sm:space-y-6 p-3 sm:p-6">
+      <div className="space-y-4 sm:space-y-6 p-1 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <ChartGantt className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
           <div>

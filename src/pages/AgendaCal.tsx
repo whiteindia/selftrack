@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -334,7 +333,7 @@ const AgendaCal = () => {
     <Navigation>
       <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Panel - Filters */}
-        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-4 lg:p-6 overflow-y-auto">
+        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-1 lg:p-6 overflow-y-auto">
           <div className="flex items-center gap-3 mb-4 lg:mb-6">
             <Calendar className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
             <h2 className="text-lg lg:text-xl font-bold">Agenda Calendar</h2>
@@ -446,7 +445,7 @@ const AgendaCal = () => {
         {/* Main Calendar View */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Calendar Header */}
-          <div className="border-b p-3 lg:p-4 bg-white">
+          <div className="border-b p-1 lg:p-4 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 lg:gap-4 mb-3 lg:mb-4">
               <div className="flex items-center gap-2 lg:gap-4 min-w-0">
                 <Button variant="outline" size="icon" onClick={() => navigateDate('prev')} className="flex-shrink-0">
@@ -476,7 +475,7 @@ const AgendaCal = () => {
           </div>
 
           {/* Calendar Content */}
-          <div className="flex-1 overflow-auto p-3 lg:p-4">
+          <div className="flex-1 overflow-auto p-1 lg:p-4">
             {viewMode === 'day' ? (
               <div className="space-y-3 lg:space-y-4">
                 <h3 className="text-base lg:text-lg font-semibold border-b pb-2">
