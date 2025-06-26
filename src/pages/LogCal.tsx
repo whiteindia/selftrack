@@ -42,8 +42,6 @@ const LogCal = () => {
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
-  const [assignerFilter, setAssignerFilter] = useState<string>('all');
 
   // Fetch services for filter
   const { data: services = [] } = useQuery({
@@ -86,19 +84,6 @@ const LogCal = () => {
             name
           )
         `)
-        .order('name');
-      if (error) throw error;
-      return data || [];
-    }
-  });
-
-  // Fetch employees for assignee/assigner filters
-  const { data: employees = [] } = useQuery({
-    queryKey: ['employees'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name')
         .order('name');
       if (error) throw error;
       return data || [];
@@ -281,16 +266,14 @@ const LogCal = () => {
   // Apply filters to time entries
   const filteredTimeEntries = useMemo(() => {
     return timeEntries.filter(entry => {
-      // Apply filters
+      // Apply filters (removed assignee and assigner filters)
       if (serviceFilter !== 'all' && entry.project_service !== serviceFilter) return false;
       if (clientFilter !== 'all' && entry.client_name !== clientFilter) return false;
       if (projectFilter !== 'all' && entry.project_name !== projectFilter) return false;
-      if (assigneeFilter !== 'all' && entry.assignee_name !== assigneeFilter) return false;
-      if (assignerFilter !== 'all' && entry.assigner_name !== assignerFilter) return false;
 
       return true;
     });
-  }, [timeEntries, serviceFilter, clientFilter, projectFilter, assigneeFilter, assignerFilter]);
+  }, [timeEntries, serviceFilter, clientFilter, projectFilter]);
 
   // Generate 24-hour calendar slots with spanning entries
   const calendarSlots = useMemo(() => {
@@ -407,7 +390,7 @@ const LogCal = () => {
     <Navigation>
       <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Panel - Filters */}
-        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-4 lg:p-6 overflow-y-auto">
+        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-1 lg:p-6 overflow-y-auto">
           <div className="flex items-center gap-3 mb-4 lg:mb-6">
             <CalendarClock className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
             <h2 className="text-lg lg:text-xl font-bold">Log Calendar</h2>
@@ -450,42 +433,6 @@ const LogCal = () => {
               </Select>
             </div>
 
-            {/* Assignee Filter */}
-            <div className="lg:space-y-0">
-              <label className="block text-sm font-medium mb-2">Assignee</label>
-              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assignees</SelectItem>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.name}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Assigner Filter */}
-            <div className="lg:space-y-0">
-              <label className="block text-sm font-medium mb-2">Assigner</label>
-              <Select value={assignerFilter} onValueChange={setAssignerFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by assigner" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assigners</SelectItem>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.name}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Project Filter */}
             <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Projects</label>
@@ -503,7 +450,7 @@ const LogCal = () => {
                   <div
                     key={project.id}
                     className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                      projectFilter === project.name ? 'bg-blue-50 text-blue-700' : ''
+                      projectFilter === project.name ? 'bg-blue-50 text-blue-707' : ''
                     }`}
                     onClick={() => setProjectFilter(project.name)}
                   >
@@ -519,7 +466,7 @@ const LogCal = () => {
         {/* Main Calendar View */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Calendar Header */}
-          <div className="border-b p-3 lg:p-4 bg-white">
+          <div className="border-b p-1 lg:p-4 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 lg:gap-4">
               <div className="flex items-center gap-2 lg:gap-4 min-w-0">
                 <Button variant="outline" size="icon" onClick={() => navigateDate('prev')} className="flex-shrink-0">

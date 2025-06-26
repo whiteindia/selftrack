@@ -56,8 +56,6 @@ const AgendaCal = () => {
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
-  const [assignerFilter, setAssignerFilter] = useState<string>('all');
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every second for live timer display
@@ -134,19 +132,6 @@ const AgendaCal = () => {
             name
           )
         `)
-        .order('name');
-      if (error) throw error;
-      return data || [];
-    }
-  });
-
-  // Fetch employees for assignee/assigner filters
-  const { data: employees = [] } = useQuery({
-    queryKey: ['employees'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name')
         .order('name');
       if (error) throw error;
       return data || [];
@@ -244,8 +229,6 @@ const AgendaCal = () => {
       if (serviceFilter !== 'all' && task.projects.service !== serviceFilter) return;
       if (clientFilter !== 'all' && task.projects.client_id !== clientFilter) return;
       if (projectFilter !== 'all' && task.project_id !== projectFilter) return;
-      if (assigneeFilter !== 'all' && task.assignee_id !== assigneeFilter) return;
-      if (assignerFilter !== 'all' && task.assigner_id !== assignerFilter) return;
 
       const startDate = task.date ? parseISO(task.date) : new Date();
       const endDate = task.deadline ? parseISO(task.deadline) : startDate;
@@ -265,7 +248,7 @@ const AgendaCal = () => {
     });
 
     return items;
-  }, [tasks, serviceFilter, clientFilter, projectFilter, assigneeFilter, assignerFilter]);
+  }, [tasks, serviceFilter, clientFilter, projectFilter]);
 
   // Get date range based on view mode
   const getDateRange = () => {
@@ -333,7 +316,7 @@ const AgendaCal = () => {
     <Navigation>
       <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Panel - Filters */}
-        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 p-1 lg:p-6 overflow-y-auto">
+        <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 px-1 lg:p-6 overflow-y-auto">
           <div className="flex items-center gap-3 mb-4 lg:mb-6">
             <Calendar className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
             <h2 className="text-lg lg:text-xl font-bold">Agenda Calendar</h2>
@@ -376,42 +359,6 @@ const AgendaCal = () => {
               </Select>
             </div>
 
-            {/* Assignee Filter */}
-            <div className="lg:space-y-0">
-              <label className="block text-sm font-medium mb-2">Assignee</label>
-              <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assignees</SelectItem>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Assigner Filter */}
-            <div className="lg:space-y-0">
-              <label className="block text-sm font-medium mb-2">Assigner</label>
-              <Select value={assignerFilter} onValueChange={setAssignerFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by assigner" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Assigners</SelectItem>
-                  {employees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Project Filter */}
             <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:space-y-0">
               <label className="block text-sm font-medium mb-2">Projects</label>
@@ -445,7 +392,7 @@ const AgendaCal = () => {
         {/* Main Calendar View */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Calendar Header */}
-          <div className="border-b p-1 lg:p-4 bg-white">
+          <div className="border-b px-1 lg:p-4 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 lg:gap-4 mb-3 lg:mb-4">
               <div className="flex items-center gap-2 lg:gap-4 min-w-0">
                 <Button variant="outline" size="icon" onClick={() => navigateDate('prev')} className="flex-shrink-0">
@@ -475,7 +422,7 @@ const AgendaCal = () => {
           </div>
 
           {/* Calendar Content */}
-          <div className="flex-1 overflow-auto p-1 lg:p-4">
+          <div className="flex-1 overflow-auto px-1 lg:p-4">
             {viewMode === 'day' ? (
               <div className="space-y-3 lg:space-y-4">
                 <h3 className="text-base lg:text-lg font-semibold border-b pb-2">
