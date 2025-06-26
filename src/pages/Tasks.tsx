@@ -283,7 +283,7 @@ const Tasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setNewTask({ name: '', project_id: '', assignee_id: '', deadline: '', estimated_duration: '' });
+      setNewTask({ name: '', project_id: '', assignee_id: '', deadline: '', estimated_duration: '', status: 'Not Started' });
       setIsCreateDialogOpen(false);
       toast.success('Task created successfully!');
     },
