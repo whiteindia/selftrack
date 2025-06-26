@@ -90,7 +90,8 @@ const Tasks = () => {
     project_id: '',
     assignee_id: '',
     deadline: '',
-    estimated_duration: ''
+    estimated_duration: '',
+    status: 'Not Started'
   });
 
   // Define all available status options
@@ -670,6 +671,24 @@ const Tasks = () => {
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name} - {project.service}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select 
+                  value={newTask.status} 
+                  onValueChange={(value) => setNewTask({ ...newTask, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
                       </SelectItem>
                     ))}
                   </SelectContent>
