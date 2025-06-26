@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -328,7 +329,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return (
       <div className="min-h-screen w-full">
         <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
-          <div className="flex justify-between items-center h-16 px-4 min-w-0">
+          <div className="flex justify-between items-center h-16 px-1 min-w-0">
         
             <Drawer>
               <DrawerTrigger asChild>
@@ -344,7 +345,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             </Drawer>
           </div>
         </header>
-        <main className="p-4 min-w-0">
+        <main className="p-1 min-w-0">
           {children}
         </main>
       </div>
