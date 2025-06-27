@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -106,13 +107,11 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
             
             {/* Action Buttons - Stack on mobile, align right on larger screens */}
             <div className="flex flex-wrap gap-2 justify-start sm:justify-end items-start">
-              {subtask.status === 'In Progress' && (
-                <TimeTrackerWithComment 
-                  task={{ id: subtask.id, name: subtask.name }}
-                  onSuccess={onTimeUpdate}
-                  isSubtask={true}
-                />
-              )}
+              <TimeTrackerWithComment 
+                task={{ id: subtask.id, name: subtask.name }}
+                onSuccess={onTimeUpdate}
+                isSubtask={true}
+              />
               <ManualTimeLog 
                 taskId={subtask.id}
                 onSuccess={onTimeUpdate}

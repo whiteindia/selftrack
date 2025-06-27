@@ -3,8 +3,11 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock, User } from 'lucide-react';
+import { Play, Clock, User, Pause } from 'lucide-react';
 import LiveTimer from './LiveTimer';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -17,6 +20,48 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   isError,
   onRunningTaskClick
 }) => {
+  const queryClient = useQueryClient();
+
+  const pauseTimerMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      const endTime = new Date();
+      const { data: entry } = await supabase
+        .from('time_entries')
+        .select('start_time')
+        .eq('id', entryId)
+        .single();
+      
+      if (!entry) throw new Error('Entry not found');
+      
+      const startTime = new Date(entry.start_time);
+      const durationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+      
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          end_time: endTime.toISOString(),
+          duration_minutes: durationMinutes
+        })
+        .eq('id', entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      toast.success('Timer paused!');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to pause timer: ' + error.message);
+    }
+  });
+
+  const handlePauseTimer = (entryId: string) => {
+    pauseTimerMutation.mutate(entryId);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -37,8 +82,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
             {runningTasks.map((entry: any) => (
               <div
                 key={entry.id}
-                className="p-4 border rounded-lg bg-green-50 border-green-200 cursor-pointer hover:bg-green-100 transition-colors"
-                onClick={onRunningTaskClick}
+                className="p-4 border rounded-lg bg-green-50 border-green-200"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -51,13 +95,23 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                       <span>{entry.employee?.name || 'Unknown User'}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <Badge variant="default" className="bg-green-600">
-                      Running
-                    </Badge>
-                    <div className="mt-1">
-                      <LiveTimer startTime={entry.start_time} />
+                  <div className="text-right flex items-center gap-2">
+                    <div>
+                      <Badge variant="default" className="bg-green-600">
+                        Running
+                      </Badge>
+                      <div className="mt-1">
+                        <LiveTimer startTime={entry.start_time} />
+                      </div>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePauseTimer(entry.id)}
+                      disabled={pauseTimerMutation.isPending}
+                    >
+                      <Pause className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </div>

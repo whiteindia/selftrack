@@ -9,7 +9,6 @@ import StatsCards from '@/components/dashboard/StatsCards';
 import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
 import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
-import QuickActions from '@/components/dashboard/QuickActions';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -103,12 +102,7 @@ const Index = () => {
           <p className="text-gray-600 mt-2">Welcome back!</p>
         </div>
 
-        <StatsCards 
-          stats={statsQuery.data} 
-          isError={!!statsQuery.error} 
-        />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <ActiveTimeTracking
             runningTasks={runningTasksQuery.data || []}
             isError={!!runningTasksQuery.error}
@@ -134,7 +128,10 @@ const Index = () => {
           />
         </div>
 
-        <QuickActions onNavigate={navigate} />
+        <StatsCards 
+          stats={statsQuery.data} 
+          isError={!!statsQuery.error} 
+        />
       </div>
     </Navigation>
   );

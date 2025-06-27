@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Play, Square, Clock } from 'lucide-react';
+import { Play, Square, Clock, Pause } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -18,7 +19,7 @@ interface Task {
 interface TimeTrackerWithCommentProps {
   task: Task;
   onSuccess: () => void;
-  isSubtask?: boolean; // Add this prop to identify if it's a subtask
+  isSubtask?: boolean;
 }
 
 interface ActiveTimer {
@@ -171,6 +172,48 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     }
   });
 
+  const pauseTimerMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeTimer) throw new Error('No active timer');
+      
+      const endTime = new Date();
+      const durationMinutes = Math.floor((endTime.getTime() - activeTimer.startTime.getTime()) / 60000);
+      
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          end_time: endTime.toISOString(),
+          duration_minutes: durationMinutes
+        })
+        .eq('id', activeTimer.entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async () => {
+      // Clear local state immediately
+      setActiveTimer(null);
+      setElapsedTime(0);
+      
+      // Aggressively clear and refetch dashboard queries
+      await queryClient.removeQueries({ queryKey: ['running-tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      
+      // Wait a moment and refetch again to ensure consistency
+      setTimeout(async () => {
+        await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
+      }, 500);
+      
+      toast.success('Timer paused!');
+      onSuccess();
+    },
+    onError: (error) => {
+      toast.error('Failed to pause timer: ' + error.message);
+    }
+  });
+
   const stopTimerMutation = useMutation({
     mutationFn: async (commentText: string) => {
       if (!activeTimer) throw new Error('No active timer');
@@ -276,6 +319,10 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     }
   };
 
+  const handlePause = () => {
+    pauseTimerMutation.mutate();
+  };
+
   const handleStopWithComment = () => {
     stopTimerMutation.mutate(comment);
   };
@@ -303,10 +350,20 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
         </Button>
         
         {activeTimer && (
-          <div className="flex items-center text-sm text-blue-600 font-mono">
-            <Clock className="h-4 w-4 mr-1" />
-            {formatTime(elapsedTime)}
-          </div>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handlePause}
+              disabled={pauseTimerMutation.isPending}
+            >
+              <Pause className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center text-sm text-blue-600 font-mono">
+              <Clock className="h-4 w-4 mr-1" />
+              {formatTime(elapsedTime)}
+            </div>
+          </>
         )}
       </div>
 
