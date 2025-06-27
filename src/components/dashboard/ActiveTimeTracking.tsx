@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock, User, Pause } from 'lucide-react';
+import { Play, Clock, User, Pause, Square } from 'lucide-react';
 import LiveTimer from './LiveTimer';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,8 +58,49 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     }
   });
 
+  const stopTimerMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      const endTime = new Date();
+      const { data: entry } = await supabase
+        .from('time_entries')
+        .select('start_time')
+        .eq('id', entryId)
+        .single();
+      
+      if (!entry) throw new Error('Entry not found');
+      
+      const startTime = new Date(entry.start_time);
+      const durationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+      
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          end_time: endTime.toISOString(),
+          duration_minutes: durationMinutes,
+          comment: 'Stopped from dashboard'
+        })
+        .eq('id', entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      toast.success('Timer stopped!');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to stop timer: ' + error.message);
+    }
+  });
+
   const handlePauseTimer = (entryId: string) => {
     pauseTimerMutation.mutate(entryId);
+  };
+
+  const handleStopTimer = (entryId: string) => {
+    stopTimerMutation.mutate(entryId);
   };
 
   return (
@@ -104,14 +145,24 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                         <LiveTimer startTime={entry.start_time} />
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handlePauseTimer(entry.id)}
-                      disabled={pauseTimerMutation.isPending}
-                    >
-                      <Pause className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePauseTimer(entry.id)}
+                        disabled={pauseTimerMutation.isPending}
+                      >
+                        <Pause className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleStopTimer(entry.id)}
+                        disabled={stopTimerMutation.isPending}
+                      >
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

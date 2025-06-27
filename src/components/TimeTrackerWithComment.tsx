@@ -311,16 +311,16 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStartStop = () => {
-    if (activeTimer) {
-      setShowCommentDialog(true);
-    } else {
-      startTimerMutation.mutate();
-    }
+  const handleStart = () => {
+    startTimerMutation.mutate();
   };
 
   const handlePause = () => {
     pauseTimerMutation.mutate();
+  };
+
+  const handleStop = () => {
+    setShowCommentDialog(true);
   };
 
   const handleStopWithComment = () => {
@@ -330,26 +330,17 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
   return (
     <>
       <div className="flex items-center space-x-2">
-        <Button
-          size="sm"
-          variant={activeTimer ? "destructive" : "outline"}
-          onClick={handleStartStop}
-          disabled={startTimerMutation.isPending || stopTimerMutation.isPending}
-        >
-          {activeTimer ? (
-            <>
-              <Square className="h-4 w-4 mr-1" />
-              Stop
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4 mr-1" />
-              Start
-            </>
-          )}
-        </Button>
-        
-        {activeTimer && (
+        {!activeTimer ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleStart}
+            disabled={startTimerMutation.isPending}
+          >
+            <Play className="h-4 w-4 mr-1" />
+            Start
+          </Button>
+        ) : (
           <>
             <Button
               size="sm"
@@ -357,7 +348,17 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
               onClick={handlePause}
               disabled={pauseTimerMutation.isPending}
             >
-              <Pause className="h-4 w-4" />
+              <Pause className="h-4 w-4 mr-1" />
+              Pause
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleStop}
+              disabled={stopTimerMutation.isPending}
+            >
+              <Square className="h-4 w-4 mr-1" />
+              Stop
             </Button>
             <div className="flex items-center text-sm text-blue-600 font-mono">
               <Clock className="h-4 w-4 mr-1" />
