@@ -22,42 +22,6 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
 }) => {
   const queryClient = useQueryClient();
 
-  const pauseTimerMutation = useMutation({
-    mutationFn: async (entryId: string) => {
-      const endTime = new Date();
-      const { data: entry } = await supabase
-        .from('time_entries')
-        .select('start_time')
-        .eq('id', entryId)
-        .single();
-      
-      if (!entry) throw new Error('Entry not found');
-      
-      const startTime = new Date(entry.start_time);
-      const durationMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
-      
-      const { data, error } = await supabase
-        .from('time_entries')
-        .update({
-          end_time: endTime.toISOString(),
-          duration_minutes: durationMinutes
-        })
-        .eq('id', entryId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
-      toast.success('Timer paused!');
-    },
-    onError: (error: any) => {
-      toast.error('Failed to pause timer: ' + error.message);
-    }
-  });
-
   const stopTimerMutation = useMutation({
     mutationFn: async (entryId: string) => {
       const endTime = new Date();
@@ -94,10 +58,6 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
       toast.error('Failed to stop timer: ' + error.message);
     }
   });
-
-  const handlePauseTimer = (entryId: string) => {
-    pauseTimerMutation.mutate(entryId);
-  };
 
   const handleStopTimer = (entryId: string) => {
     stopTimerMutation.mutate(entryId);
@@ -146,14 +106,6 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handlePauseTimer(entry.id)}
-                        disabled={pauseTimerMutation.isPending}
-                      >
-                        <Pause className="h-4 w-4" />
-                      </Button>
                       <Button
                         size="sm"
                         variant="destructive"
