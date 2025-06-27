@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
@@ -142,37 +143,35 @@ export const useDashboardData = () => {
     };
   }, [runningTasksQuery]);
 
-  // Get summary statistics
+  // Get summary statistics - updated to include On-Head stats
   const statsQuery = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       console.log('Fetching dashboard stats...');
-      const [clientsRes, projectsRes, tasksRes, paymentsRes] = await Promise.all([
+      const [clientsRes, projectsRes, onHeadProjectsRes, onHeadTasksRes] = await Promise.all([
         supabase.from('clients').select('id', { count: 'exact' }),
         supabase.from('projects').select('id', { count: 'exact' }),
-        supabase.from('tasks').select('id', { count: 'exact' }),
-        supabase.from('payments').select('amount')
+        supabase.from('projects').select('id', { count: 'exact' }).eq('status', 'On-Head'),
+        supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'On-Head')
       ]);
 
       console.log('Stats responses:', {
         clients: clientsRes,
         projects: projectsRes,
-        tasks: tasksRes,
-        payments: paymentsRes
+        onHeadProjects: onHeadProjectsRes,
+        onHeadTasks: onHeadTasksRes
       });
 
       if (clientsRes.error) console.error('Clients error:', clientsRes.error);
       if (projectsRes.error) console.error('Projects error:', projectsRes.error);
-      if (tasksRes.error) console.error('Tasks error:', tasksRes.error);
-      if (paymentsRes.error) console.error('Payments error:', paymentsRes.error);
-
-      const totalRevenue = paymentsRes.data?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+      if (onHeadProjectsRes.error) console.error('On-Head projects error:', onHeadProjectsRes.error);
+      if (onHeadTasksRes.error) console.error('On-Head tasks error:', onHeadTasksRes.error);
 
       const result = {
         clients: clientsRes.count || 0,
         projects: projectsRes.count || 0,
-        tasks: tasksRes.count || 0,
-        revenue: totalRevenue
+        onHeadProjects: onHeadProjectsRes.count || 0,
+        onHeadTasks: onHeadTasksRes.count || 0
       };
 
       console.log('Dashboard stats result:', result);
