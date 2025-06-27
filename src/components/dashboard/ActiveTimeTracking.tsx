@@ -59,8 +59,68 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     }
   });
 
+  const pauseTimerMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      // For pause, we just update a pause timestamp in the comment or a custom field
+      // This is a simple pause implementation - in a full implementation you might want a separate pause table
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          comment: `Paused at ${new Date().toISOString()}`
+        })
+        .eq('id', entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      toast.success('Timer paused!');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to pause timer: ' + error.message);
+    }
+  });
+
+  const resumeTimerMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          comment: `Resumed at ${new Date().toISOString()}`
+        })
+        .eq('id', entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+      toast.success('Timer resumed!');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to resume timer: ' + error.message);
+    }
+  });
+
   const handleStopTimer = (entryId: string) => {
     stopTimerMutation.mutate(entryId);
+  };
+
+  const handlePauseTimer = (entryId: string) => {
+    pauseTimerMutation.mutate(entryId);
+  };
+
+  const handleResumeTimer = (entryId: string) => {
+    resumeTimerMutation.mutate(entryId);
+  };
+
+  const isPaused = (entry: any) => {
+    return entry.comment?.includes('Paused at') && !entry.comment?.includes('Resumed at');
   };
 
   return (
@@ -98,14 +158,33 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                   </div>
                   <div className="text-right flex items-center gap-2">
                     <div>
-                      <Badge variant="default" className="bg-green-600">
-                        Running
+                      <Badge variant="default" className={isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}>
+                        {isPaused(entry) ? 'Paused' : 'Running'}
                       </Badge>
                       <div className="mt-1">
                         <LiveTimer startTime={entry.start_time} />
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      {isPaused(entry) ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResumeTimer(entry.id)}
+                          disabled={resumeTimerMutation.isPending}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePauseTimer(entry.id)}
+                          disabled={pauseTimerMutation.isPending}
+                        >
+                          <Pause className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="destructive"
