@@ -166,32 +166,28 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                         </Badge>
                       </div>
                       
-                      {/* Line 3: Action Buttons */}
-                      {isMobile ? (
-                        <div className="flex items-center gap-1">
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                            <MessageSquare className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-xs">
-                          {task.estimated_duration && (
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3 flex-shrink-0" />
-                              <span>Est: {task.estimated_duration}h</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {/* Line 3: Action Buttons for both mobile and desktop */}
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                          <MessageSquare className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                        {/* Show estimated duration on desktop if available */}
+                        {!isMobile && task.estimated_duration && (
+                          <div className="flex items-center gap-1 ml-auto text-xs text-gray-600">
+                            <Clock className="h-3 w-3 flex-shrink-0" />
+                            <span>Est: {task.estimated_duration}h</span>
+                          </div>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
