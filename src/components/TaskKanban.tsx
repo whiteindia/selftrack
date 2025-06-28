@@ -139,54 +139,45 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                     draggable={canUpdate}
                     onDragStart={(e) => handleDragStart(e, task.id)}
                   >
-                    <CardContent className="p-3">
-                      {/* Line 1: Task Name */}
-                      <h4 className="font-medium text-xs mb-2 break-words line-clamp-2">{task.name}</h4>
+                    <CardContent className="p-3 space-y-2">
+                      {/* Task Name */}
+                      <h4 className="font-medium text-sm mb-2 break-words line-clamp-2">{task.name}</h4>
                       
-                      {/* Line 2: Project • Time Logged • Date • Status */}
-                      <div className="flex items-center gap-2 text-xs text-gray-600 mb-2 flex-wrap">
-                        <span className="truncate">Project</span>
-                        <span>•</span>
-                        <div className="flex items-center gap-1">
+                      {/* Project Info with Status */}
+                      <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                        <span className="flex items-center gap-1">
+                          <span className="truncate">Project</span>
+                        </span>
+                        <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span>{task.hours}h</span>
-                        </div>
+                          <span>{task.hours}h logged</span>
+                        </span>
                         {task.deadline && (
-                          <>
-                            <span>•</span>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3 flex-shrink-0" />
-                              <span>{new Date(task.deadline).toLocaleDateString()}</span>
-                            </div>
-                          </>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 flex-shrink-0" />
+                            <span>Due: {new Date(task.deadline).toLocaleDateString()}</span>
+                          </span>
                         )}
-                        <span>•</span>
-                        <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs px-1 py-0`}>
+                        <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs px-2 py-0 rounded-full`}>
                           {task.status}
                         </Badge>
                       </div>
                       
-                      {/* Line 3: Action Buttons for both mobile and desktop */}
+                      {/* Action Icons Row */}
                       <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
                           <Plus className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
                           <MessageSquare className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                        <span className="text-xs text-gray-400 px-1">(2)</span>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
                           <Edit className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
                           <Trash2 className="h-3 w-3" />
                         </Button>
-                        {/* Show estimated duration on desktop if available */}
-                        {!isMobile && task.estimated_duration && (
-                          <div className="flex items-center gap-1 ml-auto text-xs text-gray-600">
-                            <Clock className="h-3 w-3 flex-shrink-0" />
-                            <span>Est: {task.estimated_duration}h</span>
-                          </div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
