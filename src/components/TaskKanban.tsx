@@ -3,7 +3,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, User, Calendar, Plus } from 'lucide-react';
+import { Clock, Calendar, Plus, MessageSquare, Edit, Trash2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Task {
   id: string;
@@ -37,6 +38,8 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
   onTaskStatusChange,
   onAddTask 
 }) => {
+  const isMobile = useIsMobile();
+  
   const statuses = [
     'Not Started',
     'In Progress', 
@@ -137,35 +140,58 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                     onDragStart={(e) => handleDragStart(e, task.id)}
                   >
                     <CardContent className="p-3">
-                      <h4 className="font-medium text-xs mb-2 break-words">{task.name}</h4>
+                      {/* Line 1: Task Name */}
+                      <h4 className="font-medium text-xs mb-2 break-words line-clamp-2">{task.name}</h4>
                       
-                      <div className="space-y-1 text-xs text-gray-600">
-                        {task.assignee && (
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{task.assignee.name}</span>
-                          </div>
-                        )}
-                        
-                        {task.deadline && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span className="text-xs">{new Date(task.deadline).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                        
-                        {task.estimated_duration && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 flex-shrink-0" />
-                            <span>Est: {task.estimated_duration}h</span>
-                          </div>
-                        )}
-                        
+                      {/* Line 2: Project • Time Logged • Date • Status */}
+                      <div className="flex items-center gap-2 text-xs text-gray-600 mb-2 flex-wrap">
+                        <span className="truncate">Project</span>
+                        <span>•</span>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span>Logged: {task.hours}h</span>
+                          <span>{task.hours}h</span>
                         </div>
+                        {task.deadline && (
+                          <>
+                            <span>•</span>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 flex-shrink-0" />
+                              <span>{new Date(task.deadline).toLocaleDateString()}</span>
+                            </div>
+                          </>
+                        )}
+                        <span>•</span>
+                        <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs px-1 py-0`}>
+                          {task.status}
+                        </Badge>
                       </div>
+                      
+                      {/* Line 3: Action Buttons */}
+                      {isMobile ? (
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                            <MessageSquare className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs">
+                          {task.estimated_duration && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              <span>Est: {task.estimated_duration}h</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
