@@ -59,14 +59,15 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     }
   });
 
+  // Updated pause mutation to use consistent format with TimeTrackerWithComment
   const pauseTimerMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      // Store pause timestamp in comment for dashboard tracking
+      // Use the same pause format as TimeTrackerWithComment to ensure consistency
       const pauseTime = new Date().toISOString();
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Dashboard paused at ${pauseTime}`
+          comment: `Timer paused at ${pauseTime}`
         })
         .eq('id', entryId)
         .select()
@@ -84,13 +85,14 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     }
   });
 
+  // Updated resume mutation to use consistent format with TimeTrackerWithComment
   const resumeTimerMutation = useMutation({
     mutationFn: async (entryId: string) => {
       const resumeTime = new Date().toISOString();
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Dashboard resumed at ${resumeTime}`
+          comment: `Timer resumed at ${resumeTime}`
         })
         .eq('id', entryId)
         .select()
@@ -120,25 +122,39 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     resumeTimerMutation.mutate(entryId);
   };
 
+  // Updated isPaused function to match TimeTrackerWithComment logic
   const isPaused = (entry: any) => {
     if (!entry.comment) return false;
-    const hasRecentPause = entry.comment.includes('Dashboard paused at');
-    const hasRecentResume = entry.comment.includes('Dashboard resumed at');
+    
+    // Check for pause/resume patterns that match TimeTrackerWithComment
+    const hasPause = entry.comment.includes('Timer paused at') || entry.comment.includes('Dashboard paused at');
+    const hasResume = entry.comment.includes('Timer resumed at') || entry.comment.includes('Dashboard resumed at');
+    
+    if (!hasPause) return false;
     
     // If both pause and resume are present, check which is more recent
-    if (hasRecentPause && hasRecentResume) {
-      const pauseMatch = entry.comment.match(/Dashboard paused at ([^,\n]+)/);
-      const resumeMatch = entry.comment.match(/Dashboard resumed at ([^,\n]+)/);
+    if (hasPause && hasResume) {
+      const pauseMatches = entry.comment.match(/(Timer paused at|Dashboard paused at) ([^,\n]+)/g);
+      const resumeMatches = entry.comment.match(/(Timer resumed at|Dashboard resumed at) ([^,\n]+)/g);
       
-      if (pauseMatch && resumeMatch) {
-        const pauseTime = new Date(pauseMatch[1]);
-        const resumeTime = new Date(resumeMatch[1]);
-        return pauseTime > resumeTime;
+      if (pauseMatches && resumeMatches) {
+        // Get the most recent pause and resume timestamps
+        const latestPause = pauseMatches[pauseMatches.length - 1];
+        const latestResume = resumeMatches[resumeMatches.length - 1];
+        
+        const pauseTimeMatch = latestPause.match(/at ([^,\n]+)/);
+        const resumeTimeMatch = latestResume.match(/at ([^,\n]+)/);
+        
+        if (pauseTimeMatch && resumeTimeMatch) {
+          const pauseTime = new Date(pauseTimeMatch[1]);
+          const resumeTime = new Date(resumeTimeMatch[1]);
+          return pauseTime > resumeTime;
+        }
       }
     }
     
     // If only pause is present, it's paused
-    return hasRecentPause && !hasRecentResume;
+    return hasPause && !hasResume;
   };
 
   return (

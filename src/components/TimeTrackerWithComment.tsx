@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,12 +57,13 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       
       if (data && data.length > 0) {
         const entry = data[0];
+        const isPaused = checkIfPaused(entry.comment);
         setActiveTimer({
           id: entry.id,
           taskId: task.id,
           startTime: new Date(entry.start_time),
           entryId: entry.id,
-          isPaused: false,
+          isPaused: isPaused,
           pausedDuration: 0
         });
       }
@@ -71,6 +71,38 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
 
     checkActiveTimer();
   }, [task.id, isSubtask]);
+
+  // Helper function to check if timer is paused based on comment
+  const checkIfPaused = (comment: string | null) => {
+    if (!comment) return false;
+    
+    const hasPause = comment.includes('Timer paused at');
+    const hasResume = comment.includes('Timer resumed at');
+    
+    if (!hasPause) return false;
+    
+    // If both pause and resume are present, check which is more recent
+    if (hasPause && hasResume) {
+      const pauseMatches = comment.match(/Timer paused at ([^,\n]+)/g);
+      const resumeMatches = comment.match(/Timer resumed at ([^,\n]+)/g);
+      
+      if (pauseMatches && resumeMatches) {
+        const latestPause = pauseMatches[pauseMatches.length - 1];
+        const latestResume = resumeMatches[resumeMatches.length - 1];
+        
+        const pauseTimeMatch = latestPause.match(/at ([^,\n]+)/);
+        const resumeTimeMatch = latestResume.match(/at ([^,\n]+)/);
+        
+        if (pauseTimeMatch && resumeTimeMatch) {
+          const pauseTime = new Date(pauseTimeMatch[1]);
+          const resumeTime = new Date(resumeTimeMatch[1]);
+          return pauseTime > resumeTime;
+        }
+      }
+    }
+    
+    return hasPause && !hasResume;
+  };
 
   // Update elapsed time every second when timer is active and not paused
   useEffect(() => {
@@ -179,19 +211,67 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     }
   });
 
+  const pauseTimerMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeTimer) throw new Error('No active timer');
+      
+      const pauseTime = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          comment: `Timer paused at ${pauseTime}`
+        })
+        .eq('id', activeTimer.entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async () => {
+      if (activeTimer) {
+        setActiveTimer({
+          ...activeTimer,
+          isPaused: true
+        });
+        setPauseStartTime(new Date());
+        
+        // Invalidate dashboard queries to sync the pause state
+        await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+        await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
+        
+        toast.success('Timer paused!');
+      }
+    },
+    onError: (error) => {
+      toast.error('Failed to pause timer: ' + error.message);
+    }
+  });
+
   const resumeTimerMutation = useMutation({
     mutationFn: async () => {
-      // Just resume the timer - no database update needed
-      if (!activeTimer || !pauseStartTime) return;
+      if (!activeTimer || !pauseStartTime) throw new Error('No paused timer');
       
       // Calculate how long we were paused and add to total paused duration
       const pauseDuration = Math.floor((new Date().getTime() - pauseStartTime.getTime()) / 1000);
+      const resumeTime = new Date().toISOString();
+      
+      const { data, error } = await supabase
+        .from('time_entries')
+        .update({
+          comment: `Timer resumed at ${resumeTime}`
+        })
+        .eq('id', activeTimer.entryId)
+        .select()
+        .single();
+      
+      if (error) throw error;
       
       return {
         pausedDuration: activeTimer.pausedDuration + pauseDuration
       };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (activeTimer && result) {
         setActiveTimer({
           ...activeTimer,
@@ -199,6 +279,11 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
           pausedDuration: result.pausedDuration
         });
         setPauseStartTime(null);
+        
+        // Invalidate dashboard queries to sync the resume state
+        await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
+        await queryClient.refetchQueries({ queryKey: ['running-tasks'] });
+        
         toast.success('Timer resumed!');
       }
     },
@@ -327,12 +412,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       resumeTimerMutation.mutate();
     } else {
       // Pause the timer
-      setActiveTimer({
-        ...activeTimer,
-        isPaused: true
-      });
-      setPauseStartTime(new Date());
-      toast.success('Timer paused!');
+      pauseTimerMutation.mutate();
     }
   };
 
@@ -363,7 +443,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
               size="sm"
               variant="outline"
               onClick={handlePause}
-              disabled={resumeTimerMutation.isPending}
+              disabled={pauseTimerMutation.isPending || resumeTimerMutation.isPending}
             >
               {activeTimer.isPaused ? (
                 <>
