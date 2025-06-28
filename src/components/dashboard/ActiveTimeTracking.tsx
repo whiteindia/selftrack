@@ -61,12 +61,12 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
 
   const pauseTimerMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      // For pause, we just update a pause timestamp in the comment or a custom field
-      // This is a simple pause implementation - in a full implementation you might want a separate pause table
+      // Store pause timestamp in comment for dashboard tracking
+      const pauseTime = new Date().toISOString();
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Paused at ${new Date().toISOString()}`
+          comment: `Dashboard paused at ${pauseTime}`
         })
         .eq('id', entryId)
         .select()
@@ -86,10 +86,11 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
 
   const resumeTimerMutation = useMutation({
     mutationFn: async (entryId: string) => {
+      const resumeTime = new Date().toISOString();
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Resumed at ${new Date().toISOString()}`
+          comment: `Dashboard resumed at ${resumeTime}`
         })
         .eq('id', entryId)
         .select()
@@ -120,7 +121,24 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   };
 
   const isPaused = (entry: any) => {
-    return entry.comment?.includes('Paused at') && !entry.comment?.includes('Resumed at');
+    if (!entry.comment) return false;
+    const hasRecentPause = entry.comment.includes('Dashboard paused at');
+    const hasRecentResume = entry.comment.includes('Dashboard resumed at');
+    
+    // If both pause and resume are present, check which is more recent
+    if (hasRecentPause && hasRecentResume) {
+      const pauseMatch = entry.comment.match(/Dashboard paused at ([^,\n]+)/);
+      const resumeMatch = entry.comment.match(/Dashboard resumed at ([^,\n]+)/);
+      
+      if (pauseMatch && resumeMatch) {
+        const pauseTime = new Date(pauseMatch[1]);
+        const resumeTime = new Date(resumeMatch[1]);
+        return pauseTime > resumeTime;
+      }
+    }
+    
+    // If only pause is present, it's paused
+    return hasRecentPause && !hasRecentResume;
   };
 
   return (
@@ -162,7 +180,10 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                         {isPaused(entry) ? 'Paused' : 'Running'}
                       </Badge>
                       <div className="mt-1">
-                        <LiveTimer startTime={entry.start_time} />
+                        <LiveTimer 
+                          startTime={entry.start_time} 
+                          isPaused={isPaused(entry)}
+                        />
                       </div>
                     </div>
                     <div className="flex gap-1">

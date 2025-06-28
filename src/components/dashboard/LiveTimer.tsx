@@ -3,35 +3,41 @@ import React, { useState, useEffect } from 'react';
 
 interface LiveTimerProps {
   startTime: string;
+  isPaused?: boolean;
 }
 
-const LiveTimer: React.FC<LiveTimerProps> = ({ startTime }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
+const LiveTimer: React.FC<LiveTimerProps> = ({ startTime, isPaused = false }) => {
+  const [elapsedTime, setElapsedTime] = useState(0);
 
-  // Update current time every second for live timer display
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const formatElapsedTime = (startTime: string) => {
-    const start = new Date(startTime);
-    const elapsed = Math.floor((currentTime.getTime() - start.getTime()) / 1000);
+    let interval: NodeJS.Timeout;
     
-    const hours = Math.floor(elapsed / 3600);
-    const minutes = Math.floor((elapsed % 3600) / 60);
-    const seconds = elapsed % 60;
+    if (!isPaused) {
+      interval = setInterval(() => {
+        const now = new Date();
+        const start = new Date(startTime);
+        const elapsed = Math.floor((now.getTime() - start.getTime()) / 1000);
+        setElapsedTime(elapsed);
+      }, 1000);
+    }
     
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [startTime, isPaused]);
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
-    <span className="font-mono text-sm text-green-600">
-      {formatElapsedTime(startTime)}
-    </span>
+    <div className={`text-sm font-mono ${isPaused ? 'text-yellow-600' : 'text-green-600'}`}>
+      {formatTime(elapsedTime)}
+      {isPaused && <span className="ml-1 text-xs">(Paused)</span>}
+    </div>
   );
 };
 
