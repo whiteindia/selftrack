@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Filter } from 'lucide-react';
-import ReactSelect from 'react-select';
+import { Toggle } from '@/components/ui/toggle';
 
 interface Service {
   id: string;
@@ -40,16 +40,26 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
   availableYears,
   onClearFilters
 }) => {
-  // Available status options including new ones
+  // Available status options including all the ones from the database
   const statusOptions = [
+    'Planning',
     'Active',
     'On Hold', 
     'Completed',
+    'Cancelled',
     'Imp',
     'On-Head',
     'Targeted',
     'OverDue'
   ];
+
+  const handleStatusToggle = (status: string) => {
+    if (selectedStatus.includes(status)) {
+      setSelectedStatus(selectedStatus.filter(s => s !== status));
+    } else {
+      setSelectedStatus([...selectedStatus, status]);
+    }
+  };
 
   return (
     <Card className="mb-6">
@@ -68,31 +78,6 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-          <ReactSelect
-  isMulti
-  options={[
-    { value: '', label: 'All Statuses' },
-    ...statusOptions.map(s => ({ value: s, label: s })),
-  ]}
-  value={
-    selectedStatus.length === 0
-      ? [{ value: '', label: 'All Statuses' }]
-      : statusOptions
-          .filter(s => selectedStatus.includes(s))
-          .map(s => ({ value: s, label: s }))
-  }
-  onChange={opts => {
-    if (opts.some(o => o.value === '')) {
-      setSelectedStatus([]);
-    } else {
-      setSelectedStatus(opts.map(o => o.value));
-    }
-  }}
-  placeholder="All Statuses"
-/>
           </div>
           <div className="space-y-2">
             <Label>Year</Label>
@@ -134,6 +119,26 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
             </Select>
           </div>
         </div>
+        
+        {/* Status Filter Buttons */}
+        <div className="space-y-2 mb-4">
+          <Label>Status</Label>
+          <div className="flex flex-wrap gap-2">
+            {statusOptions.map((status) => (
+              <Toggle
+                key={status}
+                pressed={selectedStatus.includes(status)}
+                onPressedChange={() => handleStatusToggle(status)}
+                variant="outline"
+                size="sm"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                {status}
+              </Toggle>
+            ))}
+          </div>
+        </div>
+
         <Button variant="outline" onClick={onClearFilters} className="w-full md:w-auto">
           Clear All Filters
         </Button>

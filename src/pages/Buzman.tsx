@@ -298,6 +298,8 @@ const Buzman = () => {
           onTaskStatusChange={handleTaskStatusChange}
           showTaskSelection={true}
           onCreateSprint={handleCreateSprint}
+          collapsibleColumns={true}
+          statusOrder={['Overdue', 'On-Head', 'Not Started', 'In Progress', 'On Hold', 'Targeted', 'Imp', 'Completed']}
         />
 
         <KanbanSprintDialog

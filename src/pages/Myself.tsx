@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -278,6 +279,8 @@ const Myself = () => {
           onTaskStatusChange={handleTaskStatusChange}
           showTaskSelection={true}
           onCreateSprint={handleCreateSprint}
+          collapsibleColumns={true}
+          statusOrder={['Overdue', 'On-Head', 'Not Started', 'In Progress', 'On Hold', 'Targeted', 'Imp', 'Completed']}
         />
 
         <KanbanSprintDialog

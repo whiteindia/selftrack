@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -633,7 +634,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
           </div>
         </header>
         
-        <main className="container mx-auto px-4 py-8">
+        <main className="w-full">
           {children}
         </main>
       </div>
@@ -643,7 +644,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       <DesktopNavigation />
-      <main className="container mx-auto px-4 py-8">
+      <main className="w-full">
         {children}
       </main>
     </div>

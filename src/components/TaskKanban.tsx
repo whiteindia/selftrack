@@ -1,13 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Building, Clock } from 'lucide-react';
+import { Plus, Building, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import LiveTimer from '@/components/dashboard/LiveTimer';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface Task {
   id: string;
@@ -35,6 +35,8 @@ interface TaskKanbanProps {
   onAddTask?: () => void;
   showTaskSelection?: boolean;
   onCreateSprint?: (selectedTaskIds: string[], projectId?: string) => void;
+  collapsibleColumns?: boolean;
+  statusOrder?: string[];
 }
 
 const TaskKanban: React.FC<TaskKanbanProps> = ({ 
@@ -45,13 +47,16 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
   onTaskStatusChange,
   onAddTask,
   showTaskSelection = false,
-  onCreateSprint
+  onCreateSprint,
+  collapsibleColumns = false,
+  statusOrder
 }) => {
   const isMobile = useIsMobile();
   const [runningTasks, setRunningTasks] = useState<Record<string, any>>({});
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
   
-  const statuses = [
+  const defaultStatuses = [
     'Not Started',
     'In Progress', 
     'On Hold',
@@ -61,6 +66,8 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     'Overdue',
     'Completed'
   ];
+
+  const statuses = statusOrder || defaultStatuses;
 
   // Fetch running tasks for timer display
   useEffect(() => {
@@ -176,6 +183,13 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     }
   };
 
+  const toggleColumnCollapse = (status: string) => {
+    setCollapsedColumns(prev => ({
+      ...prev,
+      [status]: !prev[status]
+    }));
+  };
+
   // Filter tasks that can be added to sprint (Not Started, On-Head, Targeted, Imp)
   const sprintEligibleTasks = tasks.filter(task => 
     ['Not Started', 'On-Head', 'Targeted', 'Imp'].includes(task.status)
@@ -257,80 +271,175 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <Card className="min-h-[200px]">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center justify-between text-sm">
-                  <span className="truncate">{status}</span>
-                  <Badge variant="secondary" className={`${getStatusColor(status)} text-xs`}>
-                    {getTasksByStatus(status).length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {getTasksByStatus(status).map((task) => {
-                  const runningEntry = runningTasks[task.id];
-                  const isRunning = !!runningEntry;
-                  const paused = isRunning && isPaused(runningEntry);
-                  const canSelectForSprint = showTaskSelection && ['Not Started', 'On-Head', 'Targeted', 'Imp'].includes(task.status);
-                  
-                  return (
-                    <Card
-                      key={task.id}
-                      className={`${canUpdate ? 'cursor-move' : 'cursor-default'} hover:shadow-md transition-shadow border-l-4 ${
-                        isRunning ? (paused ? 'border-l-yellow-500' : 'border-l-green-500') : 'border-l-blue-500'
-                      }`}
-                      draggable={canUpdate}
-                      onDragStart={(e) => handleDragStart(e, task.id)}
-                    >
-                      <CardContent className="p-3 space-y-2">
-                        {/* Task Selection Checkbox */}
-                        {canSelectForSprint && (
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Checkbox
-                              id={`task-${task.id}`}
-                              checked={selectedTasks.includes(task.id)}
-                              onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
-                            />
-                            <label
-                              htmlFor={`task-${task.id}`}
-                              className="text-xs text-gray-600 cursor-pointer"
-                            >
-                              Select for sprint
-                            </label>
+            {collapsibleColumns ? (
+              <Collapsible 
+                open={!collapsedColumns[status]} 
+                onOpenChange={() => toggleColumnCollapse(status)}
+              >
+                <Card className="min-h-[200px]">
+                  <CardHeader className="pb-3">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="flex items-center justify-between w-full p-0 h-auto">
+                        <CardTitle className="flex items-center justify-between text-sm w-full">
+                          <span className="truncate">{status}</span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className={`${getStatusColor(status)} text-xs`}>
+                              {getTasksByStatus(status).length}
+                            </Badge>
+                            {collapsedColumns[status] ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronUp className="h-4 w-4" />
+                            )}
                           </div>
-                        )}
+                        </CardTitle>
+                      </Button>
+                    </CollapsibleTrigger>
+                  </CardHeader>
+                  <CollapsibleContent>
+                    <CardContent className="space-y-3">
+                      {getTasksByStatus(status).map((task) => {
+                        const runningEntry = runningTasks[task.id];
+                        const isRunning = !!runningEntry;
+                        const paused = isRunning && isPaused(runningEntry);
+                        const canSelectForSprint = showTaskSelection && ['Not Started', 'On-Head', 'Targeted', 'Imp'].includes(task.status);
                         
-                        {/* Task Name */}
-                        <h4 className="font-medium text-sm break-words line-clamp-2">{task.name}</h4>
-                        
-                        {/* Project Info */}
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
-                          <Building className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{task.project_name || 'No Project'}</span>
-                        </div>
+                        return (
+                          <Card
+                            key={task.id}
+                            className={`${canUpdate ? 'cursor-move' : 'cursor-default'} hover:shadow-md transition-shadow border-l-4 ${
+                              isRunning ? (paused ? 'border-l-yellow-500' : 'border-l-green-500') : 'border-l-blue-500'
+                            }`}
+                            draggable={canUpdate}
+                            onDragStart={(e) => handleDragStart(e, task.id)}
+                          >
+                            <CardContent className="p-3 space-y-2">
+                              {/* Task Selection Checkbox */}
+                              {canSelectForSprint && (
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <Checkbox
+                                    id={`task-${task.id}`}
+                                    checked={selectedTasks.includes(task.id)}
+                                    onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
+                                  />
+                                  <label
+                                    htmlFor={`task-${task.id}`}
+                                    className="text-xs text-gray-600 cursor-pointer"
+                                  >
+                                    Select for sprint
+                                  </label>
+                                </div>
+                              )}
+                              
+                              {/* Task Name */}
+                              <h4 className="font-medium text-sm break-words line-clamp-2">{task.name}</h4>
+                              
+                              {/* Project Info */}
+                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                                <Building className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{task.project_name || 'No Project'}</span>
+                              </div>
 
-                        {/* Timer Display */}
-                        {isRunning && (
-                          <div className="flex items-center gap-1 text-xs">
-                            <Clock className="h-3 w-3 flex-shrink-0" />
-                            <LiveTimer 
-                              startTime={runningEntry.start_time}
-                              isPaused={paused}
-                            />
+                              {/* Timer Display */}
+                              {isRunning && (
+                                <div className="flex items-center gap-1 text-xs">
+                                  <Clock className="h-3 w-3 flex-shrink-0" />
+                                  <LiveTimer 
+                                    startTime={runningEntry.start_time}
+                                    isPaused={paused}
+                                  />
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                      
+                      {getTasksByStatus(status).length === 0 && (
+                        <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                          <p className="text-xs">No tasks</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            ) : (
+              <Card className="min-h-[200px]">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between text-sm">
+                    <span className="truncate">{status}</span>
+                    <Badge variant="secondary" className={`${getStatusColor(status)} text-xs`}>
+                      {getTasksByStatus(status).length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {getTasksByStatus(status).map((task) => {
+                    const runningEntry = runningTasks[task.id];
+                    const isRunning = !!runningEntry;
+                    const paused = isRunning && isPaused(runningEntry);
+                    const canSelectForSprint = showTaskSelection && ['Not Started', 'On-Head', 'Targeted', 'Imp'].includes(task.status);
+                    
+                    return (
+                      <Card
+                        key={task.id}
+                        className={`${canUpdate ? 'cursor-move' : 'cursor-default'} hover:shadow-md transition-shadow border-l-4 ${
+                          isRunning ? (paused ? 'border-l-yellow-500' : 'border-l-green-500') : 'border-l-blue-500'
+                        }`}
+                        draggable={canUpdate}
+                        onDragStart={(e) => handleDragStart(e, task.id)}
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          {/* Task Selection Checkbox */}
+                          {canSelectForSprint && (
+                            <div className="flex items-center space-x-2 mb-2">
+                              <Checkbox
+                                id={`task-${task.id}`}
+                                checked={selectedTasks.includes(task.id)}
+                                onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
+                              />
+                              <label
+                                htmlFor={`task-${task.id}`}
+                                className="text-xs text-gray-600 cursor-pointer"
+                              >
+                                Select for sprint
+                              </label>
+                            </div>
+                          )}
+                          
+                          {/* Task Name */}
+                          <h4 className="font-medium text-sm break-words line-clamp-2">{task.name}</h4>
+                          
+                          {/* Project Info */}
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <Building className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{task.project_name || 'No Project'}</span>
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                
-                {getTasksByStatus(status).length === 0 && (
-                  <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
-                    <p className="text-xs">No tasks</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+
+                          {/* Timer Display */}
+                          {isRunning && (
+                            <div className="flex items-center gap-1 text-xs">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              <LiveTimer 
+                                startTime={runningEntry.start_time}
+                                isPaused={paused}
+                              />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {getTasksByStatus(status).length === 0 && (
+                    <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">
+                      <p className="text-xs">No tasks</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         ))}
       </div>

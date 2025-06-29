@@ -1,11 +1,14 @@
+
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp, Play, MessageSquare, Users, Clock, Plus, Edit } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp, Play, MessageSquare, Users, Clock, Plus, Edit, Trash2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import Navigation from '@/components/Navigation';
@@ -20,6 +23,7 @@ import SubtaskDialog from '@/components/SubtaskDialog';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import SubtaskCard from '@/components/SubtaskCard';
 import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
+import { toast } from 'sonner';
 
 interface Task {
   id: string;
@@ -41,11 +45,14 @@ interface Task {
 const AllTasks = () => {
   const { user } = useAuth();
   const { hasPageAccess } = usePrivileges();
+  const queryClient = useQueryClient();
   
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
@@ -105,6 +112,15 @@ const AllTasks = () => {
     });
   }, [tasks]);
 
+  // Get available years from tasks
+  const availableYears = useMemo(() => {
+    const years = processedTasks
+      .map(task => new Date(task.created_at).getFullYear())
+      .filter((year, index, self) => self.indexOf(year) === index)
+      .sort((a, b) => b - a);
+    return years;
+  }, [processedTasks]);
+
   // Extract unique values for filters - include Overdue status
   const uniqueStatuses = ['Not Started', 'In Progress', 'On Hold', 'On-Head', 'Targeted', 'Imp', 'Completed', 'Overdue'];
   const uniqueClients = [...new Set(processedTasks.map(task => task.projects?.clients?.name).filter(Boolean))];
@@ -123,9 +139,17 @@ const AllTasks = () => {
       const matchesSearch = searchQuery === '' || 
         task.name.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesStatus && matchesClient && matchesProject && matchesAssignee && matchesSearch;
+      // Year filter
+      const matchesYear = yearFilter === 'all' || 
+        new Date(task.created_at).getFullYear().toString() === yearFilter;
+
+      // Month filter
+      const matchesMonth = monthFilter === 'all' || 
+        (new Date(task.created_at).getMonth() + 1).toString() === monthFilter;
+
+      return matchesStatus && matchesClient && matchesProject && matchesAssignee && matchesSearch && matchesYear && matchesMonth;
     });
-  }, [processedTasks, statusFilter, clientFilter, projectFilter, assigneeFilter, searchQuery]);
+  }, [processedTasks, statusFilter, clientFilter, projectFilter, assigneeFilter, searchQuery, yearFilter, monthFilter]);
 
   // Reset project filter when client filter changes
   React.useEffect(() => {
@@ -133,6 +157,32 @@ const AllTasks = () => {
       setProjectFilter('all');
     }
   }, [clientFilter]);
+
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      toast.success('Task deleted successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete task');
+      console.error('Error deleting task:', error);
+    },
+  });
+
+  const handleDeleteTask = (taskId: string, taskName: string) => {
+    if (confirm(`Are you sure you want to delete "${taskName}"? This action cannot be undone.`)) {
+      deleteTaskMutation.mutate(taskId);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -155,10 +205,9 @@ const AllTasks = () => {
   };
 
   const handleEditSubtask = (subtask: any) => {
-    // Transform subtask to match task structure for the dialog
     const subtaskForEdit = {
       ...subtask,
-      project_id: null, // Subtasks don't have project_id
+      project_id: null,
     };
     setEditingTask(subtaskForEdit);
     setEditMode('full');
@@ -341,6 +390,49 @@ const AllTasks = () => {
                     ))}
                   </div>
                 </div>
+
+                {/* Year and Month Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Year</Label>
+                    <Select value={yearFilter} onValueChange={setYearFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All years" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Years</SelectItem>
+                        {availableYears.map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Month</Label>
+                    <Select value={monthFilter} onValueChange={setMonthFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All months" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Months</SelectItem>
+                        <SelectItem value="1">January</SelectItem>
+                        <SelectItem value="2">February</SelectItem>
+                        <SelectItem value="3">March</SelectItem>
+                        <SelectItem value="4">April</SelectItem>
+                        <SelectItem value="5">May</SelectItem>
+                        <SelectItem value="6">June</SelectItem>
+                        <SelectItem value="7">July</SelectItem>
+                        <SelectItem value="8">August</SelectItem>
+                        <SelectItem value="9">September</SelectItem>
+                        <SelectItem value="10">October</SelectItem>
+                        <SelectItem value="11">November</SelectItem>
+                        <SelectItem value="12">December</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardContent>
             </CollapsibleContent>
           </Card>
@@ -382,6 +474,7 @@ const AllTasks = () => {
                   handleEditTask={handleEditTask}
                   handleEditSubtask={handleEditSubtask}
                   handleAddSubtask={handleAddSubtask}
+                  handleDeleteTask={handleDeleteTask}
                   refetch={refetch}
                 />
               );
@@ -450,7 +543,8 @@ const TaskCardWithActions = ({
   setExpandedTask, 
   handleEditTask,
   handleEditSubtask,
-  handleAddSubtask, 
+  handleAddSubtask,
+  handleDeleteTask,
   refetch 
 }: any) => {
   const { subtasks, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
@@ -536,6 +630,17 @@ const TaskCardWithActions = ({
             }}
           >
             <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteTask(task.id, task.name);
+            }}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
           <TimeTrackerWithComment 
             task={{ id: task.id, name: task.name }}

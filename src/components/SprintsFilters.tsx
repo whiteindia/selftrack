@@ -1,9 +1,11 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -86,187 +88,210 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
   hasActiveFilters,
   resetFilters
 }) => {
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Filters</CardTitle>
-          {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              Clear Filters
+    <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+      <Card className="mb-4">
+        <CardHeader className="pb-3">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="flex items-center justify-between w-full p-0 h-auto">
+              <CardTitle className="text-base font-medium">Filters</CardTitle>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resetFilters();
+                    }}
+                    className="text-xs"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+                {isFiltersOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </div>
             </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {/* First row - Date and Status filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Status</label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sprint Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sprints</SelectItem>
-                <SelectItem value="active">Active Sprints (Hide Completed)</SelectItem>
-                <SelectItem value="Not Started">Not Started</SelectItem>
-                <SelectItem value="In Progress">In Progress</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="pt-0 pb-4">
+            {/* First row - Date and Status filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium mb-1">Status</label>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Sprint Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sprints</SelectItem>
+                    <SelectItem value="active">Active Sprints (Hide Completed)</SelectItem>
+                    <SelectItem value="Not Started">Not Started</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Year</label>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Years" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Years</SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Year</label>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Years" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Years</SelectItem>
+                    {availableYears.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Month</label>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Months" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Months</SelectItem>
-                {months.map((month) => (
-                  <SelectItem key={month.value} value={month.value}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label className="block text-xs font-medium mb-1">Month</label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Months" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Months</SelectItem>
+                    {months.map((month) => (
+                      <SelectItem key={month.value} value={month.value}>
+                        {month.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-        {/* Second row - Sprint and Task-based filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Sprint Leader</label>
-            <Select value={selectedSprintLeader} onValueChange={setSelectedSprintLeader}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Sprint Leaders" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sprint Leaders</SelectItem>
-                {employees.map((employee) => (
-                  <SelectItem key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Second row - Sprint and Task-based filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium mb-1">Sprint Leader</label>
+                <Select value={selectedSprintLeader} onValueChange={setSelectedSprintLeader}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Sprint Leaders" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sprint Leaders</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Client</label>
-            <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Client</label>
+                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Clients" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Project</label>
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Projects" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div>
+                <label className="block text-xs font-medium mb-1">Project</label>
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Projects" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Assignee</label>
-            <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Assignees" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assignees</SelectItem>
-                {employees.map((employee) => (
-                  <SelectItem key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        {hasActiveFilters && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {globalServiceFilter !== 'all' && (
-              <Badge variant="secondary">
-                Service: {services.find(s => s.name === globalServiceFilter)?.name}
-              </Badge>
+              <div>
+                <label className="block text-xs font-medium mb-1">Assignee</label>
+                <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Assignees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Assignees</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            {hasActiveFilters && (
+              <div className="mt-3 flex flex-wrap gap-1">
+                {globalServiceFilter !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Service: {services.find(s => s.name === globalServiceFilter)?.name}
+                  </Badge>
+                )}
+                {selectedStatus !== 'active' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Status: {selectedStatus === 'all' ? 'All' : selectedStatus}
+                  </Badge>
+                )}
+                {selectedYear !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">Year: {selectedYear}</Badge>
+                )}
+                {selectedMonth !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Month: {months.find(m => m.value === selectedMonth)?.label}
+                  </Badge>
+                )}
+                {selectedSprintLeader !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Sprint Leader: {employees.find(e => e.id === selectedSprintLeader)?.name}
+                  </Badge>
+                )}
+                {selectedClient !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Client: {clients.find(c => c.id === selectedClient)?.name}
+                  </Badge>
+                )}
+                {selectedProject !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Project: {projects.find(p => p.id === selectedProject)?.name}
+                  </Badge>
+                )}
+                {selectedAssignee !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Assignee: {employees.find(e => e.id === selectedAssignee)?.name}
+                  </Badge>
+                )}
+              </div>
             )}
-            {selectedStatus !== 'active' && (
-              <Badge variant="secondary">
-                Status: {selectedStatus === 'all' ? 'All' : selectedStatus}
-              </Badge>
-            )}
-            {selectedYear !== 'all' && (
-              <Badge variant="secondary">Year: {selectedYear}</Badge>
-            )}
-            {selectedMonth !== 'all' && (
-              <Badge variant="secondary">
-                Month: {months.find(m => m.value === selectedMonth)?.label}
-              </Badge>
-            )}
-            {selectedSprintLeader !== 'all' && (
-              <Badge variant="secondary">
-                Sprint Leader: {employees.find(e => e.id === selectedSprintLeader)?.name}
-              </Badge>
-            )}
-            {selectedClient !== 'all' && (
-              <Badge variant="secondary">
-                Client: {clients.find(c => c.id === selectedClient)?.name}
-              </Badge>
-            )}
-            {selectedProject !== 'all' && (
-              <Badge variant="secondary">
-                Project: {projects.find(p => p.id === selectedProject)?.name}
-              </Badge>
-            )}
-            {selectedAssignee !== 'all' && (
-              <Badge variant="secondary">
-                Assignee: {employees.find(e => e.id === selectedAssignee)?.name}
-              </Badge>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 };
 
