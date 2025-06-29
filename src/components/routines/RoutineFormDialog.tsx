@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,12 +23,24 @@ interface Client {
 interface Project {
   id: string;
   name: string;
+  client_id: string;
+}
+
+interface Routine {
+  id: string;
+  title: string;
+  frequency: string;
+  preferred_days: string[] | null;
+  start_date: string;
+  client: { name: string; id: string };
+  project: { name: string; id: string };
 }
 
 interface RoutineFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clients: Client[];
+  editingRoutine?: Routine | null;
 }
 
 const FREQUENCY_OPTIONS = [
@@ -44,21 +56,41 @@ const DAYS_OF_WEEK = [
   'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
 ];
 
-const RoutineFormDialog: React.FC<RoutineFormDialogProps> = ({
-  open,
-  onOpenChange,
-  clients
-}) => {
+const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: RoutineFormDialogProps) => {
   const [formData, setFormData] = useState({
+    title: '',
+    frequency: 'daily',
     client_id: '',
     project_id: '',
-    title: '',
-    frequency: '',
     preferred_days: [] as string[],
-    start_date: new Date()
+    start_date: new Date().toISOString().split('T')[0]
   });
 
   const queryClient = useQueryClient();
+
+  // Reset form when dialog opens/closes or when editing routine changes
+  useEffect(() => {
+    if (editingRoutine) {
+      console.log('Setting form data for editing routine:', editingRoutine);
+      setFormData({
+        title: editingRoutine.title,
+        frequency: editingRoutine.frequency,
+        client_id: editingRoutine.client.id,
+        project_id: editingRoutine.project.id,
+        preferred_days: editingRoutine.preferred_days || [],
+        start_date: editingRoutine.start_date
+      });
+    } else if (open) {
+      setFormData({
+        title: '',
+        frequency: 'daily',
+        client_id: '',
+        project_id: '',
+        preferred_days: [],
+        start_date: new Date().toISOString().split('T')[0]
+      });
+    }
+  }, [editingRoutine, open]);
 
   // Fetch projects based on selected client
   const { data: projects = [] } = useQuery({
@@ -76,64 +108,65 @@ const RoutineFormDialog: React.FC<RoutineFormDialogProps> = ({
     enabled: !!formData.client_id
   });
 
-  // Create routine mutation
-  const createRoutineMutation = useMutation({
+  // Create/Update routine mutation
+  const saveRoutineMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase
-        .from('routines')
-        .insert({
-          client_id: data.client_id,
-          project_id: data.project_id,
-          title: data.title,
-          frequency: data.frequency,
-          preferred_days: data.preferred_days.length > 0 ? data.preferred_days : null,
-          start_date: data.start_date.toISOString().split('T')[0]
-        });
-      if (error) throw error;
+      const routineData = {
+        title: data.title,
+        frequency: data.frequency,
+        client_id: data.client_id,
+        project_id: data.project_id,
+        preferred_days: data.preferred_days.length > 0 ? data.preferred_days : null,
+        start_date: data.start_date
+      };
+
+      if (editingRoutine) {
+        // Update existing routine
+        const { data: result, error } = await supabase
+          .from('routines')
+          .update(routineData)
+          .eq('id', editingRoutine.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return result;
+      } else {
+        // Create new routine
+        const { data: result, error } = await supabase
+          .from('routines')
+          .insert(routineData)
+          .select()
+          .single();
+        if (error) throw error;
+        return result;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routines'] });
-      toast.success('Routine created successfully');
+      toast.success(editingRoutine ? 'Routine updated successfully!' : 'Routine created successfully!');
       onOpenChange(false);
-      resetForm();
     },
     onError: (error) => {
-      console.error('Create routine error:', error);
-      toast.error('Failed to create routine');
+      console.error('Save routine error:', error);
+      toast.error(editingRoutine ? 'Failed to update routine' : 'Failed to create routine');
     }
   });
 
-  const resetForm = () => {
-    setFormData({
-      client_id: '',
-      project_id: '',
-      title: '',
-      frequency: '',
-      preferred_days: [],
-      start_date: new Date()
-    });
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.client_id || !formData.project_id || !formData.title || !formData.frequency) {
-      toast.error('Please fill in all required fields');
+    if (!formData.title.trim()) {
+      toast.error('Please enter a routine title');
       return;
     }
-
-    // Validate preferred days based on frequency
-    if (['weekly_once', 'weekly_twice', 'monthly_once', 'monthly_twice'].includes(formData.frequency) && formData.preferred_days.length === 0) {
-      toast.error('Please select preferred days for this frequency');
+    if (!formData.client_id) {
+      toast.error('Please select a client');
       return;
     }
-
-    if (formData.frequency === 'weekly_twice' && formData.preferred_days.length !== 2) {
-      toast.error('Please select exactly 2 days for Weekly Twice frequency');
+    if (!formData.project_id) {
+      toast.error('Please select a project');
       return;
     }
-
-    createRoutineMutation.mutate(formData);
+    saveRoutineMutation.mutate(formData);
   };
 
   const handlePreferredDayToggle = (day: string) => {
@@ -151,14 +184,17 @@ const RoutineFormDialog: React.FC<RoutineFormDialogProps> = ({
 
   const shouldShowPreferredDays = ['weekly_once', 'weekly_twice', 'monthly_once', 'monthly_twice'].includes(formData.frequency);
 
+  // Convert string date to Date object for Calendar component
+  const selectedDate = formData.start_date ? new Date(formData.start_date) : undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New Routine</DialogTitle>
+          <DialogTitle>{editingRoutine ? 'Edit Routine' : 'Add New Routine'}</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="client">Client *</Label>
@@ -248,14 +284,14 @@ const RoutineFormDialog: React.FC<RoutineFormDialogProps> = ({
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.start_date ? format(formData.start_date, "PPP") : "Pick a date"}
+                  {formData.start_date ? format(new Date(formData.start_date), "PPP") : "Pick a date"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
                 <Calendar
                   mode="single"
-                  selected={formData.start_date}
-                  onSelect={(date) => date && setFormData({ ...formData, start_date: date })}
+                  selected={selectedDate}
+                  onSelect={(date) => date && setFormData({ ...formData, start_date: date.toISOString().split('T')[0] })}
                   initialFocus
                 />
               </PopoverContent>
@@ -266,8 +302,15 @@ const RoutineFormDialog: React.FC<RoutineFormDialogProps> = ({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createRoutineMutation.isPending}>
-              {createRoutineMutation.isPending ? 'Creating...' : 'Create Routine'}
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={saveRoutineMutation.isPending}
+            >
+              {saveRoutineMutation.isPending 
+                ? (editingRoutine ? 'Updating...' : 'Creating...') 
+                : (editingRoutine ? 'Update Routine' : 'Create Routine')
+              }
             </Button>
           </div>
         </form>

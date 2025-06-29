@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, ChevronDown, ChevronRight, ChevronLeft, Filter } from 'lucide-react';
 import { format, subDays, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import RoutineFormDialog from '@/components/routines/RoutineFormDialog';
@@ -33,14 +32,20 @@ const RoutinesTracker = () => {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [collapsedClients, setCollapsedClients] = useState<Set<string>>(new Set());
+  const [dateOffset, setDateOffset] = useState(0); // 0 = current week, -1 = previous week, etc.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   
   const queryClient = useQueryClient();
 
-  // Generate last 7 days array
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    return subDays(new Date(), 6 - i);
-  });
+  // Generate last 7 days array based on offset
+  const last7Days = useMemo(() => {
+    const baseDate = addDays(new Date(), dateOffset * 7);
+    return Array.from({ length: 7 }, (_, i) => {
+      return subDays(baseDate, 6 - i);
+    });
+  }, [dateOffset]);
 
   // Fetch routines
   const { data: routines = [], isLoading } = useQuery({
@@ -60,7 +65,7 @@ const RoutinesTracker = () => {
     }
   });
 
-  // Fetch routine completions for the last 7 days
+  // Fetch routine completions for the current 7 days period
   const { data: completions = [] } = useQuery({
     queryKey: ['routine-completions', last7Days[0].toISOString().split('T')[0], last7Days[6].toISOString().split('T')[0]],
     queryFn: async () => {
@@ -121,6 +126,25 @@ const RoutinesTracker = () => {
     onError: (error) => {
       console.error('Toggle completion error:', error);
       toast.error('Failed to update routine');
+    }
+  });
+
+  // Delete routine mutation
+  const deleteRoutineMutation = useMutation({
+    mutationFn: async (routineId: string) => {
+      const { error } = await supabase
+        .from('routines')
+        .delete()
+        .eq('id', routineId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+      toast.success('Routine deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Delete routine error:', error);
+      toast.error('Failed to delete routine');
     }
   });
 
@@ -202,6 +226,37 @@ const RoutinesTracker = () => {
     toggleCompletionMutation.mutate({ routineId, date: dateStr, isCompleted });
   };
 
+  const handleEditRoutine = (routine: Routine) => {
+    setEditingRoutine(routine);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteRoutine = (routineId: string) => {
+    if (confirm('Are you sure you want to delete this routine?')) {
+      deleteRoutineMutation.mutate(routineId);
+    }
+  };
+
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingRoutine(null);
+  };
+
+  const handlePreviousWeek = () => {
+    setDateOffset(dateOffset - 1);
+  };
+
+  const handleNextWeek = () => {
+    setDateOffset(dateOffset + 1);
+  };
+
+  const handleCurrentWeek = () => {
+    setDateOffset(0);
+  };
+
+  const isCurrentWeek = dateOffset === 0;
+  const isFutureWeek = dateOffset > 0;
+
   if (isLoading) {
     return (
       <Navigation>
@@ -223,58 +278,120 @@ const RoutinesTracker = () => {
           </Button>
         </div>
 
-        {/* Filters */}
+        {/* Date Navigation */}
         <Card>
-          <CardContent className="p-4 space-y-4">
-            {/* Client Filter Buttons */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-700">Clients</h4>
-              <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
-                {availableClients.map(client => (
-                  <Button
-                    key={client.id}
-                    variant={selectedClient === client.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleClientClick(client.id)}
-                    className="whitespace-nowrap"
-                  >
-                    {client.name}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Project Filter Buttons - Only show if client is selected */}
-            {selectedClient && availableProjects.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-700">Projects</h4>
-                <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
-                  {availableProjects.map(project => (
-                    <Button
-                      key={project.id}
-                      variant={selectedProject === project.id ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleProjectClick(project.id)}
-                      className="whitespace-nowrap"
-                    >
-                      {project.name}
-                    </Button>
-                  ))}
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousWeek}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous Week
+              </Button>
+              
+              <div className="text-center flex-1">
+                <div className="text-sm text-gray-600">
+                  {format(last7Days[0], 'MMM d')} - {format(last7Days[6], 'MMM d, yyyy')}
                 </div>
+                {!isCurrentWeek && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCurrentWeek}
+                    className="h-6 w-6 p-0 mt-1"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
-            )}
-
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search routines..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextWeek}
+                className="flex items-center gap-2"
+              >
+                Next Week
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
+        </Card>
+
+        {/* Collapsible Filters */}
+        <Card>
+          <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <CardTitle className="text-lg">Filters</CardTitle>
+                  </div>
+                  {filtersOpen ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-4">
+                {/* Client Filter Buttons */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-700">Clients</h4>
+                  <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+                    {availableClients.map(client => (
+                      <Button
+                        key={client.id}
+                        variant={selectedClient === client.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleClientClick(client.id)}
+                        className="whitespace-nowrap"
+                      >
+                        {client.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Project Filter Buttons - Only show if client is selected */}
+                {selectedClient && availableProjects.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Projects</h4>
+                    <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+                      {availableProjects.map(project => (
+                        <Button
+                          key={project.id}
+                          variant={selectedProject === project.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleProjectClick(project.id)}
+                          className="whitespace-nowrap"
+                        >
+                          {project.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search routines..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         {/* Routines Matrix */}
@@ -318,6 +435,8 @@ const RoutinesTracker = () => {
                         last7Days={last7Days}
                         completions={completions}
                         onToggleCompletion={handleToggleCompletion}
+                        onEditRoutine={handleEditRoutine}
+                        onDeleteRoutine={handleDeleteRoutine}
                       />
                     </CardContent>
                   </CollapsibleContent>
@@ -329,8 +448,9 @@ const RoutinesTracker = () => {
 
         <RoutineFormDialog
           open={isFormOpen}
-          onOpenChange={setIsFormOpen}
+          onOpenChange={handleFormClose}
           clients={clients}
+          editingRoutine={editingRoutine}
         />
       </div>
     </Navigation>

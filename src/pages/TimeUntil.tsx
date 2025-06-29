@@ -650,18 +650,20 @@ const TimeUntil = () => {
                       <div className="flex-1">
                         <CardTitle className="text-lg font-semibold text-white truncate">
                           {event.title}
-                          {isOverdue && (
-                            <Badge className="ml-2 bg-white text-red-600 font-bold animate-pulse">
-                              OVERDUE
-                            </Badge>
-                          )}
                         </CardTitle>
                         {(project || client) && (
                           <div className="mt-1 space-y-1">
                             {client && (
-                              <p className="text-xs text-white/80">
-                                Client: {client.name}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs text-white/80">
+                                  Client: {client.name}
+                                </p>
+                                {isOverdue && (
+                                  <Badge className="bg-white text-red-600 font-bold animate-pulse text-xs">
+                                    OVERDUE
+                                  </Badge>
+                                )}
+                              </div>
                             )}
                             {project && (
                               <p className="text-xs text-white/80">
