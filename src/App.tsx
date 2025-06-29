@@ -1,38 +1,45 @@
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from '@/components/ui/sonner';
-import { AuthProvider } from '@/contexts/AuthContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
-// Page imports
-import Login from '@/pages/Login';
-import Index from '@/pages/Index';
-import Projects from '@/pages/Projects';
-import Tasks from '@/pages/Tasks';
-import Sprints from '@/pages/Sprints';
-import Invoices from '@/pages/Invoices';
-import Payments from '@/pages/Payments';
-import Wages from '@/pages/Wages';
-import Clients from '@/pages/Clients';
-import Employees from '@/pages/Employees';
-import Services from '@/pages/Services';
-import Roles from '@/pages/Roles';
-import Invitations from '@/pages/Invitations';
-import GanttView from '@/pages/GanttView';
-import AgendaCal from '@/pages/AgendaCal';
-import LogCal from '@/pages/LogCal';
-import NotFound from '@/pages/NotFound';
+// Import pages
+import Login from "@/pages/Login";
+import Index from "@/pages/Index";
+import Projects from "@/pages/Projects";
+import Tasks from "@/pages/Tasks";
+import Clients from "@/pages/Clients";
+import Employees from "@/pages/Employees";
+import Sprints from "@/pages/Sprints";
+import TimeUntil from "@/pages/TimeUntil";
+import RoutinesTracker from "@/pages/RoutinesTracker";
+import FixedSlots from "@/pages/FixedSlots";
+import Reminders from "@/pages/Reminders";
+import TimelineSlots from "@/pages/TimelineSlots";
+import Invoices from "@/pages/Invoices";
+import Payments from "@/pages/Payments";
+import Services from "@/pages/Services";
+import Wages from "@/pages/Wages";
+import Invitations from "@/pages/Invitations";
+import Roles from "@/pages/Roles";
+import GanttView from "@/pages/GanttView";
+import AgendaCal from "@/pages/AgendaCal";
+import LogCal from "@/pages/LogCal";
+import WorkloadCal from "@/pages/WorkloadCal";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
-          <div className="App">
+      <TooltipProvider>
+        <Toaster />
+        <BrowserRouter>
+          <AuthProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route
@@ -60,10 +67,74 @@ function App() {
                 }
               />
               <Route
+                path="/clients"
+                element={
+                  <ProtectedRoute pageName="clients">
+                    <Clients />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/employees"
+                element={
+                  <ProtectedRoute pageName="employees">
+                    <Employees />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/sprints"
                 element={
                   <ProtectedRoute pageName="sprints">
                     <Sprints />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/time-until"
+                element={
+                  <ProtectedRoute pageName="time-until">
+                    <TimeUntil />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/routines-tracker"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <RoutinesTracker />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/fixed-slots"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <FixedSlots />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reminders"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Reminders />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/timeline-slots"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <TimelineSlots />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workload-cal"
+                element={
+                  <ProtectedRoute pageName="workload-cal">
+                    <WorkloadCal />
                   </ProtectedRoute>
                 }
               />
@@ -84,30 +155,6 @@ function App() {
                 }
               />
               <Route
-                path="/wages"
-                element={
-                  <ProtectedRoute pageName="wages">
-                    <Wages />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/clients"
-                element={
-                  <ProtectedRoute pageName="clients">
-                    <Clients />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/employees"
-                element={
-                  <ProtectedRoute pageName="employees">
-                    <Employees />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="/services"
                 element={
                   <ProtectedRoute pageName="services">
@@ -116,18 +163,26 @@ function App() {
                 }
               />
               <Route
-                path="/roles"
+                path="/wages"
                 element={
-                  <ProtectedRoute pageName="roles">
-                    <Roles />
+                  <ProtectedRoute pageName="wages">
+                    <Wages />
                   </ProtectedRoute>
                 }
               />
               <Route
                 path="/invitations"
                 element={
-                  <ProtectedRoute pageName="invitations">
+                  <ProtectedRoute requireSuperAdmin>
                     <Invitations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/roles"
+                element={
+                  <ProtectedRoute requireSuperAdmin>
+                    <Roles />
                   </ProtectedRoute>
                 }
               />
@@ -157,10 +212,9 @@ function App() {
               />
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <Toaster />
-          </div>
-        </Router>
-      </AuthProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

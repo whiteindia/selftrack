@@ -600,6 +600,102 @@ export type Database = {
         }
         Relationships: []
       }
+      routine_completions: {
+        Row: {
+          completion_date: string
+          created_at: string
+          id: string
+          routine_id: string
+          user_id: string
+        }
+        Insert: {
+          completion_date: string
+          created_at?: string
+          id?: string
+          routine_id: string
+          user_id: string
+        }
+        Update: {
+          completion_date?: string
+          created_at?: string
+          id?: string
+          routine_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_completions_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routines: {
+        Row: {
+          category: string | null
+          client_id: string
+          color: string | null
+          created_at: string
+          frequency: string
+          id: string
+          preferred_days: Json | null
+          project_id: string
+          start_date: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          client_id: string
+          color?: string | null
+          created_at?: string
+          frequency: string
+          id?: string
+          preferred_days?: Json | null
+          project_id: string
+          start_date?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          client_id?: string
+          color?: string | null
+          created_at?: string
+          frequency?: string
+          id?: string
+          preferred_days?: Json | null
+          project_id?: string
+          start_date?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routines_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           created_at: string
@@ -677,6 +773,7 @@ export type Database = {
           created_at: string
           deadline: string
           id: string
+          name: string | null
           project_id: string | null
           sprint_leader_id: string | null
           status: string
@@ -689,6 +786,7 @@ export type Database = {
           created_at?: string
           deadline: string
           id?: string
+          name?: string | null
           project_id?: string | null
           sprint_leader_id?: string | null
           status?: string
@@ -701,6 +799,7 @@ export type Database = {
           created_at?: string
           deadline?: string
           id?: string
+          name?: string | null
           project_id?: string | null
           sprint_leader_id?: string | null
           status?: string
@@ -896,8 +995,13 @@ export type Database = {
           hours: number
           id: string
           invoiced: boolean
+          is_favorite: boolean | null
           name: string
           project_id: string
+          reminder_datetime: string | null
+          scheduled_time: string | null
+          slot_end_datetime: string | null
+          slot_start_datetime: string | null
           status: Database["public"]["Enums"]["task_status"]
           updated_at: string
           wage_status: string | null
@@ -913,8 +1017,13 @@ export type Database = {
           hours?: number
           id?: string
           invoiced?: boolean
+          is_favorite?: boolean | null
           name: string
           project_id: string
+          reminder_datetime?: string | null
+          scheduled_time?: string | null
+          slot_end_datetime?: string | null
+          slot_start_datetime?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
           wage_status?: string | null
@@ -930,8 +1039,13 @@ export type Database = {
           hours?: number
           id?: string
           invoiced?: boolean
+          is_favorite?: boolean | null
           name?: string
           project_id?: string
+          reminder_datetime?: string | null
+          scheduled_time?: string | null
+          slot_end_datetime?: string | null
+          slot_start_datetime?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
           wage_status?: string | null
@@ -1010,6 +1124,61 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_events: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          deadline: string
+          id: string
+          project_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          deadline: string
+          id?: string
+          project_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          deadline?: string
+          id?: string
+          project_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
             referencedColumns: ["id"]
           },
         ]

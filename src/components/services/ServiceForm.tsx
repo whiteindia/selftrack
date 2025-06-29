@@ -34,7 +34,7 @@ const ServiceForm = ({
             {editingService ? 'Edit Service' : 'Add New Service'}
           </DialogTitle>
           <DialogDescription>
-            {editingService ? 'Update service details' : 'Create a new service offering with hourly rate'}
+            {editingService ? 'Update service details' : 'Create a new service offering'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -55,17 +55,6 @@ const ServiceForm = ({
               onChange={(e) => onFormDataChange({...formData, description: e.target.value})}
               placeholder="Describe the service..."
               rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="hourlyRate">Hourly Rate (₹)</Label>
-            <Input
-              id="hourlyRate"
-              type="number"
-              step="0.01"
-              value={formData.hourly_rate}
-              onChange={(e) => onFormDataChange({...formData, hourly_rate: e.target.value})}
-              placeholder="75.00"
             />
           </div>
           <div className="flex justify-end space-x-2">

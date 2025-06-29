@@ -17,6 +17,7 @@ export const useDashboardData = () => {
           task_id,
           entry_type,
           employee_id,
+          comment,
           employees!inner(
             id,
             name,

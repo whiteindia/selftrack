@@ -1,21 +1,19 @@
-
-import React, { useEffect, useState } from 'react';
-import Navigation from '@/components/Navigation';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import Navigation from '@/components/Navigation';
+import StatsCards from '@/components/dashboard/StatsCards';
+import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
+import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
+import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import TodaysReminders from '@/components/dashboard/TodaysReminders';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useActivityFeed } from '@/hooks/useActivityFeed';
-import StatsCards from '@/components/dashboard/StatsCards';
-import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
-import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
-import ActivityFeed from '@/components/dashboard/ActivityFeed';
 
 const Index = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { user, userRole } = useAuth();
-
-  console.log('Dashboard - Current user:', user?.email, 'Role:', userRole);
-
+  
   const {
     runningTasksQuery,
     statsQuery,
@@ -24,47 +22,35 @@ const Index = () => {
 
   const { activityFeedQuery } = useActivityFeed();
 
-  // Log all errors for debugging
-  useEffect(() => {
-    if (runningTasksQuery.error) console.error('Running tasks error:', runningTasksQuery.error);
-    if (statsQuery.error) console.error('Stats error:', statsQuery.error);
-    if (upcomingDeadlinesQuery.error) console.error('Upcoming deadlines error:', upcomingDeadlinesQuery.error);
-    if (activityFeedQuery.error) console.error('Activity error:', activityFeedQuery.error);
-  }, [runningTasksQuery.error, statsQuery.error, upcomingDeadlinesQuery.error, activityFeedQuery.error]);
+  // Extract data from queries
+  const stats = statsQuery.data;
+  const upcomingDeadlines = upcomingDeadlinesQuery.data || [];
+  const runningTasks = runningTasksQuery.data || [];
+  const isError = statsQuery.isError || upcomingDeadlinesQuery.isError || runningTasksQuery.isError;
+  
+  const activityFeed = activityFeedQuery.data || [];
+  const activityLoading = activityFeedQuery.isLoading;
+  const activityError = activityFeedQuery.isError;
+  const activityErrorDetails = activityFeedQuery.error;
 
-  const handleRunningTaskClick = () => {
-    navigate('/tasks?status=In Progress');
-  };
-
-  const handleBRDClick = (brdUrl: string) => {
-    if (brdUrl) {
-      window.open(brdUrl, '_blank');
-    }
-  };
-
-  const getTimeUntilDeadline = (deadline: string) => {
-    const deadlineDate = new Date(deadline);
-    const today = new Date();
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays <= 7) return `${diffDays} days`;
-    return `${Math.ceil(diffDays / 7)} weeks`;
-  };
-
+  // Helper functions for activity feed
   const formatActivityTime = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
 
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`;
+    } else {
+      return `${diffInDays}d ago`;
+    }
   };
 
   const getActivityIcon = (actionType: string) => {
@@ -75,62 +61,89 @@ const Index = () => {
         return '📝';
       case 'completed':
         return '✅';
-      case 'logged_time':
-        return '⏱️';
-      case 'timer_started':
+      case 'started':
         return '▶️';
-      case 'timer_stopped':
+      case 'paused':
+        return '⏸️';
+      case 'resumed':
+        return '⏯️';
+      case 'stopped':
         return '⏹️';
-      case 'logged_in':
-        return '🔑';
-      case 'status_changed_to_in_progress':
-        return '🚀';
-      case 'status_changed_to_completed':
-        return '🎉';
-      case 'status_changed_to_not_started':
-        return '📋';
       default:
         return '📌';
     }
   };
 
+  const handleBRDClick = (brdUrl: string) => {
+    window.open(brdUrl, '_blank');
+  };
+
+  const handleViewAllProjects = () => {
+    navigate('/projects');
+  };
+
+  const handleViewAllSprints = () => {
+    navigate('/sprints');
+  };
+
+  const handleRunningTaskClick = () => {
+    navigate('/tasks');
+  };
+
+  const getTimeUntilDeadline = (deadline: string) => {
+    const now = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffInMs = deadlineDate.getTime() - now.getTime();
+    const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInDays < 0) {
+      return `${Math.abs(diffInDays)} days overdue`;
+    } else if (diffInDays === 0) {
+      return 'Due today';
+    } else if (diffInDays === 1) {
+      return 'Due tomorrow';
+    } else {
+      return `${diffInDays} days left`;
+    }
+  };
+
   return (
     <Navigation>
-      <div className="max-w-7xl mx-auto px-1 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome back!</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <div className="text-sm text-gray-600">
+            Welcome back, {user?.email}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          <ActiveTimeTracking
-            runningTasks={runningTasksQuery.data || []}
-            isError={!!runningTasksQuery.error}
-            onRunningTaskClick={handleRunningTaskClick}
-          />
+        <ActiveTimeTracking 
+          runningTasks={runningTasks}
+          isError={isError}
+          onRunningTaskClick={handleRunningTaskClick}
+        />
 
-          <UpcomingDeadlines
-            upcomingDeadlines={upcomingDeadlinesQuery.data || []}
-            isError={!!upcomingDeadlinesQuery.error}
+        <StatsCards stats={stats} isError={isError} />
+        
+        <div className="grid gap-6 md:grid-cols-2">
+          <UpcomingDeadlines 
+            upcomingDeadlines={upcomingDeadlines}
+            isError={isError}
             onBRDClick={handleBRDClick}
-            onViewAllProjects={() => navigate('/projects')}
-            onViewAllSprints={() => navigate('/sprints')}
+            onViewAllProjects={handleViewAllProjects}
+            onViewAllSprints={handleViewAllSprints}
             getTimeUntilDeadline={getTimeUntilDeadline}
           />
-
-          <ActivityFeed
-            activityFeed={activityFeedQuery.data || []}
-            isLoading={activityFeedQuery.isLoading}
-            isError={!!activityFeedQuery.error}
-            error={activityFeedQuery.error}
-            formatActivityTime={formatActivityTime}
-            getActivityIcon={getActivityIcon}
-          />
+          <TodaysReminders />
         </div>
 
-        <StatsCards 
-          stats={statsQuery.data} 
-          isError={!!statsQuery.error} 
+        <ActivityFeed 
+          activityFeed={activityFeed}
+          isLoading={activityLoading}
+          isError={activityError}
+          error={activityErrorDetails}
+          formatActivityTime={formatActivityTime}
+          getActivityIcon={getActivityIcon}
         />
       </div>
     </Navigation>

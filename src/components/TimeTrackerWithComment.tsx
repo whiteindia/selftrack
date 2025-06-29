@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,7 @@ interface ActiveTimer {
   entryId: string;
   isPaused: boolean;
   pausedDuration: number; // Total paused time in seconds
+  pauseStartTime?: Date; // When current pause started
 }
 
 const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ 
@@ -41,7 +43,6 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [showCommentDialog, setShowCommentDialog] = useState(false);
   const [comment, setComment] = useState('');
-  const [pauseStartTime, setPauseStartTime] = useState<Date | null>(null);
 
   // Check if there's an existing active timer for this task
   useEffect(() => {
@@ -57,51 +58,65 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       
       if (data && data.length > 0) {
         const entry = data[0];
-        const isPaused = checkIfPaused(entry.comment);
+        const pauseInfo = parsePauseInfo(entry.comment);
+        
         setActiveTimer({
           id: entry.id,
           taskId: task.id,
           startTime: new Date(entry.start_time),
           entryId: entry.id,
-          isPaused: isPaused,
-          pausedDuration: 0
+          isPaused: pauseInfo.isPaused,
+          pausedDuration: pauseInfo.totalPausedMs / 1000,
+          pauseStartTime: pauseInfo.isPaused ? pauseInfo.lastPauseTime : undefined
         });
+
+        // Calculate initial elapsed time
+        if (!pauseInfo.isPaused) {
+          const now = new Date();
+          const elapsed = Math.floor((now.getTime() - new Date(entry.start_time).getTime()) / 1000) - (pauseInfo.totalPausedMs / 1000);
+          setElapsedTime(Math.max(0, elapsed));
+        } else {
+          // If paused, calculate elapsed time up to pause point
+          const elapsed = Math.floor((pauseInfo.lastPauseTime!.getTime() - new Date(entry.start_time).getTime()) / 1000) - (pauseInfo.totalPausedMs / 1000);
+          setElapsedTime(Math.max(0, elapsed));
+        }
       }
     };
 
     checkActiveTimer();
   }, [task.id, isSubtask]);
 
-  // Helper function to check if timer is paused based on comment
-  const checkIfPaused = (comment: string | null) => {
-    if (!comment) return false;
+  // Helper function to parse pause information from comment
+  const parsePauseInfo = (comment: string | null) => {
+    if (!comment) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
     
-    const hasPause = comment.includes('Timer paused at');
-    const hasResume = comment.includes('Timer resumed at');
+    const pauseMatches = [...comment.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...comment.matchAll(/Timer resumed at ([^,\n]+)/g)];
     
-    if (!hasPause) return false;
+    let totalPausedMs = 0;
+    let isPaused = false;
+    let lastPauseTime: Date | undefined;
     
-    // If both pause and resume are present, check which is more recent
-    if (hasPause && hasResume) {
-      const pauseMatches = comment.match(/Timer paused at ([^,\n]+)/g);
-      const resumeMatches = comment.match(/Timer resumed at ([^,\n]+)/g);
+    // Calculate total paused time from completed pause/resume cycles
+    for (let i = 0; i < Math.min(pauseMatches.length, resumeMatches.length); i++) {
+      const pauseTime = new Date(pauseMatches[i][1]);
+      const resumeTime = new Date(resumeMatches[i][1]);
+      totalPausedMs += resumeTime.getTime() - pauseTime.getTime();
+    }
+    
+    // Check if currently paused (more pauses than resumes)
+    if (pauseMatches.length > resumeMatches.length) {
+      isPaused = true;
+      lastPauseTime = new Date(pauseMatches[pauseMatches.length - 1][1]);
       
-      if (pauseMatches && resumeMatches) {
-        const latestPause = pauseMatches[pauseMatches.length - 1];
-        const latestResume = resumeMatches[resumeMatches.length - 1];
-        
-        const pauseTimeMatch = latestPause.match(/at ([^,\n]+)/);
-        const resumeTimeMatch = latestResume.match(/at ([^,\n]+)/);
-        
-        if (pauseTimeMatch && resumeTimeMatch) {
-          const pauseTime = new Date(pauseTimeMatch[1]);
-          const resumeTime = new Date(resumeTimeMatch[1]);
-          return pauseTime > resumeTime;
-        }
+      // Add current pause duration to total if currently paused
+      if (lastPauseTime) {
+        const currentPauseDuration = new Date().getTime() - lastPauseTime.getTime();
+        totalPausedMs += currentPauseDuration;
       }
     }
     
-    return hasPause && !hasResume;
+    return { isPaused, totalPausedMs, lastPauseTime };
   };
 
   // Update elapsed time every second when timer is active and not paused
@@ -112,7 +127,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       interval = setInterval(() => {
         const now = new Date();
         const elapsed = Math.floor((now.getTime() - activeTimer.startTime.getTime()) / 1000) - activeTimer.pausedDuration;
-        setElapsedTime(elapsed);
+        setElapsedTime(Math.max(0, elapsed));
       }, 1000);
     }
     
@@ -216,10 +231,13 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       if (!activeTimer) throw new Error('No active timer');
       
       const pauseTime = new Date().toISOString();
+      const currentComment = activeTimer.entryId ? await getCurrentComment(activeTimer.entryId) : '';
+      const newComment = currentComment ? `${currentComment}\nTimer paused at ${pauseTime}` : `Timer paused at ${pauseTime}`;
+      
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Timer paused at ${pauseTime}`
+          comment: newComment
         })
         .eq('id', activeTimer.entryId)
         .select()
@@ -232,9 +250,9 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       if (activeTimer) {
         setActiveTimer({
           ...activeTimer,
-          isPaused: true
+          isPaused: true,
+          pauseStartTime: new Date()
         });
-        setPauseStartTime(new Date());
         
         // Invalidate dashboard queries to sync the pause state
         await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
@@ -250,16 +268,18 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
 
   const resumeTimerMutation = useMutation({
     mutationFn: async () => {
-      if (!activeTimer || !pauseStartTime) throw new Error('No paused timer');
+      if (!activeTimer || !activeTimer.pauseStartTime) throw new Error('No paused timer');
       
       // Calculate how long we were paused and add to total paused duration
-      const pauseDuration = Math.floor((new Date().getTime() - pauseStartTime.getTime()) / 1000);
+      const pauseDuration = Math.floor((new Date().getTime() - activeTimer.pauseStartTime.getTime()) / 1000);
       const resumeTime = new Date().toISOString();
+      const currentComment = await getCurrentComment(activeTimer.entryId);
+      const newComment = currentComment ? `${currentComment}\nTimer resumed at ${resumeTime}` : `Timer resumed at ${resumeTime}`;
       
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Timer resumed at ${resumeTime}`
+          comment: newComment
         })
         .eq('id', activeTimer.entryId)
         .select()
@@ -276,9 +296,9 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
         setActiveTimer({
           ...activeTimer,
           isPaused: false,
-          pausedDuration: result.pausedDuration
+          pausedDuration: result.pausedDuration,
+          pauseStartTime: undefined
         });
-        setPauseStartTime(null);
         
         // Invalidate dashboard queries to sync the resume state
         await queryClient.invalidateQueries({ queryKey: ['running-tasks'] });
@@ -333,12 +353,11 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       
       const endTime = new Date();
       const totalElapsedMs = endTime.getTime() - activeTimer.startTime.getTime();
-      const totalPausedMs = activeTimer.pausedDuration * 1000;
       
-      // If currently paused, add current pause duration
-      let finalPausedMs = totalPausedMs;
-      if (activeTimer.isPaused && pauseStartTime) {
-        finalPausedMs += endTime.getTime() - pauseStartTime.getTime();
+      // Calculate final paused duration
+      let finalPausedMs = activeTimer.pausedDuration * 1000;
+      if (activeTimer.isPaused && activeTimer.pauseStartTime) {
+        finalPausedMs += endTime.getTime() - activeTimer.pauseStartTime.getTime();
       }
       
       const actualWorkingMs = totalElapsedMs - finalPausedMs;
@@ -366,7 +385,6 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       setElapsedTime(0);
       setComment('');
       setShowCommentDialog(false);
-      setPauseStartTime(null);
       
       // Log time entry and timer stopped activities
       const hours = Math.floor((result.data.duration_minutes || 0) / 60);
@@ -393,6 +411,19 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     }
   });
 
+  // Helper function to get current comment
+  const getCurrentComment = async (entryId: string): Promise<string> => {
+    const { data, error } = await supabase
+      .from('time_entries')
+      .select('comment')
+      .eq('id', entryId)
+      .single();
+    
+    if (error || !data) return '';
+    return data.comment || '';
+  };
+
+  // Format time in HH:MM:SS format
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);

@@ -12,8 +12,7 @@ export const useServices = () => {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
-    description: '',
-    hourly_rate: ''
+    description: ''
   });
 
   const { data: services = [], isLoading } = useQuery({
@@ -54,8 +53,8 @@ export const useServices = () => {
         entity_type: 'service',
         entity_id: data.id,
         entity_name: data.name,
-        description: `Created new service: ${data.name} with hourly rate ₹${data.hourly_rate}`,
-        comment: `Hourly Rate: ₹${data.hourly_rate}`
+        description: `Created new service: ${data.name}`,
+        comment: `Service description: ${data.description || 'No description'}`
       });
     },
     onError: (error) => {
@@ -91,7 +90,7 @@ export const useServices = () => {
         entity_id: data.id,
         entity_name: data.name,
         description: `Updated service: ${data.name}`,
-        comment: `New hourly rate: ₹${data.hourly_rate}`
+        comment: `Service description: ${data.description || 'No description'}`
       });
     },
     onError: (error) => {
@@ -121,7 +120,7 @@ export const useServices = () => {
           entity_id: deletedService.id,
           entity_name: deletedService.name,
           description: `Deleted service: ${deletedService.name}`,
-          comment: `Previous hourly rate: ₹${deletedService.hourly_rate}`
+          comment: `Previous description: ${deletedService.description || 'No description'}`
         });
       }
     },
@@ -131,21 +130,21 @@ export const useServices = () => {
   });
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', hourly_rate: '' });
+    setFormData({ name: '', description: '' });
     setEditingService(null);
     setIsDialogOpen(false);
   };
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.hourly_rate) {
-      toast.error('Please fill in required fields');
+    if (!formData.name) {
+      toast.error('Please fill in the service name');
       return;
     }
 
     const serviceData = {
       name: formData.name,
       description: formData.description,
-      hourly_rate: parseFloat(formData.hourly_rate)
+      hourly_rate: 0 // Default value since it's required in the database
     };
 
     if (editingService) {
@@ -159,8 +158,7 @@ export const useServices = () => {
     setEditingService(service);
     setFormData({
       name: service.name,
-      description: service.description || '',
-      hourly_rate: service.hourly_rate.toString()
+      description: service.description || ''
     });
     setIsDialogOpen(true);
   };

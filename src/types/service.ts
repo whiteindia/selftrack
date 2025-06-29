@@ -10,5 +10,5 @@ export interface Service {
 export interface ServiceFormData {
   name: string;
   description: string;
-  hourly_rate: string;
+  hourly_rate?: string;
 }

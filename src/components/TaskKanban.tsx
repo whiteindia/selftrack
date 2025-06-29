@@ -1,10 +1,11 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Calendar, Plus, MessageSquare, Edit, Trash2 } from 'lucide-react';
+import { Plus, Building, Clock } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
+import LiveTimer from '@/components/dashboard/LiveTimer';
 
 interface Task {
   id: string;
@@ -19,6 +20,7 @@ interface Task {
   assigner?: {
     name: string;
   };
+  project_name?: string;
 }
 
 interface TaskKanbanProps {
@@ -39,6 +41,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
   onAddTask 
 }) => {
   const isMobile = useIsMobile();
+  const [runningTasks, setRunningTasks] = useState<Record<string, any>>({});
   
   const statuses = [
     'Not Started',
@@ -49,6 +52,77 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     'Imp',
     'Completed'
   ];
+
+  // Fetch running tasks for timer display
+  useEffect(() => {
+    const fetchRunningTasks = async () => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('id, start_time, task_id, comment')
+        .is('end_time', null);
+      
+      if (data) {
+        const runningTasksMap = data.reduce((acc, entry) => {
+          acc[entry.task_id] = entry;
+          return acc;
+        }, {} as Record<string, any>);
+        setRunningTasks(runningTasksMap);
+      }
+    };
+
+    fetchRunningTasks();
+
+    // Set up real-time subscription
+    const channel = supabase
+      .channel('kanban_time_entries')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'time_entries'
+        },
+        () => {
+          fetchRunningTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Check if timer is paused based on comment
+  const isPaused = (entry: any) => {
+    if (!entry.comment) return false;
+    
+    const hasPause = entry.comment.includes('Timer paused at');
+    const hasResume = entry.comment.includes('Timer resumed at');
+    
+    if (!hasPause) return false;
+    
+    if (hasPause && hasResume) {
+      const pauseMatches = entry.comment.match(/Timer paused at ([^,\n]+)/g);
+      const resumeMatches = entry.comment.match(/Timer resumed at ([^,\n]+)/g);
+      
+      if (pauseMatches && resumeMatches) {
+        const latestPause = pauseMatches[pauseMatches.length - 1];
+        const latestResume = resumeMatches[resumeMatches.length - 1];
+        
+        const pauseTimeMatch = latestPause.match(/at ([^,\n]+)/);
+        const resumeTimeMatch = latestResume.match(/at ([^,\n]+)/);
+        
+        if (pauseTimeMatch && resumeTimeMatch) {
+          const pauseTime = new Date(pauseTimeMatch[1]);
+          const resumeTime = new Date(resumeTimeMatch[1]);
+          return pauseTime > resumeTime;
+        }
+      }
+    }
+    
+    return hasPause && !hasResume;
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -132,56 +206,44 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {getTasksByStatus(status).map((task) => (
-                  <Card
-                    key={task.id}
-                    className={`${canUpdate ? 'cursor-move' : 'cursor-default'} hover:shadow-md transition-shadow border-l-4 border-l-blue-500`}
-                    draggable={canUpdate}
-                    onDragStart={(e) => handleDragStart(e, task.id)}
-                  >
-                    <CardContent className="p-3 space-y-2">
-                      {/* Task Name */}
-                      <h4 className="font-medium text-sm mb-2 break-words line-clamp-2">{task.name}</h4>
-                      
-                      {/* Project Info with Status */}
-                      <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
-                        <span className="flex items-center gap-1">
-                          <span className="truncate">Project</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span>{task.hours}h logged</span>
-                        </span>
-                        {task.deadline && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span>Due: {new Date(task.deadline).toLocaleDateString()}</span>
-                          </span>
+                {getTasksByStatus(status).map((task) => {
+                  const runningEntry = runningTasks[task.id];
+                  const isRunning = !!runningEntry;
+                  const paused = isRunning && isPaused(runningEntry);
+                  
+                  return (
+                    <Card
+                      key={task.id}
+                      className={`${canUpdate ? 'cursor-move' : 'cursor-default'} hover:shadow-md transition-shadow border-l-4 ${
+                        isRunning ? (paused ? 'border-l-yellow-500' : 'border-l-green-500') : 'border-l-blue-500'
+                      }`}
+                      draggable={canUpdate}
+                      onDragStart={(e) => handleDragStart(e, task.id)}
+                    >
+                      <CardContent className="p-3 space-y-2">
+                        {/* Task Name */}
+                        <h4 className="font-medium text-sm break-words line-clamp-2">{task.name}</h4>
+                        
+                        {/* Project Info */}
+                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                          <Building className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{task.project_name || 'No Project'}</span>
+                        </div>
+
+                        {/* Timer Display */}
+                        {isRunning && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Clock className="h-3 w-3 flex-shrink-0" />
+                            <LiveTimer 
+                              startTime={runningEntry.start_time}
+                              isPaused={paused}
+                            />
+                          </div>
                         )}
-                        <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs px-2 py-0 rounded-full`}>
-                          {task.status}
-                        </Badge>
-                      </div>
-                      
-                      {/* Action Icons Row */}
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
-                          <MessageSquare className="h-3 w-3" />
-                        </Button>
-                        <span className="text-xs text-gray-400 px-1">(2)</span>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
                 
                 {getTasksByStatus(status).length === 0 && (
                   <div className="text-center py-4 text-gray-500 border-2 border-dashed border-gray-200 rounded-lg">

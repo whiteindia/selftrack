@@ -11,9 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban } from 'lucide-react';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban, Play, Bell, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import TaskHistory from '@/components/TaskHistory';
@@ -25,6 +25,7 @@ import TaskKanban from '@/components/TaskKanban';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
 import { Toggle } from '@/components/ui/toggle';
+import TaskTimer from '@/components/TaskTimer';
 
 interface Task {
   id: string;
@@ -41,6 +42,9 @@ interface Task {
   project_name: string | null;
   project_service: string | null;
   client_name: string | null;
+  reminder_datetime: string | null;
+  slot_start_datetime: string | null;
+  slot_end_datetime: string | null;
   assignee: {
     name: string;
   } | null;
@@ -91,7 +95,10 @@ const Tasks = () => {
     assignee_id: '',
     deadline: '',
     estimated_duration: '',
-    status: 'Not Started'
+    status: 'Not Started',
+    reminder_datetime: '',
+    slot_start_datetime: '',
+    slot_end_datetime: ''
   });
 
   // Define all available status options
@@ -238,7 +245,7 @@ const Tasks = () => {
 
   // Filter tasks based on filters - updated to handle multi-select status
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
+    let filtered = tasks.filter(task => {
       const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (task.project_name || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilters.includes('all') || statusFilters.includes(task.status);
@@ -251,6 +258,28 @@ const Tasks = () => {
       const matchesClient = globalClientFilter === 'all' || taskProject?.clients?.name === clients.find(c => c.id === globalClientFilter)?.name;
       
       return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
+    });
+
+    // Sort tasks: overdue first, then by deadline
+    return filtered.sort((a, b) => {
+      const now = new Date();
+      const aOverdue = a.deadline && new Date(a.deadline).getTime() < now.getTime();
+      const bOverdue = b.deadline && new Date(b.deadline).getTime() < now.getTime();
+      
+      // If one is overdue and the other isn't, overdue comes first
+      if (aOverdue && !bOverdue) return -1;
+      if (!aOverdue && bOverdue) return 1;
+      
+      // If both have same overdue status, sort by deadline
+      if (a.deadline && b.deadline) {
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      }
+      
+      // Tasks without deadlines go to the end
+      if (a.deadline && !b.deadline) return -1;
+      if (!a.deadline && b.deadline) return 1;
+      
+      return 0;
     });
   }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
 
@@ -273,7 +302,10 @@ const Tasks = () => {
           ...taskData,
           assigner_id: employee.id,
           deadline: taskData.deadline || null,
-          estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null
+          estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null,
+          reminder_datetime: taskData.reminder_datetime || null,
+          slot_start_datetime: taskData.slot_start_datetime || null,
+          slot_end_datetime: taskData.slot_end_datetime || null
         }])
         .select()
         .single();
@@ -283,7 +315,17 @@ const Tasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setNewTask({ name: '', project_id: '', assignee_id: '', deadline: '', estimated_duration: '', status: 'Not Started' });
+      setNewTask({ 
+        name: '', 
+        project_id: '', 
+        assignee_id: '', 
+        deadline: '', 
+        estimated_duration: '', 
+        status: 'Not Started',
+        reminder_datetime: '',
+        slot_start_datetime: '',
+        slot_end_datetime: ''
+      });
       setIsCreateDialogOpen(false);
       toast.success('Task created successfully!');
     },
@@ -357,6 +399,12 @@ const Tasks = () => {
     updateTaskMutation.mutate({ id: taskId, updates });
   };
 
+  const handleStartTask = (taskId: string) => {
+    const updates = { status: 'In Progress' };
+    updateTaskMutation.mutate({ id: taskId, updates });
+    toast.success('Task started!');
+  };
+
   const handleTaskStatusChange = (taskId: string, newStatus: string) => {
     const updates: any = { status: newStatus };
     if (newStatus === 'Completed') {
@@ -419,6 +467,32 @@ const Tasks = () => {
     setCurrentTaskId(taskId);
     setEditingSubtask(subtask);
     setSubtaskDialogOpen(true);
+  };
+
+  const isTaskOverdue = (deadline: string | null) => {
+    if (!deadline) return false;
+    const now = new Date();
+    const taskDeadline = new Date(deadline);
+    return taskDeadline.getTime() < now.getTime();
+  };
+
+  const calculateSlotDuration = (startDateTime: string | null, endDateTime: string | null) => {
+    if (!startDateTime || !endDateTime) return null;
+    
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
+    const diffMs = end.getTime() - start.getTime();
+    
+    if (diffMs <= 0) return null;
+    
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    } else {
+      return `${minutes}m`;
+    }
   };
 
   if (privilegesLoading) {
@@ -628,12 +702,14 @@ const Tasks = () => {
                 setExpandedTask={setExpandedTask}
                 hasOperationAccess={hasOperationAccess}
                 handleStatusChange={handleStatusChange}
+                handleStartTask={handleStartTask}
                 handleTimeUpdate={handleTimeUpdate}
                 deleteTaskMutation={deleteTaskMutation}
                 setEditingTask={setEditingTask}
                 onCreateSubtask={handleCreateSubtask}
                 onEditSubtask={handleEditSubtask}
                 employees={employees}
+                calculateSlotDuration={calculateSlotDuration}
               />
             ))}
           </div>
@@ -641,7 +717,7 @@ const Tasks = () => {
 
         {/* Create Task Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Task</DialogTitle>
               <DialogDescription>
@@ -734,6 +810,54 @@ const Tasks = () => {
                   />
                 </div>
               </div>
+              
+              {/* New Reminder Field */}
+              <div className="space-y-2">
+                <Label htmlFor="reminder-datetime" className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  Reminder (Optional)
+                </Label>
+                <Input
+                  id="reminder-datetime"
+                  type="datetime-local"
+                  value={newTask.reminder_datetime}
+                  onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
+                />
+              </div>
+
+              {/* New Slot Fields */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4" />
+                  Slot Duration (Optional)
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="slot-start">Start Time</Label>
+                    <Input
+                      id="slot-start"
+                      type="datetime-local"
+                      value={newTask.slot_start_datetime}
+                      onChange={(e) => setNewTask({ ...newTask, slot_start_datetime: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="slot-end">End Time</Label>
+                    <Input
+                      id="slot-end"
+                      type="datetime-local"
+                      value={newTask.slot_end_datetime}
+                      onChange={(e) => setNewTask({ ...newTask, slot_end_datetime: e.target.value })}
+                    />
+                  </div>
+                </div>
+                {newTask.slot_start_datetime && newTask.slot_end_datetime && (
+                  <div className="text-sm text-green-600 font-medium">
+                    Duration: {calculateSlotDuration(newTask.slot_start_datetime, newTask.slot_end_datetime) || 'Invalid duration'}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
@@ -752,7 +876,7 @@ const Tasks = () => {
         {/* Edit Task Dialog */}
         {editingTask && (
           <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Task</DialogTitle>
                 <DialogDescription>
@@ -844,6 +968,54 @@ const Tasks = () => {
                     />
                   </div>
                 </div>
+
+                {/* Edit Reminder Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-reminder-datetime" className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Reminder (Optional)
+                  </Label>
+                  <Input
+                    id="edit-reminder-datetime"
+                    type="datetime-local"
+                    value={editingTask.reminder_datetime ? format(new Date(editingTask.reminder_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                    onChange={(e) => setEditingTask({ ...editingTask, reminder_datetime: e.target.value || null })}
+                  />
+                </div>
+
+                {/* Edit Slot Fields */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4" />
+                    Slot Duration (Optional)
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-slot-start">Start Time</Label>
+                      <Input
+                        id="edit-slot-start"
+                        type="datetime-local"
+                        value={editingTask.slot_start_datetime ? format(new Date(editingTask.slot_start_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        onChange={(e) => setEditingTask({ ...editingTask, slot_start_datetime: e.target.value || null })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-slot-end">End Time</Label>
+                      <Input
+                        id="edit-slot-end"
+                        type="datetime-local"
+                        value={editingTask.slot_end_datetime ? format(new Date(editingTask.slot_end_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        onChange={(e) => setEditingTask({ ...editingTask, slot_end_datetime: e.target.value || null })}
+                      />
+                    </div>
+                  </div>
+                  {editingTask.slot_start_datetime && editingTask.slot_end_datetime && (
+                    <div className="text-sm text-green-600 font-medium">
+                      Duration: {calculateSlotDuration(editingTask.slot_start_datetime, editingTask.slot_end_datetime) || 'Invalid duration'}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setEditingTask(null)}>
                     Cancel
@@ -855,7 +1027,10 @@ const Tasks = () => {
                       status: editingTask.status,
                       assignee_id: editingTask.assignee_id,
                       deadline: editingTask.deadline,
-                      estimated_duration: editingTask.estimated_duration
+                      estimated_duration: editingTask.estimated_duration,
+                      reminder_datetime: editingTask.reminder_datetime,
+                      slot_start_datetime: editingTask.slot_start_datetime,
+                      slot_end_datetime: editingTask.slot_end_datetime
                     })}
                     disabled={updateTaskMutation.isPending}
                   >
@@ -871,31 +1046,35 @@ const Tasks = () => {
   );
 };
 
-// New component to handle task with its subtasks - Updated for mobile responsiveness
+// New component to handle task with its subtasks - Updated to show reminder and slot info
 const TaskWithSubtasks: React.FC<{
   task: Task;
   expandedTask: string | null;
   setExpandedTask: (id: string | null) => void;
   hasOperationAccess: (resource: string, operation: string) => boolean;
   handleStatusChange: (taskId: string, newStatus: string) => void;
+  handleStartTask: (taskId: string) => void;
   handleTimeUpdate: () => void;
   deleteTaskMutation: any;
   setEditingTask: (task: Task) => void;
   onCreateSubtask: (taskId: string) => void;
   onEditSubtask: (taskId: string, subtask: any) => void;
   employees: any[];
+  calculateSlotDuration: (start: string | null, end: string | null) => string | null;
 }> = ({
   task,
   expandedTask,
   setExpandedTask,
   hasOperationAccess,
   handleStatusChange,
+  handleStartTask,
   handleTimeUpdate,
   deleteTaskMutation,
   setEditingTask,
   onCreateSubtask,
   onEditSubtask,
-  employees
+  employees,
+  calculateSlotDuration
 }) => {
   const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
   const { data: timeEntryCount = 0 } = useTimeEntryCount(task.id);
@@ -903,16 +1082,19 @@ const TaskWithSubtasks: React.FC<{
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [editingSubtask, setEditingSubtask] = useState<any>(null);
 
+  // Check if task is overdue
+  const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Not Started': return 'bg-gray-500';
-      case 'In Progress': return 'bg-blue-500';
-      case 'Completed': return 'bg-green-500';
-      case 'On Hold': return 'bg-yellow-500';
-      case 'On-Head': return 'bg-purple-500';
-      case 'Targeted': return 'bg-orange-500';
-      case 'Imp': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'Not Started': return 'bg-gray-100 text-gray-800';
+      case 'In Progress': return 'bg-blue-100 text-blue-800';
+      case 'Completed': return 'bg-green-100 text-green-800';
+      case 'On Hold': return 'bg-yellow-100 text-yellow-800';
+      case 'On-Head': return 'bg-purple-100 text-purple-800';
+      case 'Targeted': return 'bg-orange-100 text-orange-800';
+      case 'Imp': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -964,115 +1146,130 @@ const TaskWithSubtasks: React.FC<{
     setEditingSubtask(null);
   };
 
+  const slotDuration = calculateSlotDuration(task.slot_start_datetime, task.slot_end_datetime);
+
   return (
     <>
       <div className="space-y-2">
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3 px-3 sm:px-6">
-            <div className="space-y-3">
-              {/* Task Title */}
-              <CardTitle className="text-base sm:text-lg leading-tight break-words pr-2">
-                {task.name}
-              </CardTitle>
-              
-              {/* Task Details - Always stacked on mobile */}
-              <div className="space-y-2 text-xs sm:text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Building className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="truncate">{task.project_name || 'No Project'}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                  <span className="text-xs sm:text-sm">
-                    {task.total_logged_hours?.toFixed(2) || '0.00'}h logged
-                    {task.estimated_duration && <span> / {task.estimated_duration}h est.</span>}
+        <Card className={`hover:shadow-md transition-shadow border-l-4 ${
+          isOverdue 
+            ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
+            : 'border-l-blue-500'
+        }`}>
+          <CardContent className="p-3 space-y-2">
+            {/* Task Name */}
+            <h4 className={`font-medium text-sm mb-2 break-words line-clamp-2 ${
+              isOverdue ? 'text-red-900' : ''
+            }`}>
+              {task.name}
+              {isOverdue && (
+                <Badge className="ml-2 bg-red-600 text-white font-bold animate-pulse">
+                  OVERDUE
+                </Badge>
+              )}
+              {task.reminder_datetime && (
+                <Bell className="inline h-4 w-4 ml-2 text-orange-500" />
+              )}
+            </h4>
+            
+            {/* Project Info with Status */}
+            <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+              <span className="flex items-center gap-1">
+                <Building className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{task.project_name || 'No Project'}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <User className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3 flex-shrink-0" />
+                <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
+              </span>
+              {task.deadline && (
+                <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
+                  <Calendar className="h-3 w-3 flex-shrink-0" />
+                  <span>Due: {new Date(task.deadline).toLocaleDateString()}</span>
+                </span>
+              )}
+              <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs px-2 py-0 rounded-full`}>
+                {task.status}
+              </Badge>
+            </div>
+
+            {/* Reminder and Slot Info */}
+            {(task.reminder_datetime || slotDuration) && (
+              <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                {task.reminder_datetime && (
+                  <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
+                    <Bell className="h-3 w-3 text-orange-500" />
+                    <span>Reminder: {format(new Date(task.reminder_datetime), 'MMM d, HH:mm')}</span>
                   </span>
-                </div>
-                {task.deadline && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span className="text-xs sm:text-sm">Due: {format(new Date(task.deadline), 'MMM d, yyyy')}</span>
-                  </div>
+                )}
+                {slotDuration && (
+                  <span className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                    <CalendarClock className="h-3 w-3 text-blue-500" />
+                    <span>{slotDuration} Slot</span>
+                  </span>
                 )}
               </div>
+            )}
+            
+            {/* Action Icons Row */}
+            <div className="flex items-center gap-1">
+              {/* Enhanced Timer Component */}
+              <TaskTimer 
+                taskId={task.id}
+                taskName={task.name}
+                onTimeUpdate={handleTimeUpdate}
+              />
               
-              {/* Status and Actions */}
-              <div className="flex flex-col gap-3">
-                {/* Status Badge - Mobile optimized */}
-                <div className="flex items-start">
-                  <Badge className={`${getStatusColor(task.status)} text-xs px-2 py-1`}>
-                    {task.status}
-                  </Badge>
-                </div>
-                
-                {/* Action Buttons - Mobile responsive grid */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                  {task.status === 'In Progress' && (
-                    <div className="col-span-2 sm:col-span-1">
-                      <TimeTrackerWithComment 
-                        task={{ id: task.id, name: task.name }}
-                        onSuccess={handleTimeUpdate}
-                      />
-                    </div>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCreateSubtask}
-                    className="h-8 px-2 text-xs"
-                  >
-                    <Plus className="h-3 w-3" />
-                    <span className="ml-1 hidden sm:inline">Add</span>
-                  </Button>
-                  {subtasks.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowSubtasks(!showSubtasks)}
-                      className="h-8 px-2 text-xs"
-                    >
-                      <span className="truncate">{showSubtasks ? 'Hide' : 'Show'} ({subtasks.length})</span>
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                    className="h-8 px-2 text-xs"
-                  >
-                    <MessageSquare className="h-3 w-3" />
-                    {timeEntryCount > 0 && (
-                      <span className="ml-1 text-xs">({timeEntryCount})</span>
-                    )}
-                  </Button>
-                  {hasOperationAccess('tasks', 'update') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingTask(task)}
-                      className="h-8 px-2 text-xs"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                  )}
-                  {hasOperationAccess('tasks', 'delete') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteTaskMutation.mutate(task.id)}
-                      className="h-8 px-2 text-xs"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100" onClick={handleCreateSubtask}>
+                <Plus className="h-3 w-3" />
+              </Button>
+              {subtasks.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 px-2 hover:bg-gray-100 text-xs"
+                  onClick={() => setShowSubtasks(!showSubtasks)}
+                >
+                  <span>{showSubtasks ? 'Hide' : 'Show'} ({subtasks.length})</span>
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 w-6 p-0 hover:bg-gray-100"
+                onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+              >
+                <MessageSquare className="h-3 w-3" />
+              </Button>
+              {timeEntryCount > 0 && (
+                <span className="text-xs text-gray-400 px-1">({timeEntryCount})</span>
+              )}
+              {hasOperationAccess('tasks', 'update') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => setEditingTask(task)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
+              {hasOperationAccess('tasks', 'delete') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => deleteTaskMutation.mutate(task.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
             </div>
-          </CardHeader>
+          </CardContent>
           
           {expandedTask === task.id && (
             <CardContent className="border-t pt-4 px-3 sm:px-6">

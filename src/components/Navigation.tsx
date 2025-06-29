@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -19,7 +18,13 @@ import {
   Calendar,
   ChartGantt,
   CalendarClock,
-  CalendarRange
+  CalendarRange,
+  Clock,
+  CalendarDays,
+  Target,
+  ClipboardList,
+  CalendarCheck,
+  Bell
 } from 'lucide-react';
 import {
   Drawer,
@@ -40,18 +45,32 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useReminderNotifications } from '@/hooks/useReminderNotifications';
+import NotificationBadge from '@/components/NotificationBadge';
 
 const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const { signOut, user } = useAuth();
   const { hasPageAccess, loading: privilegesLoading } = usePrivileges();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const { totalNotificationCount } = useReminderNotifications();
 
   const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home, pageName: 'dashboard' },
     { path: '/projects', label: 'Projects', icon: FolderOpen, pageName: 'projects' },
     { path: '/tasks', label: 'Tasks', icon: CheckSquare, pageName: 'tasks' },
     { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' },
+  ];
+
+  const goalTrackItems = [
+    { path: '/time-until', label: 'Time Until', icon: Clock, pageName: 'time-until' },
+    { path: '/routines-tracker', label: 'Routines Tracker', icon: Target, pageName: 'routines-tracker', requireAdmin: true },
+  ];
+
+  const plannerItems = [
+    { path: '/workload-cal', label: 'Workload Cal', icon: CalendarDays, pageName: 'workload-cal' },
+    { path: '/fixed-slots', label: 'Fixed Slots', icon: CalendarCheck, pageName: 'fixed-slots' },
+    { path: '/reminders', label: 'Reminders', icon: Bell, pageName: 'reminders' },
   ];
 
   const trakEzyItems = [
@@ -62,13 +81,31 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const configItems = [
     { path: '/clients', label: 'Clients', icon: Users, pageName: 'clients' },
+    { path: '/employees', label: 'Employees', icon: UserCheck, pageName: 'employees' },
     { path: '/services', label: 'Services', icon: Settings, pageName: 'services' },
+    { path: '/roles', label: 'Roles', icon: User, pageName: 'roles', requireSuperAdmin: true },
   ];
 
   // Filter items based on actual database privileges
   const visibleMainNavItems = mainNavItems.filter(item => {
     const access = hasPageAccess(item.pageName);
     console.log(`Navigation filtering ${item.label} (${item.pageName}):`, access);
+    return access;
+  });
+
+  const visibleGoalTrackItems = goalTrackItems.filter(item => {
+    if (item.requireAdmin) {
+      // For admin-only pages, we need to check user role
+      return true; // Let the ProtectedRoute handle the actual admin check
+    }
+    const access = hasPageAccess(item.pageName);
+    console.log(`GoalTrack filtering ${item.label} (${item.pageName}):`, access);
+    return access;
+  });
+
+  const visiblePlannerItems = plannerItems.filter(item => {
+    const access = hasPageAccess(item.pageName);
+    console.log(`Planner filtering ${item.label} (${item.pageName}):`, access);
     return access;
   });
 
@@ -79,20 +116,21 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   });
 
   const visibleConfigItems = configItems.filter(item => {
+    if (item.requireSuperAdmin) {
+      // For super admin-only pages, we need to check user role
+      return true; // Let the ProtectedRoute handle the actual super admin check
+    }
     const access = hasPageAccess(item.pageName);
     console.log(`Config filtering ${item.label} (${item.pageName}):`, access);
     return access;
   });
 
-  // Check if TrakEzy menu should be shown (only if at least one sub-item is visible)
+  // Check if dropdowns should be shown
+  const shouldShowGoalTrackMenu = visibleGoalTrackItems.length > 0;
+  const shouldShowPlannerMenu = visiblePlannerItems.length > 0;
   const shouldShowTrakEzyMenu = visibleTrakEzyItems.length > 0;
 
   const isActive = (path: string) => location.pathname === path;
-
-  console.log('Navigation - visibleMainNavItems:', visibleMainNavItems.map(item => item.label));
-  console.log('Navigation - visibleTrakEzyItems:', visibleTrakEzyItems.map(item => item.label));
-  console.log('Navigation - shouldShowTrakEzyMenu:', shouldShowTrakEzyMenu);
-  console.log('Navigation - visibleConfigItems:', visibleConfigItems.map(item => item.label));
 
   // Show loading state while privileges are being fetched
   if (privilegesLoading) {
@@ -109,14 +147,62 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const MobileMenuContent = () => (
     <div className="p-4 space-y-6">
-    
-      
       <div className="space-y-4">
         {visibleMainNavItems.length > 0 && (
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
             <div className="space-y-1">
               {visibleMainNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {shouldShowGoalTrackMenu && (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">GoalTrack</h3>
+            <div className="space-y-1">
+              {visibleGoalTrackItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive(item.path)
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {shouldShowPlannerMenu && (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Planner</h3>
+            <div className="space-y-1">
+              {visiblePlannerItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link
@@ -212,7 +298,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
-                
           <div className="hidden md:flex items-center space-x-6 flex-1 justify-center min-w-0 overflow-hidden">
             {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
@@ -231,6 +316,70 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 </Link>
               );
             })}
+            
+            {shouldShowGoalTrackMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                    <Target className="h-4 w-4" />
+                    <span>GoalTrack</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                  {visibleGoalTrackItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {shouldShowPlannerMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                    <ClipboardList className="h-4 w-4" />
+                    <span>Planner</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                  {visiblePlannerItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             
             {shouldShowTrakEzyMenu && (
               <DropdownMenu>
@@ -300,13 +449,14 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
           <div className="flex items-center space-x-4 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full relative">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="" />
                     <AvatarFallback className="bg-blue-100 text-blue-700">
                       {user?.email ? getInitials(user.email) : 'U'}
                     </AvatarFallback>
                   </Avatar>
+                  <NotificationBadge count={totalNotificationCount} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white border shadow-lg z-50 w-48">
@@ -343,6 +493,18 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 </div>
               </DrawerContent>
             </Drawer>
+
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <Button variant="ghost" size="icon" className="rounded-full relative">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="" />
+                  <AvatarFallback className="bg-blue-100 text-blue-700">
+                    {user?.email ? getInitials(user.email) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <NotificationBadge count={totalNotificationCount} />
+              </Button>
+            </div>
           </div>
         </header>
         <main className="p-1 min-w-0">
