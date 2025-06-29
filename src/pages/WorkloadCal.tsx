@@ -9,7 +9,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { CalendarIcon, Plus, X, Repeat } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { CalendarIcon, Plus, X, Repeat, Search, ChevronDown, Filter } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
@@ -26,6 +28,17 @@ interface Task {
   client_name: string;
   status: string;
   scheduled_time?: string;
+}
+
+interface Subtask {
+  id: string;
+  name: string;
+  assignee_name?: string;
+  project_name: string;
+  client_name: string;
+  status: string;
+  scheduled_time?: string;
+  parent_task_name: string;
 }
 
 interface TaskAssignment {
@@ -48,10 +61,11 @@ interface Routine {
 
 interface WorkloadItem {
   id: string;
-  type: 'task' | 'routine';
+  type: 'task' | 'subtask' | 'routine';
   scheduled_time: string;
   scheduled_date: string;
   task?: Task;
+  subtask?: Subtask;
   routine?: {
     id: string;
     title: string;
@@ -67,6 +81,7 @@ const WorkloadCal = () => {
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isAssignRoutineDialogOpen, setIsAssignRoutineDialogOpen] = useState(false);
+  const [isAssignSubtaskDialogOpen, setIsAssignSubtaskDialogOpen] = useState(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearRoutinesDialogOpen, setIsClearRoutinesDialogOpen] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
@@ -74,6 +89,12 @@ const WorkloadCal = () => {
   const [assignDialogProject, setAssignDialogProject] = useState<string>('');
   const [routineDialogClient, setRoutineDialogClient] = useState<string>('');
   const [routineDialogProject, setRoutineDialogProject] = useState<string>('');
+  const [subtaskDialogClient, setSubtaskDialogClient] = useState<string>('');
+  const [subtaskDialogProject, setSubtaskDialogProject] = useState<string>('');
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [routineSearchQuery, setRoutineSearchQuery] = useState('');
+  const [subtaskSearchQuery, setSubtaskSearchQuery] = useState('');
+  const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
@@ -84,7 +105,7 @@ const WorkloadCal = () => {
     return `${hour}:00`;
   });
 
-  // Fetch workload items (both tasks and routine completions) for the selected date
+  // Fetch workload items (tasks, subtasks, and routine completions) for the selected date
   const { data: workloadItems = [], isLoading } = useQuery({
     queryKey: ['workload-assignments', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
@@ -114,6 +135,31 @@ const WorkloadCal = () => {
         throw tasksError;
       }
 
+      // Fetch subtasks
+      const { data: subtasksData, error: subtasksError } = await supabase
+        .from('subtasks')
+        .select(`
+          id,
+          name,
+          status,
+          scheduled_time,
+          assignee:employees!subtasks_assignee_id_fkey(name),
+          task:tasks!subtasks_task_id_fkey(
+            name,
+            project:projects!tasks_project_id_fkey(
+              name,
+              client:clients!projects_client_id_fkey(name)
+            )
+          )
+        `)
+        .eq('date', dateStr)
+        .not('scheduled_time', 'is', null);
+
+      if (subtasksError) {
+        console.error('Error fetching subtasks:', subtasksError);
+        throw subtasksError;
+      }
+
       // Fetch routine completions with scheduled time
       const { data: routineData, error: routineError } = await supabase
         .from('routine_completions')
@@ -137,6 +183,7 @@ const WorkloadCal = () => {
       }
 
       console.log('Tasks data:', tasksData);
+      console.log('Subtasks data:', subtasksData);
       console.log('Routine completions data:', routineData);
 
       // Get sprint information for tasks
@@ -181,6 +228,24 @@ const WorkloadCal = () => {
         };
       }) || [];
 
+      // Process subtasks
+      const subtaskItems: WorkloadItem[] = subtasksData?.map(subtask => ({
+        id: subtask.id,
+        type: 'subtask' as const,
+        scheduled_date: dateStr,
+        scheduled_time: subtask.scheduled_time || '09:00',
+        subtask: {
+          id: subtask.id,
+          name: subtask.name,
+          assignee_name: subtask.assignee?.name || 'Unassigned',
+          project_name: subtask.task?.project?.name || '',
+          client_name: subtask.task?.project?.client?.name || '',
+          status: subtask.status,
+          scheduled_time: subtask.scheduled_time,
+          parent_task_name: subtask.task?.name || ''
+        }
+      })) || [];
+
       // Process routine completions - use their scheduled time
       const routineItems: WorkloadItem[] = routineData?.map(completion => ({
         id: completion.id,
@@ -196,7 +261,7 @@ const WorkloadCal = () => {
         }
       })) || [];
 
-      const allItems = [...taskItems, ...routineItems];
+      const allItems = [...taskItems, ...subtaskItems, ...routineItems];
       console.log('Processed workload items:', allItems);
       return allItems;
     }
@@ -282,22 +347,72 @@ const WorkloadCal = () => {
     }
   });
 
+  // Fetch available subtasks for assignment (non-completed and not already assigned for this date)
+  const { data: availableSubtasks = [] } = useQuery({
+    queryKey: ['available-subtasks', selectedDate.toISOString().split('T')[0]],
+    queryFn: async () => {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('subtasks')
+        .select(`
+          id,
+          name,
+          status,
+          date,
+          scheduled_time,
+          task:tasks!subtasks_task_id_fkey(
+            name,
+            project:projects!tasks_project_id_fkey(
+              name,
+              client:clients!projects_client_id_fkey(name)
+            )
+          )
+        `)
+        .neq('status', 'Completed')
+        .or(`date.is.null,date.neq.${dateStr},scheduled_time.is.null`);
+
+      if (error) {
+        console.error('Error fetching available subtasks:', error);
+        throw error;
+      }
+
+      return data?.map(subtask => ({
+        id: subtask.id,
+        name: subtask.name,
+        parent_task_name: subtask.task?.name || '',
+        project_name: subtask.task?.project?.name || '',
+        client_name: subtask.task?.project?.client?.name || '',
+        status: subtask.status
+      })) || [];
+    }
+  });
+
   // Get unique clients and projects from workload items for top filters
-  const clients = [...new Set(workloadItems.map(item => 
-    item.type === 'task' ? item.task?.client_name : item.routine?.client_name
-  ))].filter(Boolean);
+  const clients = [...new Set(workloadItems.map(item => {
+    if (item.type === 'task') return item.task?.client_name;
+    if (item.type === 'subtask') return item.subtask?.client_name;
+    return item.routine?.client_name;
+  }))].filter(Boolean);
   
   // Filter projects based on selected client
   const projects = selectedClient === 'all' 
-    ? [...new Set(workloadItems.map(item => 
-        item.type === 'task' ? item.task?.project_name : item.routine?.project_name
-      ))].filter(Boolean)
+    ? [...new Set(workloadItems.map(item => {
+        if (item.type === 'task') return item.task?.project_name;
+        if (item.type === 'subtask') return item.subtask?.project_name;
+        return item.routine?.project_name;
+      }))].filter(Boolean)
     : [...new Set(workloadItems.filter(item => {
-        const clientName = item.type === 'task' ? item.task?.client_name : item.routine?.client_name;
+        let clientName;
+        if (item.type === 'task') clientName = item.task?.client_name;
+        else if (item.type === 'subtask') clientName = item.subtask?.client_name;
+        else clientName = item.routine?.client_name;
         return clientName === selectedClient;
-      }).map(item => 
-        item.type === 'task' ? item.task?.project_name : item.routine?.project_name
-      ))].filter(Boolean);
+      }).map(item => {
+        if (item.type === 'task') return item.task?.project_name;
+        if (item.type === 'subtask') return item.subtask?.project_name;
+        return item.routine?.project_name;
+      }))].filter(Boolean);
 
   // Get unique clients and projects from available tasks for assignment dialog
   const assignClients = [...new Set(availableTasks.map(t => t.client_name))].filter(Boolean);
@@ -311,6 +426,12 @@ const WorkloadCal = () => {
     ? [...new Set(availableRoutines.map(r => r.project.name))].filter(Boolean)
     : [...new Set(availableRoutines.filter(r => r.client.name === routineDialogClient).map(r => r.project.name))].filter(Boolean);
 
+  // Get unique clients and projects from subtasks for assignment dialog
+  const subtaskClients = [...new Set(availableSubtasks.map(s => s.client_name))].filter(Boolean);
+  const subtaskProjects = subtaskDialogClient === 'all' || !subtaskDialogClient
+    ? [...new Set(availableSubtasks.map(s => s.project_name))].filter(Boolean)
+    : [...new Set(availableSubtasks.filter(s => s.client_name === subtaskDialogClient).map(s => s.project_name))].filter(Boolean);
+
   // Reset project selection when client changes
   useEffect(() => {
     if (selectedClient !== 'all') {
@@ -320,31 +441,51 @@ const WorkloadCal = () => {
 
   // Filter workload items based on selected filters
   const filteredWorkloadItems = workloadItems.filter(item => {
-    const clientName = item.type === 'task' ? item.task?.client_name : item.routine?.client_name;
-    const projectName = item.type === 'task' ? item.task?.project_name : item.routine?.project_name;
+    let clientName, projectName;
+    if (item.type === 'task') {
+      clientName = item.task?.client_name;
+      projectName = item.task?.project_name;
+    } else if (item.type === 'subtask') {
+      clientName = item.subtask?.client_name;
+      projectName = item.subtask?.project_name;
+    } else {
+      clientName = item.routine?.client_name;
+      projectName = item.routine?.project_name;
+    }
     
     if (selectedClient !== 'all' && clientName !== selectedClient) return false;
     if (selectedProject !== 'all' && projectName !== selectedProject) return false;
     return true;
   });
 
-  // Filter available tasks for assignment dialog
+  // Filter available tasks for assignment dialog - now includes search
   const filteredAvailableTasks = availableTasks.filter(task => {
     if (assignDialogClient && assignDialogClient !== 'all' && task.client_name !== assignDialogClient) return false;
     if (assignDialogProject && assignDialogProject !== 'all' && task.project_name !== assignDialogProject) return false;
+    if (taskSearchQuery && !task.name.toLowerCase().includes(taskSearchQuery.toLowerCase())) return false;
     return true;
   });
 
-  // Filter available routines for assignment dialog
+  // Filter available routines for assignment dialog - now includes search
   const filteredAvailableRoutines = availableRoutines.filter(routine => {
     if (routineDialogClient && routineDialogClient !== 'all' && routine.client.name !== routineDialogClient) return false;
     if (routineDialogProject && routineDialogProject !== 'all' && routine.project.name !== routineDialogProject) return false;
+    if (routineSearchQuery && !routine.title.toLowerCase().includes(routineSearchQuery.toLowerCase())) return false;
     return true;
   });
 
-  // Filter workload items for clear dialog - only show In Progress tasks
+  // Filter available subtasks for assignment dialog - now includes search
+  const filteredAvailableSubtasks = availableSubtasks.filter(subtask => {
+    if (subtaskDialogClient && subtaskDialogClient !== 'all' && subtask.client_name !== subtaskDialogClient) return false;
+    if (subtaskDialogProject && subtaskDialogProject !== 'all' && subtask.project_name !== subtaskDialogProject) return false;
+    if (subtaskSearchQuery && !subtask.name.toLowerCase().includes(subtaskSearchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  // Filter workload items for clear dialog - only show In Progress tasks and subtasks
   const inProgressItems = workloadItems.filter(item => 
-    item.type === 'task' && item.task?.status === 'In Progress'
+    (item.type === 'task' && item.task?.status === 'In Progress') ||
+    (item.type === 'subtask' && item.subtask?.status === 'In Progress')
   );
 
   // Filter routine items for clear routines dialog
@@ -429,17 +570,53 @@ const WorkloadCal = () => {
     }
   });
 
-  // Clear assignment mutation
-  const clearAssignmentMutation = useMutation({
-    mutationFn: async (taskId: string) => {
-      console.log('Clearing assignment for task:', taskId);
+  // Assign subtask mutation
+  const assignSubtaskMutation = useMutation({
+    mutationFn: async ({ subtaskId, timeSlot }: { subtaskId: string; timeSlot: string }) => {
+      const dateStr = selectedDate.toISOString().split('T')[0];
       
+      console.log('Assigning subtask:', { subtaskId, timeSlot, dateStr });
+      
+      const { error } = await supabase
+        .from('subtasks')
+        .update({
+          date: dateStr,
+          scheduled_time: timeSlot
+        })
+        .eq('id', subtaskId);
+
+      if (error) {
+        console.error('Subtask assignment error:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['available-subtasks'] });
+      setIsAssignSubtaskDialogOpen(false);
+      setSelectedTimeSlot('');
+      setSubtaskDialogClient('');
+      setSubtaskDialogProject('');
+      toast.success('Subtask assigned successfully');
+    },
+    onError: (error) => {
+      console.error('Subtask assignment mutation error:', error);
+      toast.error('Failed to assign subtask');
+    }
+  });
+
+  // Clear assignment mutation - updated to handle subtasks
+  const clearAssignmentMutation = useMutation({
+    mutationFn: async ({ itemId, itemType }: { itemId: string; itemType: 'task' | 'subtask' }) => {
+      console.log('Clearing assignment for:', itemType, itemId);
+      
+      const table = itemType === 'task' ? 'tasks' : 'subtasks';
       const { data, error } = await supabase
-        .from('tasks')
+        .from(table)
         .update({
           scheduled_time: null
         })
-        .eq('id', taskId)
+        .eq('id', itemId)
         .select();
 
       if (error) {
@@ -453,6 +630,7 @@ const WorkloadCal = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
       queryClient.invalidateQueries({ queryKey: ['available-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['available-subtasks'] });
       toast.success('Assignment cleared successfully');
     },
     onError: (error) => {
@@ -494,6 +672,14 @@ const WorkloadCal = () => {
     assignTaskMutation.mutate({ taskId, timeSlot: selectedTimeSlot });
   };
 
+  const handleAssignSubtask = (subtaskId: string) => {
+    if (!selectedTimeSlot) {
+      toast.error('Please select a time slot');
+      return;
+    }
+    assignSubtaskMutation.mutate({ subtaskId, timeSlot: selectedTimeSlot });
+  };
+
   const handleAssignRoutine = (routineId: string) => {
     if (!selectedTimeSlot) {
       toast.error('Please select a time slot');
@@ -507,15 +693,20 @@ const WorkloadCal = () => {
     setIsAssignDialogOpen(true);
   };
 
+  const handleOpenAssignSubtaskDialog = (timeSlot: string) => {
+    setSelectedTimeSlot(timeSlot);
+    setIsAssignSubtaskDialogOpen(true);
+  };
+
   const handleOpenAssignRoutineDialog = (timeSlot: string) => {
     setSelectedTimeSlot(timeSlot);
     setIsAssignRoutineDialogOpen(true);
   };
 
-  const handleClearAssignment = (itemId: string, itemType: 'task' | 'routine') => {
+  const handleClearAssignment = (itemId: string, itemType: 'task' | 'subtask' | 'routine') => {
     console.log('Handle clear assignment called for:', itemType, itemId);
-    if (itemType === 'task') {
-      clearAssignmentMutation.mutate(itemId);
+    if (itemType === 'task' || itemType === 'subtask') {
+      clearAssignmentMutation.mutate({ itemId, itemType });
     } else {
       // For routines, we need to delete the routine completion
       clearRoutineCompletionMutation.mutate(itemId);
@@ -603,143 +794,154 @@ const WorkloadCal = () => {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="space-y-4">
-          {/* Client Filters */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-700">Clients</h3>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-              <Button
-                size="sm"
-                variant={selectedClient === 'all' ? 'default' : 'outline'}
-                onClick={() => setSelectedClient('all')}
-              >
-                All Clients
-              </Button>
-              {clients.map(client => (
+        {/* Collapsible Filters */}
+        <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Filters
+              </div>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isFiltersOpen && "rotate-180")} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 mt-4">
+            {/* Client Filters */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-gray-700">Clients</h3>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 <Button
-                  key={client}
                   size="sm"
-                  variant={selectedClient === client ? 'default' : 'outline'}
-                  onClick={() => setSelectedClient(client)}
+                  variant={selectedClient === 'all' ? 'default' : 'outline'}
+                  onClick={() => setSelectedClient('all')}
                 >
-                  {client}
+                  All Clients
                 </Button>
-              ))}
+                {clients.map(client => (
+                  <Button
+                    key={client}
+                    size="sm"
+                    variant={selectedClient === client ? 'default' : 'outline'}
+                    onClick={() => setSelectedClient(client)}
+                  >
+                    {client}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Project Filters */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-700">Projects</h3>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-              <Button
-                size="sm"
-                variant={selectedProject === 'all' ? 'default' : 'outline'}
-                onClick={() => setSelectedProject('all')}
-              >
-                All Projects
-              </Button>
-              {projects.map(project => (
+            {/* Project Filters */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-gray-700">Projects</h3>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
                 <Button
-                  key={project}
                   size="sm"
-                  variant={selectedProject === project ? 'default' : 'outline'}
-                  onClick={() => setSelectedProject(project)}
+                  variant={selectedProject === 'all' ? 'default' : 'outline'}
+                  onClick={() => setSelectedProject('all')}
                 >
-                  {project}
+                  All Projects
                 </Button>
-              ))}
+                {projects.map(project => (
+                  <Button
+                    key={project}
+                    size="sm"
+                    variant={selectedProject === project ? 'default' : 'outline'}
+                    onClick={() => setSelectedProject(project)}
+                  >
+                    {project}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-            <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <X className="h-4 w-4 mr-2" />
-                  Clear Assignments
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Clear Task Assignments (In Progress Only)</DialogTitle>
-                </DialogHeader>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-2">
-                    {inProgressItems.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
-                        No in-progress tasks assigned for this day
-                      </div>
-                    ) : (
-                      inProgressItems.map(item => (
-                        <Card key={item.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleClearAssignment(item.id, item.type)}>
-                          <CardContent className="p-4">
-                            <div className="space-y-2">
-                              <div className="font-medium">{item.task?.name}</div>
-                              <Badge className={getStatusColor(item.task?.status || '')}>
-                                {item.task?.status}
-                              </Badge>
-                              <div className="text-sm text-gray-600">
-                                {item.task?.client_name} - {item.task?.project_name}
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+              <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <X className="h-4 w-4 mr-2" />
+                    Clear Assignments
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Clear Task Assignments (In Progress Only)</DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                      {inProgressItems.length === 0 ? (
+                        <div className="text-center text-gray-500 py-8">
+                          No in-progress tasks assigned for this day
+                        </div>
+                      ) : (
+                        inProgressItems.map(item => (
+                          <Card key={item.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleClearAssignment(item.id, item.type)}>
+                            <CardContent className="p-4">
+                              <div className="space-y-2">
+                                <div className="font-medium">{item.type === 'task' ? item.task?.name : item.subtask?.name}</div>
+                                <Badge className={getStatusColor(item.type === 'task' ? item.task?.status : item.subtask?.status || '')}>
+                                  {item.type === 'task' ? item.task?.status : item.subtask?.status}
+                                </Badge>
+                                <div className="text-sm text-gray-600">
+                                  {item.type === 'task' ? item.task?.client_name : item.subtask?.client_name} - {item.type === 'task' ? item.task?.project_name : item.subtask?.project_name}
+                                </div>
+                                <div className="text-sm text-blue-600">
+                                  Scheduled: {formatTimeSlot(item.scheduled_time)}
+                                </div>
                               </div>
-                              <div className="text-sm text-blue-600">
-                                Scheduled: {formatTimeSlot(item.scheduled_time)}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </DialogContent>
-            </Dialog>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
 
-            <Dialog open={isClearRoutinesDialogOpen} onOpenChange={setIsClearRoutinesDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Repeat className="h-4 w-4 mr-2" />
-                  Clear Routines
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Clear Routine Assignments</DialogTitle>
-                </DialogHeader>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-2">
-                    {routineItems.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
-                        No routines assigned for this day
-                      </div>
-                    ) : (
-                      routineItems.map(item => (
-                        <Card key={item.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleClearAssignment(item.id, item.type)}>
-                          <CardContent className="p-4">
-                            <div className="space-y-2">
-                              <div className="font-medium">{item.routine?.title}</div>
-                              <Badge variant="outline" className="text-xs">
-                                {item.routine?.frequency}
-                              </Badge>
-                              <div className="text-sm text-gray-600">
-                                {item.routine?.client_name} - {item.routine?.project_name}
+              <Dialog open={isClearRoutinesDialogOpen} onOpenChange={setIsClearRoutinesDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Repeat className="h-4 w-4 mr-2" />
+                    Clear Routines
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Clear Routine Assignments</DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                      {routineItems.length === 0 ? (
+                        <div className="text-center text-gray-500 py-8">
+                          No routines assigned for this day
+                        </div>
+                      ) : (
+                        routineItems.map(item => (
+                          <Card key={item.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleClearAssignment(item.id, item.type)}>
+                            <CardContent className="p-4">
+                              <div className="space-y-2">
+                                <div className="font-medium">{item.routine?.title}</div>
+                                <Badge variant="outline" className="text-xs">
+                                  {item.routine?.frequency}
+                                </Badge>
+                                <div className="text-sm text-gray-600">
+                                  {item.routine?.client_name} - {item.routine?.project_name}
+                                </div>
+                                <div className="text-sm text-blue-600">
+                                  Scheduled: {formatTimeSlot(item.scheduled_time)}
+                                </div>
                               </div>
-                              <div className="text-sm text-blue-600">
-                                Scheduled: {formatTimeSlot(item.scheduled_time)}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Assign Task Dialog */}
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
@@ -747,6 +949,18 @@ const WorkloadCal = () => {
             <DialogHeader>
               <DialogTitle>Assign Task to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search tasks..."
+                value={taskSearchQuery}
+                onChange={(e) => setTaskSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4 py-4">
               <div>
                 <h4 className="text-sm font-medium text-gray-700">Client</h4>
@@ -781,7 +995,7 @@ const WorkloadCal = () => {
               <div className="space-y-2">
                 {filteredAvailableTasks.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
-                    No available tasks for this day
+                    No available tasks found
                   </div>
                 ) : (
                   filteredAvailableTasks.map(task => (
@@ -793,7 +1007,84 @@ const WorkloadCal = () => {
                             {task.status}
                           </Badge>
                           <div className="text-sm text-gray-600">
-                            {task.client_name} - {task.project_name}
+                            {task.client_name} || {task.project_name}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* Assign Subtask Dialog */}
+        <Dialog open={isAssignSubtaskDialogOpen} onOpenChange={setIsAssignSubtaskDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Assign Subtask to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
+            </DialogHeader>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search subtasks..."
+                value={subtaskSearchQuery}
+                onChange={(e) => setSubtaskSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Client</h4>
+                <Select onValueChange={setSubtaskDialogClient}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {subtaskClients.map(client => (
+                      <SelectItem key={client} value={client}>{client}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Project</h4>
+                <Select onValueChange={setSubtaskDialogProject}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {subtaskProjects.map(project => (
+                      <SelectItem key={project} value={project}>{project}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-2">
+                {filteredAvailableSubtasks.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    No available subtasks found
+                  </div>
+                ) : (
+                  filteredAvailableSubtasks.map(subtask => (
+                    <Card key={subtask.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleAssignSubtask(subtask.id)}>
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <div className="font-medium">{subtask.name}</div>
+                          <div className="text-xs text-gray-500">Task: {subtask.parent_task_name}</div>
+                          <Badge className={getStatusColor(subtask.status)}>
+                            {subtask.status}
+                          </Badge>
+                          <div className="text-sm text-gray-600">
+                            {subtask.client_name} || {subtask.project_name}
                           </div>
                         </div>
                       </CardContent>
@@ -811,6 +1102,18 @@ const WorkloadCal = () => {
             <DialogHeader>
               <DialogTitle>Assign Routine to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
+            
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search routines..."
+                value={routineSearchQuery}
+                onChange={(e) => setRoutineSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4 py-4">
               <div>
                 <h4 className="text-sm font-medium text-gray-700">Client</h4>
@@ -857,7 +1160,7 @@ const WorkloadCal = () => {
                             {routine.frequency}
                           </Badge>
                           <div className="text-sm text-gray-600">
-                            {routine.client.name} - {routine.project.name}
+                            {routine.client.name} || {routine.project.name}
                           </div>
                         </div>
                       </CardContent>
@@ -889,7 +1192,20 @@ const WorkloadCal = () => {
                         <Plus className="h-4 w-4" />
                         {!isMobile && (
                           <>
-                            <span className="ml-2">Assign Task</span>
+                            <span className="ml-2">Task</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenAssignSubtaskDialog(timeSlot)}
+                        className="shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {!isMobile && (
+                          <>
+                            <span className="ml-2">Subtask</span>
                           </>
                         )}
                       </Button>
@@ -902,7 +1218,7 @@ const WorkloadCal = () => {
                         <Repeat className="h-4 w-4" />
                         {!isMobile && (
                           <>
-                            <span className="ml-2">Assign Routine</span>
+                            <span className="ml-2">Routine</span>
                           </>
                         )}
                       </Button>
@@ -941,6 +1257,11 @@ const WorkloadCal = () => {
                                   {/* Task description */}
                                   <div className="font-medium text-sm">{item.task?.name}</div>
                                   
+                                  {/* Client || Project */}
+                                  <div className="text-xs text-gray-600">
+                                    {item.task?.client_name} || {item.task?.project_name}
+                                  </div>
+                                  
                                   {/* Sprint badge */}
                                   {item.task?.sprint_name && (
                                     <Badge variant="outline" className="text-xs">
@@ -957,6 +1278,40 @@ const WorkloadCal = () => {
                                     />
                                   </div>
                                 </>
+                              ) : item.type === 'subtask' ? (
+                                <>
+                                  {/* Subtask indicator */}
+                                  <div className="text-xs text-gray-600">
+                                    📋 Subtask
+                                  </div>
+                                  
+                                  {/* Assignee name */}
+                                  <div className="text-xs text-gray-600">
+                                    👤 {item.subtask?.assignee_name}
+                                  </div>
+                                  
+                                  {/* Subtask description */}
+                                  <div className="font-medium text-sm">{item.subtask?.name}</div>
+                                  
+                                  {/* Parent task */}
+                                  <div className="text-xs text-gray-500">
+                                    Task: {item.subtask?.parent_task_name}
+                                  </div>
+                                  
+                                  {/* Client || Project */}
+                                  <div className="text-xs text-gray-600">
+                                    {item.subtask?.client_name} || {item.subtask?.project_name}
+                                  </div>
+                                  
+                                  {/* Timer section */}
+                                  <div className="pt-2 border-t border-gray-100">
+                                    <TaskTimer
+                                      taskId={item.subtask.id}
+                                      taskName={item.subtask.name}
+                                      onTimeUpdate={handleTimeUpdate}
+                                    />
+                                  </div>
+                                </>
                               ) : (
                                 <>
                                   {/* Routine indicator */}
@@ -968,15 +1323,15 @@ const WorkloadCal = () => {
                                   {/* Routine title */}
                                   <div className="font-medium text-sm">{item.routine?.title}</div>
                                   
+                                  {/* Client || Project */}
+                                  <div className="text-xs text-gray-600">
+                                    {item.routine?.client_name} || {item.routine?.project_name}
+                                  </div>
+                                  
                                   {/* Frequency badge */}
                                   <Badge variant="outline" className="text-xs">
                                     {item.routine?.frequency}
                                   </Badge>
-                                  
-                                  {/* Client and project */}
-                                  <div className="text-xs text-gray-600">
-                                    {item.routine?.client_name} - {item.routine?.project_name}
-                                  </div>
                                 </>
                               )}
                             </div>

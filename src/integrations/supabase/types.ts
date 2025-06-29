@@ -852,6 +852,7 @@ export type Database = {
           hours: number | null
           id: string
           name: string
+          scheduled_time: string | null
           status: string
           task_id: string
           updated_at: string
@@ -867,6 +868,7 @@ export type Database = {
           hours?: number | null
           id?: string
           name: string
+          scheduled_time?: string | null
           status?: string
           task_id: string
           updated_at?: string
@@ -882,6 +884,7 @@ export type Database = {
           hours?: number | null
           id?: string
           name?: string
+          scheduled_time?: string | null
           status?: string
           task_id?: string
           updated_at?: string

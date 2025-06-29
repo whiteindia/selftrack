@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp, Play, MessageSquare, Users, Clock, Plus, Edit, Trash2 } from 'lucide-react';
+import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp, MessageSquare, Users, Plus, Edit, Trash2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import Navigation from '@/components/Navigation';
@@ -15,7 +15,6 @@ import TaskEditDialog from '@/components/TaskEditDialog';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
-import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import ManualTimeLog from '@/components/ManualTimeLog';
 import TaskHistory from '@/components/TaskHistory';
 import SubtaskDialog from '@/components/SubtaskDialog';
@@ -649,7 +648,7 @@ const TaskCardWithActions = ({
           </span>
         </div>
 
-        {/* Action Buttons - Compact with icons only */}
+        {/* Action Buttons - Compact with icons only, removed timer */}
         <div className="flex flex-wrap gap-2 pt-2">
           <Button
             variant="outline"
@@ -672,10 +671,6 @@ const TaskCardWithActions = ({
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <TimeTrackerWithComment 
-            task={{ id: task.id, name: task.name }}
-            onSuccess={refetch}
-          />
           <ManualTimeLog 
             taskId={task.id}
             onSuccess={refetch}

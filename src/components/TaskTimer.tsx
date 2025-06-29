@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,7 +22,11 @@ interface TimerState {
   elapsedTime: number; // in seconds
 }
 
-const TaskTimer: React.FC<TaskTimerProps> = ({ taskId, taskName, onTimeUpdate }) => {
+const TaskTimer: React.FC<TaskTimerProps> = ({ 
+  taskId, 
+  taskName, 
+  onTimeUpdate 
+}) => {
   const { user } = useAuth();
   const [timerState, setTimerState] = useState<TimerState>({
     isRunning: false,
@@ -117,6 +120,42 @@ const TaskTimer: React.FC<TaskTimerProps> = ({ taskId, taskName, onTimeUpdate })
     }
   };
 
+  const updateTaskStatusToInProgress = async () => {
+    try {
+      // First check current task status
+      const { data: taskData, error: fetchError } = await supabase
+        .from('tasks')
+        .select('status')
+        .eq('id', taskId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching task status:', fetchError);
+        return;
+      }
+
+      // Only update if status is not already "In Progress"
+      if (taskData.status !== 'In Progress') {
+        const { error: updateError } = await supabase
+          .from('tasks')
+          .update({ status: 'In Progress' })
+          .eq('id', taskId);
+
+        if (updateError) {
+          console.error('Error updating task status:', updateError);
+          toast.error('Failed to update task status');
+        } else {
+          console.log('Task status updated to In Progress');
+          if (onTimeUpdate) {
+            onTimeUpdate();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
+  };
+
   const startTimer = async () => {
     try {
       // Get current employee ID
@@ -159,6 +198,10 @@ const TaskTimer: React.FC<TaskTimerProps> = ({ taskId, taskName, onTimeUpdate })
         elapsedTime: 0
       });
       setCurrentTimeEntryId(timeEntry.id);
+      
+      // Update task status to "In Progress" if not already
+      await updateTaskStatusToInProgress();
+      
       toast.success('Timer started!');
     } catch (error) {
       console.error('Error starting timer:', error);
@@ -315,7 +358,8 @@ const TaskTimer: React.FC<TaskTimerProps> = ({ taskId, taskName, onTimeUpdate })
   };
 
   const formatTime = (totalSeconds: number) => {
-    const seconds = Math.floor(totalSeconds);
+    // Ensure we're working with an integer number of seconds
+    const seconds = Math.floor(Math.abs(totalSeconds || 0));
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
