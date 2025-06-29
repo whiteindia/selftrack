@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +46,7 @@ const AllTasks = () => {
   const { hasPageAccess } = usePrivileges();
   const queryClient = useQueryClient();
   
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string[]>(['On Hold', 'On-Head', 'Targeted', 'Imp', 'Overdue']);
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
@@ -132,7 +131,7 @@ const AllTasks = () => {
   // Filter tasks based on all criteria
   const filteredTasks = useMemo(() => {
     return processedTasks.filter(task => {
-      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+      const matchesStatus = statusFilter.length === 0 || statusFilter.includes(task.status);
       const matchesClient = clientFilter === 'all' || task.projects?.clients?.name === clientFilter;
       const matchesProject = projectFilter === 'all' || task.projects?.name === projectFilter;
       const matchesAssignee = assigneeFilter === 'all' || task.assignee?.name === assigneeFilter;
@@ -255,6 +254,24 @@ const AllTasks = () => {
     }
   };
 
+  const handleStatusToggle = (status: string) => {
+    setStatusFilter(prev => {
+      if (prev.includes(status)) {
+        return prev.filter(s => s !== status);
+      } else {
+        return [...prev, status];
+      }
+    });
+  };
+
+  const handleSelectAllStatuses = () => {
+    setStatusFilter([...uniqueStatuses]);
+  };
+
+  const handleClearAllStatuses = () => {
+    setStatusFilter([]);
+  };
+
   if (isLoading) {
     return (
       <Navigation>
@@ -297,21 +314,34 @@ const AllTasks = () => {
               <CardContent className="space-y-4">
                 {/* Status Filter */}
                 <div>
-                  <h3 className="text-sm font-medium mb-2">Status</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium">Status</h3>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSelectAllStatuses}
+                        className="text-xs"
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleClearAllStatuses}
+                        className="text-xs"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant={statusFilter === 'all' ? 'default' : 'outline'}
-                      onClick={() => setStatusFilter('all')}
-                    >
-                      All Statuses
-                    </Button>
                     {uniqueStatuses.map(status => (
                       <Button
                         key={status}
                         size="sm"
-                        variant={statusFilter === status ? 'default' : 'outline'}
-                        onClick={() => setStatusFilter(status)}
+                        variant={statusFilter.includes(status) ? 'default' : 'outline'}
+                        onClick={() => handleStatusToggle(status)}
                       >
                         {status}
                       </Button>
@@ -590,11 +620,11 @@ const TaskCardWithActions = ({
           {task.status}
         </Badge>
 
-        {/* Project and Client Info */}
+        {/* Project and Client Info - Changed to || syntax */}
         <div className="flex items-center gap-1 text-xs text-gray-600">
           <BuildingIcon className="h-3 w-3 flex-shrink-0" />
           <span className="truncate">
-            {task.projects?.clients?.name} - {task.projects?.name}
+            {task.projects?.clients?.name} || {task.projects?.name}
           </span>
         </div>
 
