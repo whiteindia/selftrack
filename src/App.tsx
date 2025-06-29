@@ -10,7 +10,12 @@ import Login from "./pages/Login";
 import Clients from "./pages/Clients";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
-import Tasks from "./pages/Tasks";
+import AllTasks from "./pages/AllTasks";
+import Buzman from "./pages/Buzman";
+import Skillman from "./pages/Skillman";
+import Cman from "./pages/Cman";
+import Citman from "./pages/Citman";
+import Myself from "./pages/Myself";
 import Sprints from "./pages/Sprints";
 import Services from "./pages/Services";
 import Invoices from "./pages/Invoices";
@@ -46,7 +51,12 @@ function App() {
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                 <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-                <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+                <Route path="/alltasks" element={<ProtectedRoute><AllTasks /></ProtectedRoute>} />
+                <Route path="/buzman" element={<ProtectedRoute><Buzman /></ProtectedRoute>} />
+                <Route path="/skillman" element={<ProtectedRoute><Skillman /></ProtectedRoute>} />
+                <Route path="/cman" element={<ProtectedRoute><Cman /></ProtectedRoute>} />
+                <Route path="/citman" element={<ProtectedRoute><Citman /></ProtectedRoute>} />
+                <Route path="/myself" element={<ProtectedRoute><Myself /></ProtectedRoute>} />
                 <Route path="/sprints" element={<ProtectedRoute><Sprints /></ProtectedRoute>} />
                 <Route path="/fixed-slots" element={<ProtectedRoute><FixedSlots /></ProtectedRoute>} />
                 <Route path="/services" element={<ProtectedRoute><Services /></ProtectedRoute>} />

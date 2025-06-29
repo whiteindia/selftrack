@@ -171,13 +171,24 @@ const WorkloadCal = () => {
 
   // Get unique clients and projects from assignments for top filters
   const clients = [...new Set(assignments.map(a => a.task.client_name))].filter(Boolean);
-  const projects = [...new Set(assignments.map(a => a.task.project_name))].filter(Boolean);
+  
+  // Filter projects based on selected client
+  const projects = selectedClient === 'all' 
+    ? [...new Set(assignments.map(a => a.task.project_name))].filter(Boolean)
+    : [...new Set(assignments.filter(a => a.task.client_name === selectedClient).map(a => a.task.project_name))].filter(Boolean);
 
   // Get unique clients and projects from available tasks for assignment dialog
   const assignClients = [...new Set(availableTasks.map(t => t.client_name))].filter(Boolean);
-  const assignProjects = assignDialogClient === 'all' 
+  const assignProjects = assignDialogClient === 'all' || !assignDialogClient
     ? [...new Set(availableTasks.map(t => t.project_name))].filter(Boolean)
     : [...new Set(availableTasks.filter(t => t.client_name === assignDialogClient).map(t => t.project_name))].filter(Boolean);
+
+  // Reset project selection when client changes
+  useEffect(() => {
+    if (selectedClient !== 'all') {
+      setSelectedProject('all');
+    }
+  }, [selectedClient]);
 
   // Filter assignments based on selected filters
   const filteredAssignments = assignments.filter(assignment => {
@@ -279,6 +290,11 @@ const WorkloadCal = () => {
       return;
     }
     assignTaskMutation.mutate({ taskId, timeSlot: selectedTimeSlot });
+  };
+
+  const handleOpenAssignDialog = (timeSlot: string) => {
+    setSelectedTimeSlot(timeSlot);
+    setIsAssignDialogOpen(true);
   };
 
   const handleClearAssignment = (taskId: string) => {
@@ -419,90 +435,6 @@ const WorkloadCal = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
-            <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Assign Task
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Assign Task to Time Slot</DialogTitle>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Client</h4>
-                    <Select onValueChange={setAssignDialogClient}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select Client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Clients</SelectItem>
-                        {assignClients.map(client => (
-                          <SelectItem key={client} value={client}>{client}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Project</h4>
-                    <Select onValueChange={setAssignDialogProject}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select Project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Projects</SelectItem>
-                        {assignProjects.map(project => (
-                          <SelectItem key={project} value={project}>{project}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-2">
-                    {filteredAvailableTasks.length === 0 ? (
-                      <div className="text-center text-gray-500 py-8">
-                        No available tasks for this day
-                      </div>
-                    ) : (
-                      filteredAvailableTasks.map(task => (
-                        <Card key={task.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleAssignTask(task.id)}>
-                          <CardContent className="p-4">
-                            <div className="space-y-2">
-                              <div className="font-medium">{task.name}</div>
-                              <Badge className={getStatusColor(task.status)}>
-                                {task.status}
-                              </Badge>
-                              <div className="text-sm text-gray-600">
-                                {task.client_name} - {task.project_name}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-                <div className="grid grid-cols-1 gap-4 py-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Time Slot</h4>
-                    <Select onValueChange={setSelectedTimeSlot}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select Time Slot" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlots.map(timeSlot => (
-                          <SelectItem key={timeSlot} value={timeSlot}>{formatTimeSlot(timeSlot)}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-
             <Dialog open={isClearDialogOpen} onOpenChange={setIsClearDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -547,6 +479,70 @@ const WorkloadCal = () => {
           </div>
         </div>
 
+        {/* Assign Task Dialog */}
+        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Assign Task to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Client</h4>
+                <Select onValueChange={setAssignDialogClient}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Clients</SelectItem>
+                    {assignClients.map(client => (
+                      <SelectItem key={client} value={client}>{client}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Project</h4>
+                <Select onValueChange={setAssignDialogProject}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Select Project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Projects</SelectItem>
+                    {assignProjects.map(project => (
+                      <SelectItem key={project} value={project}>{project}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <ScrollArea className="h-[400px]">
+              <div className="space-y-2">
+                {filteredAvailableTasks.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    No available tasks for this day
+                  </div>
+                ) : (
+                  filteredAvailableTasks.map(task => (
+                    <Card key={task.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleAssignTask(task.id)}>
+                      <CardContent className="p-4">
+                        <div className="space-y-2">
+                          <div className="font-medium">{task.name}</div>
+                          <Badge className={getStatusColor(task.status)}>
+                            {task.status}
+                          </Badge>
+                          <div className="text-sm text-gray-600">
+                            {task.client_name} - {task.project_name}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
         {/* Calendar Grid */}
         <div className="grid gap-4">
           {timeSlots.map(timeSlot => {
@@ -555,7 +551,18 @@ const WorkloadCal = () => {
             return (
               <Card key={timeSlot}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{formatTimeSlot(timeSlot)}</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">{formatTimeSlot(timeSlot)}</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenAssignDialog(timeSlot)}
+                      className="shrink-0"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Assign Task
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {slotAssignments.length === 0 ? (

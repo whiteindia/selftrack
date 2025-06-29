@@ -72,16 +72,16 @@ const RoutineMatrix: React.FC<RoutineMatrixProps> = ({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px]">
+      <table className="w-full min-w-[500px]">
         <thead>
           <tr className="border-b">
-            <th className="text-left p-3 sticky left-0 bg-white border-r min-w-[200px] max-w-[200px]">
+            <th className="text-left p-2 sm:p-3 sticky left-0 bg-white border-r w-[50%] max-w-[50%]">
               Routine
             </th>
             {last7Days.map((date, index) => (
-              <th key={index} className="text-center p-3 min-w-[80px]">
+              <th key={index} className="text-center p-1 sm:p-3 min-w-[50px] sm:min-w-[80px]">
                 <div className="text-xs text-gray-500">{format(date, 'EEE')}</div>
-                <div className="text-sm font-medium">{format(date, 'MMM d')}</div>
+                <div className="text-xs font-medium">{format(date, 'MMM d')}</div>
               </th>
             ))}
           </tr>
@@ -89,12 +89,12 @@ const RoutineMatrix: React.FC<RoutineMatrixProps> = ({
         <tbody>
           {routines.map((routine) => (
             <tr key={routine.id} className="border-b hover:bg-gray-50">
-              <td className="p-3 sticky left-0 bg-white border-r">
+              <td className="p-2 sm:p-3 sticky left-0 bg-white border-r w-[50%] max-w-[50%]">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm truncate" title={routine.title}>
+                  <div className="font-medium text-xs sm:text-sm truncate" title={routine.title}>
                     {routine.title}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 truncate">
                     {routine.project.name}
                   </div>
                   <Badge variant="outline" className="text-xs">
@@ -103,12 +103,12 @@ const RoutineMatrix: React.FC<RoutineMatrixProps> = ({
                 </div>
               </td>
               {last7Days.map((date, index) => (
-                <td key={index} className="p-3 text-center">
+                <td key={index} className="p-1 sm:p-3 text-center">
                   {shouldShowRoutine(routine, date) && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`h-8 w-8 p-0 text-lg hover:scale-110 transition-transform ${
+                      className={`h-6 w-6 sm:h-8 sm:w-8 p-0 text-sm sm:text-lg hover:scale-110 transition-transform ${
                         isCompleted(routine.id, date) 
                           ? 'text-green-600 bg-green-50 hover:bg-green-100' 
                           : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'

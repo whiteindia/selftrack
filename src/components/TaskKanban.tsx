@@ -6,6 +6,7 @@ import { Plus, Building, Clock } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import LiveTimer from '@/components/dashboard/LiveTimer';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Task {
   id: string;
@@ -21,6 +22,7 @@ interface Task {
     name: string;
   };
   project_name?: string;
+  project_id?: string;
 }
 
 interface TaskKanbanProps {
@@ -30,6 +32,8 @@ interface TaskKanbanProps {
   canDelete?: boolean;
   onTaskStatusChange: (taskId: string, newStatus: string) => void;
   onAddTask?: () => void;
+  showTaskSelection?: boolean;
+  onCreateSprint?: (selectedTaskIds: string[], projectId?: string) => void;
 }
 
 const TaskKanban: React.FC<TaskKanbanProps> = ({ 
@@ -38,10 +42,13 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
   canUpdate = false,
   canDelete = false,
   onTaskStatusChange,
-  onAddTask 
+  onAddTask,
+  showTaskSelection = false,
+  onCreateSprint
 }) => {
   const isMobile = useIsMobile();
   const [runningTasks, setRunningTasks] = useState<Record<string, any>>({});
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   
   const statuses = [
     'Not Started',
@@ -145,6 +152,31 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     }
   };
 
+  const handleTaskSelection = (taskId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTasks(prev => [...prev, taskId]);
+    } else {
+      setSelectedTasks(prev => prev.filter(id => id !== taskId));
+    }
+  };
+
+  const handleCreateSprintClick = () => {
+    if (selectedTasks.length === 0) return;
+    
+    // Get the project ID from the first selected task
+    const firstSelectedTask = tasks.find(task => selectedTasks.includes(task.id));
+    const projectId = firstSelectedTask?.project_id;
+    
+    if (onCreateSprint) {
+      onCreateSprint(selectedTasks, projectId);
+    }
+  };
+
+  // Filter tasks that can be added to sprint (Not Started, On-Head, Targeted, Imp)
+  const sprintEligibleTasks = tasks.filter(task => 
+    ['Not Started', 'On-Head', 'Targeted', 'Imp'].includes(task.status)
+  );
+
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     if (!canUpdate) {
       e.preventDefault();
@@ -177,6 +209,31 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Task Selection Actions */}
+      {showTaskSelection && (
+        <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium">
+              Select tasks for sprint creation ({selectedTasks.length} selected)
+            </span>
+            {selectedTasks.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedTasks([])}
+              >
+                Clear Selection
+              </Button>
+            )}
+          </div>
+          {selectedTasks.length > 0 && (
+            <Button onClick={handleCreateSprintClick}>
+              Create Sprint ({selectedTasks.length} tasks)
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Add Task Button */}
       {canCreate && onAddTask && (
         <div className="flex justify-end">
@@ -210,6 +267,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                   const runningEntry = runningTasks[task.id];
                   const isRunning = !!runningEntry;
                   const paused = isRunning && isPaused(runningEntry);
+                  const canSelectForSprint = showTaskSelection && ['Not Started', 'On-Head', 'Targeted', 'Imp'].includes(task.status);
                   
                   return (
                     <Card
@@ -221,6 +279,23 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
                       onDragStart={(e) => handleDragStart(e, task.id)}
                     >
                       <CardContent className="p-3 space-y-2">
+                        {/* Task Selection Checkbox */}
+                        {canSelectForSprint && (
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Checkbox
+                              id={`task-${task.id}`}
+                              checked={selectedTasks.includes(task.id)}
+                              onCheckedChange={(checked) => handleTaskSelection(task.id, checked as boolean)}
+                            />
+                            <label
+                              htmlFor={`task-${task.id}`}
+                              className="text-xs text-gray-600 cursor-pointer"
+                            >
+                              Select for sprint
+                            </label>
+                          </div>
+                        )}
+                        
                         {/* Task Name */}
                         <h4 className="font-medium text-sm break-words line-clamp-2">{task.name}</h4>
                         

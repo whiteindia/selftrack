@@ -40,7 +40,7 @@ const TimelineSlots = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('user');
+  const [viewMode, setViewMode] = useState<ViewMode>('client'); // Changed default to 'client'
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['timeline-slots', selectedDate, user?.id],
