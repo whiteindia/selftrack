@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
 import TaskTimer from '@/components/TaskTimer';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Task {
   id: string;
@@ -75,6 +76,7 @@ const WorkloadCal = () => {
   const [routineDialogProject, setRoutineDialogProject] = useState<string>('');
   
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   // Generate time slots (24 hours)
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -884,8 +886,12 @@ const WorkloadCal = () => {
                         onClick={() => handleOpenAssignDialog(timeSlot)}
                         className="shrink-0"
                       >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Assign Task
+                        <Plus className="h-4 w-4" />
+                        {!isMobile && (
+                          <>
+                            <span className="ml-2">Assign Task</span>
+                          </>
+                        )}
                       </Button>
                       <Button
                         variant="outline"
@@ -893,8 +899,12 @@ const WorkloadCal = () => {
                         onClick={() => handleOpenAssignRoutineDialog(timeSlot)}
                         className="shrink-0"
                       >
-                        <Repeat className="h-4 w-4 mr-2" />
-                        Assign Routine
+                        <Repeat className="h-4 w-4" />
+                        {!isMobile && (
+                          <>
+                            <span className="ml-2">Assign Routine</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
