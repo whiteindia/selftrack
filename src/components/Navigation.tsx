@@ -45,15 +45,12 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useReminderNotifications } from '@/hooks/useReminderNotifications';
-import NotificationBadge from '@/components/NotificationBadge';
 
 const Navigation = ({ children }: { children?: React.ReactNode }) => {
-  const { signOut, user } = useAuth();
+  const { signOut, user, userRole } = useAuth();
   const { hasPageAccess, loading: privilegesLoading } = usePrivileges();
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { totalNotificationCount } = useReminderNotifications();
 
   const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home, pageName: 'dashboard' },
@@ -77,6 +74,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/gantt-view', label: 'Gantt View', icon: ChartGantt, pageName: 'gantt-view' },
     { path: '/agenda-cal', label: 'Agenda Cal', icon: CalendarRange, pageName: 'agenda-cal' },
     { path: '/log-cal', label: 'Log Cal', icon: CalendarClock, pageName: 'log-cal' },
+    { path: '/team-slots', label: 'Team Slots', icon: CalendarCheck, pageName: 'team-slots', requireAdmin: true },
   ];
 
   const configItems = [
@@ -449,14 +447,13 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
           <div className="flex items-center space-x-4 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full relative">
+                <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src="" />
                     <AvatarFallback className="bg-blue-100 text-blue-700">
                       {user?.email ? getInitials(user.email) : 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <NotificationBadge count={totalNotificationCount} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white border shadow-lg z-50 w-48">
@@ -493,18 +490,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 </div>
               </DrawerContent>
             </Drawer>
-
-            <div className="flex items-center space-x-2 flex-shrink-0">
-              <Button variant="ghost" size="icon" className="rounded-full relative">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-blue-100 text-blue-700">
-                    {user?.email ? getInitials(user.email) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <NotificationBadge count={totalNotificationCount} />
-              </Button>
-            </div>
           </div>
         </header>
         <main className="p-1 min-w-0">

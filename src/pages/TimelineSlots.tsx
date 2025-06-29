@@ -1,26 +1,24 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Tooltip, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
-import { Clock, CalendarIcon, Building, User, Filter } from 'lucide-react';
-import { format, parseISO, differenceInMinutes } from 'date-fns';
+import { CalendarIcon, Clock, User, Building, Calendar as CalendarIconLucide } from 'lucide-react';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface TaskSlot {
+interface TimelineTask {
   id: string;
   name: string;
   slot_start_datetime: string;
   slot_end_datetime: string;
-  assignee?: {
-    name: string;
-  };
+  status: string;
   project: {
     id: string;
     name: string;
@@ -29,32 +27,37 @@ interface TaskSlot {
       name: string;
     };
   };
+  assignee?: {
+    id: string;
+    name: string;
+  };
 }
 
-const TimelineSlots = () => {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedClient, setSelectedClient] = useState<string>('all');
-  const [selectedProject, setSelectedProject] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'users' | 'clients' | 'projects'>('users');
+type ViewMode = 'user' | 'client' | 'project';
 
-  const { data: taskSlots = [], isLoading } = useQuery({
-    queryKey: ['timeline-slots', selectedDate, selectedClient, selectedProject],
+const TimelineSlots = () => {
+  const { user } = useAuth();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedClient, setSelectedClient] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('user');
+
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ['timeline-slots', selectedDate, user?.id],
     queryFn: async () => {
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('tasks')
         .select(`
           id,
           name,
           slot_start_datetime,
           slot_end_datetime,
-          assignee:employees!tasks_assignee_id_fkey(
-            name
-          ),
+          status,
           project:projects(
             id,
             name,
@@ -62,118 +65,146 @@ const TimelineSlots = () => {
               id,
               name
             )
+          ),
+          assignee:employees!tasks_assignee_id_fkey(
+            id,
+            name
           )
         `)
         .not('slot_start_datetime', 'is', null)
         .not('slot_end_datetime', 'is', null)
         .gte('slot_start_datetime', startOfDay.toISOString())
-        .lte('slot_start_datetime', endOfDay.toISOString());
-
-      if (selectedClient !== 'all') {
-        query = query.eq('project.client.id', selectedClient);
-      }
-
-      if (selectedProject !== 'all') {
-        query = query.eq('project.id', selectedProject);
-      }
-
-      const { data, error } = await query;
+        .lte('slot_start_datetime', endOfDay.toISOString())
+        .order('slot_start_datetime', { ascending: true });
 
       if (error) throw error;
-
-      return data as TaskSlot[];
+      return data as TimelineTask[];
     },
+    enabled: !!user,
   });
 
-  const { data: clients = [] } = useQuery({
-    queryKey: ['timeline-clients'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id, name')
-        .order('name');
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: projects = [] } = useQuery({
-    queryKey: ['timeline-projects', selectedClient],
-    queryFn: async () => {
-      let query = supabase
-        .from('projects')
-        .select('id, name')
-        .order('name');
-
-      if (selectedClient !== 'all') {
-        query = query.eq('client_id', selectedClient);
+  // Get unique clients from tasks for the selected date
+  const availableClients = useMemo(() => {
+    const clients = tasks.reduce((acc, task) => {
+      const client = task.project.client;
+      if (!acc.find(c => c.id === client.id)) {
+        acc.push(client);
       }
+      return acc;
+    }, [] as { id: string; name: string }[]);
+    return clients;
+  }, [tasks]);
 
-      const { data, error } = await query;
+  // Get projects for selected client
+  const availableProjects = useMemo(() => {
+    if (!selectedClient) return [];
+    return tasks
+      .filter(task => task.project.client.id === selectedClient)
+      .reduce((acc, task) => {
+        const project = task.project;
+        if (!acc.find(p => p.id === project.id)) {
+          acc.push(project);
+        }
+        return acc;
+      }, [] as { id: string; name: string }[]);
+  }, [tasks, selectedClient]);
 
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Generate hours array (0-23)
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-
-  // Get unique entities for Y-axis based on view mode
-  const entities = React.useMemo(() => {
-    switch (viewMode) {
-      case 'users':
-        return Array.from(new Set(taskSlots.map(task => task.assignee?.name || 'Unassigned')));
-      case 'clients':
-        return Array.from(new Set(taskSlots.map(task => task.project.client.name)));
-      case 'projects':
-        return Array.from(new Set(taskSlots.map(task => task.project.name)));
-      default:
-        return [];
-    }
-  }, [taskSlots, viewMode]);
-
-  // Function to get task slots for a specific entity and time period
-  const getTasksForEntityAndTime = (entity: string, startHour: number, endHour: number) => {
-    return taskSlots.filter(task => {
-      let entityName = '';
-      switch (viewMode) {
-        case 'users':
-          entityName = task.assignee?.name || 'Unassigned';
-          break;
-        case 'clients':
-          entityName = task.project.client.name;
-          break;
-        case 'projects':
-          entityName = task.project.name;
-          break;
+  // Filter tasks based on selected filters
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      if (selectedClient && task.project.client.id !== selectedClient) {
+        return false;
       }
-      
-      if (entityName !== entity) return false;
-
-      const startTime = parseISO(task.slot_start_datetime);
-      const endTime = parseISO(task.slot_end_datetime);
-      const taskStartHour = startTime.getHours() + startTime.getMinutes() / 60;
-      const taskEndHour = endTime.getHours() + endTime.getMinutes() / 60;
-
-      return taskStartHour < endHour && taskEndHour > startHour;
+      if (selectedProject && task.project.id !== selectedProject) {
+        return false;
+      }
+      return true;
     });
+  }, [tasks, selectedClient, selectedProject]);
+
+  // Generate timeline data based on view mode
+  const timelineData = useMemo(() => {
+    const groups = new Map<string, { name: string; tasks: TimelineTask[] }>();
+
+    filteredTasks.forEach(task => {
+      let groupKey: string;
+      let groupName: string;
+
+      switch (viewMode) {
+        case 'user':
+          groupKey = task.assignee?.id || 'unassigned';
+          groupName = task.assignee?.name || 'Unassigned';
+          break;
+        case 'client':
+          groupKey = task.project.client.id;
+          groupName = task.project.client.name;
+          break;
+        case 'project':
+          groupKey = task.project.id;
+          groupName = task.project.name;
+          break;
+      }
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, { name: groupName, tasks: [] });
+      }
+      groups.get(groupKey)!.tasks.push(task);
+    });
+
+    return Array.from(groups.entries()).map(([key, value]) => ({
+      id: key,
+      name: value.name,
+      tasks: value.tasks.sort((a, b) => 
+        new Date(a.slot_start_datetime).getTime() - new Date(b.slot_start_datetime).getTime()
+      )
+    }));
+  }, [filteredTasks, viewMode]);
+
+  // Generate time slots (only show hours that have tasks)
+  const activeTimeSlots = useMemo(() => {
+    const hoursWithTasks = new Set<number>();
+    
+    filteredTasks.forEach(task => {
+      const startHour = new Date(task.slot_start_datetime).getHours();
+      const endHour = new Date(task.slot_end_datetime).getHours();
+      
+      for (let hour = startHour; hour <= endHour; hour++) {
+        hoursWithTasks.add(hour);
+      }
+    });
+
+    return Array.from(hoursWithTasks).sort((a, b) => a - b);
+  }, [filteredTasks]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Completed':
+        return 'bg-green-500';
+      case 'In Progress':
+        return 'bg-blue-500';
+      case 'Not Started':
+        return 'bg-gray-400';
+      default:
+        return 'bg-gray-400';
+    }
   };
 
-  // Calculate task duration in minutes
-  const getTaskDuration = (task: TaskSlot) => {
-    const startTime = parseISO(task.slot_start_datetime);
-    const endTime = parseISO(task.slot_end_datetime);
-    return differenceInMinutes(endTime, startTime);
-  };
-
-  // Get color intensity based on duration
-  const getTaskColor = (duration: number) => {
-    if (duration <= 30) return 'bg-blue-200';
-    if (duration <= 60) return 'bg-blue-400';
-    if (duration <= 120) return 'bg-blue-600';
-    return 'bg-blue-800';
+  const getTaskPosition = (task: TimelineTask) => {
+    const startDate = parseISO(task.slot_start_datetime);
+    const endDate = parseISO(task.slot_end_datetime);
+    
+    const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+    const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
+    const duration = endMinutes - startMinutes;
+    
+    // Calculate position as percentage of the day (1440 minutes)
+    const leftPercentage = (startMinutes / 1440) * 100;
+    const widthPercentage = (duration / 1440) * 100;
+    
+    return {
+      left: `${leftPercentage}%`,
+      width: `${Math.max(widthPercentage, 2)}%`, // Minimum 2% width for visibility
+    };
   };
 
   if (isLoading) {
@@ -190,216 +221,213 @@ const TimelineSlots = () => {
     <Navigation>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Clock className="h-8 w-8 text-purple-600" />
-          <h1 className="text-3xl font-bold">Timeline Slots</h1>
+          <Clock className="h-8 w-8 text-blue-600" />
+          <h1 className="text-3xl font-bold">Team Slots</h1>
+          <Badge variant="secondary" className="ml-2">
+            {filteredTasks.length} tasks
+          </Badge>
         </div>
 
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Date Picker */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Date</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !selectedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* View Mode */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">View By</label>
+            <Select value={viewMode} onValueChange={(value: ViewMode) => setViewMode(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    User
+                  </div>
+                </SelectItem>
+                <SelectItem value="client">
+                  <div className="flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Client
+                  </div>
+                </SelectItem>
+                <SelectItem value="project">
+                  <div className="flex items-center gap-2">
+                    <CalendarIconLucide className="h-4 w-4" />
+                    Project
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Client Filter */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Client</label>
+            <Select value={selectedClient || 'all'} onValueChange={(value) => {
+              setSelectedClient(value === 'all' ? null : value);
+              setSelectedProject(null);
+            }}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Clients" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {availableClients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Project Filter */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">Project</label>
+            <Select 
+              value={selectedProject || 'all'} 
+              onValueChange={(value) => setSelectedProject(value === 'all' ? null : value)}
+              disabled={!selectedClient}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Projects" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                {availableProjects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Legend */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-purple-500" />
-              Task Timeline Visualization
-            </CardTitle>
-            
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-4 pt-4">
-              {/* Date Picker */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[200px] justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(selectedDate, 'PPP')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={(date) => date && setSelectedDate(date)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-
-              {/* View Mode Selector */}
-              <Select value={viewMode} onValueChange={(value: 'users' | 'clients' | 'projects') => setViewMode(value)}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="View by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="users">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Users
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="clients">
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4" />
-                      Clients
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="projects">
-                    <div className="flex items-center gap-2">
-                      <Filter className="h-4 w-4" />
-                      Projects
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Client Filter */}
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Clients" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Project Filter */}
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Projects" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm">Status Legend</CardTitle>
           </CardHeader>
-          
-          <CardContent>
-            {entities.length === 0 || taskSlots.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-lg font-medium mb-1">No scheduled slots found</p>
-                <p className="text-sm">No tasks with time slots for the selected date and filters.</p>
+          <CardContent className="py-3">
+            <div className="flex gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-gray-400 rounded"></div>
+                <span>Not Started</span>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Legend */}
-                <div className="flex items-center gap-4 text-xs text-gray-600">
-                  <span>Duration intensity:</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-200 border"></div>
-                    <span>≤30min</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-400"></div>
-                    <span>≤1hr</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-600"></div>
-                    <span>≤2hrs</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-800"></div>
-                    <span>&gt;2hrs</span>
-                  </div>
-                </div>
-
-                {/* Timeline Grid */}
-                <div className="overflow-x-auto">
-                  <div className="min-w-[1200px]">
-                    {/* Hour headers */}
-                    <div className="grid grid-cols-25 gap-1 mb-2">
-                      <div className="text-xs font-medium text-gray-500 p-1"></div>
-                      {hours.map(hour => (
-                        <div key={hour} className="text-xs text-center text-gray-500 p-1">
-                          {hour.toString().padStart(2, '0')}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Entity rows */}
-                    <TooltipProvider>
-                      {entities.map(entity => (
-                        <div key={entity} className="grid grid-cols-25 gap-1 mb-2 relative">
-                          <div className="text-xs font-medium text-gray-700 p-2 truncate" title={entity}>
-                            {entity}
-                          </div>
-                          {/* Timeline cells */}
-                          {hours.map(hour => (
-                            <div key={hour} className="relative h-12 border border-gray-200">
-                              {/* Render task blocks that overlap with this hour */}
-                              {taskSlots
-                                .filter(task => {
-                                  let entityName = '';
-                                  switch (viewMode) {
-                                    case 'users':
-                                      entityName = task.assignee?.name || 'Unassigned';
-                                      break;
-                                    case 'clients':
-                                      entityName = task.project.client.name;
-                                      break;
-                                    case 'projects':
-                                      entityName = task.project.name;
-                                      break;
-                                  }
-                                  
-                                  if (entityName !== entity) return false;
-
-                                  const startTime = parseISO(task.slot_start_datetime);
-                                  const endTime = parseISO(task.slot_end_datetime);
-                                  const taskStartHour = startTime.getHours();
-                                  const taskEndHour = endTime.getHours();
-
-                                  return hour >= taskStartHour && hour < taskEndHour;
-                                })
-                                .map((task, index) => {
-                                  const startTime = parseISO(task.slot_start_datetime);
-                                  const endTime = parseISO(task.slot_end_datetime);
-                                  const duration = getTaskDuration(task);
-                                  const colorClass = getTaskColor(duration);
-
-                                  return (
-                                    <Tooltip key={`${task.id}-${hour}`}>
-                                      <TooltipContent>
-                                        <div className="space-y-1">
-                                          <div className="font-medium">{task.name}</div>
-                                          <div className="text-xs">
-                                            Duration: {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')} ({duration}min)
-                                          </div>
-                                          <div className="text-xs">Assignee: {task.assignee?.name || 'Unassigned'}</div>
-                                          <div className="text-xs">Client: {task.project.client.name}</div>
-                                          <div className="text-xs">Project: {task.project.name}</div>
-                                        </div>
-                                      </TooltipContent>
-                                      <div 
-                                        className={cn(
-                                          'absolute inset-1 rounded text-white text-xs p-1 cursor-pointer hover:opacity-80 transition-opacity',
-                                          colorClass
-                                        )}
-                                        style={{ top: `${index * 8}px` }}
-                                      >
-                                        <div className="truncate font-medium">{task.name}</div>
-                                      </div>
-                                    </Tooltip>
-                                  );
-                                })}
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </TooltipProvider>
-                  </div>
-                </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                <span>In Progress</span>
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span>Completed</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
+
+        {/* Timeline Heatmap */}
+        {timelineData.length === 0 ? (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center text-gray-500">
+                <Clock className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium mb-2">No Team Slots Found</h3>
+                <p className="text-sm">No tasks with time slots for {format(selectedDate, "PPP")}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Team Timeline - {format(selectedDate, "PPP")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Time Header */}
+              <div className="mb-4">
+                <div className="flex">
+                  <div className="w-48 flex-shrink-0"></div>
+                  <div className="flex-1 relative h-8 border-b border-gray-200">
+                    {activeTimeSlots.map((hour) => (
+                      <div
+                        key={hour}
+                        className="absolute text-xs text-gray-600 transform -translate-x-1/2"
+                        style={{ left: `${(hour / 24) * 100}%` }}
+                      >
+                        {hour.toString().padStart(2, '0')}:00
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline Rows */}
+              <div className="space-y-3">
+                {timelineData.map((group) => (
+                  <div key={group.id} className="flex">
+                    {/* Group Label */}
+                    <div className="w-48 flex-shrink-0 pr-4">
+                      <div className="font-medium text-sm truncate" title={group.name}>
+                        {group.name}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}
+                      </div>
+                    </div>
+
+                    {/* Timeline Bar */}
+                    <div className="flex-1 relative h-12 bg-gray-50 rounded border">
+                      {group.tasks.map((task) => {
+                        const position = getTaskPosition(task);
+                        return (
+                          <div
+                            key={task.id}
+                            className={cn(
+                              "absolute top-1 bottom-1 rounded px-2 text-xs text-white flex items-center cursor-pointer hover:opacity-80 transition-opacity",
+                              getStatusColor(task.status)
+                            )}
+                            style={position}
+                            title={`${task.name} (${format(parseISO(task.slot_start_datetime), 'HH:mm')} - ${format(parseISO(task.slot_end_datetime), 'HH:mm')})`}
+                          >
+                            <span className="truncate font-medium">{task.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Navigation>
   );

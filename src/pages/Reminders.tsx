@@ -9,8 +9,6 @@ import { Bell, Calendar, Clock, User, Building, Edit, Trash2 } from 'lucide-reac
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import TaskEditDialog from '@/components/TaskEditDialog';
-import NotificationSettings from '@/components/NotificationSettings';
-import { useReminderNotifications } from '@/hooks/useReminderNotifications';
 
 interface Task {
   id: string;
@@ -37,8 +35,6 @@ const Reminders = () => {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  
-  const { isTaskDueSoon, isTaskOverdue } = useReminderNotifications();
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['reminder-tasks', user?.id],
@@ -138,24 +134,6 @@ const Reminders = () => {
     }
   };
 
-  const getReminderBadge = (reminderDatetime: string) => {
-    if (isTaskOverdue(reminderDatetime)) {
-      return (
-        <Badge variant="destructive" className="ml-2">
-          ⚠️ Overdue
-        </Badge>
-      );
-    }
-    if (isTaskDueSoon(reminderDatetime)) {
-      return (
-        <Badge className="ml-2 bg-orange-100 text-orange-800">
-          🔔 Due Soon
-        </Badge>
-      );
-    }
-    return null;
-  };
-
   if (isLoading) {
     return (
       <Navigation>
@@ -176,8 +154,6 @@ const Reminders = () => {
             {filteredTasks.length} tasks
           </Badge>
         </div>
-
-        <NotificationSettings />
 
         {/* Filters */}
         <div className="space-y-4">
@@ -249,7 +225,6 @@ const Reminders = () => {
                     <CardTitle className="text-base font-medium leading-tight">
                       {task.name}
                       <Bell className="inline h-4 w-4 ml-2 text-orange-500" />
-                      {getReminderBadge(task.reminder_datetime)}
                     </CardTitle>
                     <Badge className={getStatusColor(task.status)} variant="secondary">
                       {task.status}
