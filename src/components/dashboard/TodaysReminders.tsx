@@ -140,11 +140,89 @@ const TodaysReminders = () => {
             {todaysReminders.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200"
+                className="relative p-3 bg-orange-50 rounded-lg border border-orange-200"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-medium text-sm truncate">{task.name}</h4>
+                {/* Mobile: Buttons at top-right */}
+                <div className="flex sm:hidden absolute top-2 right-2 flex-col gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewTask(task.id)}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  {task.status !== 'Completed' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleMarkDone(task.id)}
+                      disabled={markTaskDoneMutation.isPending}
+                      className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Desktop: Original layout */}
+                <div className="hidden sm:flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-medium text-sm truncate">{task.name}</h4>
+                      <Badge 
+                        variant={task.status === 'Completed' ? 'default' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {task.status}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-4 text-xs text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-orange-500" />
+                        <span className="font-medium text-orange-700">
+                          {format(parseISO(task.reminder_datetime), 'h:mm a')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Building className="h-3 w-3" />
+                        <span>{task.project.client.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>{task.project.name}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewTask(task.id)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      View
+                    </Button>
+                    {task.status !== 'Completed' && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleMarkDone(task.id)}
+                        disabled={markTaskDoneMutation.isPending}
+                        className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Done
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile: Content with space for buttons */}
+                <div className="sm:hidden pr-16">
+                  <div className="mb-2">
+                    <h4 className="font-medium text-sm leading-tight mb-1">{task.name}</h4>
                     <Badge 
                       variant={task.status === 'Completed' ? 'default' : 'secondary'}
                       className="text-xs"
@@ -153,7 +231,7 @@ const TodaysReminders = () => {
                     </Badge>
                   </div>
                   
-                  <div className="flex items-center gap-4 text-xs text-gray-600">
+                  <div className="flex flex-col gap-1 text-xs text-gray-600">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3 text-orange-500" />
                       <span className="font-medium text-orange-700">
@@ -169,29 +247,6 @@ const TodaysReminders = () => {
                       <span>{task.project.name}</span>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-center gap-2 ml-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleViewTask(task.id)}
-                    className="h-8 px-3 text-xs"
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    View
-                  </Button>
-                  {task.status !== 'Completed' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleMarkDone(task.id)}
-                      disabled={markTaskDoneMutation.isPending}
-                      className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Done
-                    </Button>
-                  )}
                 </div>
               </div>
             ))}

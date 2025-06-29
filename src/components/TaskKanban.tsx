@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -57,6 +58,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
     'On-Head',
     'Targeted',
     'Imp',
+    'Overdue',
     'Completed'
   ];
 
@@ -145,6 +147,8 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
         return 'bg-orange-100 text-orange-800';
       case 'Imp':
         return 'bg-red-100 text-red-800';
+      case 'Overdue':
+        return 'bg-red-600 text-white font-bold animate-pulse';
       case 'Completed':
         return 'bg-green-100 text-green-800';
       default:
@@ -245,7 +249,7 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
       )}
 
       {/* Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-4">
         {statuses.map((status) => (
           <div
             key={status}

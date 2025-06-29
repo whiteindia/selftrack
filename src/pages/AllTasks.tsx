@@ -5,13 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp, Play, MessageSquare, Users, Clock, Plus, Edit } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import Navigation from '@/components/Navigation';
 import TaskEditDialog from '@/components/TaskEditDialog';
+import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
+import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
+import ManualTimeLog from '@/components/ManualTimeLog';
+import TaskHistory from '@/components/TaskHistory';
+import SubtaskDialog from '@/components/SubtaskDialog';
+import { useSubtasks } from '@/hooks/useSubtasks';
+import SubtaskCard from '@/components/SubtaskCard';
+import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
 
 interface Task {
   id: string;
@@ -42,7 +50,13 @@ const AllTasks = () => {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editMode, setEditMode] = useState<'reminder' | 'slot'>('reminder');
+  const [editMode, setEditMode] = useState<'reminder' | 'slot' | 'full'>('full');
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
+  const [selectedTaskForSubtask, setSelectedTaskForSubtask] = useState<any>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSubtaskCreateDialogOpen, setIsSubtaskCreateDialogOpen] = useState(false);
+  const [selectedTaskForSubtaskCreate, setSelectedTaskForSubtaskCreate] = useState<any>(null);
 
   // Fetch all tasks
   const { data: tasks = [], isLoading, refetch } = useQuery({
@@ -66,17 +80,42 @@ const AllTasks = () => {
     },
   });
 
-  // Extract unique values for filters
-  const uniqueStatuses = ['Not Started', 'In Progress', 'On Hold', 'On-Head', 'Targeted', 'Imp', 'Completed'];
-  const uniqueClients = [...new Set(tasks.map(task => task.projects?.clients?.name).filter(Boolean))];
+  // Fetch employees for subtask dialog
+  const { data: employees = [] } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, email')
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Process tasks to update overdue status
+  const processedTasks = useMemo(() => {
+    return tasks.map(task => {
+      const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
+      return {
+        ...task,
+        status: isOverdue && task.status !== 'Completed' ? 'Overdue' : task.status
+      };
+    });
+  }, [tasks]);
+
+  // Extract unique values for filters - include Overdue status
+  const uniqueStatuses = ['Not Started', 'In Progress', 'On Hold', 'On-Head', 'Targeted', 'Imp', 'Completed', 'Overdue'];
+  const uniqueClients = [...new Set(processedTasks.map(task => task.projects?.clients?.name).filter(Boolean))];
   const uniqueProjects = clientFilter === 'all' 
-    ? [...new Set(tasks.map(task => task.projects?.name).filter(Boolean))]
-    : [...new Set(tasks.filter(task => task.projects?.clients?.name === clientFilter).map(task => task.projects?.name).filter(Boolean))];
-  const uniqueAssignees = [...new Set(tasks.map(task => task.assignee?.name).filter(Boolean))];
+    ? [...new Set(processedTasks.map(task => task.projects?.name).filter(Boolean))]
+    : [...new Set(processedTasks.filter(task => task.projects?.clients?.name === clientFilter).map(task => task.projects?.name).filter(Boolean))];
+  const uniqueAssignees = [...new Set(processedTasks.map(task => task.assignee?.name).filter(Boolean))];
 
   // Filter tasks based on all criteria
   const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
+    return processedTasks.filter(task => {
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesClient = clientFilter === 'all' || task.projects?.clients?.name === clientFilter;
       const matchesProject = projectFilter === 'all' || task.projects?.name === projectFilter;
@@ -86,7 +125,7 @@ const AllTasks = () => {
 
       return matchesStatus && matchesClient && matchesProject && matchesAssignee && matchesSearch;
     });
-  }, [tasks, statusFilter, clientFilter, projectFilter, assigneeFilter, searchQuery]);
+  }, [processedTasks, statusFilter, clientFilter, projectFilter, assigneeFilter, searchQuery]);
 
   // Reset project filter when client filter changes
   React.useEffect(() => {
@@ -104,13 +143,25 @@ const AllTasks = () => {
       case 'Targeted': return 'bg-orange-100 text-orange-800';
       case 'Imp': return 'bg-red-100 text-red-800';
       case 'Completed': return 'bg-green-100 text-green-800';
+      case 'Overdue': return 'bg-red-600 text-white font-bold animate-pulse';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const handleEditTask = (task: Task, mode: 'reminder' | 'slot' = 'reminder') => {
+  const handleEditTask = (task: Task, mode: 'reminder' | 'slot' | 'full' = 'full') => {
     setEditingTask(task);
     setEditMode(mode);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSubtask = (subtask: any) => {
+    // Transform subtask to match task structure for the dialog
+    const subtaskForEdit = {
+      ...subtask,
+      project_id: null, // Subtasks don't have project_id
+    };
+    setEditingTask(subtaskForEdit);
+    setEditMode('full');
     setIsEditDialogOpen(true);
   };
 
@@ -118,6 +169,41 @@ const AllTasks = () => {
     refetch();
     setIsEditDialogOpen(false);
     setEditingTask(null);
+  };
+
+  const handleTaskCreateSuccess = () => {
+    refetch();
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleAddSubtask = (task: any) => {
+    setSelectedTaskForSubtaskCreate(task);
+    setIsSubtaskCreateDialogOpen(true);
+  };
+
+  const handleSubtaskCreateSuccess = () => {
+    refetch();
+    setIsSubtaskCreateDialogOpen(false);
+    setSelectedTaskForSubtaskCreate(null);
+  };
+
+  const handleSubtaskSuccess = () => {
+    refetch();
+    setIsSubtaskDialogOpen(false);
+    setSelectedTaskForSubtask(null);
+  };
+
+  const handleSubtaskSave = async (subtaskData: any) => {
+    try {
+      const { error } = await supabase
+        .from('subtasks')
+        .insert([subtaskData]);
+
+      if (error) throw error;
+      handleSubtaskSuccess();
+    } catch (error) {
+      console.error('Error creating subtask:', error);
+    }
   };
 
   if (isLoading) {
@@ -133,7 +219,15 @@ const AllTasks = () => {
   return (
     <Navigation>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">All Tasks</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">All Tasks</h1>
+          {hasPageAccess('tasks') && (
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Task
+            </Button>
+          )}
+        </div>
 
         {/* Collapsible Filters */}
         <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
@@ -264,7 +358,7 @@ const AllTasks = () => {
 
         {/* Results Summary */}
         <div className="text-sm text-gray-600">
-          Showing {filteredTasks.length} of {tasks.length} tasks
+          Showing {filteredTasks.length} of {processedTasks.length} tasks
         </div>
 
         {/* Tasks Grid */}
@@ -274,54 +368,33 @@ const AllTasks = () => {
               No tasks found matching your filters
             </div>
           ) : (
-            filteredTasks.map((task) => (
-              <Card 
-                key={task.id} 
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => handleEditTask(task)}
-              >
-                <CardContent className="p-4 space-y-3">
-                  {/* Task Name */}
-                  <h3 className="font-medium text-sm break-words line-clamp-2">{task.name}</h3>
-
-                  {/* Status Badge */}
-                  <Badge className={getStatusColor(task.status)}>
-                    {task.status}
-                  </Badge>
-
-                  {/* Project and Client Info */}
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <BuildingIcon className="h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">
-                      {task.projects?.clients?.name} - {task.projects?.name}
-                    </span>
-                  </div>
-
-                  {/* Assignee Info */}
-                  {task.assignee?.name && (
-                    <div className="flex items-center gap-1 text-xs text-gray-600">
-                      <UserIcon className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{task.assignee.name}</span>
-                    </div>
-                  )}
-
-                  {/* Date and Deadline */}
-                  <div className="flex items-center gap-1 text-xs text-gray-600">
-                    <CalendarIcon className="h-3 w-3 flex-shrink-0" />
-                    <span>
-                      {task.date && format(new Date(task.date), 'MMM dd, yyyy')}
-                      {task.deadline && (
-                        <span className="text-red-600 ml-2">
-                          Due: {format(new Date(task.deadline), 'MMM dd, yyyy')}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+            filteredTasks.map((task) => {
+              const isOverdue = task.status === 'Overdue';
+              
+              return (
+                <TaskCardWithActions 
+                  key={task.id}
+                  task={task}
+                  isOverdue={isOverdue}
+                  getStatusColor={getStatusColor}
+                  expandedTask={expandedTask}
+                  setExpandedTask={setExpandedTask}
+                  handleEditTask={handleEditTask}
+                  handleEditSubtask={handleEditSubtask}
+                  handleAddSubtask={handleAddSubtask}
+                  refetch={refetch}
+                />
+              );
+            })
           )}
         </div>
+
+        {/* Task Create Dialog */}
+        <TaskCreateDialog
+          isOpen={isCreateDialogOpen}
+          onClose={() => setIsCreateDialogOpen(false)}
+          onSuccess={handleTaskCreateSuccess}
+        />
 
         {/* Edit Task Dialog */}
         {editingTask && (
@@ -333,10 +406,210 @@ const AllTasks = () => {
               setEditingTask(null);
             }}
             mode={editMode}
+            isSubtask={!editingTask.project_id && editingTask.task_id} // Determine if it's a subtask
+          />
+        )}
+
+        {/* Subtask Create Dialog */}
+        {selectedTaskForSubtaskCreate && (
+          <TaskCreateDialog
+            isOpen={isSubtaskCreateDialogOpen}
+            onClose={() => {
+              setIsSubtaskCreateDialogOpen(false);
+              setSelectedTaskForSubtaskCreate(null);
+            }}
+            parentTaskId={selectedTaskForSubtaskCreate.id}
+            onSuccess={handleSubtaskCreateSuccess}
+          />
+        )}
+
+        {/* Legacy Subtask Dialog - keeping for compatibility */}
+        {selectedTaskForSubtask && (
+          <SubtaskDialog
+            taskId={selectedTaskForSubtask.id}
+            isOpen={isSubtaskDialogOpen}
+            onClose={() => {
+              setIsSubtaskDialogOpen(false);
+              setSelectedTaskForSubtask(null);
+            }}
+            onSave={handleSubtaskSave}
+            employees={employees}
           />
         )}
       </div>
     </Navigation>
+  );
+};
+
+// Separate component for individual task cards with actions
+const TaskCardWithActions = ({ 
+  task, 
+  isOverdue, 
+  getStatusColor, 
+  expandedTask, 
+  setExpandedTask, 
+  handleEditTask,
+  handleEditSubtask,
+  handleAddSubtask, 
+  refetch 
+}: any) => {
+  const { subtasks, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
+  const { data: timeEntryCount = 0 } = useTimeEntryCount(task.id);
+
+  const handleSubtaskStatusChange = (subtaskId: string, status: string) => {
+    updateSubtaskMutation.mutate({ 
+      id: subtaskId, 
+      updates: { 
+        status,
+        completion_date: status === 'Completed' ? new Date().toISOString() : null
+      }
+    });
+  };
+
+  const handleSubtaskDelete = (subtaskId: string) => {
+    if (confirm('Are you sure you want to delete this subtask?')) {
+      deleteSubtaskMutation.mutate(subtaskId);
+    }
+  };
+
+  return (
+    <Card 
+      className={`hover:shadow-md transition-shadow cursor-pointer ${
+        isOverdue 
+          ? 'border-l-4 border-l-red-500 bg-red-50 ring-2 ring-red-200' 
+          : 'border-l-4 border-l-blue-500'
+      }`}
+    >
+      <CardContent className="p-4 space-y-3">
+        {/* Task Name - Improved mobile wrapping */}
+        <h3 
+          className={`font-medium text-sm break-words overflow-wrap-anywhere leading-relaxed max-w-full ${
+            isOverdue ? 'text-red-900' : ''
+          }`}
+          onClick={() => handleEditTask(task)}
+        >
+          {task.name}
+        </h3>
+
+        {/* Status Badge */}
+        <Badge className={getStatusColor(task.status)}>
+          {task.status}
+        </Badge>
+
+        {/* Project and Client Info */}
+        <div className="flex items-center gap-1 text-xs text-gray-600">
+          <BuildingIcon className="h-3 w-3 flex-shrink-0" />
+          <span className="truncate">
+            {task.projects?.clients?.name} - {task.projects?.name}
+          </span>
+        </div>
+
+        {/* Assignee Info */}
+        {task.assignee?.name && (
+          <div className="flex items-center gap-1 text-xs text-gray-600">
+            <UserIcon className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{task.assignee.name}</span>
+          </div>
+        )}
+
+        {/* Date and Deadline */}
+        <div className="flex items-center gap-1 text-xs text-gray-600">
+          <CalendarIcon className="h-3 w-3 flex-shrink-0" />
+          <span>
+            {task.date && format(new Date(task.date), 'MMM dd, yyyy')}
+            {task.deadline && (
+              <span className={`ml-2 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
+                Due: {format(new Date(task.deadline), 'MMM dd, yyyy')}
+              </span>
+            )}
+          </span>
+        </div>
+
+        {/* Action Buttons - Compact with icons only */}
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditTask(task);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <TimeTrackerWithComment 
+            task={{ id: task.id, name: task.name }}
+            onSuccess={refetch}
+          />
+          <ManualTimeLog 
+            taskId={task.id}
+            onSuccess={refetch}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddSubtask(task);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          {subtasks.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedTask(expandedTask === task.id ? null : task.id);
+              }}
+            >
+              <Users className="h-4 w-4" />
+              <span className="ml-1 text-xs">({subtasks.length})</span>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedTask(expandedTask === task.id ? null : task.id);
+            }}
+          >
+            <MessageSquare className="h-4 w-4" />
+            {timeEntryCount > 0 && (
+              <span className="ml-1 text-xs">({timeEntryCount})</span>
+            )}
+          </Button>
+        </div>
+
+        {/* Expanded Section */}
+        {expandedTask === task.id && (
+          <div className="mt-4 space-y-4 border-t pt-4">
+            <TaskHistory taskId={task.id} onUpdate={refetch} />
+            
+            {/* Subtasks Section */}
+            {subtasks.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-700">Subtasks:</h4>
+                {subtasks.map((subtask) => (
+                  <SubtaskCard
+                    key={subtask.id}
+                    subtask={subtask}
+                    onEdit={handleEditSubtask}
+                    onDelete={handleSubtaskDelete}
+                    onStatusChange={handleSubtaskStatusChange}
+                    onTimeUpdate={refetch}
+                    canUpdate={true}
+                    canDelete={true}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

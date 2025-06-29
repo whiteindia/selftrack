@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -49,6 +48,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -172,187 +172,189 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   };
 
   const MobileMenuContent = () => (
-    <div className="p-4 space-y-6">
-      <div className="space-y-4">
-        {/* Main navigation items (Dashboard, Projects only) */}
-        {visibleMainNavItems.slice(0, 2).length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
-            <div className="space-y-1">
-              {visibleMainNavItems.slice(0, 2).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1 px-4 py-4">
+        <div className="space-y-6">
+          {/* Main navigation items (Dashboard, Projects only) */}
+          {visibleMainNavItems.slice(0, 2).length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
+              <div className="space-y-1">
+                {visibleMainNavItems.slice(0, 2).map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {shouldShowTaskforceMenu && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Taskforce</h3>
-            <div className="space-y-1">
-              {visibleTaskforceItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          {shouldShowTaskforceMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Taskforce</h3>
+              <div className="space-y-1">
+                {visibleTaskforceItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Sprints - moved next to Taskforce */}
-        {visibleMainNavItems.slice(2).length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Planning</h3>
-            <div className="space-y-1">
-              {visibleMainNavItems.slice(2).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          {/* Sprints - moved next to Taskforce */}
+          {visibleMainNavItems.slice(2).length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Planning</h3>
+              <div className="space-y-1">
+                {visibleMainNavItems.slice(2).map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {shouldShowGoalTrackMenu && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">GoalTrack</h3>
-            <div className="space-y-1">
-              {visibleGoalTrackItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          {shouldShowGoalTrackMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">GoalTrack</h3>
+              <div className="space-y-1">
+                {visibleGoalTrackItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {shouldShowPlannerMenu && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Planner</h3>
-            <div className="space-y-1">
-              {visiblePlannerItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          {shouldShowPlannerMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Planner</h3>
+              <div className="space-y-1">
+                {visiblePlannerItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {shouldShowTrakEzyMenu && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">TrakEzy</h3>
-            <div className="space-y-1">
-              {visibleTrakEzyItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          {shouldShowTrakEzyMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">TrakEzy</h3>
+              <div className="space-y-1">
+                {visibleTrakEzyItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {visibleConfigItems.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Configuration</h3>
-            <div className="space-y-1">
-              {visibleConfigItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive(item.path)
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+          {visibleConfigItems.length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Configuration</h3>
+              <div className="space-y-1">
+                {visibleConfigItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </ScrollArea>
 
-      <div className="border-t pt-4 space-y-2">
+      <div className="border-t p-4 space-y-2 flex-shrink-0">
         <div className="flex items-center gap-3 mb-3">
           <Avatar className="h-8 w-8">
             <AvatarImage src="" />
@@ -615,7 +617,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   <Menu className="h-6 w-6" />
                 </Button>
               </DrawerTrigger>
-              <DrawerContent>
+              <DrawerContent className="h-[85vh]">
                 <MobileMenuContent />
               </DrawerContent>
             </Drawer>

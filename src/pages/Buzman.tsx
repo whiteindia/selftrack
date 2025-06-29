@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +13,7 @@ import KanbanSprintDialog from '@/components/KanbanSprintDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 
-type TaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'On Hold' | 'On-Head' | 'Targeted' | 'Imp';
+type TaskStatus = 'Not Started' | 'In Progress' | 'Completed' | 'On Hold' | 'On-Head' | 'Targeted' | 'Imp' | 'Overdue';
 
 const Buzman = () => {
   const { user } = useAuth();
@@ -81,7 +82,7 @@ const Buzman = () => {
   });
 
   // Fetch tasks filtered by selected projects
-  const { data: tasks = [], refetch: refetchTasks } = useQuery({
+  const { data: rawTasks = [], refetch: refetchTasks } = useQuery({
     queryKey: ['tasks', selectedProjects],
     queryFn: async () => {
       let query = supabase
@@ -128,6 +129,17 @@ const Buzman = () => {
     enabled: selectedServices.length > 0,
   });
 
+  // Process tasks to update overdue status
+  const tasks = useMemo(() => {
+    return rawTasks.map(task => {
+      const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
+      return {
+        ...task,
+        status: isOverdue && task.status !== 'Completed' ? 'Overdue' : task.status
+      };
+    });
+  }, [rawTasks]);
+
   const toggleService = (serviceName: string) => {
     setSelectedServices(prev => 
       prev.includes(serviceName)
@@ -159,6 +171,12 @@ const Buzman = () => {
 
   const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     try {
+      // Don't save "Overdue" status to database since it's computed dynamically
+      if (newStatus === 'Overdue') {
+        console.log('Overdue status is computed dynamically, not saving to database');
+        return;
+      }
+
       const { error } = await supabase
         .from('tasks')
         .update({ status: newStatus })
