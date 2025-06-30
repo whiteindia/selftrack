@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +57,7 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       
       if (data && data.length > 0) {
         const entry = data[0];
-        const pauseInfo = parsePauseInfo(entry.comment);
+        const pauseInfo = parsePauseInfo(entry.timer_metadata);
         
         setActiveTimer({
           id: entry.id,
@@ -86,12 +85,12 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     checkActiveTimer();
   }, [task.id, isSubtask]);
 
-  // Helper function to parse pause information from comment
-  const parsePauseInfo = (comment: string | null) => {
-    if (!comment) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
+  // Helper function to parse pause information from timer_metadata
+  const parsePauseInfo = (timerMetadata: string | null) => {
+    if (!timerMetadata) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
     
-    const pauseMatches = [...comment.matchAll(/Timer paused at ([^,\n]+)/g)];
-    const resumeMatches = [...comment.matchAll(/Timer resumed at ([^,\n]+)/g)];
+    const pauseMatches = [...timerMetadata.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...timerMetadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
     
     let totalPausedMs = 0;
     let isPaused = false;
@@ -231,13 +230,13 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       if (!activeTimer) throw new Error('No active timer');
       
       const pauseTime = new Date().toISOString();
-      const currentComment = activeTimer.entryId ? await getCurrentComment(activeTimer.entryId) : '';
-      const newComment = currentComment ? `${currentComment}\nTimer paused at ${pauseTime}` : `Timer paused at ${pauseTime}`;
+      const currentMetadata = activeTimer.entryId ? await getCurrentTimerMetadata(activeTimer.entryId) : '';
+      const newMetadata = currentMetadata ? `${currentMetadata}\nTimer paused at ${pauseTime}` : `Timer paused at ${pauseTime}`;
       
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: newComment
+          timer_metadata: newMetadata
         })
         .eq('id', activeTimer.entryId)
         .select()
@@ -273,13 +272,13 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       // Calculate how long we were paused and add to total paused duration
       const pauseDuration = Math.floor((new Date().getTime() - activeTimer.pauseStartTime.getTime()) / 1000);
       const resumeTime = new Date().toISOString();
-      const currentComment = await getCurrentComment(activeTimer.entryId);
-      const newComment = currentComment ? `${currentComment}\nTimer resumed at ${resumeTime}` : `Timer resumed at ${resumeTime}`;
+      const currentMetadata = await getCurrentTimerMetadata(activeTimer.entryId);
+      const newMetadata = currentMetadata ? `${currentMetadata}\nTimer resumed at ${resumeTime}` : `Timer resumed at ${resumeTime}`;
       
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          comment: newComment
+          timer_metadata: newMetadata
         })
         .eq('id', activeTimer.entryId)
         .select()
@@ -363,12 +362,17 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
       const actualWorkingMs = totalElapsedMs - finalPausedMs;
       const durationMinutes = Math.floor(actualWorkingMs / 60000);
       
+      // Get current timer metadata and add stop time
+      const currentMetadata = await getCurrentTimerMetadata(activeTimer.entryId);
+      const stopMetadata = currentMetadata ? `${currentMetadata}\nTimer stopped at ${endTime.toISOString()}` : `Timer stopped at ${endTime.toISOString()}`;
+      
       const { data, error } = await supabase
         .from('time_entries')
         .update({
           end_time: endTime.toISOString(),
           duration_minutes: durationMinutes,
-          comment: commentText || null
+          comment: commentText || null, // Only save user's comment - no timer metadata here
+          timer_metadata: stopMetadata // Save timer info separately
         })
         .eq('id', activeTimer.entryId)
         .select()
@@ -411,16 +415,16 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     }
   });
 
-  // Helper function to get current comment
-  const getCurrentComment = async (entryId: string): Promise<string> => {
+  // Helper function to get current timer metadata
+  const getCurrentTimerMetadata = async (entryId: string): Promise<string> => {
     const { data, error } = await supabase
       .from('time_entries')
-      .select('comment')
+      .select('timer_metadata')
       .eq('id', entryId)
       .single();
     
     if (error || !data) return '';
-    return data.comment || '';
+    return data.timer_metadata || '';
   };
 
   // Format time in HH:MM:SS format

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,8 +71,21 @@ const SprintCard: React.FC<SprintCardProps> = ({
   const totalTasks = sprint.tasks.length;
   const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  // Get project and client info from the first task (since all tasks in a sprint should be from the same project)
-  const projectInfo = sprint.tasks.length > 0 ? sprint.tasks[0].projects : null;
+  // Get unique service and client combinations from tasks
+  const serviceClientCombos = sprint.tasks.reduce((acc, task) => {
+    if (task.projects) {
+      const key = `${task.projects.service}-${task.projects.clients.name}`;
+      if (!acc.includes(key)) {
+        acc.push(key);
+      }
+    }
+    return acc;
+  }, [] as string[]);
+
+  // Get the primary service and client for heading
+  const primaryInfo = sprint.tasks.length > 0 && sprint.tasks[0].projects 
+    ? { service: sprint.tasks[0].projects.service, client: sprint.tasks[0].projects.clients.name }
+    : null;
 
   return (
     <Card className="w-full">
@@ -94,19 +106,15 @@ const SprintCard: React.FC<SprintCardProps> = ({
                     Overdue by {sprint.overdueDays} days
                   </Badge>
                 )}
-                {projectInfo && (
-                  <>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                      <Building2 className="h-3 w-3 mr-1" />
-                      Client: {projectInfo.clients.name}
-                    </Badge>
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      Project: {projectInfo.name}
-                    </Badge>
-                  </>
-                )}
               </div>
             </div>
+            {primaryInfo && (
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  Service: {primaryInfo.service}
+                </Badge>
+              </div>
+            )}
             <div className="text-sm text-gray-500 space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
                 <div className="flex items-center gap-1">
@@ -166,6 +174,19 @@ const SprintCard: React.FC<SprintCardProps> = ({
               <div key={task.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-2 border rounded-md gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="font-medium break-words mb-1">{task.name}</div>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    {task.projects && (
+                      <>
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                          {task.projects.name}
+                        </Badge>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                          <Building2 className="h-3 w-3 mr-1" />
+                          {task.projects.clients.name}
+                        </Badge>
+                      </>
+                    )}
+                  </div>
                   {task.employees && (
                     <div className="text-sm text-gray-500 flex items-center gap-1">
                       <User className="h-3 w-3" />

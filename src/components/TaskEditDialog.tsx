@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Calendar, Clock, User, Building, Edit } from 'lucide-react';
+import { convertISTToUTC, formatUTCToISTInput } from '@/utils/timezoneUtils';
 
 interface TaskEditDialogProps {
   isOpen: boolean;
@@ -51,9 +51,9 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
     assignee_id: task.assignee_id || '',
     deadline: task.deadline || '',
     estimated_duration: task.estimated_duration?.toString() || '',
-    reminder_datetime: task.reminder_datetime ? task.reminder_datetime.slice(0, 16) : '',
-    slot_start_datetime: task.slot_start_datetime ? task.slot_start_datetime.slice(0, 16) : '',
-    slot_end_datetime: task.slot_end_datetime ? task.slot_end_datetime.slice(0, 16) : '',
+    reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
+    slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
+    slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
   });
 
   const queryClient = useQueryClient();
@@ -99,18 +99,33 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
       assignee_id: task.assignee_id || '',
       deadline: task.deadline || '',
       estimated_duration: task.estimated_duration?.toString() || '',
-      reminder_datetime: task.reminder_datetime ? task.reminder_datetime.slice(0, 16) : '',
-      slot_start_datetime: task.slot_start_datetime ? task.slot_start_datetime.slice(0, 16) : '',
-      slot_end_datetime: task.slot_end_datetime ? task.slot_end_datetime.slice(0, 16) : '',
+      reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
+      slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
+      slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
     });
   }, [task]);
 
   const updateTaskMutation = useMutation({
     mutationFn: async (updates: any) => {
       const tableName = isSubtask ? 'subtasks' : 'tasks';
+      
+      // Convert IST datetime inputs to UTC for storage
+      const processedUpdates = { ...updates };
+      if (updates.reminder_datetime !== undefined) {
+        processedUpdates.reminder_datetime = updates.reminder_datetime ? convertISTToUTC(updates.reminder_datetime) : null;
+      }
+      if (updates.slot_start_datetime !== undefined) {
+        processedUpdates.slot_start_datetime = updates.slot_start_datetime ? convertISTToUTC(updates.slot_start_datetime) : null;
+      }
+      if (updates.slot_end_datetime !== undefined) {
+        processedUpdates.slot_end_datetime = updates.slot_end_datetime ? convertISTToUTC(updates.slot_end_datetime) : null;
+      }
+
+      console.log('Updating task with processed data (UTC):', processedUpdates);
+
       const { error } = await supabase
         .from(tableName)
-        .update(updates)
+        .update(processedUpdates)
         .eq('id', task.id);
 
       if (error) throw error;
@@ -118,6 +133,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['todays-reminders'] });
       queryClient.invalidateQueries({ queryKey: ['reminder-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['fixed-slot-tasks'] });
       toast.success(`${isSubtask ? 'Subtask' : 'Task'} updated successfully`);
@@ -323,22 +339,23 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
               {/* Reminder - Only for main tasks */}
               {!isSubtask && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Reminder Date & Time</Label>
+                  <Label className="text-sm font-medium">Reminder Date & Time (IST)</Label>
                   <Input
                     type="datetime-local"
                     value={formData.reminder_datetime}
                     onChange={(e) => setFormData({ ...formData, reminder_datetime: e.target.value })}
                   />
+                  <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
                 </div>
               )}
 
               {/* Time Slot - Only for main tasks */}
               {!isSubtask && (
                 <div className="space-y-4">
-                  <Label className="text-sm font-medium">Time Slot (Optional)</Label>
+                  <Label className="text-sm font-medium">Time Slot (Optional) - IST</Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-600">Start Time</Label>
+                      <Label className="text-xs text-gray-600">Start Time (IST)</Label>
                       <Input
                         type="datetime-local"
                         value={formData.slot_start_datetime}
@@ -346,7 +363,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-600">End Time</Label>
+                      <Label className="text-xs text-gray-600">End Time (IST)</Label>
                       <Input
                         type="datetime-local"
                         value={formData.slot_end_datetime}
@@ -354,6 +371,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
                       />
                     </div>
                   </div>
+                  <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
                 </div>
               )}
             </>
@@ -366,7 +384,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
               </div>
               <div>
                 <Label htmlFor="reminder" className="text-sm font-medium text-gray-700">
-                  Reminder Date & Time
+                  Reminder Date & Time (IST)
                 </Label>
                 <Input
                   id="reminder"
@@ -375,6 +393,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
                   onChange={(e) => setFormData({ ...formData, reminder_datetime: e.target.value })}
                   className="mt-1"
                 />
+                <p className="text-xs text-gray-500 mt-1">Times will be stored and displayed in Indian Standard Time</p>
               </div>
             </>
           ) : (
@@ -387,7 +406,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
               <div className="space-y-3">
                 <div>
                   <Label htmlFor="start" className="text-sm font-medium text-gray-700">
-                    Start Date & Time
+                    Start Date & Time (IST)
                   </Label>
                   <Input
                     id="start"
@@ -399,7 +418,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
                 </div>
                 <div>
                   <Label htmlFor="end" className="text-sm font-medium text-gray-700">
-                    End Date & Time
+                    End Date & Time (IST)
                   </Label>
                   <Input
                     id="end"
@@ -409,6 +428,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
                     className="mt-1"
                   />
                 </div>
+                <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
               </div>
             </>
           )}

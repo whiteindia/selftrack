@@ -1098,6 +1098,7 @@ export type Database = {
           id: string
           start_time: string
           task_id: string
+          timer_metadata: string | null
           updated_at: string
         }
         Insert: {
@@ -1110,6 +1111,7 @@ export type Database = {
           id?: string
           start_time: string
           task_id: string
+          timer_metadata?: string | null
           updated_at?: string
         }
         Update: {
@@ -1122,6 +1124,7 @@ export type Database = {
           id?: string
           start_time?: string
           task_id?: string
+          timer_metadata?: string | null
           updated_at?: string
         }
         Relationships: [

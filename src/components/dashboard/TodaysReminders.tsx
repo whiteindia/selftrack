@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Clock, Building, Calendar, Eye, CheckCircle } from 'lucide-react';
-import { format, isToday, parseISO } from 'date-fns';
+import { isToday, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatToIST } from '@/utils/timezoneUtils';
 
 interface TodayReminderTask {
   id: string;
@@ -181,7 +181,7 @@ const TodaysReminders = () => {
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-orange-500" />
                         <span className="font-medium text-orange-700">
-                          {format(parseISO(task.reminder_datetime), 'h:mm a')}
+                          {formatToIST(task.reminder_datetime, 'h:mm a')} IST
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -235,7 +235,7 @@ const TodaysReminders = () => {
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3 text-orange-500" />
                       <span className="font-medium text-orange-700">
-                        {format(parseISO(task.reminder_datetime), 'h:mm a')}
+                        {formatToIST(task.reminder_datetime, 'h:mm a')} IST
                       </span>
                     </div>
                     <div className="flex items-center gap-1">

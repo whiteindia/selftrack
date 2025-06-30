@@ -4,18 +4,18 @@ import React, { useState, useEffect } from 'react';
 interface LiveTimerProps {
   startTime: string;
   isPaused?: boolean;
-  comment?: string | null;
+  timerMetadata?: string | null;
 }
 
-const LiveTimer: React.FC<LiveTimerProps> = ({ startTime, isPaused = false, comment = null }) => {
+const LiveTimer: React.FC<LiveTimerProps> = ({ startTime, isPaused = false, timerMetadata = null }) => {
   const [elapsedTime, setElapsedTime] = useState(0);
 
-  // Helper function to parse pause information from comment - SAME AS OTHER TIMERS
-  const parsePauseInfo = (comment: string | null) => {
-    if (!comment) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
+  // Helper function to parse pause information from timer_metadata - SAME AS OTHER TIMERS
+  const parsePauseInfo = (timerMetadata: string | null) => {
+    if (!timerMetadata) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
     
-    const pauseMatches = [...comment.matchAll(/Timer paused at ([^,\n]+)/g)];
-    const resumeMatches = [...comment.matchAll(/Timer resumed at ([^,\n]+)/g)];
+    const pauseMatches = [...timerMetadata.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...timerMetadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
     
     let totalPausedMs = 0;
     let isPaused = false;
@@ -40,7 +40,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({ startTime, isPaused = false, comm
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    const pauseInfo = parsePauseInfo(comment);
+    const pauseInfo = parsePauseInfo(timerMetadata);
     
     if (!pauseInfo.isPaused) {
       interval = setInterval(() => {
@@ -68,7 +68,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({ startTime, isPaused = false, comm
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [startTime, comment]);
+  }, [startTime, timerMetadata]);
 
   const formatTime = (totalSeconds: number) => {
     // Ensure we're working with whole seconds only
@@ -80,7 +80,7 @@ const LiveTimer: React.FC<LiveTimerProps> = ({ startTime, isPaused = false, comm
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const currentlyPaused = parsePauseInfo(comment).isPaused;
+  const currentlyPaused = parsePauseInfo(timerMetadata).isPaused;
 
   return (
     <span className={`text-xs font-mono ${currentlyPaused ? 'text-yellow-600' : 'text-green-600'}`}>

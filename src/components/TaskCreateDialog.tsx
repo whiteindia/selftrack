@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Plus, Calendar, Clock, User, Building } from 'lucide-react';
+import { convertISTToUTC } from '@/utils/timezoneUtils';
 
 interface TaskCreateDialogProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
   const [formData, setFormData] = useState({
     name: '',
     status: 'Not Started',
+    service: '',
+    client_id: '',
     project_id: '',
     assignee_id: '',
     deadline: '',
@@ -45,11 +48,67 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
 
   const queryClient = useQueryClient();
 
-  // Fetch projects
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
+  // Fetch all services
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
     queryFn: async () => {
-      console.log('Fetching projects...');
+      console.log('Fetching services...');
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching services:', error);
+        throw error;
+      }
+      console.log('Services fetched:', data);
+      return data || [];
+    },
+  });
+
+  // Fetch clients based on selected service
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-for-service', formData.service],
+    queryFn: async () => {
+      if (!formData.service) return [];
+      
+      console.log('Fetching clients for service:', formData.service);
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          clients!inner(id, name)
+        `)
+        .eq('service', formData.service);
+
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+
+      // Extract unique clients properly
+      const uniqueClientsMap = new Map();
+      data?.forEach((project: any) => {
+        const client = project.clients;
+        if (client && !uniqueClientsMap.has(client.id)) {
+          uniqueClientsMap.set(client.id, client);
+        }
+      });
+
+      const uniqueClients = Array.from(uniqueClientsMap.values());
+      console.log('Unique clients fetched for service:', uniqueClients);
+      return uniqueClients;
+    },
+    enabled: !!formData.service,
+  });
+
+  // Fetch projects based on selected service and client
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects-for-service-client', formData.service, formData.client_id],
+    queryFn: async () => {
+      if (!formData.service || !formData.client_id) return [];
+      
+      console.log('Fetching projects for service and client:', formData.service, formData.client_id);
       const { data, error } = await supabase
         .from('projects')
         .select(`
@@ -57,6 +116,8 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
           name,
           clients!inner(name)
         `)
+        .eq('service', formData.service)
+        .eq('client_id', formData.client_id)
         .order('name');
 
       if (error) {
@@ -66,6 +127,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
       console.log('Projects fetched:', data);
       return data || [];
     },
+    enabled: !!formData.service && !!formData.client_id,
   });
 
   // Fetch employees
@@ -112,20 +174,24 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
         }
         console.log('Subtask created successfully:', data);
       } else {
-        // Creating a main task
+        // Creating a main task - convert IST to UTC for storage
+        const taskPayload = {
+          name: taskData.name,
+          status: taskData.status,
+          project_id: taskData.project_id,
+          assignee_id: taskData.assignee_id || null,
+          deadline: taskData.deadline || null,
+          estimated_duration: taskData.estimated_duration || null,
+          reminder_datetime: taskData.reminder_datetime ? convertISTToUTC(taskData.reminder_datetime) : null,
+          slot_start_datetime: taskData.slot_start_datetime ? convertISTToUTC(taskData.slot_start_datetime) : null,
+          slot_end_datetime: taskData.slot_end_datetime ? convertISTToUTC(taskData.slot_end_datetime) : null,
+        };
+
+        console.log('Task payload with UTC conversion:', taskPayload);
+
         const { data, error } = await supabase
           .from('tasks')
-          .insert([{
-            name: taskData.name,
-            status: taskData.status,
-            project_id: taskData.project_id,
-            assignee_id: taskData.assignee_id || null,
-            deadline: taskData.deadline || null,
-            estimated_duration: taskData.estimated_duration || null,
-            reminder_datetime: taskData.reminder_datetime || null,
-            slot_start_datetime: taskData.slot_start_datetime || null,
-            slot_end_datetime: taskData.slot_end_datetime || null,
-          }])
+          .insert([taskPayload])
           .select();
         
         if (error) {
@@ -139,6 +205,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
       console.log('Task creation successful, invalidating queries...');
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['todays-reminders'] });
       toast.success(parentTaskId ? 'Subtask created successfully' : 'Task created successfully');
       handleClose();
       if (onSuccess) onSuccess();
@@ -152,7 +219,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Form submitted with data:', formData);
+    console.log('Form submitted with data (IST):', formData);
     
     if (!formData.name.trim()) {
       toast.error('Task name is required');
@@ -162,6 +229,14 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
     if (!parentTaskId && !formData.project_id) {
       toast.error('Project is required for main tasks');
       return;
+    }
+
+    // Validate time slot if both start and end are provided
+    if (formData.slot_start_datetime && formData.slot_end_datetime) {
+      if (new Date(formData.slot_start_datetime) >= new Date(formData.slot_end_datetime)) {
+        toast.error('End time must be after start time');
+        return;
+      }
     }
 
     const taskData = {
@@ -176,7 +251,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
       slot_end_datetime: formData.slot_end_datetime || null,
     };
 
-    console.log('Processed task data:', taskData);
+    console.log('Processed task data (before UTC conversion):', taskData);
     createTaskMutation.mutate(taskData);
   };
 
@@ -184,6 +259,8 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
     setFormData({
       name: '',
       status: 'Not Started',
+      service: '',
+      client_id: '',
       project_id: '',
       assignee_id: '',
       deadline: '',
@@ -193,6 +270,25 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
       slot_end_datetime: ''
     });
     onClose();
+  };
+
+  // Handle service selection and reset dependent fields
+  const handleServiceChange = (value: string) => {
+    setFormData({
+      ...formData,
+      service: value,
+      client_id: '',
+      project_id: ''
+    });
+  };
+
+  // Handle client selection and reset project
+  const handleClientChange = (value: string) => {
+    setFormData({
+      ...formData,
+      client_id: value,
+      project_id: ''
+    });
   };
 
   return (
@@ -206,6 +302,82 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Cascading Filters - Only for main tasks */}
+          {!parentTaskId && (
+            <>
+              {/* Service Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  Service *
+                </Label>
+                <Select 
+                  value={formData.service} 
+                  onValueChange={handleServiceChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((service) => (
+                      <SelectItem key={service.id} value={service.name}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Client Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Client *
+                </Label>
+                <Select 
+                  value={formData.client_id} 
+                  onValueChange={handleClientChange}
+                  disabled={!formData.service}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={!formData.service ? "Select service first" : "Select client"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Project Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  Project *
+                </Label>
+                <Select 
+                  value={formData.project_id} 
+                  onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+                  disabled={!formData.service || !formData.client_id}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={!formData.service || !formData.client_id ? "Select service & client first" : "Select project"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name} - {project.clients?.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
           {/* Task Name */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-sm font-medium">
@@ -239,31 +411,6 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
               </SelectContent>
             </Select>
           </div>
-
-          {/* Project Selection - Only for main tasks */}
-          {!parentTaskId && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Building className="h-4 w-4" />
-                Project *
-              </Label>
-              <Select 
-                value={formData.project_id} 
-                onValueChange={(value) => setFormData({ ...formData, project_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name} - {project.clients?.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           {/* Assignee */}
           <div className="space-y-2">
@@ -319,22 +466,23 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
           {/* Reminder - Only for main tasks */}
           {!parentTaskId && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Reminder Date & Time</Label>
+              <Label className="text-sm font-medium">Reminder Date & Time (IST)</Label>
               <Input
                 type="datetime-local"
                 value={formData.reminder_datetime}
                 onChange={(e) => setFormData({ ...formData, reminder_datetime: e.target.value })}
               />
+              <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
             </div>
           )}
 
           {/* Time Slot - Only for main tasks */}
           {!parentTaskId && (
             <div className="space-y-4">
-              <Label className="text-sm font-medium">Time Slot (Optional)</Label>
+              <Label className="text-sm font-medium">Time Slot (Optional) - IST</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">Start Time</Label>
+                  <Label className="text-xs text-gray-600">Start Time (IST)</Label>
                   <Input
                     type="datetime-local"
                     value={formData.slot_start_datetime}
@@ -342,7 +490,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600">End Time</Label>
+                  <Label className="text-xs text-gray-600">End Time (IST)</Label>
                   <Input
                     type="datetime-local"
                     value={formData.slot_end_datetime}
@@ -350,6 +498,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
                   />
                 </div>
               </div>
+              <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
             </div>
           )}
 
@@ -363,7 +512,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
               disabled={createTaskMutation.isPending}
             >
               {createTaskMutation.isPending 
-                ? `Creating ${parentTaskId ? 'Subtask' : 'Task'}...` 
+                ? `Creating ${parentTaskId ? 'Subtask' : 'Task'}` 
                 : `Create ${parentTaskId ? 'Subtask' : 'Task'}`
               }
             </Button>

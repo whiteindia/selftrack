@@ -18,6 +18,7 @@ export const useDashboardData = () => {
           entry_type,
           employee_id,
           comment,
+          timer_metadata,
           employees!inner(
             id,
             name,

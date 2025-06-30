@@ -1,91 +1,188 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, UserIcon, BuildingIcon, ChevronDown, ChevronUp, MessageSquare, Users, Plus, Edit, Trash2 } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { format } from 'date-fns';
-import Navigation from '@/components/Navigation';
-import TaskEditDialog from '@/components/TaskEditDialog';
-import TaskCreateDialog from '@/components/TaskCreateDialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban, Play, Bell, CalendarClock, Package } from 'lucide-react';
+import { toast } from 'sonner';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
-import ManualTimeLog from '@/components/ManualTimeLog';
 import TaskHistory from '@/components/TaskHistory';
-import SubtaskDialog from '@/components/SubtaskDialog';
-import { useSubtasks } from '@/hooks/useSubtasks';
+import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
+import TasksHeader from '@/components/TasksHeader';
 import SubtaskCard from '@/components/SubtaskCard';
+import SubtaskDialog from '@/components/SubtaskDialog';
+import TaskKanban from '@/components/TaskKanban';
+import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
-import { toast } from 'sonner';
+import { Toggle } from '@/components/ui/toggle';
+import TaskTimer from '@/components/TaskTimer';
 
 interface Task {
   id: string;
   name: string;
   status: string;
-  deadline?: string;
+  hours: number;
   date: string;
-  reminder_datetime?: string;
-  slot_start_datetime?: string;
-  slot_end_datetime?: string;
-  assignee?: { name: string };
-  assigner?: { name: string };
-  projects: {
+  deadline: string | null;
+  estimated_duration: number | null;
+  completion_date: string | null;
+  assignee_id: string | null;
+  assigner_id: string | null;
+  project_id: string;
+  project_name: string | null;
+  project_service: string | null;
+  client_name: string | null;
+  reminder_datetime: string | null;
+  slot_start_datetime: string | null;
+  slot_end_datetime: string | null;
+  assignee: {
     name: string;
-    clients: { name: string };
-  };
+  } | null;
+  assigner: {
+    name: string;
+  } | null;
+  total_logged_hours?: number;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  service: string;
+  clients: {
+    name: string;
+  } | null;
 }
 
 const AllTasks = () => {
-  const { user } = useAuth();
-  const { hasPageAccess } = usePrivileges();
+  const { user, userRole } = useAuth();
+  const { hasPageAccess, hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   const queryClient = useQueryClient();
-  
-  const [statusFilter, setStatusFilter] = useState<string[]>(['On Hold', 'On-Head', 'Targeted', 'Imp', 'Overdue']);
-  const [clientFilter, setClientFilter] = useState<string>('all');
-  const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
-  const [yearFilter, setYearFilter] = useState<string>('all');
-  const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<any>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editMode, setEditMode] = useState<'reminder' | 'slot' | 'full'>('full');
-  const [expandedTask, setExpandedTask] = useState<string | null>(null);
-  const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
-  const [selectedTaskForSubtask, setSelectedTaskForSubtask] = useState<any>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isSubtaskCreateDialogOpen, setIsSubtaskCreateDialogOpen] = useState(false);
-  const [selectedTaskForSubtaskCreate, setSelectedTaskForSubtaskCreate] = useState<any>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress','On-Head','Targeted','Imp']);
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
+  const [globalClientFilter, setGlobalClientFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'kanban'>('cards');
+  
+  // Subtask states
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string>('');
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
+  
+  const [newTask, setNewTask] = useState({
+    name: '',
+    project_id: '',
+    assignee_id: '',
+    deadline: '',
+    estimated_duration: '',
+    status: 'Not Started',
+    reminder_datetime: '',
+    slot_start_datetime: '',
+    slot_end_datetime: ''
+  });
 
-  // Fetch all tasks
-  const { data: tasks = [], isLoading, refetch } = useQuery({
+  // Define all available status options
+  const statusOptions = [
+    'Not Started',
+    'In Progress', 
+    'Completed',
+    'On Hold',
+    'On-Head',
+    'Targeted',
+    'Imp'
+  ];
+
+  // Always allow access for admin users and yugandhar@whiteindia.in
+  const hasTasksAccess = userRole === 'admin' || 
+                        user?.email === 'yugandhar@whiteindia.in' || 
+                        hasPageAccess('tasks');
+
+  // Fetch ALL tasks (no filtering by assignee/assigner)
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['all-tasks'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log('Fetching ALL tasks for admin view...');
+      
+      const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
           *,
-          assignee:employees!tasks_assignee_id_fkey(name),
-          assigner:employees!tasks_assigner_id_fkey(name),
-          projects!inner(
-            name,
-            clients!inner(name)
+          assignee:employees!assignee_id (
+            name
+          ),
+          assigner:employees!assigner_id (
+            name
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (tasksError) {
+        throw tasksError;
+      }
+
+      // For each task, fetch project information using the secure view
+      const tasksWithProjectInfo = await Promise.all(
+        (tasksData || []).map(async (task) => {
+          // Use the secure function to get project info
+          const { data: projectData } = await supabase
+            .rpc('get_project_info_for_task', { 
+              project_uuid: task.project_id 
+            });
+
+          // Calculate total logged hours
+          const { data: timeEntries, error: timeError } = await supabase
+            .from('time_entries')
+            .select('duration_minutes')
+            .eq('task_id', task.id)
+            .not('end_time', 'is', null);
+
+          if (timeError) {
+            console.error('Error fetching time entries:', timeError);
+          }
+
+          const totalMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
+          const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
+
+          // Get the first project info record (should only be one)
+          const projectInfo = projectData?.[0];
+
+          return {
+            ...task,
+            project_name: projectInfo?.name || null,
+            project_service: projectInfo?.service || null,
+            client_name: projectInfo?.client_name || null,
+            total_logged_hours: totalHours
+          };
+        })
+      );
+
+      console.log('All tasks fetched:', tasksWithProjectInfo);
+      return tasksWithProjectInfo as Task[];
     },
+    enabled: hasTasksAccess && !privilegesLoading
   });
 
-  // Fetch employees for subtask dialog
+  // Fetch employees
   const { data: employees = [] } = useQuery({
     queryKey: ['employees'],
     queryFn: async () => {
@@ -93,68 +190,174 @@ const AllTasks = () => {
         .from('employees')
         .select('id, name, email')
         .order('name');
-
       if (error) throw error;
-      return data || [];
+      return data as Employee[];
     },
+    enabled: hasTasksAccess
   });
 
-  // Process tasks to update overdue status
-  const processedTasks = useMemo(() => {
-    return tasks.map(task => {
-      const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
-      return {
-        ...task,
-        status: isOverdue && task.status !== 'Completed' ? 'Overdue' : task.status
-      };
-    });
-  }, [tasks]);
+  // Fetch projects - use the secure view for projects list in create/edit dialogs
+  const { data: projects = [] } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('task_project_info')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      
+      // Transform the data to match the Project interface
+      return data.map(p => ({
+        id: p.id,
+        name: p.name,
+        service: p.service,
+        clients: p.client_name ? { name: p.client_name } : null
+      })) as Project[];
+    },
+    enabled: hasTasksAccess
+  });
 
-  // Get available years from tasks
-  const availableYears = useMemo(() => {
-    const years = processedTasks
-      .map(task => new Date(task.created_at).getFullYear())
-      .filter((year, index, self) => self.indexOf(year) === index)
-      .sort((a, b) => b - a);
-    return years;
-  }, [processedTasks]);
+  // Fetch services for global filter
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: hasTasksAccess
+  });
 
-  // Extract unique values for filters - include Overdue status
-  const uniqueStatuses = ['Not Started', 'In Progress', 'On Hold', 'On-Head', 'Targeted', 'Imp', 'Completed', 'Overdue'];
-  const uniqueClients = [...new Set(processedTasks.map(task => task.projects?.clients?.name).filter(Boolean))];
-  const uniqueProjects = clientFilter === 'all' 
-    ? [...new Set(processedTasks.map(task => task.projects?.name).filter(Boolean))]
-    : [...new Set(processedTasks.filter(task => task.projects?.clients?.name === clientFilter).map(task => task.projects?.name).filter(Boolean))];
-  const uniqueAssignees = [...new Set(processedTasks.map(task => task.assignee?.name).filter(Boolean))];
+  // Fetch clients for global filter
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: hasTasksAccess
+  });
 
-  // Filter tasks based on all criteria
+  // Filter tasks based on filters - updated to handle multi-select status
   const filteredTasks = useMemo(() => {
-    return processedTasks.filter(task => {
-      const matchesStatus = statusFilter.length === 0 || statusFilter.includes(task.status);
-      const matchesClient = clientFilter === 'all' || task.projects?.clients?.name === clientFilter;
-      const matchesProject = projectFilter === 'all' || task.projects?.name === projectFilter;
-      const matchesAssignee = assigneeFilter === 'all' || task.assignee?.name === assigneeFilter;
-      const matchesSearch = searchQuery === '' || 
-        task.name.toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Year filter
-      const matchesYear = yearFilter === 'all' || 
-        new Date(task.created_at).getFullYear().toString() === yearFilter;
-
-      // Month filter
-      const matchesMonth = monthFilter === 'all' || 
-        (new Date(task.created_at).getMonth() + 1).toString() === monthFilter;
-
-      return matchesStatus && matchesClient && matchesProject && matchesAssignee && matchesSearch && matchesYear && matchesMonth;
+    let filtered = tasks.filter(task => {
+      const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (task.project_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilters.includes('all') || statusFilters.includes(task.status);
+      const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
+      const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
+      const matchesService = globalServiceFilter === 'all' || task.project_service === globalServiceFilter;
+      
+      // Find the client ID for this task through its project
+      const taskProject = projects.find(p => p.id === task.project_id);
+      const matchesClient = globalClientFilter === 'all' || taskProject?.clients?.name === clients.find(c => c.id === globalClientFilter)?.name;
+      
+      return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
     });
-  }, [processedTasks, statusFilter, clientFilter, projectFilter, assigneeFilter, searchQuery, yearFilter, monthFilter]);
 
-  // Reset project filter when client filter changes
-  React.useEffect(() => {
-    if (clientFilter !== 'all') {
-      setProjectFilter('all');
+    // Sort tasks: overdue first, then by deadline
+    return filtered.sort((a, b) => {
+      const now = new Date();
+      const aOverdue = a.deadline && new Date(a.deadline).getTime() < now.getTime();
+      const bOverdue = b.deadline && new Date(b.deadline).getTime() < now.getTime();
+      
+      // If one is overdue and the other isn't, overdue comes first
+      if (aOverdue && !bOverdue) return -1;
+      if (!aOverdue && bOverdue) return 1;
+      
+      // If both have same overdue status, sort by deadline
+      if (a.deadline && b.deadline) {
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      }
+      
+      // Tasks without deadlines go to the end
+      if (a.deadline && !b.deadline) return -1;
+      if (!a.deadline && b.deadline) return 1;
+      
+      return 0;
+    });
+  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
+
+  // Create task mutation
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskData: any) => {
+      const { data: employee, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('email', user?.email)
+        .single();
+      
+      if (empError || !employee) {
+        throw new Error('Employee record not found');
+      }
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([{
+          ...taskData,
+          assigner_id: employee.id,
+          deadline: taskData.deadline || null,
+          estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null,
+          reminder_datetime: taskData.reminder_datetime || null,
+          slot_start_datetime: taskData.slot_start_datetime || null,
+          slot_end_datetime: taskData.slot_end_datetime || null
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      setNewTask({ 
+        name: '', 
+        project_id: '', 
+        assignee_id: '', 
+        deadline: '', 
+        estimated_duration: '', 
+        status: 'Not Started',
+        reminder_datetime: '',
+        slot_start_datetime: '',
+        slot_end_datetime: ''
+      });
+      setIsCreateDialogOpen(false);
+      toast.success('Task created successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to create task: ' + error.message);
     }
-  }, [clientFilter]);
+  });
+
+  // Update task mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+      setEditingTask(null);
+      toast.success('Task updated successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to update task: ' + error.message);
+    }
+  });
 
   // Delete task mutation
   const deleteTaskMutation = useMutation({
@@ -163,118 +366,171 @@ const AllTasks = () => {
         .from('tasks')
         .delete()
         .eq('id', taskId);
-
+      
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      toast.success('Task deleted successfully');
+      toast.success('Task deleted successfully!');
     },
     onError: (error) => {
-      toast.error('Failed to delete task');
-      console.error('Error deleting task:', error);
-    },
+      toast.error('Failed to delete task: ' + error.message);
+    }
   });
 
-  const handleDeleteTask = (taskId: string, taskName: string) => {
-    if (confirm(`Are you sure you want to delete "${taskName}"? This action cannot be undone.`)) {
-      deleteTaskMutation.mutate(taskId);
+  const handleCreateTask = () => {
+    if (!newTask.name || !newTask.project_id) {
+      toast.error('Please fill in all required fields');
+      return;
     }
+    createTaskMutation.mutate(newTask);
+  };
+
+  const handleUpdateTask = (updates: any) => {
+    if (!editingTask) return;
+    updateTaskMutation.mutate({ id: editingTask.id, updates });
+  };
+
+  const handleStatusChange = (taskId: string, newStatus: string) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'Completed') {
+      updates.completion_date = new Date().toISOString();
+    } else if (newStatus !== 'Completed') {
+      updates.completion_date = null;
+    }
+    updateTaskMutation.mutate({ id: taskId, updates });
+  };
+
+  const handleStartTask = (taskId: string) => {
+    const updates = { status: 'In Progress' };
+    updateTaskMutation.mutate({ id: taskId, updates });
+    toast.success('Task started!');
+  };
+
+  const handleTaskStatusChange = (taskId: string, newStatus: string) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'Completed') {
+      updates.completion_date = new Date().toISOString();
+    } else if (newStatus !== 'Completed') {
+      updates.completion_date = null;
+    }
+    updateTaskMutation.mutate({ id: taskId, updates });
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Not Started': return 'bg-gray-100 text-gray-800';
-      case 'In Progress': return 'bg-blue-100 text-blue-800';
-      case 'On Hold': return 'bg-yellow-100 text-yellow-800';
-      case 'On-Head': return 'bg-purple-100 text-purple-800';
-      case 'Targeted': return 'bg-orange-100 text-orange-800';
-      case 'Imp': return 'bg-red-100 text-red-800';
-      case 'Completed': return 'bg-green-100 text-green-800';
-      case 'Overdue': return 'bg-red-600 text-white font-bold animate-pulse';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'Not Started': return 'bg-gray-500';
+      case 'In Progress': return 'bg-blue-500';
+      case 'Completed': return 'bg-green-500';
+      case 'On Hold': return 'bg-yellow-500';
+      case 'On-Head': return 'bg-purple-500';
+      case 'Targeted': return 'bg-orange-500';
+      case 'Imp': return 'bg-red-500';
+      default: return 'bg-gray-500';
     }
   };
 
-  const handleEditTask = (task: Task, mode: 'reminder' | 'slot' | 'full' = 'full') => {
-    setEditingTask(task);
-    setEditMode(mode);
-    setIsEditDialogOpen(true);
+  const handleTimeUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
   };
 
-  const handleEditSubtask = (subtask: any) => {
-    const subtaskForEdit = {
-      ...subtask,
-      project_id: null,
-    };
-    setEditingTask(subtaskForEdit);
-    setEditMode('full');
-    setIsEditDialogOpen(true);
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilters(['In Progress','On-Head','Targeted','Imp']);
+    setAssigneeFilter('all');
+    setProjectFilter('all');
+    setGlobalServiceFilter('all');
+    setGlobalClientFilter('all');
   };
 
-  const handleTaskUpdate = () => {
-    refetch();
-    setIsEditDialogOpen(false);
-    setEditingTask(null);
-  };
-
-  const handleTaskCreateSuccess = () => {
-    refetch();
-    setIsCreateDialogOpen(false);
-  };
-
-  const handleAddSubtask = (task: any) => {
-    setSelectedTaskForSubtaskCreate(task);
-    setIsSubtaskCreateDialogOpen(true);
-  };
-
-  const handleSubtaskCreateSuccess = () => {
-    refetch();
-    setIsSubtaskCreateDialogOpen(false);
-    setSelectedTaskForSubtaskCreate(null);
-  };
-
-  const handleSubtaskSuccess = () => {
-    refetch();
-    setIsSubtaskDialogOpen(false);
-    setSelectedTaskForSubtask(null);
-  };
-
-  const handleSubtaskSave = async (subtaskData: any) => {
-    try {
-      const { error } = await supabase
-        .from('subtasks')
-        .insert([subtaskData]);
-
-      if (error) throw error;
-      handleSubtaskSuccess();
-    } catch (error) {
-      console.error('Error creating subtask:', error);
+  const handleStatusFilterChange = (status: string, checked: boolean) => {
+    if (status === 'all') {
+      setStatusFilters(checked ? ['all'] : []);
+    } else {
+      setStatusFilters(prev => {
+        const newFilters = prev.filter(f => f !== 'all');
+        if (checked) {
+          return [...newFilters, status];
+        } else {
+          const filtered = newFilters.filter(f => f !== status);
+          return filtered.length === 0 ? ['all'] : filtered;
+        }
+      });
     }
   };
 
-  const handleStatusToggle = (status: string) => {
-    setStatusFilter(prev => {
-      if (prev.includes(status)) {
-        return prev.filter(s => s !== status);
-      } else {
-        return [...prev, status];
-      }
-    });
+  const handleCreateSubtask = (taskId: string) => {
+    setCurrentTaskId(taskId);
+    setEditingSubtask(null);
+    setSubtaskDialogOpen(true);
   };
 
-  const handleSelectAllStatuses = () => {
-    setStatusFilter([...uniqueStatuses]);
+  const handleEditSubtask = (taskId: string, subtask: any) => {
+    setCurrentTaskId(taskId);
+    setEditingSubtask(subtask);
+    setSubtaskDialogOpen(true);
   };
 
-  const handleClearAllStatuses = () => {
-    setStatusFilter([]);
+  const isTaskOverdue = (deadline: string | null) => {
+    if (!deadline) return false;
+    const now = new Date();
+    const taskDeadline = new Date(deadline);
+    return taskDeadline.getTime() < now.getTime();
   };
 
-  if (isLoading) {
+  const calculateSlotDuration = (startDateTime: string | null, endDateTime: string | null) => {
+    if (!startDateTime || !endDateTime) return null;
+    
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
+    const diffMs = end.getTime() - start.getTime();
+    
+    if (diffMs <= 0) return null;
+    
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    } else {
+      return `${minutes}m`;
+    }
+  };
+
+  if (privilegesLoading) {
     return (
       <Navigation>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (!hasTasksAccess) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-gray-600">You don't have permission to access the tasks page.</p>
+            <div className="mt-4 text-xs text-gray-400 space-y-1">
+              <p>User: {user?.email}</p>
+              <p>Role: {userRole || 'No role assigned'}</p>
+              <p>Page Access Check: {String(hasPageAccess('tasks'))}</p>
+              <p>Admin Check: {String(userRole === 'admin')}</p>
+              <p>Superuser Check: {String(user?.email === 'yugandhar@whiteindia.in')}</p>
+            </div>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
+  if (tasksLoading) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center py-8">
           <div className="text-lg">Loading tasks...</div>
         </div>
       </Navigation>
@@ -283,463 +539,818 @@ const AllTasks = () => {
 
   return (
     <Navigation>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">All Tasks</h1>
-          {hasPageAccess('tasks') && (
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Task
-            </Button>
-          )}
-        </div>
+      <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6">
+        <TasksHeader
+          globalServiceFilter={globalServiceFilter}
+          setGlobalServiceFilter={setGlobalServiceFilter}
+          globalClientFilter={globalClientFilter}
+          setGlobalClientFilter={setGlobalClientFilter}
+          projectFilter={projectFilter}
+          setProjectFilter={setProjectFilter}
+          services={services}
+          clients={clients}
+          projects={projects}
+          canCreate={hasOperationAccess('tasks', 'create')}
+          onCreateTask={() => setIsCreateDialogOpen(true)}
+        />
 
-        {/* Collapsible Filters */}
-        <Collapsible open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
-          <Card>
-            <CardHeader>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex items-center justify-between w-full p-0 h-auto">
-                  <CardTitle className="text-lg font-medium">Filters</CardTitle>
-                  {isFiltersOpen ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-            </CardHeader>
-            <CollapsibleContent>
-              <CardContent className="space-y-4">
-                {/* Status Filter */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium">Status</h3>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleSelectAllStatuses}
-                        className="text-xs"
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleClearAllStatuses}
-                        className="text-xs"
-                      >
-                        Clear All
-                      </Button>
+        {/* View Toggle */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Filter className="h-4 w-4" />
+                View & Filters
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Toggle
+                  pressed={viewMode === 'cards'}
+                  onPressedChange={() => setViewMode('cards')}
+                  variant="outline"
+                  size="sm"
+                >
+                  <LayoutList className="h-4 w-4 mr-1" />
+                  Cards
+                </Toggle>
+                <Toggle
+                  pressed={viewMode === 'kanban'}
+                  onPressedChange={() => setViewMode('kanban')}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Kanban className="h-4 w-4 mr-1" />
+                  Kanban
+                </Toggle>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Filters Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="search" className="text-sm">Search</Label>
+                <Input
+                  id="search"
+                  placeholder="Search tasks or projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status-filter" className="text-sm">Status</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between h-9 text-sm">
+                      {statusFilters.includes('all') 
+                        ? 'All Statuses' 
+                        : statusFilters.length === 1 
+                          ? statusFilters[0]
+                          : `${statusFilters.length} selected`
+                      }
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-3 bg-white border shadow-lg z-50">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="status-all"
+                          checked={statusFilters.includes('all')}
+                          onCheckedChange={(checked) => handleStatusFilterChange('all', !!checked)}
+                        />
+                        <Label htmlFor="status-all" className="text-sm font-medium">
+                          All Statuses
+                        </Label>
+                      </div>
+                      {statusOptions.map((status) => (
+                        <div key={status} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`status-${status}`}
+                            checked={statusFilters.includes(status)}
+                            onCheckedChange={(checked) => handleStatusFilterChange(status, !!checked)}
+                          />
+                          <Label htmlFor={`status-${status}`} className="text-sm">
+                            {status}
+                          </Label>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {uniqueStatuses.map(status => (
-                      <Button
-                        key={status}
-                        size="sm"
-                        variant={statusFilter.includes(status) ? 'default' : 'outline'}
-                        onClick={() => handleStatusToggle(status)}
-                      >
-                        {status}
-                      </Button>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="assignee-filter" className="text-sm">Assignee</Label>
+                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="All Assignees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Assignees</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
                     ))}
-                  </div>
-                </div>
-
-                {/* Client Filter */}
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Client</h3>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                    <Button
-                      size="sm"
-                      variant={clientFilter === 'all' ? 'default' : 'outline'}
-                      onClick={() => setClientFilter('all')}
-                    >
-                      All Clients
-                    </Button>
-                    {uniqueClients.map(client => (
-                      <Button
-                        key={client}
-                        size="sm"
-                        variant={clientFilter === client ? 'default' : 'outline'}
-                        onClick={() => setClientFilter(client)}
-                      >
-                        {client}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Project Filter */}
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Project</h3>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                    <Button
-                      size="sm"
-                      variant={projectFilter === 'all' ? 'default' : 'outline'}
-                      onClick={() => setProjectFilter('all')}
-                    >
-                      All Projects
-                    </Button>
-                    {uniqueProjects.map(project => (
-                      <Button
-                        key={project}
-                        size="sm"
-                        variant={projectFilter === project ? 'default' : 'outline'}
-                        onClick={() => setProjectFilter(project)}
-                      >
-                        {project}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Assignee Filter */}
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Assignee</h3>
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                    <Button
-                      size="sm"
-                      variant={assigneeFilter === 'all' ? 'default' : 'outline'}
-                      onClick={() => setAssigneeFilter('all')}
-                    >
-                      All Assignees
-                    </Button>
-                    {uniqueAssignees.map(assignee => (
-                      <Button
-                        key={assignee}
-                        size="sm"
-                        variant={assigneeFilter === assignee ? 'default' : 'outline'}
-                        onClick={() => setAssigneeFilter(assignee)}
-                      >
-                        {assignee}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Year and Month Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Year</Label>
-                    <Select value={yearFilter} onValueChange={setYearFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All years" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Years</SelectItem>
-                        {availableYears.map((year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Month</Label>
-                    <Select value={monthFilter} onValueChange={setMonthFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All months" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Months</SelectItem>
-                        <SelectItem value="1">January</SelectItem>
-                        <SelectItem value="2">February</SelectItem>
-                        <SelectItem value="3">March</SelectItem>
-                        <SelectItem value="4">April</SelectItem>
-                        <SelectItem value="5">May</SelectItem>
-                        <SelectItem value="6">June</SelectItem>
-                        <SelectItem value="7">July</SelectItem>
-                        <SelectItem value="8">August</SelectItem>
-                        <SelectItem value="9">September</SelectItem>
-                        <SelectItem value="10">October</SelectItem>
-                        <SelectItem value="11">November</SelectItem>
-                        <SelectItem value="12">December</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-
-        {/* Search */}
-        <div className="max-w-md">
-          <Input
-            placeholder="Search tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full"
-          />
-        </div>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button variant="outline" onClick={clearFilters} className="w-full h-9 text-sm">
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Results Summary */}
-        <div className="text-sm text-gray-600">
-          Showing {filteredTasks.length} of {processedTasks.length} tasks
+        <div className="flex items-center justify-between text-sm text-gray-600 px-1">
+          <span>
+            Showing {filteredTasks.length} of {tasks.length} tasks
+          </span>
         </div>
 
-        {/* Tasks Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTasks.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-gray-500">
-              No tasks found matching your filters
-            </div>
-          ) : (
-            filteredTasks.map((task) => {
-              const isOverdue = task.status === 'Overdue';
-              
-              return (
-                <TaskCardWithActions 
-                  key={task.id}
-                  task={task}
-                  isOverdue={isOverdue}
-                  getStatusColor={getStatusColor}
-                  expandedTask={expandedTask}
-                  setExpandedTask={setExpandedTask}
-                  handleEditTask={handleEditTask}
-                  handleEditSubtask={handleEditSubtask}
-                  handleAddSubtask={handleAddSubtask}
-                  handleDeleteTask={handleDeleteTask}
-                  refetch={refetch}
+        {filteredTasks.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <p className="text-gray-600 text-sm">
+                {tasks.length === 0 
+                  ? "No tasks found."
+                  : "No tasks match your current filters."
+                }
+              </p>
+            </CardContent>
+          </Card>
+        ) : viewMode === 'kanban' ? (
+          <TaskKanban
+            tasks={filteredTasks.map(task => ({
+              ...task,
+              hours: task.total_logged_hours || 0
+            }))}
+            canCreate={hasOperationAccess('tasks', 'create')}
+            canUpdate={hasOperationAccess('tasks', 'update')}
+            canDelete={hasOperationAccess('tasks', 'delete')}
+            onTaskStatusChange={handleTaskStatusChange}
+            onAddTask={() => setIsCreateDialogOpen(true)}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredTasks.map((task) => (
+              <TaskWithSubtasks
+                key={task.id}
+                task={task}
+                expandedTask={expandedTask}
+                setExpandedTask={setExpandedTask}
+                hasOperationAccess={hasOperationAccess}
+                handleStatusChange={handleStatusChange}
+                handleStartTask={handleStartTask}
+                handleTimeUpdate={handleTimeUpdate}
+                deleteTaskMutation={deleteTaskMutation}
+                setEditingTask={setEditingTask}
+                onCreateSubtask={handleCreateSubtask}
+                onEditSubtask={handleEditSubtask}
+                employees={employees}
+                calculateSlotDuration={calculateSlotDuration}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Create Task Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Task</DialogTitle>
+              <DialogDescription>
+                Add a new task to the system.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="task-name">Task Name</Label>
+                <Input
+                  id="task-name"
+                  placeholder="Enter task name"
+                  value={newTask.name}
+                  onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
                 />
-              );
-            })
-          )}
-        </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project">Project</Label>
+                <Select 
+                  value={newTask.project_id} 
+                  onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name} - {project.service}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select 
+                  value={newTask.status} 
+                  onValueChange={(value) => setNewTask({ ...newTask, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="assignee">Assignee</Label>
+                <Select 
+                  value={newTask.assignee_id} 
+                  onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deadline">Deadline</Label>
+                  <Input
+                    id="deadline"
+                    type="date"
+                    value={newTask.deadline}
+                    onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="estimated-duration">Estimated Hours</Label>
+                  <Input
+                    id="estimated-duration"
+                    type="number"
+                    step="0.5"
+                    value={newTask.estimated_duration}
+                    onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
+                    placeholder="0.0"
+                  />
+                </div>
+              </div>
+              
+              {/* New Reminder Field */}
+              <div className="space-y-2">
+                <Label htmlFor="reminder-datetime" className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  Reminder (Optional)
+                </Label>
+                <Input
+                  id="reminder-datetime"
+                  type="datetime-local"
+                  value={newTask.reminder_datetime}
+                  onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
+                />
+              </div>
 
-        {/* Task Create Dialog */}
-        <TaskCreateDialog
-          isOpen={isCreateDialogOpen}
-          onClose={() => setIsCreateDialogOpen(false)}
-          onSuccess={handleTaskCreateSuccess}
-        />
+              {/* New Slot Fields */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4" />
+                  Slot Duration (Optional)
+                </Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="slot-start">Start Time</Label>
+                    <Input
+                      id="slot-start"
+                      type="datetime-local"
+                      value={newTask.slot_start_datetime}
+                      onChange={(e) => setNewTask({ ...newTask, slot_start_datetime: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="slot-end">End Time</Label>
+                    <Input
+                      id="slot-end"
+                      type="datetime-local"
+                      value={newTask.slot_end_datetime}
+                      onChange={(e) => setNewTask({ ...newTask, slot_end_datetime: e.target.value })}
+                    />
+                  </div>
+                </div>
+                {newTask.slot_start_datetime && newTask.slot_end_datetime && (
+                  <div className="text-sm text-green-600 font-medium">
+                    Duration: {calculateSlotDuration(newTask.slot_start_datetime, newTask.slot_end_datetime) || 'Invalid duration'}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateTask}
+                  disabled={createTaskMutation.isPending}
+                >
+                  {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit Task Dialog */}
         {editingTask && (
-          <TaskEditDialog
-            task={editingTask}
-            isOpen={isEditDialogOpen}
-            onClose={() => {
-              setIsEditDialogOpen(false);
-              setEditingTask(null);
-            }}
-            mode={editMode}
-            isSubtask={!editingTask.project_id && editingTask.task_id} // Determine if it's a subtask
-          />
-        )}
+          <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Task</DialogTitle>
+                <DialogDescription>
+                  Update task details.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-task-name">Task Name</Label>
+                  <Input
+                    id="edit-task-name"
+                    value={editingTask.name}
+                    onChange={(e) => setEditingTask({ ...editingTask, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-project">Project</Label>
+                  <Select 
+                    value={editingTask.project_id} 
+                    onValueChange={(value) => setEditingTask({ ...editingTask, project_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name} - {project.service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select 
+                    value={editingTask.status} 
+                    onValueChange={(value) => setEditingTask({ ...editingTask, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-assignee">Assignee</Label>
+                  <Select 
+                    value={editingTask.assignee_id || ''} 
+                    onValueChange={(value) => setEditingTask({ ...editingTask, assignee_id: value || null })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select assignee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-deadline">Deadline</Label>
+                    <Input
+                      id="edit-deadline"
+                      type="date"
+                      value={editingTask.deadline || ''}
+                      onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value || null })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-estimated-duration">Estimated Hours</Label>
+                    <Input
+                      id="edit-estimated-duration"
+                      type="number"
+                      step="0.5"
+                      value={editingTask.estimated_duration || ''}
+                      onChange={(e) => setEditingTask({ ...editingTask, estimated_duration: e.target.value ? parseFloat(e.target.value) : null })}
+                      placeholder="0.0"
+                    />
+                  </div>
+                </div>
 
-        {/* Subtask Create Dialog */}
-        {selectedTaskForSubtaskCreate && (
-          <TaskCreateDialog
-            isOpen={isSubtaskCreateDialogOpen}
-            onClose={() => {
-              setIsSubtaskCreateDialogOpen(false);
-              setSelectedTaskForSubtaskCreate(null);
-            }}
-            parentTaskId={selectedTaskForSubtaskCreate.id}
-            onSuccess={handleSubtaskCreateSuccess}
-          />
-        )}
+                {/* Edit Reminder Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-reminder-datetime" className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Reminder (Optional)
+                  </Label>
+                  <Input
+                    id="edit-reminder-datetime"
+                    type="datetime-local"
+                    value={editingTask.reminder_datetime ? format(new Date(editingTask.reminder_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                    onChange={(e) => setEditingTask({ ...editingTask, reminder_datetime: e.target.value || null })}
+                  />
+                </div>
 
-        {/* Legacy Subtask Dialog - keeping for compatibility */}
-        {selectedTaskForSubtask && (
-          <SubtaskDialog
-            taskId={selectedTaskForSubtask.id}
-            isOpen={isSubtaskDialogOpen}
-            onClose={() => {
-              setIsSubtaskDialogOpen(false);
-              setSelectedTaskForSubtask(null);
-            }}
-            onSave={handleSubtaskSave}
-            employees={employees}
-          />
+                {/* Edit Slot Fields */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4" />
+                    Slot Duration (Optional)
+                  </Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-slot-start">Start Time</Label>
+                      <Input
+                        id="edit-slot-start"
+                        type="datetime-local"
+                        value={editingTask.slot_start_datetime ? format(new Date(editingTask.slot_start_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        onChange={(e) => setEditingTask({ ...editingTask, slot_start_datetime: e.target.value || null })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-slot-end">End Time</Label>
+                      <Input
+                        id="edit-slot-end"
+                        type="datetime-local"
+                        value={editingTask.slot_end_datetime ? format(new Date(editingTask.slot_end_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        onChange={(e) => setEditingTask({ ...editingTask, slot_end_datetime: e.target.value || null })}
+                      />
+                    </div>
+                  </div>
+                  {editingTask.slot_start_datetime && editingTask.slot_end_datetime && (
+                    <div className="text-sm text-green-600 font-medium">
+                      Duration: {calculateSlotDuration(editingTask.slot_start_datetime, editingTask.slot_end_datetime) || 'Invalid duration'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setEditingTask(null)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => handleUpdateTask({
+                      name: editingTask.name,
+                      project_id: editingTask.project_id,
+                      status: editingTask.status,
+                      assignee_id: editingTask.assignee_id,
+                      deadline: editingTask.deadline,
+                      estimated_duration: editingTask.estimated_duration,
+                      reminder_datetime: editingTask.reminder_datetime,
+                      slot_start_datetime: editingTask.slot_start_datetime,
+                      slot_end_datetime: editingTask.slot_end_datetime
+                    })}
+                    disabled={updateTaskMutation.isPending}
+                  >
+                    {updateTaskMutation.isPending ? 'Updating...' : 'Update Task'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </Navigation>
   );
 };
 
-// Separate component for individual task cards with actions
-const TaskCardWithActions = ({ 
-  task, 
-  isOverdue, 
-  getStatusColor, 
-  expandedTask, 
-  setExpandedTask, 
-  handleEditTask,
-  handleEditSubtask,
-  handleAddSubtask,
-  handleDeleteTask,
-  refetch 
-}: any) => {
-  const { subtasks, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
+// Updated TaskWithSubtasks component to show status beside assignee
+const TaskWithSubtasks: React.FC<{
+  task: Task;
+  expandedTask: string | null;
+  setExpandedTask: (id: string | null) => void;
+  hasOperationAccess: (resource: string, operation: string) => boolean;
+  handleStatusChange: (taskId: string, newStatus: string) => void;
+  handleStartTask: (taskId: string) => void;
+  handleTimeUpdate: () => void;
+  deleteTaskMutation: any;
+  setEditingTask: (task: Task) => void;
+  onCreateSubtask: (taskId: string) => void;
+  onEditSubtask: (taskId: string, subtask: any) => void;
+  employees: any[];
+  calculateSlotDuration: (start: string | null, end: string | null) => string | null;
+}> = ({
+  task,
+  expandedTask,
+  setExpandedTask,
+  hasOperationAccess,
+  handleStatusChange,
+  handleStartTask,
+  handleTimeUpdate,
+  deleteTaskMutation,
+  setEditingTask,
+  onCreateSubtask,
+  onEditSubtask,
+  employees,
+  calculateSlotDuration
+}) => {
+  const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
   const { data: timeEntryCount = 0 } = useTimeEntryCount(task.id);
+  const [showSubtasks, setShowSubtasks] = useState(false);
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
 
-  const handleSubtaskStatusChange = (subtaskId: string, status: string) => {
-    updateSubtaskMutation.mutate({ 
-      id: subtaskId, 
-      updates: { 
-        status,
-        completion_date: status === 'Completed' ? new Date().toISOString() : null
-      }
-    });
-  };
+  // Check if task is overdue
+  const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
 
-  const handleSubtaskDelete = (subtaskId: string) => {
-    if (confirm('Are you sure you want to delete this subtask?')) {
-      deleteSubtaskMutation.mutate(subtaskId);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Not Started': return 'bg-gray-100 text-gray-800';
+      case 'In Progress': return 'bg-blue-100 text-blue-800';
+      case 'Completed': return 'bg-green-100 text-green-800';
+      case 'On Hold': return 'bg-yellow-100 text-yellow-800';
+      case 'On-Head': return 'bg-purple-100 text-purple-800';
+      case 'Targeted': return 'bg-orange-100 text-orange-800';
+      case 'Imp': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
+  const handleSubtaskStatusChange = (subtaskId: string, newStatus: string) => {
+    const updates: any = { status: newStatus };
+    if (newStatus === 'Completed') {
+      updates.completion_date = new Date().toISOString();
+    } else if (newStatus !== 'Completed') {
+      updates.completion_date = null;
+    }
+    updateSubtaskMutation.mutate({ id: subtaskId, updates });
+  };
+
+  const handleCreateSubtask = () => {
+    setEditingSubtask(null);
+    setSubtaskDialogOpen(true);
+  };
+
+  const handleEditSubtask = (subtask: any) => {
+    setEditingSubtask(subtask);
+    setSubtaskDialogOpen(true);
+  };
+
+  const handleSubtaskSave = (subtaskData: any) => {
+    if (editingSubtask) {
+      // Update existing subtask
+      updateSubtaskMutation.mutate({ 
+        id: editingSubtask.id, 
+        updates: {
+          name: subtaskData.name,
+          status: subtaskData.status,
+          assignee_id: subtaskData.assignee_id,
+          deadline: subtaskData.deadline,
+          estimated_duration: subtaskData.estimated_duration
+        }
+      });
+    } else {
+      // Create new subtask
+      createSubtaskMutation.mutate({
+        name: subtaskData.name,
+        status: subtaskData.status,
+        assignee_id: subtaskData.assignee_id,
+        deadline: subtaskData.deadline,
+        estimated_duration: subtaskData.estimated_duration,
+        task_id: task.id
+      });
+    }
+    setSubtaskDialogOpen(false);
+    setEditingSubtask(null);
+  };
+
+  const slotDuration = calculateSlotDuration(task.slot_start_datetime, task.slot_end_datetime);
+
   return (
-    <Card 
-      className={`hover:shadow-md transition-shadow cursor-pointer ${
-        isOverdue 
-          ? 'border-l-4 border-l-red-500 bg-red-50 ring-2 ring-red-200' 
-          : 'border-l-4 border-l-blue-500'
-      }`}
-    >
-      <CardContent className="p-4 space-y-3">
-        {/* Task Name - Improved mobile wrapping */}
-        <h3 
-          className={`font-medium text-sm break-words overflow-wrap-anywhere leading-relaxed max-w-full ${
-            isOverdue ? 'text-red-900' : ''
-          }`}
-          onClick={() => handleEditTask(task)}
-        >
-          {task.name}
-        </h3>
-
-        {/* Status Badge */}
-        <Badge className={getStatusColor(task.status)}>
-          {task.status}
-        </Badge>
-
-        {/* Project and Client Info - Changed to || syntax */}
-        <div className="flex items-center gap-1 text-xs text-gray-600">
-          <BuildingIcon className="h-3 w-3 flex-shrink-0" />
-          <span className="truncate">
-            {task.projects?.clients?.name} || {task.projects?.name}
-          </span>
-        </div>
-
-        {/* Assignee Info */}
-        {task.assignee?.name && (
-          <div className="flex items-center gap-1 text-xs text-gray-600">
-            <UserIcon className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{task.assignee.name}</span>
-          </div>
-        )}
-
-        {/* Date and Deadline */}
-        <div className="flex items-center gap-1 text-xs text-gray-600">
-          <CalendarIcon className="h-3 w-3 flex-shrink-0" />
-          <span>
-            {task.date && format(new Date(task.date), 'MMM dd, yyyy')}
-            {task.deadline && (
-              <span className={`ml-2 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
-                Due: {format(new Date(task.deadline), 'MMM dd, yyyy')}
-              </span>
-            )}
-          </span>
-        </div>
-
-        {/* Action Buttons - Compact with icons only, removed timer */}
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditTask(task);
-            }}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteTask(task.id, task.name);
-            }}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <ManualTimeLog 
-            taskId={task.id}
-            onSuccess={refetch}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddSubtask(task);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-          {subtasks.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpandedTask(expandedTask === task.id ? null : task.id);
-              }}
-            >
-              <Users className="h-4 w-4" />
-              <span className="ml-1 text-xs">({subtasks.length})</span>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandedTask(expandedTask === task.id ? null : task.id);
-            }}
-          >
-            <MessageSquare className="h-4 w-4" />
-            {timeEntryCount > 0 && (
-              <span className="ml-1 text-xs">({timeEntryCount})</span>
-            )}
-          </Button>
-        </div>
-
-        {/* Expanded Section */}
-        {expandedTask === task.id && (
-          <div className="mt-4 space-y-4 border-t pt-4">
-            <TaskHistory taskId={task.id} onUpdate={refetch} />
+    <>
+      <div className="space-y-2">
+        <Card className={`hover:shadow-md transition-shadow border-l-4 ${
+          isOverdue 
+            ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
+            : 'border-l-blue-500'
+        }`}>
+          <CardContent className="p-3 space-y-2">
+            {/* Task Name */}
+            <h4 className={`font-medium text-sm mb-2 break-words line-clamp-2 ${
+              isOverdue ? 'text-red-900' : ''
+            }`}>
+              {task.name}
+              {isOverdue && (
+                <Badge className="ml-2 bg-red-600 text-white font-bold animate-pulse">
+                  OVERDUE
+                </Badge>
+              )}
+              {task.reminder_datetime && (
+                <Bell className="inline h-4 w-4 ml-2 text-orange-500" />
+              )}
+            </h4>
             
-            {/* Subtasks Section */}
-            {subtasks.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-700">Subtasks:</h4>
-                {subtasks.map((subtask) => (
-                  <SubtaskCard
-                    key={subtask.id}
-                    subtask={subtask}
-                    onEdit={handleEditSubtask}
-                    onDelete={handleSubtaskDelete}
-                    onStatusChange={handleSubtaskStatusChange}
-                    onTimeUpdate={refetch}
-                    canUpdate={true}
-                    canDelete={true}
-                  />
-                ))}
+            {/* Service Name */}
+            {task.project_service && (
+              <div className="flex items-center gap-1 text-xs text-blue-600 mb-1">
+                <Package className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate font-medium">{task.project_service}</span>
               </div>
             )}
+            
+            {/* Project Info */}
+            <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+              <span className="flex items-center gap-1">
+                <Building className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{task.client_name || 'No Client'} || {task.project_name || 'No Project'}</span>
+              </span>
+            </div>
+
+            {/* Assignee Row with Status */}
+            <div className="flex items-center justify-between gap-2 text-xs text-gray-600 mb-2">
+              <span className="flex items-center gap-1 flex-1 min-w-0">
+                <User className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
+              </span>
+              <Badge variant="secondary" className={`${getStatusColor(task.status)} text-xs px-2 py-0 rounded-full flex-shrink-0`}>
+                {task.status}
+              </Badge>
+            </div>
+
+            {/* Logged Hours and Deadline Row */}
+            <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3 flex-shrink-0" />
+                <span>{task.total_logged_hours?.toFixed(2) || '0.00'}h logged</span>
+              </span>
+              {task.deadline && (
+                <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-bold' : ''}`}>
+                  <Calendar className="h-3 w-3 flex-shrink-0" />
+                  <span>Due: {new Date(task.deadline).toLocaleDateString()}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Reminder and Slot Info */}
+            {(task.reminder_datetime || slotDuration) && (
+              <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                {task.reminder_datetime && (
+                  <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
+                    <Bell className="h-3 w-3 text-orange-500" />
+                    <span>Reminder: {format(new Date(task.reminder_datetime), 'MMM d, HH:mm')}</span>
+                  </span>
+                )}
+                {slotDuration && (
+                  <span className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                    <CalendarClock className="h-3 w-3 text-blue-500" />
+                    <span>{slotDuration} Slot</span>
+                  </span>
+                )}
+              </div>
+            )}
+            
+            {/* Action Icons Row */}
+            <div className="flex items-center gap-1">
+              {/* Enhanced Timer Component */}
+              <TaskTimer 
+                taskId={task.id}
+                taskName={task.name}
+                onTimeUpdate={handleTimeUpdate}
+              />
+              
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100" onClick={handleCreateSubtask}>
+                <Plus className="h-3 w-3" />
+              </Button>
+              {subtasks.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 px-2 hover:bg-gray-100 text-xs"
+                  onClick={() => setShowSubtasks(!showSubtasks)}
+                >
+                  <span>{showSubtasks ? 'Hide' : 'Show'} ({subtasks.length})</span>
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 w-6 p-0 hover:bg-gray-100"
+                onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+              >
+                <MessageSquare className="h-3 w-3" />
+              </Button>
+              {timeEntryCount > 0 && (
+                <span className="text-xs text-gray-400 px-1">({timeEntryCount})</span>
+              )}
+              {hasOperationAccess('tasks', 'update') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => setEditingTask(task)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
+              {hasOperationAccess('tasks', 'delete') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => deleteTaskMutation.mutate(task.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+          
+          {expandedTask === task.id && (
+            <CardContent className="border-t pt-4 px-3 sm:px-6">
+              <div className="space-y-4">
+                {hasOperationAccess('tasks', 'update') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
+                    <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
+                      <SelectTrigger className="w-full sm:w-48 h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Not Started">Not Started</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="On Hold">On Hold</SelectItem>
+                        <SelectItem value="On-Head">On-Head</SelectItem>
+                        <SelectItem value="Targeted">Targeted</SelectItem>
+                        <SelectItem value="Imp">Imp</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Subtasks - Mobile optimized */}
+        {showSubtasks && subtasks.length > 0 && (
+          <div className="space-y-2 pl-2 sm:pl-4">
+            {subtasks.map((subtask) => (
+              <SubtaskCard
+                key={subtask.id}
+                subtask={subtask}
+                onEdit={handleEditSubtask}
+                onDelete={(id) => deleteSubtaskMutation.mutate(id)}
+                onStatusChange={handleSubtaskStatusChange}
+                onTimeUpdate={handleTimeUpdate}
+                canUpdate={hasOperationAccess('tasks', 'update')}
+                canDelete={hasOperationAccess('tasks', 'delete')}
+              />
+            ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Subtask Dialog for this specific task */}
+      <SubtaskDialog
+        isOpen={subtaskDialogOpen}
+        onClose={() => {
+          setSubtaskDialogOpen(false);
+          setEditingSubtask(null);
+        }}
+        onSave={handleSubtaskSave}
+        taskId={task.id}
+        editingSubtask={editingSubtask}
+        employees={employees}
+        isLoading={createSubtaskMutation.isPending || updateSubtaskMutation.isPending}
+      />
+    </>
   );
 };
 

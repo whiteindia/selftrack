@@ -16,12 +16,12 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   isError,
   onRunningTaskClick
 }) => {
-  // Helper function to parse pause information from comment - SAME AS OTHER COMPONENTS
-  const parsePauseInfo = (comment: string | null) => {
-    if (!comment) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
+  // Helper function to parse pause information from timer_metadata
+  const parsePauseInfo = (timerMetadata: string | null) => {
+    if (!timerMetadata) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
     
-    const pauseMatches = [...comment.matchAll(/Timer paused at ([^,\n]+)/g)];
-    const resumeMatches = [...comment.matchAll(/Timer resumed at ([^,\n]+)/g)];
+    const pauseMatches = [...timerMetadata.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...timerMetadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
     
     let totalPausedMs = 0;
     let isPaused = false;
@@ -44,7 +44,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   };
 
   const isPaused = (entry: any) => {
-    const pauseInfo = parsePauseInfo(entry.comment);
+    const pauseInfo = parsePauseInfo(entry.timer_metadata);
     return pauseInfo.isPaused;
   };
 
@@ -84,7 +84,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                     <div className="mt-1">
                       <LiveTimer 
                         startTime={entry.start_time} 
-                        comment={entry.comment}
+                        timerMetadata={entry.timer_metadata}
                       />
                     </div>
                   </div>

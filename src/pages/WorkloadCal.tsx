@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -94,10 +94,70 @@ const WorkloadCal = () => {
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [routineSearchQuery, setRoutineSearchQuery] = useState('');
   const [subtaskSearchQuery, setSubtaskSearchQuery] = useState('');
-  const [isFiltersOpen, setIsFiltersOpen] = useState(true);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [currentHour, setCurrentHour] = useState<number>(new Date().getHours());
   
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const currentSlotRef = useRef<HTMLDivElement>(null);
+
+  // Update current hour every minute
+  useEffect(() => {
+    const updateCurrentHour = () => {
+      setCurrentHour(new Date().getHours());
+    };
+
+    // Update immediately
+    updateCurrentHour();
+
+    // Set up interval to update every minute
+    const interval = setInterval(updateCurrentHour, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-scroll to current slot on page load or date change - improved implementation
+  useEffect(() => {
+    const scrollToCurrentSlot = () => {
+      if (currentSlotRef.current) {
+        // Calculate the offset to position the element at the top
+        const element = currentSlotRef.current;
+        const elementRect = element.getBoundingClientRect();
+        const absoluteElementTop = elementRect.top + window.pageYOffset;
+        const middle = absoluteElementTop - 80; // 80px offset from top for better visibility
+        
+        window.scrollTo({
+          top: middle,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    // Use a longer delay to ensure all components are fully rendered
+    const timer = setTimeout(scrollToCurrentSlot, 800);
+
+    return () => clearTimeout(timer);
+  }, [selectedDate, currentHour]);
+
+  // Additional effect to handle initial page load with better timing
+  useEffect(() => {
+    // Scroll on initial load after components are rendered
+    const initialScrollTimer = setTimeout(() => {
+      if (currentSlotRef.current) {
+        const element = currentSlotRef.current;
+        const elementRect = element.getBoundingClientRect();
+        const absoluteElementTop = elementRect.top + window.pageYOffset;
+        const middle = absoluteElementTop - 80; // 80px offset from top
+        
+        window.scrollTo({
+          top: middle,
+          behavior: 'smooth'
+        });
+      }
+    }, 1000); // Longer delay for initial load
+
+    return () => clearTimeout(initialScrollTimer);
+  }, []);
 
   // Generate time slots (24 hours)
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -739,6 +799,13 @@ const WorkloadCal = () => {
     queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
   };
 
+  // Check if a time slot is the current hour
+  const isCurrentHourSlot = (timeSlot: string) => {
+    const [hour] = timeSlot.split(':');
+    const slotHour = parseInt(hour);
+    return slotHour === currentHour;
+  };
+
   if (isLoading) {
     return (
       <Navigation>
@@ -943,56 +1010,68 @@ const WorkloadCal = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Assign Task Dialog */}
+        {/* Assign Task Dialog - Enhanced for mobile */}
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className={cn(
+            "max-w-2xl",
+            isMobile && "h-[90vh] max-h-[90vh] flex flex-col"
+          )}>
+            <DialogHeader className="shrink-0">
               <DialogTitle>Assign Task to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
             
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search tasks..."
-                value={taskSearchQuery}
-                onChange={(e) => setTaskSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search Bar - Sticky on mobile */}
+            <div className={cn(
+              "shrink-0 space-y-4",
+              isMobile && "sticky top-0 bg-white z-10 pb-2 border-b"
+            )}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={taskSearchQuery}
+                  onChange={(e) => setTaskSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700">Client</h4>
+                  <Select onValueChange={setAssignDialogClient}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      {assignClients.map(client => (
+                        <SelectItem key={client} value={client}>{client}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700">Project</h4>
+                  <Select onValueChange={setAssignDialogProject}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Projects</SelectItem>
+                      {assignProjects.map(project => (
+                        <SelectItem key={project} value={project}>{project}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Client</h4>
-                <Select onValueChange={setAssignDialogClient}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {assignClients.map(client => (
-                      <SelectItem key={client} value={client}>{client}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Project</h4>
-                <Select onValueChange={setAssignDialogProject}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Projects</SelectItem>
-                    {assignProjects.map(project => (
-                      <SelectItem key={project} value={project}>{project}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
+            <ScrollArea className={cn(
+              "flex-1",
+              isMobile ? "h-[40vh]" : "h-[400px]"
+            )}>
+              <div className="space-y-2 p-1">
                 {filteredAvailableTasks.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
                     No available tasks found
@@ -1019,56 +1098,68 @@ const WorkloadCal = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Assign Subtask Dialog */}
+        {/* Assign Subtask Dialog - Enhanced for mobile */}
         <Dialog open={isAssignSubtaskDialogOpen} onOpenChange={setIsAssignSubtaskDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className={cn(
+            "max-w-2xl",
+            isMobile && "h-[90vh] max-h-[90vh] flex flex-col"
+          )}>
+            <DialogHeader className="shrink-0">
               <DialogTitle>Assign Subtask to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
             
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search subtasks..."
-                value={subtaskSearchQuery}
-                onChange={(e) => setSubtaskSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search Bar - Sticky on mobile */}
+            <div className={cn(
+              "shrink-0 space-y-4",
+              isMobile && "sticky top-0 bg-white z-10 pb-2 border-b"
+            )}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search subtasks..."
+                  value={subtaskSearchQuery}
+                  onChange={(e) => setSubtaskSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700">Client</h4>
+                  <Select onValueChange={setSubtaskDialogClient}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      {subtaskClients.map(client => (
+                        <SelectItem key={client} value={client}>{client}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700">Project</h4>
+                  <Select onValueChange={setSubtaskDialogProject}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Projects</SelectItem>
+                      {subtaskProjects.map(project => (
+                        <SelectItem key={project} value={project}>{project}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Client</h4>
-                <Select onValueChange={setSubtaskDialogClient}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {subtaskClients.map(client => (
-                      <SelectItem key={client} value={client}>{client}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Project</h4>
-                <Select onValueChange={setSubtaskDialogProject}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Projects</SelectItem>
-                    {subtaskProjects.map(project => (
-                      <SelectItem key={project} value={project}>{project}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
+            <ScrollArea className={cn(
+              "flex-1",
+              isMobile ? "h-[40vh]" : "h-[400px]"
+            )}>
+              <div className="space-y-2 p-1">
                 {filteredAvailableSubtasks.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
                     No available subtasks found
@@ -1096,56 +1187,68 @@ const WorkloadCal = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Assign Routine Dialog */}
+        {/* Assign Routine Dialog - Enhanced for mobile */}
         <Dialog open={isAssignRoutineDialogOpen} onOpenChange={setIsAssignRoutineDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className={cn(
+            "max-w-2xl",
+            isMobile && "h-[90vh] max-h-[90vh] flex flex-col"
+          )}>
+            <DialogHeader className="shrink-0">
               <DialogTitle>Assign Routine to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
             
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search routines..."
-                value={routineSearchQuery}
-                onChange={(e) => setRoutineSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search Bar - Sticky on mobile */}
+            <div className={cn(
+              "shrink-0 space-y-4",
+              isMobile && "sticky top-0 bg-white z-10 pb-2 border-b"
+            )}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search routines..."
+                  value={routineSearchQuery}
+                  onChange={(e) => setRoutineSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700">Client</h4>
+                  <Select onValueChange={setRoutineDialogClient}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      {routineClients.map(client => (
+                        <SelectItem key={client} value={client}>{client}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700">Project</h4>
+                  <Select onValueChange={setRoutineDialogProject}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Projects</SelectItem>
+                      {routineProjects.map(project => (
+                        <SelectItem key={project} value={project}>{project}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Client</h4>
-                <Select onValueChange={setRoutineDialogClient}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {routineClients.map(client => (
-                      <SelectItem key={client} value={client}>{client}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Project</h4>
-                <Select onValueChange={setRoutineDialogProject}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Projects</SelectItem>
-                    {routineProjects.map(project => (
-                      <SelectItem key={project} value={project}>{project}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <ScrollArea className="h-[400px]">
-              <div className="space-y-2">
+            <ScrollArea className={cn(
+              "flex-1",
+              isMobile ? "h-[40vh]" : "h-[400px]"
+            )}>
+              <div className="space-y-2 p-1">
                 {filteredAvailableRoutines.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
                     No available routines found
@@ -1176,12 +1279,30 @@ const WorkloadCal = () => {
         <div className="grid gap-4">
           {timeSlots.map(timeSlot => {
             const slotItems = itemsByTime[timeSlot] || [];
+            const isCurrentSlot = isCurrentHourSlot(timeSlot);
             
             return (
-              <Card key={timeSlot}>
+              <Card 
+                key={timeSlot}
+                ref={isCurrentSlot ? currentSlotRef : null}
+                className={cn(
+                  "transition-colors duration-200",
+                  isCurrentSlot && "bg-blue-50 border-blue-200 shadow-md"
+                )}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{formatTimeSlot(timeSlot)}</CardTitle>
+                    <CardTitle className={cn(
+                      "text-lg",
+                      isCurrentSlot && "text-blue-700"
+                    )}>
+                      {formatTimeSlot(timeSlot)}
+                      {isCurrentSlot && (
+                        <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
+                          Current
+                        </Badge>
+                      )}
+                    </CardTitle>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
