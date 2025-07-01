@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +39,6 @@ interface Task {
 
 interface CalendarItem {
   id: string;
-  name: string;
   task: string;
   sprint: string;
   startDate: Date;
@@ -236,7 +236,6 @@ const AgendaCal = () => {
 
       items.push({
         id: task.id,
-        name: task.assignee?.name || 'Unassigned',
         task: task.name,
         sprint: sprintName,
         startDate,
@@ -314,7 +313,7 @@ const AgendaCal = () => {
 
   return (
     <Navigation>
-      <div className="flex flex-col lg:flex-row h-screen">
+      <div className="flex flex-col lg:flex-row h-screen relative">
         {/* Left Panel - Filters */}
         <div className="w-full lg:w-80 bg-gray-50 border-b lg:border-r lg:border-b-0 px-1 lg:p-6 overflow-y-auto">
           <div className="flex items-center gap-3 mb-4 lg:mb-6">
@@ -324,13 +323,13 @@ const AgendaCal = () => {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-3 lg:gap-6 lg:space-y-0 lg:space-y-6">
             {/* Service Filter */}
-            <div className="lg:space-y-0">
+            <div className="lg:space-y-0 relative z-50">
               <label className="block text-sm font-medium mb-2">Service</label>
               <Select value={serviceFilter} onValueChange={setServiceFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border border-gray-200 shadow-sm">
                   <SelectValue placeholder="Filter by service" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
                   <SelectItem value="all">All Services</SelectItem>
                   {services.map((service) => (
                     <SelectItem key={service.id} value={service.name}>
@@ -342,13 +341,13 @@ const AgendaCal = () => {
             </div>
 
             {/* Client Filter */}
-            <div className="lg:space-y-0">
+            <div className="lg:space-y-0 relative z-40">
               <label className="block text-sm font-medium mb-2">Client</label>
               <Select value={clientFilter} onValueChange={setClientFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border border-gray-200 shadow-sm">
                   <SelectValue placeholder="Filter by client" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border border-gray-200 shadow-lg z-40">
                   <SelectItem value="all">All Clients</SelectItem>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
@@ -360,7 +359,7 @@ const AgendaCal = () => {
             </div>
 
             {/* Project Filter */}
-            <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:space-y-0">
+            <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:space-y-0 relative z-30">
               <label className="block text-sm font-medium mb-2">Projects</label>
               <div className="space-y-1 max-h-32 lg:max-h-48 overflow-y-auto border rounded-md p-2 bg-white">
                 <div
@@ -437,7 +436,7 @@ const AgendaCal = () => {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="text-sm font-medium break-words">
-                                {item.name} || {item.task} || {item.sprint}
+                                {item.task} || {item.sprint}
                               </div>
                               <div className="text-xs text-gray-500 mt-1 break-words">
                                 {item.project} • {item.client}
@@ -475,7 +474,7 @@ const AgendaCal = () => {
                           <Card key={`${date.toISOString()}-${item.id}`} className="border-l-4 border-l-green-500">
                             <CardContent className="p-2">
                               <div className="text-xs font-medium truncate">
-                                {item.name} || {item.task}
+                                {item.task}
                               </div>
                               <div className="text-xs text-gray-500 truncate">
                                 {item.sprint}
@@ -506,7 +505,7 @@ const AgendaCal = () => {
                         const runningEntry = getRunningTaskEntry(item.id);
                         return (
                           <div key={`${date.toISOString()}-${item.id}`} className="text-xs bg-blue-100 rounded p-1">
-                            <div className="truncate">{item.name}</div>
+                            <div className="truncate">{item.task}</div>
                             {runningEntry && (
                               <div className="flex items-center text-green-600 font-mono text-xs">
                                 <Clock className="h-2 w-2 mr-1" />

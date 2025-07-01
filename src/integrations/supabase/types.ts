@@ -637,39 +637,39 @@ export type Database = {
       }
       routines: {
         Row: {
-          category: string | null
           client_id: string
-          color: string | null
           created_at: string
           frequency: string
           id: string
           preferred_days: Json | null
+          preferred_slot_end: string | null
+          preferred_slot_start: string | null
           project_id: string
           start_date: string | null
           title: string
           updated_at: string
         }
         Insert: {
-          category?: string | null
           client_id: string
-          color?: string | null
           created_at?: string
           frequency: string
           id?: string
           preferred_days?: Json | null
+          preferred_slot_end?: string | null
+          preferred_slot_start?: string | null
           project_id: string
           start_date?: string | null
           title: string
           updated_at?: string
         }
         Update: {
-          category?: string | null
           client_id?: string
-          color?: string | null
           created_at?: string
           frequency?: string
           id?: string
           preferred_days?: Json | null
+          preferred_slot_end?: string | null
+          preferred_slot_start?: string | null
           project_id?: string
           start_date?: string | null
           title?: string

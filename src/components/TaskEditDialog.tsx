@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -136,6 +137,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
       queryClient.invalidateQueries({ queryKey: ['todays-reminders'] });
       queryClient.invalidateQueries({ queryKey: ['reminder-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['fixed-slot-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['timeline-slots'] });
       toast.success(`${isSubtask ? 'Subtask' : 'Task'} updated successfully`);
       onClose();
     },

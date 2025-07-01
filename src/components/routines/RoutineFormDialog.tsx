@@ -32,6 +32,8 @@ interface Routine {
   frequency: string;
   preferred_days: string[] | null;
   start_date: string;
+  preferred_slot_start?: string | null;
+  preferred_slot_end?: string | null;
   client: { name: string; id: string };
   project: { name: string; id: string };
 }
@@ -43,51 +45,78 @@ interface RoutineFormDialogProps {
   editingRoutine?: Routine | null;
 }
 
-const FREQUENCY_OPTIONS = [
-  { value: 'daily', label: 'Daily' },
-  { value: 'weekly_once', label: 'Weekly Once' },
-  { value: 'weekly_twice', label: 'Weekly Twice' },
-  { value: 'monthly_once', label: 'Monthly Once' },
-  { value: 'monthly_twice', label: 'Monthly Twice' },
-  { value: 'yearly_once', label: 'Yearly Once' }
-];
-
 const DAYS_OF_WEEK = [
   'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
+];
+
+// Predefined frequency options that match the database constraint
+const FREQUENCY_OPTIONS = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'every 2 days', label: 'Every 2 days' },
+  { value: 'every 3 days', label: 'Every 3 days' },
+  { value: 'every week', label: 'Every week' },
+  { value: 'every 2 weeks', label: 'Every 2 weeks' },
+  { value: 'twice a week', label: 'Twice a week' },
+  { value: 'once a month', label: 'Once a month' }
 ];
 
 const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: RoutineFormDialogProps) => {
   const [formData, setFormData] = useState({
     title: '',
-    frequency: 'daily',
+    frequency: '',
     client_id: '',
     project_id: '',
     preferred_days: [] as string[],
-    start_date: new Date().toISOString().split('T')[0]
+    start_date: new Date().toISOString().split('T')[0],
+    preferred_slot_start: '',
+    preferred_slot_end: ''
   });
 
   const queryClient = useQueryClient();
 
   // Reset form when dialog opens/closes or when editing routine changes
   useEffect(() => {
+    console.log('Effect triggered - editingRoutine:', editingRoutine);
+    console.log('Effect triggered - open:', open);
+    
     if (editingRoutine) {
-      console.log('Setting form data for editing routine:', editingRoutine);
-      setFormData({
-        title: editingRoutine.title,
-        frequency: editingRoutine.frequency,
-        client_id: editingRoutine.client.id,
-        project_id: editingRoutine.project.id,
+      console.log('Full editingRoutine object:', JSON.stringify(editingRoutine, null, 2));
+      console.log('editingRoutine.client:', editingRoutine.client);
+      console.log('editingRoutine.project:', editingRoutine.project);
+      
+      // Check if we have client and project data
+      const clientId = editingRoutine.client?.id || '';
+      const projectId = editingRoutine.project?.id || '';
+      
+      console.log('Extracted clientId:', clientId);
+      console.log('Extracted projectId:', projectId);
+      
+      const newFormData = {
+        title: editingRoutine.title || '',
+        frequency: editingRoutine.frequency || '',
+        client_id: clientId,
+        project_id: projectId,
         preferred_days: editingRoutine.preferred_days || [],
-        start_date: editingRoutine.start_date
-      });
+        start_date: editingRoutine.start_date || new Date().toISOString().split('T')[0],
+        preferred_slot_start: editingRoutine.preferred_slot_start || '',
+        preferred_slot_end: editingRoutine.preferred_slot_end || ''
+      };
+      
+      console.log('Setting form data to:', newFormData);
+      setFormData(newFormData);
     } else if (open) {
+      console.log('Opening form for new routine - resetting form data');
       setFormData({
         title: '',
-        frequency: 'daily',
+        frequency: '',
         client_id: '',
         project_id: '',
         preferred_days: [],
-        start_date: new Date().toISOString().split('T')[0]
+        start_date: new Date().toISOString().split('T')[0],
+        preferred_slot_start: '',
+        preferred_slot_end: ''
       });
     }
   }, [editingRoutine, open]);
@@ -97,12 +126,14 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
     queryKey: ['projects-for-routine', formData.client_id],
     queryFn: async () => {
       if (!formData.client_id) return [];
+      console.log('Fetching projects for client_id:', formData.client_id);
       const { data, error } = await supabase
         .from('projects')
         .select('id, name')
         .eq('client_id', formData.client_id)
         .order('name');
       if (error) throw error;
+      console.log('Fetched projects:', data);
       return data as Project[];
     },
     enabled: !!formData.client_id
@@ -111,14 +142,20 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
   // Create/Update routine mutation
   const saveRoutineMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      console.log('Saving routine with data:', data);
+      
       const routineData = {
         title: data.title,
         frequency: data.frequency,
         client_id: data.client_id,
         project_id: data.project_id,
         preferred_days: data.preferred_days.length > 0 ? data.preferred_days : null,
-        start_date: data.start_date
+        start_date: data.start_date,
+        preferred_slot_start: data.preferred_slot_start || null,
+        preferred_slot_end: data.preferred_slot_end || null
       };
+
+      console.log('Processed routine data:', routineData);
 
       if (editingRoutine) {
         // Update existing routine
@@ -128,7 +165,10 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
           .eq('id', editingRoutine.id)
           .select()
           .single();
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         return result;
       } else {
         // Create new routine
@@ -137,7 +177,10 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
           .insert(routineData)
           .select()
           .single();
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
         return result;
       }
     },
@@ -154,8 +197,14 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submission with data:', formData);
+    
     if (!formData.title.trim()) {
       toast.error('Please enter a routine title');
+      return;
+    }
+    if (!formData.frequency.trim()) {
+      toast.error('Please select a frequency');
       return;
     }
     if (!formData.client_id) {
@@ -166,39 +215,45 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
       toast.error('Please select a project');
       return;
     }
+    
+    console.log('Validation passed, calling mutation');
     saveRoutineMutation.mutate(formData);
   };
 
   const handlePreferredDayToggle = (day: string) => {
-    const maxDays = formData.frequency === 'weekly_twice' ? 2 : 
-                   formData.frequency === 'monthly_twice' ? 2 : 1;
-    
     const newDays = formData.preferred_days.includes(day)
       ? formData.preferred_days.filter(d => d !== day)
-      : formData.preferred_days.length < maxDays
-        ? [...formData.preferred_days, day]
-        : formData.preferred_days;
+      : [...formData.preferred_days, day];
     
     setFormData({ ...formData, preferred_days: newDays });
   };
 
-  const shouldShowPreferredDays = ['weekly_once', 'weekly_twice', 'monthly_once', 'monthly_twice'].includes(formData.frequency);
-
   // Convert string date to Date object for Calendar component
   const selectedDate = formData.start_date ? new Date(formData.start_date) : undefined;
 
+  console.log('Current formData state:', formData);
+
+  // Force re-render key when formData changes significantly
+  const formKey = `${formData.client_id}-${formData.project_id}-${formData.title}-${editingRoutine?.id || 'new'}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editingRoutine ? 'Edit Routine' : 'Add New Routine'}</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" key={formKey}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="client">Client *</Label>
-              <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value, project_id: '' })}>
+              <Select 
+                value={formData.client_id} 
+                onValueChange={(value) => {
+                  console.log('Client changed to:', value);
+                  setFormData({ ...formData, client_id: value, project_id: '' });
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
@@ -212,7 +267,14 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
 
             <div className="space-y-2">
               <Label htmlFor="project">Project *</Label>
-              <Select value={formData.project_id} onValueChange={(value) => setFormData({ ...formData, project_id: value })} disabled={!formData.client_id}>
+              <Select 
+                value={formData.project_id} 
+                onValueChange={(value) => {
+                  console.log('Project changed to:', value);
+                  setFormData({ ...formData, project_id: value });
+                }} 
+                disabled={!formData.client_id}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select project" />
                 </SelectTrigger>
@@ -230,14 +292,23 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => {
+                console.log('Title changed to:', e.target.value);
+                setFormData({ ...formData, title: e.target.value });
+              }}
               placeholder="Enter routine title"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="frequency">Frequency *</Label>
-            <Select value={formData.frequency} onValueChange={(value) => setFormData({ ...formData, frequency: value, preferred_days: [] })}>
+            <Select 
+              value={formData.frequency} 
+              onValueChange={(value) => {
+                console.log('Frequency changed to:', value);
+                setFormData({ ...formData, frequency: value });
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select frequency" />
               </SelectTrigger>
@@ -247,30 +318,29 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-gray-500">
+              Choose how often this routine should be performed
+            </p>
           </div>
 
-          {shouldShowPreferredDays && (
-            <div className="space-y-2">
-              <Label>Preferred Days *</Label>
-              <div className="flex flex-wrap gap-2">
-                {DAYS_OF_WEEK.map(day => (
-                  <div key={day} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={day}
-                      checked={formData.preferred_days.includes(day)}
-                      onCheckedChange={() => handlePreferredDayToggle(day)}
-                    />
-                    <Label htmlFor={day} className="text-sm">
-                      {day.charAt(0).toUpperCase() + day.slice(1)}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-              {formData.frequency === 'weekly_twice' && (
-                <p className="text-sm text-gray-500">Select exactly 2 days</p>
-              )}
+          <div className="space-y-2">
+            <Label>Preferred Days (Optional)</Label>
+            <div className="flex flex-wrap gap-2">
+              {DAYS_OF_WEEK.map(day => (
+                <div key={day} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={day}
+                    checked={formData.preferred_days.includes(day)}
+                    onCheckedChange={() => handlePreferredDayToggle(day)}
+                  />
+                  <Label htmlFor={day} className="text-sm">
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                  </Label>
+                </div>
+              ))}
             </div>
-          )}
+            <p className="text-sm text-gray-500">Select specific days when this routine should be performed</p>
+          </div>
 
           <div className="space-y-2">
             <Label>Start Date</Label>
@@ -298,13 +368,37 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
             </Popover>
           </div>
 
-          <div className="flex justify-end space-x-2 pt-4">
+          <div className="space-y-2">
+            <Label>Preferred Time Slot (Optional)</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="slot-start" className="text-sm text-gray-600">Start Time</Label>
+                <Input
+                  id="slot-start"
+                  type="time"
+                  value={formData.preferred_slot_start}
+                  onChange={(e) => setFormData({ ...formData, preferred_slot_start: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="slot-end" className="text-sm text-gray-600">End Time</Label>
+                <Input
+                  id="slot-end"
+                  type="time"
+                  value={formData.preferred_slot_end}
+                  onChange={(e) => setFormData({ ...formData, preferred_slot_end: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">Set a preferred time window for this routine</p>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button 
               type="submit" 
-              className="w-full"
               disabled={saveRoutineMutation.isPending}
             >
               {saveRoutineMutation.isPending 

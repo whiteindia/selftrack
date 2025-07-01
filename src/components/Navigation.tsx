@@ -77,16 +77,17 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const goalTrackItems = [
     { path: '/time-until', label: 'Time Until', icon: Clock, pageName: 'time-until' },
+    { path: '/workload-cal', label: 'Workload Cal', icon: CalendarDays, pageName: 'workload-cal' },
     { path: '/routines-tracker', label: 'Routines Tracker', icon: Target, pageName: 'routines-tracker', requireAdmin: true },
   ];
 
   const plannerItems = [
-    { path: '/workload-cal', label: 'Workload Cal', icon: CalendarDays, pageName: 'workload-cal' },
+    { path: '/followupcal', label: 'FollowupCal', icon: CalendarCheck, pageName: 'followupcal' },
     { path: '/fixed-slots', label: 'Fixed Slots', icon: CalendarCheck, pageName: 'fixed-slots' },
-    { path: '/reminders', label: 'Reminders', icon: Bell, pageName: 'reminders' },
+    { path: '/reminders', label: 'Reminders-DLs', icon: Bell, pageName: 'reminders' },
   ];
 
-  const trakEzyItems = [
+  const trakTeamItems = [
     { path: '/gantt-view', label: 'Gantt View', icon: ChartGantt, pageName: 'gantt-view' },
     { path: '/agenda-cal', label: 'Agenda Cal', icon: CalendarRange, pageName: 'agenda-cal' },
     { path: '/log-cal', label: 'Log Cal', icon: CalendarClock, pageName: 'log-cal' },
@@ -135,9 +136,9 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return access;
   });
 
-  const visibleTrakEzyItems = trakEzyItems.filter(item => {
+  const visibleTrakTeamItems = trakTeamItems.filter(item => {
     const access = hasPageAccess(item.pageName);
-    console.log(`TrakEzy filtering ${item.label} (${item.pageName}):`, access);
+    console.log(`TrakTeam filtering ${item.label} (${item.pageName}):`, access);
     return access;
   });
 
@@ -155,7 +156,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const shouldShowTaskforceMenu = visibleTaskforceItems.length > 0;
   const shouldShowGoalTrackMenu = visibleGoalTrackItems.length > 0;
   const shouldShowPlannerMenu = visiblePlannerItems.length > 0;
-  const shouldShowTrakEzyMenu = visibleTrakEzyItems.length > 0;
+  const shouldShowTrakTeamMenu = visibleTrakTeamItems.length > 0;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -303,11 +304,11 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             </div>
           )}
 
-          {shouldShowTrakEzyMenu && (
+          {shouldShowTrakTeamMenu && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">TrakEzy</h3>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">TrakTeam</h3>
               <div className="space-y-1">
-                {visibleTrakEzyItems.map((item) => {
+                {visibleTrakTeamItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link
@@ -376,7 +377,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   );
 
   const DesktopNavigation = () => (
-    <header className="bg-white shadow-sm border-b sticky top-0 z-50 w-full overflow-hidden">
+    <header className="bg-white shadow-sm border-b sticky top-0 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
           <div className="hidden md:flex items-center space-x-6 flex-1 justify-center min-w-0 overflow-hidden">
@@ -408,7 +409,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9999 }}>
                   {visibleTaskforceItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -459,7 +460,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9998 }}>
                   {visibleGoalTrackItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -491,7 +492,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9997 }}>
                   {visiblePlannerItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -514,17 +515,17 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               </DropdownMenu>
             )}
             
-            {shouldShowTrakEzyMenu && (
+            {shouldShowTrakTeamMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
                     <Calendar className="h-4 w-4" />
-                    <span>TrakEzy</span>
+                    <span>TrakTeam</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg z-50">
-                  {visibleTrakEzyItems.map((item) => {
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9996 }}>
+                  {visibleTrakTeamItems.map((item) => {
                     const Icon = item.icon;
                     return (
                       <DropdownMenuItem key={item.path} asChild>
@@ -555,7 +556,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg z-50">
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9995 }}>
                   {visibleConfigItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -591,7 +592,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border shadow-lg z-50 w-48">
+              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-48" style={{ zIndex: 9994 }}>
                 <div className="px-3 py-2 border-b">
                   <p className="text-sm text-gray-600 truncate">{user?.email}</p>
                 </div>

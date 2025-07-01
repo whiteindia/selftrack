@@ -18,15 +18,11 @@ import Navigation from '@/components/Navigation';
 import TaskTimer from '@/components/TaskTimer';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface Task {
   id: string;
   name: string;
   assignee_name?: string;
-  assigner?: {
-    name: string;
-  };
   sprint_name?: string;
   project_name: string;
   client_name: string;
@@ -38,14 +34,29 @@ interface Subtask {
   id: string;
   name: string;
   assignee_name?: string;
-  assigner?: {
-    name: string;
-  };
   project_name: string;
   client_name: string;
   status: string;
   scheduled_time?: string;
   parent_task_name: string;
+}
+
+interface TaskAssignment {
+  id: string;
+  task_id: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  task: Task;
+}
+
+interface Routine {
+  id: string;
+  title: string;
+  frequency: string;
+  preferred_days: string[] | null;
+  start_date: string;
+  client: { name: string; id: string };
+  project: { name: string; id: string };
 }
 
 interface WorkloadItem {
@@ -64,18 +75,7 @@ interface WorkloadItem {
   };
 }
 
-interface Routine {
-  id: string;
-  title: string;
-  frequency: string;
-  preferred_days: string[] | null;
-  start_date: string;
-  client: { name: string; id: string };
-  project: { name: string; id: string };
-}
-
 const WorkloadCal = () => {
-  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
@@ -108,19 +108,24 @@ const WorkloadCal = () => {
       setCurrentHour(new Date().getHours());
     };
 
+    // Update immediately
     updateCurrentHour();
+
+    // Set up interval to update every minute
     const interval = setInterval(updateCurrentHour, 60000);
+
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-scroll to current slot
+  // Auto-scroll to current slot on page load or date change - improved implementation
   useEffect(() => {
     const scrollToCurrentSlot = () => {
       if (currentSlotRef.current) {
+        // Calculate the offset to position the element at the top
         const element = currentSlotRef.current;
         const elementRect = element.getBoundingClientRect();
         const absoluteElementTop = elementRect.top + window.pageYOffset;
-        const middle = absoluteElementTop - 80;
+        const middle = absoluteElementTop - 80; // 80px offset from top for better visibility
         
         window.scrollTo({
           top: middle,
@@ -129,9 +134,31 @@ const WorkloadCal = () => {
       }
     };
 
+    // Use a longer delay to ensure all components are fully rendered
     const timer = setTimeout(scrollToCurrentSlot, 800);
+
     return () => clearTimeout(timer);
   }, [selectedDate, currentHour]);
+
+  // Additional effect to handle initial page load with better timing
+  useEffect(() => {
+    // Scroll on initial load after components are rendered
+    const initialScrollTimer = setTimeout(() => {
+      if (currentSlotRef.current) {
+        const element = currentSlotRef.current;
+        const elementRect = element.getBoundingClientRect();
+        const absoluteElementTop = elementRect.top + window.pageYOffset;
+        const middle = absoluteElementTop - 80; // 80px offset from top
+        
+        window.scrollTo({
+          top: middle,
+          behavior: 'smooth'
+        });
+      }
+    }, 1000); // Longer delay for initial load
+
+    return () => clearTimeout(initialScrollTimer);
+  }, []);
 
   // Generate time slots (24 hours)
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -139,7 +166,7 @@ const WorkloadCal = () => {
     return `${hour}:00`;
   });
 
-  // Fetch workload items for the selected date - UPDATED to correctly identify tasks vs subtasks
+  // Fetch workload items (tasks, subtasks, and routine completions) for the selected date
   const { data: workloadItems = [], isLoading } = useQuery({
     queryKey: ['workload-assignments', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
@@ -147,7 +174,7 @@ const WorkloadCal = () => {
       
       console.log('Fetching workload items for date:', dateStr);
       
-      // Fetch tasks (both direct assignments and followup assignments)
+      // Fetch tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
@@ -155,15 +182,13 @@ const WorkloadCal = () => {
           name,
           status,
           scheduled_time,
-          date,
           assignee:employees!tasks_assignee_id_fkey(name),
-          assigner:employees!tasks_assigner_id_fkey(name),
           project:projects!tasks_project_id_fkey(
             name,
             client:clients!projects_client_id_fkey(name)
           )
         `)
-        .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
+        .eq('date', dateStr)
         .not('scheduled_time', 'is', null);
 
       if (tasksError) {
@@ -171,7 +196,7 @@ const WorkloadCal = () => {
         throw tasksError;
       }
 
-      // Fetch subtasks (both direct assignments and followup assignments)
+      // Fetch subtasks
       const { data: subtasksData, error: subtasksError } = await supabase
         .from('subtasks')
         .select(`
@@ -179,9 +204,7 @@ const WorkloadCal = () => {
           name,
           status,
           scheduled_time,
-          date,
           assignee:employees!subtasks_assignee_id_fkey(name),
-          assigner:employees!subtasks_assigner_id_fkey(name),
           task:tasks!subtasks_task_id_fkey(
             name,
             project:projects!tasks_project_id_fkey(
@@ -190,7 +213,7 @@ const WorkloadCal = () => {
             )
           )
         `)
-        .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
+        .eq('date', dateStr)
         .not('scheduled_time', 'is', null);
 
       if (subtasksError) {
@@ -198,29 +221,7 @@ const WorkloadCal = () => {
         throw subtasksError;
       }
 
-      // Filter tasks that have scheduled_time matching today's date
-      const filteredTasks = tasksData?.filter(task => {
-        if (task.date === dateStr) return true;
-        if (task.scheduled_time && !task.date) {
-          // For items assigned via followup without date, check if scheduled_time matches today
-          const scheduledDate = task.scheduled_time.split(' ')[0];
-          return scheduledDate === dateStr;
-        }
-        return false;
-      }) || [];
-
-      // Filter subtasks that have scheduled_time matching today's date
-      const filteredSubtasks = subtasksData?.filter(subtask => {
-        if (subtask.date === dateStr) return true;
-        if (subtask.scheduled_time && !subtask.date) {
-          // For items assigned via followup without date, check if scheduled_time matches today
-          const scheduledDate = subtask.scheduled_time.split(' ')[0];
-          return scheduledDate === dateStr;
-        }
-        return false;
-      }) || [];
-
-      // Fetch routine completions
+      // Fetch routine completions with scheduled time
       const { data: routineData, error: routineError } = await supabase
         .from('routine_completions')
         .select(`
@@ -242,8 +243,12 @@ const WorkloadCal = () => {
         throw routineError;
       }
 
+      console.log('Tasks data:', tasksData);
+      console.log('Subtasks data:', subtasksData);
+      console.log('Routine completions data:', routineData);
+
       // Get sprint information for tasks
-      const taskIds = filteredTasks?.map(task => task.id) || [];
+      const taskIds = tasksData?.map(task => task.id) || [];
       let sprintData: any[] = [];
       
       if (taskIds.length > 0) {
@@ -262,31 +267,19 @@ const WorkloadCal = () => {
         }
       }
 
-      // Process tasks - FIXED to properly identify as tasks
-      const taskItems: WorkloadItem[] = filteredTasks?.map(task => {
+      // Process tasks
+      const taskItems: WorkloadItem[] = tasksData?.map(task => {
         const sprintInfo = sprintData.find(s => s.task_id === task.id);
-        let scheduledTime = '09:00';
-        
-        if (task.scheduled_time) {
-          if (task.scheduled_time.includes(' ')) {
-            // Format: "2024-07-01 14:00:00" - extract time part
-            scheduledTime = task.scheduled_time.split(' ')[1].substring(0, 5);
-          } else {
-            // Format: "14:00"
-            scheduledTime = task.scheduled_time;
-          }
-        }
         
         return {
           id: task.id,
-          type: 'task' as const, // FIXED: Always set as 'task' for tasks table items
+          type: 'task' as const,
           scheduled_date: dateStr,
-          scheduled_time: scheduledTime,
+          scheduled_time: task.scheduled_time || '09:00',
           task: {
             id: task.id,
             name: task.name,
             assignee_name: task.assignee?.name || 'Unassigned',
-            assigner: task.assigner, // Keep the full assigner object
             sprint_name: sprintInfo?.sprint?.name || null,
             project_name: task.project?.name || '',
             client_name: task.project?.client?.name || '',
@@ -296,40 +289,25 @@ const WorkloadCal = () => {
         };
       }) || [];
 
-      // Process subtasks - FIXED to properly identify as subtasks
-      const subtaskItems: WorkloadItem[] = filteredSubtasks?.map(subtask => {
-        let scheduledTime = '09:00';
-        
-        if (subtask.scheduled_time) {
-          if (subtask.scheduled_time.includes(' ')) {
-            // Format: "2024-07-01 14:00:00" - extract time part
-            scheduledTime = subtask.scheduled_time.split(' ')[1].substring(0, 5);
-          } else {
-            // Format: "14:00"
-            scheduledTime = subtask.scheduled_time;
-          }
-        }
-        
-        return {
+      // Process subtasks
+      const subtaskItems: WorkloadItem[] = subtasksData?.map(subtask => ({
+        id: subtask.id,
+        type: 'subtask' as const,
+        scheduled_date: dateStr,
+        scheduled_time: subtask.scheduled_time || '09:00',
+        subtask: {
           id: subtask.id,
-          type: 'subtask' as const, // FIXED: Always set as 'subtask' for subtasks table items
-          scheduled_date: dateStr,
-          scheduled_time: scheduledTime,
-          subtask: {
-            id: subtask.id,
-            name: subtask.name,
-            assignee_name: subtask.assignee?.name || 'Unassigned',
-            assigner: subtask.assigner, // Keep the full assigner object
-            project_name: subtask.task?.project?.name || '',
-            client_name: subtask.task?.project?.client?.name || '',
-            status: subtask.status,
-            scheduled_time: subtask.scheduled_time,
-            parent_task_name: subtask.task?.name || ''
-          }
-        };
-      }) || [];
+          name: subtask.name,
+          assignee_name: subtask.assignee?.name || 'Unassigned',
+          project_name: subtask.task?.project?.name || '',
+          client_name: subtask.task?.project?.client?.name || '',
+          status: subtask.status,
+          scheduled_time: subtask.scheduled_time,
+          parent_task_name: subtask.task?.name || ''
+        }
+      })) || [];
 
-      // Process routine completions
+      // Process routine completions - use their scheduled time
       const routineItems: WorkloadItem[] = routineData?.map(completion => ({
         id: completion.id,
         type: 'routine' as const,
@@ -346,12 +324,11 @@ const WorkloadCal = () => {
 
       const allItems = [...taskItems, ...subtaskItems, ...routineItems];
       console.log('Processed workload items:', allItems);
-      console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length);
       return allItems;
     }
   });
 
-  // Fetch available tasks for assignment
+  // Fetch available tasks for assignment (non-completed and not already assigned for this date)
   const { data: availableTasks = [] } = useQuery({
     queryKey: ['available-tasks', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
@@ -388,12 +365,13 @@ const WorkloadCal = () => {
     }
   });
 
-  // Fetch available routines for assignment
+  // Fetch available routines for assignment (not already assigned for this date)
   const { data: availableRoutines = [] } = useQuery({
     queryKey: ['available-routines', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
       const dateStr = selectedDate.toISOString().split('T')[0];
       
+      // First get all routines
       const { data: allRoutines, error: routinesError } = await supabase
         .from('routines')
         .select(`
@@ -408,6 +386,7 @@ const WorkloadCal = () => {
         throw routinesError;
       }
 
+      // Get already assigned routine IDs for this date
       const { data: assignedRoutines, error: assignedError } = await supabase
         .from('routine_completions')
         .select('routine_id')
@@ -420,6 +399,7 @@ const WorkloadCal = () => {
 
       const assignedRoutineIds = assignedRoutines?.map(r => r.routine_id) || [];
       
+      // Filter out already assigned routines
       const availableRoutines = allRoutines?.filter(routine => 
         !assignedRoutineIds.includes(routine.id)
       ) || [];
@@ -428,7 +408,7 @@ const WorkloadCal = () => {
     }
   });
 
-  // Fetch available subtasks for assignment
+  // Fetch available subtasks for assignment (non-completed and not already assigned for this date)
   const { data: availableSubtasks = [] } = useQuery({
     queryKey: ['available-subtasks', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
@@ -469,13 +449,14 @@ const WorkloadCal = () => {
     }
   });
 
-  // Get unique clients and projects for filters
+  // Get unique clients and projects from workload items for top filters
   const clients = [...new Set(workloadItems.map(item => {
     if (item.type === 'task') return item.task?.client_name;
     if (item.type === 'subtask') return item.subtask?.client_name;
     return item.routine?.client_name;
   }))].filter(Boolean);
   
+  // Filter projects based on selected client
   const projects = selectedClient === 'all' 
     ? [...new Set(workloadItems.map(item => {
         if (item.type === 'task') return item.task?.project_name;
@@ -538,7 +519,7 @@ const WorkloadCal = () => {
     return true;
   });
 
-  // Filter available tasks for assignment dialog
+  // Filter available tasks for assignment dialog - now includes search
   const filteredAvailableTasks = availableTasks.filter(task => {
     if (assignDialogClient && assignDialogClient !== 'all' && task.client_name !== assignDialogClient) return false;
     if (assignDialogProject && assignDialogProject !== 'all' && task.project_name !== assignDialogProject) return false;
@@ -546,7 +527,7 @@ const WorkloadCal = () => {
     return true;
   });
 
-  // Filter available routines for assignment dialog
+  // Filter available routines for assignment dialog - now includes search
   const filteredAvailableRoutines = availableRoutines.filter(routine => {
     if (routineDialogClient && routineDialogClient !== 'all' && routine.client.name !== routineDialogClient) return false;
     if (routineDialogProject && routineDialogProject !== 'all' && routine.project.name !== routineDialogProject) return false;
@@ -554,7 +535,7 @@ const WorkloadCal = () => {
     return true;
   });
 
-  // Filter available subtasks for assignment dialog
+  // Filter available subtasks for assignment dialog - now includes search
   const filteredAvailableSubtasks = availableSubtasks.filter(subtask => {
     if (subtaskDialogClient && subtaskDialogClient !== 'all' && subtask.client_name !== subtaskDialogClient) return false;
     if (subtaskDialogProject && subtaskDialogProject !== 'all' && subtask.project_name !== subtaskDialogProject) return false;
@@ -562,12 +543,13 @@ const WorkloadCal = () => {
     return true;
   });
 
-  // Filter workload items for clear dialog
+  // Filter workload items for clear dialog - only show In Progress tasks and subtasks
   const inProgressItems = workloadItems.filter(item => 
     (item.type === 'task' && item.task?.status === 'In Progress') ||
     (item.type === 'subtask' && item.subtask?.status === 'In Progress')
   );
 
+  // Filter routine items for clear routines dialog
   const routineItems = workloadItems.filter(item => item.type === 'routine');
 
   // Group workload items by time slot
@@ -583,6 +565,8 @@ const WorkloadCal = () => {
     mutationFn: async ({ taskId, timeSlot }: { taskId: string; timeSlot: string }) => {
       const dateStr = selectedDate.toISOString().split('T')[0];
       
+      console.log('Assigning task:', { taskId, timeSlot, dateStr });
+      
       const { error } = await supabase
         .from('tasks')
         .update({
@@ -591,7 +575,10 @@ const WorkloadCal = () => {
         })
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Assignment error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
@@ -613,6 +600,8 @@ const WorkloadCal = () => {
     mutationFn: async ({ routineId, timeSlot }: { routineId: string; timeSlot: string }) => {
       const dateStr = selectedDate.toISOString().split('T')[0];
       
+      console.log('Creating routine completion:', { routineId, timeSlot, dateStr });
+      
       const { error } = await supabase
         .from('routine_completions')
         .insert({
@@ -622,7 +611,10 @@ const WorkloadCal = () => {
           user_id: (await supabase.auth.getUser()).data.user?.id || ''
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Routine completion error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
@@ -644,6 +636,8 @@ const WorkloadCal = () => {
     mutationFn: async ({ subtaskId, timeSlot }: { subtaskId: string; timeSlot: string }) => {
       const dateStr = selectedDate.toISOString().split('T')[0];
       
+      console.log('Assigning subtask:', { subtaskId, timeSlot, dateStr });
+      
       const { error } = await supabase
         .from('subtasks')
         .update({
@@ -652,7 +646,10 @@ const WorkloadCal = () => {
         })
         .eq('id', subtaskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Subtask assignment error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
@@ -669,18 +666,27 @@ const WorkloadCal = () => {
     }
   });
 
-  // Clear assignment mutation
+  // Clear assignment mutation - updated to handle subtasks
   const clearAssignmentMutation = useMutation({
     mutationFn: async ({ itemId, itemType }: { itemId: string; itemType: 'task' | 'subtask' }) => {
+      console.log('Clearing assignment for:', itemType, itemId);
+      
       const table = itemType === 'task' ? 'tasks' : 'subtasks';
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(table)
         .update({
           scheduled_time: null
         })
-        .eq('id', itemId);
+        .eq('id', itemId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Clear assignment error:', error);
+        throw error;
+      }
+
+      console.log('Assignment cleared successfully:', data);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
@@ -696,12 +702,17 @@ const WorkloadCal = () => {
 
   const clearRoutineCompletionMutation = useMutation({
     mutationFn: async (completionId: string) => {
+      console.log('Clearing routine completion:', completionId);
+      
       const { error } = await supabase
         .from('routine_completions')
         .delete()
         .eq('id', completionId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Clear routine completion error:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
@@ -754,9 +765,11 @@ const WorkloadCal = () => {
   };
 
   const handleClearAssignment = (itemId: string, itemType: 'task' | 'subtask' | 'routine') => {
+    console.log('Handle clear assignment called for:', itemType, itemId);
     if (itemType === 'task' || itemType === 'subtask') {
       clearAssignmentMutation.mutate({ itemId, itemType });
     } else {
+      // For routines, we need to delete the routine completion
       clearRoutineCompletionMutation.mutate(itemId);
     }
   };
@@ -783,9 +796,11 @@ const WorkloadCal = () => {
   };
 
   const handleTimeUpdate = () => {
+    // Refresh the assignments data when timer is updated
     queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
   };
 
+  // Check if a time slot is the current hour
   const isCurrentHourSlot = (timeSlot: string) => {
     const [hour] = timeSlot.split(':');
     const slotHour = parseInt(hour);
@@ -1041,7 +1056,7 @@ const WorkloadCal = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Assign Task Dialog */}
+        {/* Assign Task Dialog - Enhanced for mobile */}
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
           <DialogContent className={cn(
             "max-w-2xl",
@@ -1051,6 +1066,7 @@ const WorkloadCal = () => {
               <DialogTitle>Assign Task to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
             
+            {/* Search Bar - Sticky on mobile */}
             <div className={cn(
               "shrink-0 space-y-4",
               isMobile && "sticky top-0 bg-white z-10 pb-2 border-b"
@@ -1128,7 +1144,7 @@ const WorkloadCal = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Assign Subtask Dialog */}
+        {/* Assign Subtask Dialog - Enhanced for mobile */}
         <Dialog open={isAssignSubtaskDialogOpen} onOpenChange={setIsAssignSubtaskDialogOpen}>
           <DialogContent className={cn(
             "max-w-2xl",
@@ -1138,6 +1154,7 @@ const WorkloadCal = () => {
               <DialogTitle>Assign Subtask to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
             
+            {/* Search Bar - Sticky on mobile */}
             <div className={cn(
               "shrink-0 space-y-4",
               isMobile && "sticky top-0 bg-white z-10 pb-2 border-b"
@@ -1216,7 +1233,7 @@ const WorkloadCal = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Assign Routine Dialog */}
+        {/* Assign Routine Dialog - Enhanced for mobile */}
         <Dialog open={isAssignRoutineDialogOpen} onOpenChange={setIsAssignRoutineDialogOpen}>
           <DialogContent className={cn(
             "max-w-2xl",
@@ -1226,6 +1243,7 @@ const WorkloadCal = () => {
               <DialogTitle>Assign Routine to {formatTimeSlot(selectedTimeSlot)}</DialogTitle>
             </DialogHeader>
             
+            {/* Search Bar - Sticky on mobile */}
             <div className={cn(
               "shrink-0 space-y-4",
               isMobile && "sticky top-0 bg-white z-10 pb-2 border-b"
@@ -1385,6 +1403,7 @@ const WorkloadCal = () => {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              console.log('Clear button clicked for:', item.type, item.id);
                               handleClearAssignment(item.id, item.type);
                             }}
                             className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center text-red-600 hover:text-red-700 transition-colors z-10"
@@ -1397,23 +1416,27 @@ const WorkloadCal = () => {
                             <div className="space-y-2">
                               {item.type === 'task' ? (
                                 <>
+                                  {/* Assignee name */}
                                   <div className="text-xs text-gray-600">
-                                    👤 Assigned to: {item.task?.assignee_name}
+                                    👤 {item.task?.assignee_name}
                                   </div>
-                                  {item.task?.assigner?.name && (
-                                    <div className="text-xs text-gray-500">
-                                      📋 Assigned by: {item.task.assigner.name}
-                                    </div>
-                                  )}
+                                  
+                                  {/* Task description */}
                                   <div className="font-medium text-sm">{item.task?.name}</div>
+                                  
+                                  {/* Client || Project */}
                                   <div className="text-xs text-gray-600">
                                     {item.task?.client_name} || {item.task?.project_name}
                                   </div>
+                                  
+                                  {/* Sprint badge */}
                                   {item.task?.sprint_name && (
                                     <Badge variant="outline" className="text-xs">
                                       🏃 {item.task.sprint_name}
                                     </Badge>
                                   )}
+                                  
+                                  {/* Timer section */}
                                   <div className="pt-2 border-t border-gray-100">
                                     <TaskTimer
                                       taskId={item.task.id}
@@ -1424,24 +1447,30 @@ const WorkloadCal = () => {
                                 </>
                               ) : item.type === 'subtask' ? (
                                 <>
+                                  {/* Subtask indicator */}
                                   <div className="text-xs text-gray-600">
                                     📋 Subtask
                                   </div>
+                                  
+                                  {/* Assignee name */}
                                   <div className="text-xs text-gray-600">
-                                    👤 Assigned to: {item.subtask?.assignee_name}
+                                    👤 {item.subtask?.assignee_name}
                                   </div>
-                                  {item.subtask?.assigner?.name && (
-                                    <div className="text-xs text-gray-500">
-                                      📋 Assigned by: {item.subtask.assigner.name}
-                                    </div>
-                                  )}
+                                  
+                                  {/* Subtask description */}
                                   <div className="font-medium text-sm">{item.subtask?.name}</div>
+                                  
+                                  {/* Parent task */}
                                   <div className="text-xs text-gray-500">
                                     Task: {item.subtask?.parent_task_name}
                                   </div>
+                                  
+                                  {/* Client || Project */}
                                   <div className="text-xs text-gray-600">
                                     {item.subtask?.client_name} || {item.subtask?.project_name}
                                   </div>
+                                  
+                                  {/* Timer section */}
                                   <div className="pt-2 border-t border-gray-100">
                                     <TaskTimer
                                       taskId={item.subtask.id}
@@ -1452,14 +1481,21 @@ const WorkloadCal = () => {
                                 </>
                               ) : (
                                 <>
+                                  {/* Routine indicator */}
                                   <div className="text-xs text-gray-600">
                                     <Repeat className="h-3 w-3 inline mr-1" />
                                     Routine
                                   </div>
+                                  
+                                  {/* Routine title */}
                                   <div className="font-medium text-sm">{item.routine?.title}</div>
+                                  
+                                  {/* Client || Project */}
                                   <div className="text-xs text-gray-600">
                                     {item.routine?.client_name} || {item.routine?.project_name}
                                   </div>
+                                  
+                                  {/* Frequency badge */}
                                   <Badge variant="outline" className="text-xs">
                                     {item.routine?.frequency}
                                   </Badge>

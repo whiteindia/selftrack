@@ -12,6 +12,7 @@ import { CalendarIcon, Clock, User, Building, Calendar as CalendarIconLucide } f
 import { format, parseISO, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import TaskEditDialog from '@/components/TaskEditDialog';
 
 interface TimelineTask {
   id: string;
@@ -41,6 +42,7 @@ const TimelineSlots = () => {
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('client'); // Changed default to 'client'
+  const [selectedTask, setSelectedTask] = useState<TimelineTask | null>(null);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['timeline-slots', selectedDate, user?.id],
@@ -205,6 +207,14 @@ const TimelineSlots = () => {
       left: `${leftPercentage}%`,
       width: `${Math.max(widthPercentage, 2)}%`, // Minimum 2% width for visibility
     };
+  };
+
+  const handleTaskClick = (task: TimelineTask) => {
+    setSelectedTask(task);
+  };
+
+  const handleCloseDialog = () => {
+    setSelectedTask(null);
   };
 
   if (isLoading) {
@@ -416,6 +426,7 @@ const TimelineSlots = () => {
                             )}
                             style={position}
                             title={`${task.name} (${format(parseISO(task.slot_start_datetime), 'HH:mm')} - ${format(parseISO(task.slot_end_datetime), 'HH:mm')})`}
+                            onClick={() => handleTaskClick(task)}
                           >
                             <span className="truncate font-medium">{task.name}</span>
                           </div>
@@ -427,6 +438,24 @@ const TimelineSlots = () => {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Task Detail Dialog */}
+        {selectedTask && (
+          <TaskEditDialog
+            isOpen={!!selectedTask}
+            onClose={handleCloseDialog}
+            task={{
+              id: selectedTask.id,
+              name: selectedTask.name,
+              status: selectedTask.status,
+              project_id: selectedTask.project.id,
+              assignee_id: selectedTask.assignee?.id,
+              slot_start_datetime: selectedTask.slot_start_datetime,
+              slot_end_datetime: selectedTask.slot_end_datetime,
+            }}
+            mode="full"
+          />
         )}
       </div>
     </Navigation>

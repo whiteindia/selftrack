@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,11 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, ChevronDown, ChevronRight, ChevronLeft, Filter } from 'lucide-react';
 import { format, subDays, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import RoutineFormDialog from '@/components/routines/RoutineFormDialog';
 import RoutineMatrix from '@/components/routines/RoutineMatrix';
+import RoutineTable from '@/components/routines/RoutineTable';
+import RoutineCalendar from '@/components/routines/RoutineCalendar';
 
 interface Routine {
   id: string;
@@ -36,6 +40,7 @@ const RoutinesTracker = () => {
   const [collapsedClients, setCollapsedClients] = useState<Set<string>>(new Set());
   const [dateOffset, setDateOffset] = useState(0); // 0 = current week, -1 = previous week, etc.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'matrix' | 'table' | 'calendar'>('calendar'); // Changed default to calendar
   
   const queryClient = useQueryClient();
 
@@ -278,49 +283,6 @@ const RoutinesTracker = () => {
           </Button>
         </div>
 
-        {/* Date Navigation */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePreviousWeek}
-                className="flex items-center gap-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous Week
-              </Button>
-              
-              <div className="text-center flex-1">
-                <div className="text-sm text-gray-600">
-                  {format(last7Days[0], 'MMM d')} - {format(last7Days[6], 'MMM d, yyyy')}
-                </div>
-                {!isCurrentWeek && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCurrentWeek}
-                    className="h-6 w-6 p-0 mt-1"
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextWeek}
-                className="flex items-center gap-2"
-              >
-                Next Week
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Collapsible Filters */}
         <Card>
           <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -394,57 +356,136 @@ const RoutinesTracker = () => {
           </Collapsible>
         </Card>
 
-        {/* Routines Matrix */}
-        <div className="space-y-4">
-          {Object.keys(routinesByClient).length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center text-gray-500">
-                No routines found. Click "Add Routine" to get started.
-              </CardContent>
-            </Card>
-          ) : (
-            Object.entries(routinesByClient).map(([clientName, clientRoutines]) => (
-              <Card key={clientName}>
-                <Collapsible
-                  open={!collapsedClients.has(clientName)}
-                  onOpenChange={() => toggleClient(clientName)}
-                >
-                  <CollapsibleTrigger asChild>
-                    <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <CardTitle className="text-lg">
-                            Client: {clientName}
-                          </CardTitle>
-                          <span className="text-sm text-gray-500">
-                            {clientRoutines.length} routine{clientRoutines.length !== 1 ? 's' : ''}
-                          </span>
+        {/* View Mode Tabs */}
+        <Card>
+          <CardContent className="p-4">
+            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'matrix' | 'table' | 'calendar')}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+                <TabsTrigger value="matrix">Matrix View</TabsTrigger>
+                <TabsTrigger value="table">Table View</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="calendar" className="mt-6">
+                <RoutineCalendar
+                  routines={filteredRoutines}
+                  completions={completions}
+                  onToggleCompletion={handleToggleCompletion}
+                  onEditRoutine={handleEditRoutine}
+                  onDeleteRoutine={handleDeleteRoutine}
+                />
+              </TabsContent>
+              
+              <TabsContent value="matrix" className="mt-6">
+                {/* Date Navigation for Matrix View */}
+                <Card className="mb-6">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreviousWeek}
+                        className="flex items-center gap-2"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous Week
+                      </Button>
+                      
+                      <div className="text-center flex-1">
+                        <div className="text-sm text-gray-600">
+                          {format(last7Days[0], 'MMM d')} - {format(last7Days[6], 'MMM d, yyyy')}
                         </div>
-                        {collapsedClients.has(clientName) ? (
-                          <ChevronRight className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
+                        {!isCurrentWeek && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCurrentWeek}
+                            className="h-6 w-6 p-0 mt-1"
+                          >
+                            <ChevronLeft className="h-3 w-3" />
+                          </Button>
                         )}
                       </div>
-                    </CardHeader>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <CardContent className="pt-0">
-                      <RoutineMatrix
-                        routines={clientRoutines}
-                        last7Days={last7Days}
-                        completions={completions}
-                        onToggleCompletion={handleToggleCompletion}
-                        onEditRoutine={handleEditRoutine}
-                        onDeleteRoutine={handleDeleteRoutine}
-                      />
-                    </CardContent>
-                  </CollapsibleContent>
-                </Collapsible>
-              </Card>
-            ))
-          )}
-        </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextWeek}
+                        className="flex items-center gap-2"
+                      >
+                        Next Week
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Matrix View Content */}
+                <div className="space-y-4">
+                  {Object.keys(routinesByClient).length === 0 ? (
+                    <Card>
+                      <CardContent className="p-8 text-center text-gray-500">
+                        No routines found. Click "Add Routine" to get started.
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    Object.entries(routinesByClient).map(([clientName, clientRoutines]) => (
+                      <Card key={clientName}>
+                        <Collapsible
+                          open={!collapsedClients.has(clientName)}
+                          onOpenChange={() => toggleClient(clientName)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <CardHeader className="cursor-pointer hover:bg-gray-50 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <CardTitle className="text-lg">
+                                    Client: {clientName}
+                                  </CardTitle>
+                                  <span className="text-sm text-gray-500">
+                                    {clientRoutines.length} routine{clientRoutines.length !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                                {collapsedClients.has(clientName) ? (
+                                  <ChevronRight className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </div>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent className="pt-0">
+                              <RoutineMatrix
+                                routines={clientRoutines}
+                                last7Days={last7Days}
+                                completions={completions}
+                                onToggleCompletion={handleToggleCompletion}
+                                onEditRoutine={handleEditRoutine}
+                                onDeleteRoutine={handleDeleteRoutine}
+                              />
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="table" className="mt-6">
+                <RoutineTable
+                  routines={filteredRoutines}
+                  last7Days={last7Days}
+                  completions={completions}
+                  onToggleCompletion={handleToggleCompletion}
+                  onEditRoutine={handleEditRoutine}
+                  onDeleteRoutine={handleDeleteRoutine}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         <RoutineFormDialog
           open={isFormOpen}

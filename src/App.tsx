@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,6 +33,7 @@ import TimelineSlots from "./pages/TimelineSlots";
 import Reminders from "./pages/Reminders";
 import TimeUntil from "./pages/TimeUntil";
 import RoutinesTracker from "./pages/RoutinesTracker";
+import FollowupCal from '@/pages/FollowupCal';
 
 const queryClient = new QueryClient();
 
@@ -73,6 +73,11 @@ function App() {
                 <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
                 <Route path="/time-until" element={<ProtectedRoute><TimeUntil /></ProtectedRoute>} />
                 <Route path="/routines-tracker" element={<ProtectedRoute requireAdmin><RoutinesTracker /></ProtectedRoute>} />
+                <Route path="/followupcal" element={
+                  <ProtectedRoute>
+                    <FollowupCal />
+                  </ProtectedRoute>
+                } />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

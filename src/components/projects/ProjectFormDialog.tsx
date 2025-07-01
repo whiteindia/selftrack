@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,7 @@ import { toast } from 'sonner';
 interface Client {
   id: string;
   name: string;
+  services: string[] | string;
 }
 
 interface Service {
@@ -64,6 +64,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
     status: 'Active'
   });
   const [brdFile, setBrdFile] = useState<File | null>(null);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
 
   // Available status options
   const statusOptions = [
@@ -76,16 +77,22 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
     'OverDue'
   ];
 
-  // Fetch clients, services, and employees for dropdowns
-  const { data: clients = [] } = useQuery({
+  // Fetch all clients
+  const { data: allClients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: async () => {
+      console.log('Fetching all clients...');
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, services')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+      
+      console.log('All clients data:', data);
       return data as Client[];
     }
   });
@@ -93,12 +100,18 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
     queryFn: async () => {
+      console.log('Fetching services...');
       const { data, error } = await supabase
         .from('services')
         .select('id, name')
         .order('name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching services:', error);
+        throw error;
+      }
+      
+      console.log('Services data:', data);
       return data as Service[];
     }
   });
@@ -115,6 +128,72 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
       return data as Employee[];
     }
   });
+
+  // Filter clients based on selected service - Updated to handle UUID-based services
+  useEffect(() => {
+    const filterClientsByService = async () => {
+      if (!formData.service || !allClients.length || !services.length) {
+        console.log('Missing data for filtering:', { 
+          service: formData.service, 
+          clientsCount: allClients.length, 
+          servicesCount: services.length 
+        });
+        setFilteredClients([]);
+        return;
+      }
+
+      try {
+        // First, find the service UUID by name
+        const selectedServiceData = services.find(service => service.name === formData.service);
+        
+        if (!selectedServiceData) {
+          console.log('Service not found:', formData.service);
+          setFilteredClients([]);
+          return;
+        }
+
+        console.log('Found service:', selectedServiceData);
+
+        // Filter clients that have this service UUID in their services array
+        const matchingClients = allClients.filter(client => {
+          console.log('Checking client:', client.name, 'services:', client.services);
+          
+          if (!client.services) {
+            console.log('Client has no services');
+            return false;
+          }
+
+          // Handle both array format and string format for services
+          let servicesList: string[] = [];
+          if (Array.isArray(client.services)) {
+            servicesList = client.services;
+          } else if (typeof client.services === 'string') {
+            // Handle comma-separated string or single UUID
+            servicesList = client.services.includes(',') ? 
+              client.services.split(',').map(s => s.trim()) : 
+              [client.services.trim()];
+          }
+          
+          console.log('Processed services list:', servicesList);
+          
+          // Check if the selected service UUID is in the client's services
+          const hasService = servicesList.includes(selectedServiceData.id);
+          
+          console.log('Client has service:', hasService);
+          return hasService;
+        });
+
+        console.log('Filtered clients:', matchingClients);
+        setFilteredClients(matchingClients);
+
+      } catch (error) {
+        console.error('Error filtering clients:', error);
+        setFilteredClients([]);
+      }
+    };
+
+    filterClientsByService();
+  }, [formData.service, allClients, services]);
 
   // Update form data when project changes
   useEffect(() => {
@@ -146,6 +225,16 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
       });
     }
   }, [project]);
+
+  // Reset client selection when service changes
+  const handleServiceChange = (value: string) => {
+    console.log('Service changed to:', value);
+    setFormData({
+      ...formData,
+      service: value,
+      client_id: '' // Reset client selection when service changes
+    });
+  };
 
   const handleSubmit = () => {
     if (project) {
@@ -201,19 +290,50 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               placeholder="e.g., New Website Design"
             />
           </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="client">Client</Label>
-            <Select value={formData.client_id} onValueChange={(value) => setFormData({...formData, client_id: value})}>
+            <Label htmlFor="service">Service</Label>
+            <Select value={formData.service} onValueChange={handleServiceChange}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a client" />
+                <SelectValue placeholder="Select service first" />
               </SelectTrigger>
               <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                {services.map((service) => (
+                  <SelectItem key={service.id} value={service.name}>{service.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="client">Client</Label>
+            <Select 
+              value={formData.client_id} 
+              onValueChange={(value) => setFormData({...formData, client_id: value})}
+              disabled={!formData.service}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={!formData.service ? "Select service first" : "Select a client"} />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredClients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {formData.service && filteredClients.length === 0 && (
+              <p className="text-sm text-gray-500">No clients found for the selected service</p>
+            )}
+            {formData.service && (
+              <div className="text-xs text-gray-400">
+                Debug: Found {filteredClients.length} clients for service "{formData.service}"
+                {filteredClients.length > 0 && (
+                  <div>Clients: {filteredClients.map(c => c.name).join(', ')}</div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="assignee">Assignee</Label>
             <Select 
@@ -233,19 +353,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="service">Service</Label>
-            <Select value={formData.service} onValueChange={(value) => setFormData({...formData, service: value})}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select service" />
-              </SelectTrigger>
-              <SelectContent>
-                {services.map((service) => (
-                  <SelectItem key={service.id} value={service.name}>{service.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
           <div className="space-y-2">
             <Label htmlFor="type">Billing Type</Label>
             <Select 
@@ -261,6 +369,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               </SelectContent>
             </Select>
           </div>
+          
           {formData.type === 'Hourly' && (
             <div className="space-y-2">
               <Label htmlFor="hourlyRate">Hourly Rate</Label>
@@ -273,6 +382,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               />
             </div>
           )}
+          
           {formData.type === 'Fixed' && (
             <div className="space-y-2">
               <Label htmlFor="projectAmount">Project Amount</Label>
@@ -285,6 +395,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               />
             </div>
           )}
+          
           <div className="space-y-2">
             <Label htmlFor="startDate">Start Date</Label>
             <Input
@@ -294,6 +405,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               onChange={(e) => setFormData({...formData, start_date: e.target.value})}
             />
           </div>
+          
           <div className="space-y-2">
             <Label htmlFor="deadline">Deadline</Label>
             <Input
@@ -303,6 +415,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               onChange={(e) => setFormData({...formData, deadline: e.target.value})}
             />
           </div>
+          
           {project && (
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
@@ -323,6 +436,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
               </Select>
             </div>
           )}
+          
           <div className="space-y-2">
             <Label htmlFor="brdFile">BRD File (Optional)</Label>
             <Input

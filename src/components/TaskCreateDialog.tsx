@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -149,6 +149,24 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
     },
   });
 
+  // Set default assignee to "yugandhar" when employees are loaded
+  useEffect(() => {
+    if (employees.length > 0 && !formData.assignee_id) {
+      const yugandharEmployee = employees.find(emp => 
+        emp.name.toLowerCase().includes('yugandhar') || 
+        emp.email.toLowerCase().includes('yugandhar')
+      );
+      
+      if (yugandharEmployee) {
+        console.log('Setting default assignee to yugandhar:', yugandharEmployee);
+        setFormData(prev => ({
+          ...prev,
+          assignee_id: yugandharEmployee.id
+        }));
+      }
+    }
+  }, [employees, formData.assignee_id]);
+
   const createTaskMutation = useMutation({
     mutationFn: async (taskData: any) => {
       console.log('Creating task with data:', taskData);
@@ -256,13 +274,19 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
   };
 
   const handleClose = () => {
+    // Reset form but keep yugandhar as default assignee
+    const yugandharEmployee = employees.find(emp => 
+      emp.name.toLowerCase().includes('yugandhar') || 
+      emp.email.toLowerCase().includes('yugandhar')
+    );
+
     setFormData({
       name: '',
       status: 'Not Started',
       service: '',
       client_id: '',
       project_id: '',
-      assignee_id: '',
+      assignee_id: yugandharEmployee?.id || '',
       deadline: '',
       estimated_duration: '',
       reminder_datetime: '',

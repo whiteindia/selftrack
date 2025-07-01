@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -94,12 +93,13 @@ const Skillman = () => {
     },
   });
 
-  // Get Skillman-specific services - services containing "Skill-Course-Live-Projects"
+  // Get Skillman-specific services - services containing "Skill-Course-Live-Projects" or "Upskill-Cy_Growth-Frc_Improve-Cit"
   const skillmanServices = useMemo(() => {
     return allServices.filter(service => 
       service.name && (
         service.name.includes('Skill-Course-Live-Projects') ||
-        service.name.includes('Skill-Course-ive-Projects')  // Handle the typo case
+        service.name.includes('Skill-Course-ive-Projects') ||  // Handle the typo case
+        service.name.includes('Upskill-Cy_Growth-Frc_Improve-Cit')
       )
     );
   }, [allServices]);
@@ -118,7 +118,8 @@ const Skillman = () => {
     return allTasks.filter(task => 
       task.project_service && (
         task.project_service.includes('Skill-Course-Live-Projects') ||
-        task.project_service.includes('Skill-Course-ive-Projects')  // Handle the typo case
+        task.project_service.includes('Skill-Course-ive-Projects') ||  // Handle the typo case
+        task.project_service.includes('Upskill-Cy_Growth-Frc_Improve-Cit')
       )
     );
   }, [allTasks]);
@@ -293,7 +294,7 @@ const Skillman = () => {
               <CardContent className="space-y-4">
                 {/* Service Filter - Show Skillman-specific services */}
                 <div>
-                  <h3 className="text-sm font-medium mb-2">Services (Skill-Course-Live-Projects)</h3>
+                  <h3 className="text-sm font-medium mb-2">Services (Skill-Course-Live-Projects & Upskill-Cy_Growth-Frc_Improve-Cit)</h3>
                   <div className="flex flex-wrap gap-2">
                     {skillmanServices.map((service) => (
                       <Button
