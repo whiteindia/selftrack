@@ -61,6 +61,51 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
     };
   }, [timerState.isRunning, timerState.isPaused, timerState.startTime, timerState.pausedDuration]);
 
+  // Helper function to parse pause information from timer_metadata
+  const parsePauseInfo = (timerMetadata: string | null) => {
+    if (!timerMetadata) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
+    
+    const pauseMatches = [...timerMetadata.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...timerMetadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
+    
+    let totalPausedMs = 0;
+    let isPaused = false;
+    let lastPauseTime: Date | undefined;
+    
+    // Calculate total paused time from completed pause/resume cycles
+    for (let i = 0; i < Math.min(pauseMatches.length, resumeMatches.length); i++) {
+      const pauseTime = new Date(pauseMatches[i][1]);
+      const resumeTime = new Date(resumeMatches[i][1]);
+      totalPausedMs += resumeTime.getTime() - pauseTime.getTime();
+    }
+    
+    // Check if currently paused (more pauses than resumes)
+    if (pauseMatches.length > resumeMatches.length) {
+      isPaused = true;
+      lastPauseTime = new Date(pauseMatches[pauseMatches.length - 1][1]);
+      
+      // Add current pause duration to total if currently paused
+      if (lastPauseTime) {
+        const currentPauseDuration = new Date().getTime() - lastPauseTime.getTime();
+        totalPausedMs += currentPauseDuration;
+      }
+    }
+    
+    return { isPaused, totalPausedMs, lastPauseTime };
+  };
+
+  // Helper function to get current timer metadata
+  const getCurrentTimerMetadata = async (entryId: string): Promise<string> => {
+    const { data, error } = await supabase
+      .from('time_entries')
+      .select('timer_metadata')
+      .eq('id', entryId)
+      .single();
+    
+    if (error || !data) return '';
+    return data.timer_metadata || '';
+  };
+
   const checkExistingTimer = async () => {
     try {
       const { data: existingEntry, error } = await supabase
@@ -78,29 +123,10 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
       if (existingEntry) {
         // Parse existing timer data
         const startTime = new Date(existingEntry.start_time);
-        const comment = existingEntry.comment || '';
+        const pauseInfo = parsePauseInfo(existingEntry.timer_metadata);
         
-        // Check if timer is paused
-        const pauseMatches = [...comment.matchAll(/Timer paused at ([^,\n]+)/g)];
-        const resumeMatches = [...comment.matchAll(/Timer resumed at ([^,\n]+)/g)];
-        
-        let pausedDuration = 0;
-        let isPaused = false;
-        
-        // Calculate paused duration
-        for (let i = 0; i < Math.min(pauseMatches.length, resumeMatches.length); i++) {
-          const pauseTime = new Date(pauseMatches[i][1]);
-          const resumeTime = new Date(resumeMatches[i][1]);
-          pausedDuration += resumeTime.getTime() - pauseTime.getTime();
-        }
-        
-        // Check if currently paused
-        if (pauseMatches.length > resumeMatches.length) {
-          isPaused = true;
-          // Add current pause duration
-          const lastPauseTime = new Date(pauseMatches[pauseMatches.length - 1][1]);
-          pausedDuration += new Date().getTime() - lastPauseTime.getTime();
-        }
+        let pausedDuration = pauseInfo.totalPausedMs;
+        let isPaused = pauseInfo.isPaused;
 
         // Calculate current elapsed time
         const now = new Date();
@@ -172,7 +198,7 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
 
       const startTime = new Date();
       
-      // Create new time entry
+      // Create new time entry with timer metadata
       const { data: timeEntry, error } = await supabase
         .from('time_entries')
         .insert({
@@ -180,7 +206,7 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
           employee_id: employee.id,
           start_time: startTime.toISOString(),
           entry_type: 'task',
-          comment: `Timer started for task: ${taskName}`
+          timer_metadata: `Timer started for task: ${taskName}`
         })
         .select()
         .single();
@@ -213,13 +239,15 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
     if (!currentTimeEntryId) return;
 
     try {
-      const pauseTime = new Date();
+      const pauseTime = new Date().toISOString();
+      const currentMetadata = await getCurrentTimerMetadata(currentTimeEntryId);
+      const newMetadata = currentMetadata ? `${currentMetadata}\nTimer paused at ${pauseTime}` : `Timer paused at ${pauseTime}`;
       
-      // Update time entry with pause information
+      // Update time entry with pause information in timer_metadata
       const { error } = await supabase
         .from('time_entries')
         .update({
-          comment: `Timer started for task: ${taskName}, Timer paused at ${pauseTime.toISOString()}`
+          timer_metadata: newMetadata
         })
         .eq('id', currentTimeEntryId);
 
@@ -240,25 +268,13 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
     if (!currentTimeEntryId) return;
 
     try {
-      const resumeTime = new Date();
-      
-      // Get current comment and add resume time
-      const { data: currentEntry, error: fetchError } = await supabase
-        .from('time_entries')
-        .select('comment')
-        .eq('id', currentTimeEntryId)
-        .single();
-
-      if (fetchError) {
-        toast.error('Failed to resume timer: ' + fetchError.message);
-        return;
-      }
-
-      const updatedComment = `${currentEntry.comment}, Timer resumed at ${resumeTime.toISOString()}`;
+      const resumeTime = new Date().toISOString();
+      const currentMetadata = await getCurrentTimerMetadata(currentTimeEntryId);
+      const newMetadata = currentMetadata ? `${currentMetadata}\nTimer resumed at ${resumeTime}` : `Timer resumed at ${resumeTime}`;
       
       const { error } = await supabase
         .from('time_entries')
-        .update({ comment: updatedComment })
+        .update({ timer_metadata: newMetadata })
         .eq('id', currentTimeEntryId);
 
       if (error) {
@@ -267,20 +283,11 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
       }
 
       // Update paused duration
-      const pauseMatches = [...updatedComment.matchAll(/Timer paused at ([^,\n]+)/g)];
-      const resumeMatches = [...updatedComment.matchAll(/Timer resumed at ([^,\n]+)/g)];
-      
-      let newPausedDuration = 0;
-      for (let i = 0; i < Math.min(pauseMatches.length, resumeMatches.length); i++) {
-        const pauseTime = new Date(pauseMatches[i][1]);
-        const resumeTime = new Date(resumeMatches[i][1]);
-        newPausedDuration += resumeTime.getTime() - pauseTime.getTime();
-      }
-
+      const pauseInfo = parsePauseInfo(newMetadata);
       setTimerState(prev => ({ 
         ...prev, 
         isPaused: false,
-        pausedDuration: newPausedDuration
+        pausedDuration: pauseInfo.totalPausedMs
       }));
       toast.success('Timer resumed');
     } catch (error) {
@@ -301,31 +308,18 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
       const totalDurationMs = endTime.getTime() - timerState.startTime.getTime() - timerState.pausedDuration;
       const durationMinutes = Math.floor(totalDurationMs / (1000 * 60));
 
-      // Get current comment and add final comment
-      const { data: currentEntry, error: fetchError } = await supabase
-        .from('time_entries')
-        .select('comment')
-        .eq('id', currentTimeEntryId)
-        .single();
+      // Get current timer metadata and add stop time
+      const currentMetadata = await getCurrentTimerMetadata(currentTimeEntryId);
+      const stopMetadata = currentMetadata ? `${currentMetadata}\nTimer stopped at ${endTime.toISOString()}` : `Timer stopped at ${endTime.toISOString()}`;
 
-      if (fetchError) {
-        toast.error('Failed to stop timer: ' + fetchError.message);
-        return;
-      }
-
-      let finalComment = currentEntry.comment || '';
-      if (workComment.trim()) {
-        finalComment += `, Work completed: ${workComment.trim()}`;
-      }
-      finalComment += `, Timer stopped at ${endTime.toISOString()}`;
-
-      // Update time entry with end time and final comment
+      // Update time entry with end time, user comment, and timer metadata
       const { error } = await supabase
         .from('time_entries')
         .update({
           end_time: endTime.toISOString(),
           duration_minutes: durationMinutes,
-          comment: finalComment
+          comment: workComment.trim() || null, // Only save user's comment - no timer metadata here
+          timer_metadata: stopMetadata // Save timer info separately
         })
         .eq('id', currentTimeEntryId);
 
