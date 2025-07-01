@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -94,6 +93,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/team-slots', label: 'Team Slots', icon: CalendarCheck, pageName: 'team-slots', requireAdmin: true },
   ];
 
+  const accItems = [
+    { path: '/invoices', label: 'Invoices', icon: FileText, pageName: 'invoices' },
+    { path: '/payments', label: 'Payments', icon: DollarSign, pageName: 'payments' },
+    { path: '/wages', label: 'Wages', icon: Wallet, pageName: 'wages' },
+  ];
+
   const configItems = [
     { path: '/clients', label: 'Clients', icon: Users, pageName: 'clients' },
     { path: '/employees', label: 'Employees', icon: UserCheck, pageName: 'employees' },
@@ -142,6 +147,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return access;
   });
 
+  const visibleAccItems = accItems.filter(item => {
+    const access = hasPageAccess(item.pageName);
+    console.log(`ACC filtering ${item.label} (${item.pageName}):`, access);
+    return access;
+  });
+
   const visibleConfigItems = configItems.filter(item => {
     if (item.requireSuperAdmin) {
       // For super admin-only pages, we need to check user role
@@ -157,6 +168,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const shouldShowGoalTrackMenu = visibleGoalTrackItems.length > 0;
   const shouldShowPlannerMenu = visiblePlannerItems.length > 0;
   const shouldShowTrakTeamMenu = visibleTrakTeamItems.length > 0;
+  const shouldShowAccMenu = visibleAccItems.length > 0;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -309,6 +321,31 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               <h3 className="text-sm font-medium text-gray-500 mb-2">TrakTeam</h3>
               <div className="space-y-1">
                 {visibleTrakTeamItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {shouldShowAccMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">ACC</h3>
+              <div className="space-y-1">
+                {visibleAccItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link
@@ -547,6 +584,38 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               </DropdownMenu>
             )}
             
+            {shouldShowAccMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                    <Wallet className="h-4 w-4" />
+                    <span>ACC</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9995 }}>
+                  {visibleAccItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
             {visibleConfigItems.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -556,7 +625,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9995 }}>
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9994 }}>
                   {visibleConfigItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -592,7 +661,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-48" style={{ zIndex: 9994 }}>
+              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-48" style={{ zIndex: 9993 }}>
                 <div className="px-3 py-2 border-b">
                   <p className="text-sm text-gray-600 truncate">{user?.email}</p>
                 </div>
