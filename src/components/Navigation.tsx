@@ -61,7 +61,7 @@ import { useReminderNotifications } from '@/hooks/useReminderNotifications';
 import NotificationBadge from '@/components/NotificationBadge';
 
 const Navigation = ({ children }: { children?: React.ReactNode }) => {
-  const { signOut, user, userRole } = useAuth();
+  const { signOut, user, userRole, loading: authLoading } = useAuth();
   const { hasPageAccess, loading: privilegesLoading } = usePrivileges();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -180,8 +180,8 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Show loading state while privileges are being fetched
-  if (privilegesLoading) {
+  // Show loading state while auth or privileges are being fetched
+  if (authLoading || privilegesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-sm text-gray-600">Loading...</div>
@@ -193,8 +193,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return email.substring(0, 2).toUpperCase();
   };
 
+  // Temporarily disable notifications to fix blank screen issue
+  const mobileNotificationCount = 0;
+
   const MobileMenuContent = () => {
-    const { totalNotificationCount, markAllAsRead, markAsRead } = useReminderNotifications();
     
     return (
     <div className="flex flex-col h-full">
@@ -413,7 +415,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {user?.email ? getInitials(user.email) : 'U'}
               </AvatarFallback>
             </Avatar>
-            <NotificationBadge count={totalNotificationCount} />
+            <NotificationBadge count={mobileNotificationCount} />
           </div>
           <div className="text-sm text-gray-600 truncate">
             {user?.email}
@@ -854,8 +856,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   };
 
   if (isMobile) {
-    const { totalNotificationCount } = useReminderNotifications();
-    
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -879,7 +879,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     {user?.email ? getInitials(user.email) : 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <NotificationBadge count={totalNotificationCount} />
+                <NotificationBadge count={mobileNotificationCount} />
               </div>
             </div>
           </div>
