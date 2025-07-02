@@ -11,6 +11,7 @@ import { Bell, Calendar as CalendarIcon, Clock, User, Building, Edit, List, Grid
 import { format, parseISO, isSameDay, isAfter, isBefore, addDays } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import TaskEditDialog from '@/components/TaskEditDialog';
+import NotificationSettings from '@/components/NotificationSettings';
 
 interface Task {
   id: string;
@@ -408,6 +409,9 @@ const Reminders = () => {
   return (
     <Navigation>
       <div className="space-y-6">
+        {/* Notification Settings */}
+        <NotificationSettings />
+        
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Bell className="h-8 w-8 text-blue-600" />
