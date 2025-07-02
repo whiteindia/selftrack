@@ -1447,6 +1447,7 @@ const WorkloadCal = () => {
                                       taskId={item.subtask.id}
                                       taskName={item.subtask.name}
                                       onTimeUpdate={handleTimeUpdate}
+                                      isSubtask={true}
                                     />
                                   </div>
                                 </>

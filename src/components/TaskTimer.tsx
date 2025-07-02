@@ -12,6 +12,7 @@ interface TaskTimerProps {
   taskId: string;
   taskName: string;
   onTimeUpdate?: () => void;
+  isSubtask?: boolean;
 }
 
 interface TimerState {
@@ -25,7 +26,8 @@ interface TimerState {
 const TaskTimer: React.FC<TaskTimerProps> = ({ 
   taskId, 
   taskName, 
-  onTimeUpdate 
+  onTimeUpdate,
+  isSubtask = false
 }) => {
   const { user } = useAuth();
   const [timerState, setTimerState] = useState<TimerState>({
@@ -112,6 +114,7 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
         .from('time_entries')
         .select('*')
         .eq('task_id', taskId)
+        .eq('entry_type', isSubtask ? 'subtask' : 'task')
         .is('end_time', null)
         .single();
 
@@ -205,7 +208,7 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
           task_id: taskId,
           employee_id: employee.id,
           start_time: startTime.toISOString(),
-          entry_type: 'task',
+          entry_type: isSubtask ? 'subtask' : 'task',
           timer_metadata: `Timer started for task: ${taskName}`
         })
         .select()
