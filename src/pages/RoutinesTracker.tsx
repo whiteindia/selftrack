@@ -22,6 +22,8 @@ interface Routine {
   frequency: string;
   preferred_days: string[] | null;
   start_date: string;
+  preferred_slot_start?: string | null;
+  preferred_slot_end?: string | null;
   client: { name: string; id: string };
   project: { name: string; id: string };
 }
@@ -177,8 +179,8 @@ const RoutinesTracker = () => {
     return Array.from(projectMap.values());
   }, [routines, selectedClient]);
 
-  // Filter routines
-  const filteredRoutines = useMemo(() => {
+  // Base filter for all views
+  const baseFilteredRoutines = useMemo(() => {
     return routines.filter(routine => {
       if (selectedClient && routine.client.id !== selectedClient) return false;
       if (selectedProject && routine.project.id !== selectedProject) return false;
@@ -187,15 +189,32 @@ const RoutinesTracker = () => {
     });
   }, [routines, selectedClient, selectedProject, searchTerm]);
 
-  // Group routines by client
+  // Calendar view: Show only events with time slots
+  const calendarRoutines = useMemo(() => {
+    return baseFilteredRoutines.filter(routine => 
+      routine.preferred_slot_start && routine.preferred_slot_end
+    );
+  }, [baseFilteredRoutines]);
+
+  // Matrix view: Show only events with preferred days
+  const matrixRoutines = useMemo(() => {
+    return baseFilteredRoutines.filter(routine => 
+      routine.preferred_days && routine.preferred_days.length > 0
+    );
+  }, [baseFilteredRoutines]);
+
+  // Table view: Show all events
+  const tableRoutines = baseFilteredRoutines;
+
+  // Group routines by client for matrix view
   const routinesByClient = useMemo(() => {
-    return filteredRoutines.reduce((acc, routine) => {
+    return matrixRoutines.reduce((acc, routine) => {
       const clientName = routine.client.name;
       if (!acc[clientName]) acc[clientName] = [];
       acc[clientName].push(routine);
       return acc;
     }, {} as Record<string, Routine[]>);
-  }, [filteredRoutines]);
+  }, [matrixRoutines]);
 
   const handleClientClick = (clientId: string) => {
     if (selectedClient === clientId) {
@@ -368,7 +387,7 @@ const RoutinesTracker = () => {
               
               <TabsContent value="calendar" className="mt-6">
                 <RoutineCalendar
-                  routines={filteredRoutines}
+                  routines={calendarRoutines}
                   completions={completions}
                   onToggleCompletion={handleToggleCompletion}
                   onEditRoutine={handleEditRoutine}
@@ -475,7 +494,7 @@ const RoutinesTracker = () => {
               
               <TabsContent value="table" className="mt-6">
                 <RoutineTable
-                  routines={filteredRoutines}
+                  routines={tableRoutines}
                   last7Days={last7Days}
                   completions={completions}
                   onToggleCompletion={handleToggleCompletion}
