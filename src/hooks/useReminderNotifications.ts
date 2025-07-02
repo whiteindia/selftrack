@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +13,22 @@ export const useReminderNotifications = () => {
   const { user } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notifiedTasks, setNotifiedTasks] = useState<Set<string>>(new Set());
+  
+  // Load read notifications from localStorage on initialization
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('readNotifications');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    }
+    return new Set();
+  });
+
+  // Persist read notifications to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('readNotifications', JSON.stringify([...readNotifications]));
+    }
+  }, [readNotifications]);
 
   // Query for tasks with reminders
   const { data: reminderTasks = [], refetch } = useQuery({
@@ -46,7 +61,11 @@ export const useReminderNotifications = () => {
     return reminderTime <= now;
   });
 
-  const totalNotificationCount = dueSoonTasks.length + overdueTasks.length;
+  // Filter out read notifications from the count
+  const unreadDueSoonTasks = dueSoonTasks.filter(task => !readNotifications.has(task.id));
+  const unreadOverdueTasks = overdueTasks.filter(task => !readNotifications.has(task.id));
+
+  const totalNotificationCount = unreadDueSoonTasks.length + unreadOverdueTasks.length;
 
   // Check if task is due soon (within 30 minutes)
   const isTaskDueSoon = (reminderDatetime: string) => {
@@ -109,15 +128,31 @@ export const useReminderNotifications = () => {
     });
   }, [dueSoonTasks]);
 
+  // Mark all notifications as read
+  const markAllAsRead = () => {
+    const allTaskIds = [...dueSoonTasks.map(task => task.id), ...overdueTasks.map(task => task.id)];
+    setReadNotifications(prev => new Set([...prev, ...allTaskIds]));
+  };
+
+  // Mark individual notification as read
+  const markAsRead = (taskId: string) => {
+    setReadNotifications(prev => new Set([...prev, taskId]));
+  };
+
   return {
     totalNotificationCount,
-    dueSoonTasks,
-    overdueTasks,
+    dueSoonTasks: unreadDueSoonTasks,
+    overdueTasks: unreadOverdueTasks,
+    allDueSoonTasks: dueSoonTasks,
+    allOverdueTasks: overdueTasks,
     isTaskDueSoon,
     isTaskOverdue,
     notificationsEnabled,
     setNotificationsEnabled,
     requestNotificationPermission,
+    markAllAsRead,
+    markAsRead,
+    setNotifiedTasks,
     refetch,
   };
 };

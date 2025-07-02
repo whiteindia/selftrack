@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
@@ -30,7 +30,10 @@ import {
   Users as UsersIcon,
   UserPlus,
   UserX,
-  PersonStanding
+  PersonStanding,
+  AlertTriangle,
+  CheckCircle,
+  Check
 } from 'lucide-react';
 import {
   Drawer,
@@ -42,6 +45,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Avatar,
@@ -49,6 +53,7 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -60,7 +65,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const { hasPageAccess, loading: privilegesLoading } = usePrivileges();
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { totalNotificationCount } = useReminderNotifications();
+
 
   const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home, pageName: 'dashboard' },
@@ -188,7 +193,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return email.substring(0, 2).toUpperCase();
   };
 
-  const MobileMenuContent = () => (
+  const MobileMenuContent = () => {
+    const { totalNotificationCount, markAllAsRead, markAsRead } = useReminderNotifications();
+    
+    return (
     <div className="flex flex-col h-full">
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="space-y-6">
@@ -417,9 +425,31 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
         </Button>
       </div>
     </div>
-  );
+    );
+  };
 
-  const DesktopNavigation = () => (
+  const DesktopNavigation = () => {
+    const { 
+      totalNotificationCount, 
+      dueSoonTasks, 
+      overdueTasks,
+      allDueSoonTasks,
+      allOverdueTasks,
+      markAllAsRead,
+      markAsRead,
+      setNotifiedTasks
+    } = useReminderNotifications();
+
+    const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
+
+    const handleMarkAllAsRead = () => {
+      setIsMarkingAsRead(true);
+      markAllAsRead();
+      // Reset loading state after a short delay
+      setTimeout(() => setIsMarkingAsRead(false), 500);
+    };
+
+    return (
     <header className="bg-white shadow-sm border-b sticky top-0 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
@@ -668,10 +698,148 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   <NotificationBadge count={totalNotificationCount} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-48" style={{ zIndex: 9993 }}>
+              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80 max-h-96" style={{ zIndex: 9993 }}>
+                {/* User Info */}
                 <div className="px-3 py-2 border-b">
                   <p className="text-sm text-gray-600 truncate">{user?.email}</p>
                 </div>
+
+                {/* Notifications Section */}
+                {totalNotificationCount > 0 && (
+                  <>
+                    <div className="px-3 py-2 border-b bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">
+                            {totalNotificationCount}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={handleMarkAllAsRead}
+                            disabled={isMarkingAsRead}
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            {isMarkingAsRead ? 'Marking...' : 'Mark all read'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <ScrollArea className="max-h-64">
+                      {/* Due Soon Tasks */}
+                      {allDueSoonTasks.length > 0 && (
+                        <div className="px-3 py-2">
+                          <h4 className="text-xs font-medium text-blue-600 mb-2 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Due Soon ({allDueSoonTasks.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {allDueSoonTasks.slice(0, 5).map((task) => {
+                              const isRead = !dueSoonTasks.find(t => t.id === task.id);
+                              return (
+                                <div 
+                                  key={task.id} 
+                                  className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                    isRead 
+                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                      : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                                  }`}
+                                  onClick={() => {
+                                    // Mark this specific task as read
+                                    markAsRead(task.id);
+                                  }}
+                                >
+                                  <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                    isRead ? 'text-gray-500' : 'text-blue-600'
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-medium truncate ${
+                                      isRead ? 'text-gray-500' : 'text-gray-900'
+                                    }`}>{task.name}</p>
+                                    <p className={`text-xs ${
+                                      isRead ? 'text-gray-400' : 'text-blue-600'
+                                    }`}>
+                                      {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {allDueSoonTasks.length > 5 && (
+                              <p className="text-xs text-gray-500 text-center py-1">
+                                +{allDueSoonTasks.length - 5} more due soon
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Overdue Tasks */}
+                      {allOverdueTasks.length > 0 && (
+                        <div className="px-3 py-2">
+                          <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Overdue ({allOverdueTasks.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {allOverdueTasks.slice(0, 5).map((task) => {
+                              const isRead = !overdueTasks.find(t => t.id === task.id);
+                              return (
+                                <div 
+                                  key={task.id} 
+                                  className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                    isRead 
+                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                      : 'bg-red-50 border-red-200 hover:bg-red-100'
+                                  }`}
+                                  onClick={() => {
+                                    // Mark this specific task as read
+                                    markAsRead(task.id);
+                                  }}
+                                >
+                                  <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                    isRead ? 'text-gray-500' : 'text-red-600'
+                                  }`} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-medium truncate ${
+                                      isRead ? 'text-gray-500' : 'text-gray-900'
+                                    }`}>{task.name}</p>
+                                    <p className={`text-xs ${
+                                      isRead ? 'text-gray-400' : 'text-red-600'
+                                    }`}>
+                                      Overdue since {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {allOverdueTasks.length > 5 && (
+                              <p className="text-xs text-gray-500 text-center py-1">
+                                +{allOverdueTasks.length - 5} more overdue
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </ScrollArea>
+
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                {/* No Notifications */}
+                {totalNotificationCount === 0 && (
+                  <div className="px-3 py-4 text-center">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No notifications</p>
+                    <p className="text-xs text-gray-400">You're all caught up!</p>
+                  </div>
+                )}
+
+                {/* Sign Out */}
                 <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                   <LogOut className="h-4 w-4 mr-2" />
                   <span>Sign Out</span>
@@ -682,9 +850,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
         </div>
       </div>
     </header>
-  );
+    );
+  };
 
   if (isMobile) {
+    const { totalNotificationCount } = useReminderNotifications();
+    
     return (
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b sticky top-0 z-50">

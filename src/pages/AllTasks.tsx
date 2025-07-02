@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +74,7 @@ const AllTasks = () => {
   const { user, userRole } = useAuth();
   const { hasPageAccess, hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
@@ -83,6 +85,9 @@ const AllTasks = () => {
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
   const [globalClientFilter, setGlobalClientFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'cards' | 'kanban'>('cards');
+  
+  // Handle highlight parameter from URL
+  const highlightTaskId = searchParams.get('highlight');
   
   // Subtask states
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
@@ -181,6 +186,25 @@ const AllTasks = () => {
     },
     enabled: hasTasksAccess && !privilegesLoading
   });
+
+  // Auto-expand highlighted task when component mounts
+  useEffect(() => {
+    if (highlightTaskId && tasks.length > 0) {
+      setExpandedTask(highlightTaskId);
+      // Scroll to the highlighted task after a short delay
+      setTimeout(() => {
+        const element = document.getElementById(`task-${highlightTaskId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add a temporary highlight effect
+          element.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          }, 3000);
+        }
+      }, 500);
+    }
+  }, [highlightTaskId, tasks]);
 
   // Fetch employees
   const { data: employees = [] } = useQuery({
@@ -1153,11 +1177,13 @@ const TaskWithSubtasks: React.FC<{
   return (
     <>
       <div className="space-y-2">
-        <Card className={`hover:shadow-md transition-shadow border-l-4 ${
-          isOverdue 
-            ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
-            : 'border-l-blue-500'
-        }`}>
+        <Card 
+          id={`task-${task.id}`}
+          className={`hover:shadow-md transition-shadow border-l-4 ${
+            isOverdue 
+              ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
+              : 'border-l-blue-500'
+          }`}>
           <CardContent className="p-3 space-y-2">
             {/* Task Name */}
             <h4 className={`font-medium text-sm mb-2 break-words line-clamp-2 ${
