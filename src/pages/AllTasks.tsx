@@ -269,6 +269,25 @@ const AllTasks = () => {
     enabled: hasTasksAccess
   });
 
+  // Fetch running timers to identify tasks with active timers
+  const { data: runningTimers = [] } = useQuery({
+    queryKey: ['running-timers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('task_id, entry_type')
+        .is('end_time', null);
+      
+      if (error) {
+        console.error('Error fetching running timers:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: hasTasksAccess && !privilegesLoading
+  });
+
   // Filter tasks based on filters - updated to handle multi-select status
   const filteredTasks = useMemo(() => {
     let filtered = tasks.filter(task => {
@@ -286,13 +305,21 @@ const AllTasks = () => {
       return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
     });
 
-    // Sort tasks: overdue first, then by deadline
+    // Sort tasks: running timers first, then overdue, then by deadline
     return filtered.sort((a, b) => {
       const now = new Date();
       const aOverdue = a.deadline && new Date(a.deadline).getTime() < now.getTime();
       const bOverdue = b.deadline && new Date(b.deadline).getTime() < now.getTime();
       
-      // If one is overdue and the other isn't, overdue comes first
+      // Check if tasks have running timers
+      const aHasRunningTimer = runningTimers.some(timer => timer.task_id === a.id && timer.entry_type === 'task');
+      const bHasRunningTimer = runningTimers.some(timer => timer.task_id === b.id && timer.entry_type === 'task');
+      
+      // Running timers come first
+      if (aHasRunningTimer && !bHasRunningTimer) return -1;
+      if (!aHasRunningTimer && bHasRunningTimer) return 1;
+      
+      // If both have same running timer status, check overdue status
       if (aOverdue && !bOverdue) return -1;
       if (!aOverdue && bOverdue) return 1;
       
@@ -307,7 +334,7 @@ const AllTasks = () => {
       
       return 0;
     });
-  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
+  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients, runningTimers]);
 
   // Create task mutation
   const createTaskMutation = useMutation({
@@ -456,6 +483,7 @@ const AllTasks = () => {
 
   const handleTimeUpdate = () => {
     queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
+    queryClient.invalidateQueries({ queryKey: ['running-timers'] });
   };
 
   const clearFilters = () => {
@@ -736,6 +764,7 @@ const AllTasks = () => {
                 onEditSubtask={handleEditSubtask}
                 employees={employees}
                 calculateSlotDuration={calculateSlotDuration}
+                runningTimers={runningTimers}
               />
             ))}
           </div>
@@ -1087,6 +1116,7 @@ const TaskWithSubtasks: React.FC<{
   onEditSubtask: (taskId: string, subtask: any) => void;
   employees: any[];
   calculateSlotDuration: (start: string | null, end: string | null) => string | null;
+  runningTimers: any[];
 }> = ({
   task,
   expandedTask,
@@ -1100,7 +1130,8 @@ const TaskWithSubtasks: React.FC<{
   onCreateSubtask,
   onEditSubtask,
   employees,
-  calculateSlotDuration
+  calculateSlotDuration,
+  runningTimers
 }) => {
   const { subtasks, createSubtaskMutation, updateSubtaskMutation, deleteSubtaskMutation } = useSubtasks(task.id);
   const { data: timeEntryCount = 0 } = useTimeEntryCount(task.id);
@@ -1110,6 +1141,9 @@ const TaskWithSubtasks: React.FC<{
 
   // Check if task is overdue
   const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
+  
+  // Check if task has a running timer
+  const hasRunningTimer = runningTimers.some(timer => timer.task_id === task.id && timer.entry_type === 'task');
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1180,17 +1214,25 @@ const TaskWithSubtasks: React.FC<{
         <Card 
           id={`task-${task.id}`}
           className={`hover:shadow-md transition-shadow border-l-4 ${
-            isOverdue 
-              ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
-              : 'border-l-blue-500'
+            hasRunningTimer
+              ? 'border-l-green-500 bg-green-50 ring-2 ring-green-200'
+              : isOverdue 
+                ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
+                : 'border-l-blue-500'
           }`}>
           <CardContent className="p-3 space-y-2">
             {/* Task Name */}
             <h4 className={`font-medium text-sm mb-2 break-words line-clamp-2 ${
-              isOverdue ? 'text-red-900' : ''
+              hasRunningTimer ? 'text-green-900' : isOverdue ? 'text-red-900' : ''
             }`}>
               {task.name}
-              {isOverdue && (
+              {hasRunningTimer && (
+                <Badge className="ml-2 bg-green-600 text-white font-bold animate-pulse">
+                  <Play className="inline h-3 w-3 mr-1" />
+                  RUNNING
+                </Badge>
+              )}
+              {isOverdue && !hasRunningTimer && (
                 <Badge className="ml-2 bg-red-600 text-white font-bold animate-pulse">
                   OVERDUE
                 </Badge>
