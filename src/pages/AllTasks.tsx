@@ -79,7 +79,7 @@ const AllTasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress','On-Head','Targeted','Imp']);
+  const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress','On-Head','Targeted','Imp','Won','Lost']);
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
@@ -111,6 +111,8 @@ const AllTasks = () => {
     'Not Started',
     'In Progress', 
     'Completed',
+    'Won',
+    'Lost',
     'On Hold',
     'On-Head',
     'Targeted',
@@ -308,12 +310,18 @@ const AllTasks = () => {
     // Sort tasks: running timers first, then overdue, then by deadline
     return filtered.sort((a, b) => {
       const now = new Date();
-      const aOverdue = a.deadline && new Date(a.deadline).getTime() < now.getTime();
-      const bOverdue = b.deadline && new Date(b.deadline).getTime() < now.getTime();
       
       // Check if tasks have running timers
       const aHasRunningTimer = runningTimers.some(timer => timer.task_id === a.id && timer.entry_type === 'task');
       const bHasRunningTimer = runningTimers.some(timer => timer.task_id === b.id && timer.entry_type === 'task');
+      
+      // Check if tasks are completed/won/lost (these shouldn't be considered overdue)
+      const aIsFinalized = ['Completed', 'Won', 'Lost'].includes(a.status);
+      const bIsFinalized = ['Completed', 'Won', 'Lost'].includes(b.status);
+      
+      // Only consider overdue if task is not finalized
+      const aOverdue = !aIsFinalized && a.deadline && new Date(a.deadline).getTime() < now.getTime();
+      const bOverdue = !bIsFinalized && b.deadline && new Date(b.deadline).getTime() < now.getTime();
       
       // Running timers come first
       if (aHasRunningTimer && !bHasRunningTimer) return -1;
@@ -473,6 +481,8 @@ const AllTasks = () => {
       case 'Not Started': return 'bg-gray-500';
       case 'In Progress': return 'bg-blue-500';
       case 'Completed': return 'bg-green-500';
+      case 'Won': return 'bg-emerald-500';
+      case 'Lost': return 'bg-red-500';
       case 'On Hold': return 'bg-yellow-500';
       case 'On-Head': return 'bg-purple-500';
       case 'Targeted': return 'bg-orange-500';
@@ -488,7 +498,7 @@ const AllTasks = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setStatusFilters(['In Progress','On-Head','Targeted','Imp']);
+    setStatusFilters(['In Progress','On-Head','Targeted','Imp','Won','Lost']);
     setAssigneeFilter('all');
     setProjectFilter('all');
     setGlobalServiceFilter('all');
@@ -1139,8 +1149,9 @@ const TaskWithSubtasks: React.FC<{
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [editingSubtask, setEditingSubtask] = useState<any>(null);
 
-  // Check if task is overdue
-  const isOverdue = task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
+  // Check if task is overdue (exclude completed/won/lost tasks)
+  const isFinalized = ['Completed', 'Won', 'Lost'].includes(task.status);
+  const isOverdue = !isFinalized && task.deadline && new Date(task.deadline).getTime() < new Date().getTime();
   
   // Check if task has a running timer
   const hasRunningTimer = runningTimers.some(timer => timer.task_id === task.id && timer.entry_type === 'task');
@@ -1150,6 +1161,8 @@ const TaskWithSubtasks: React.FC<{
       case 'Not Started': return 'bg-gray-100 text-gray-800';
       case 'In Progress': return 'bg-blue-100 text-blue-800';
       case 'Completed': return 'bg-green-100 text-green-800';
+      case 'Won': return 'bg-emerald-100 text-emerald-800';
+      case 'Lost': return 'bg-red-100 text-red-800';
       case 'On Hold': return 'bg-yellow-100 text-yellow-800';
       case 'On-Head': return 'bg-purple-100 text-purple-800';
       case 'Targeted': return 'bg-orange-100 text-orange-800';
@@ -1217,8 +1230,8 @@ const TaskWithSubtasks: React.FC<{
             hasRunningTimer
               ? 'border-l-green-500 bg-green-50 ring-2 ring-green-200'
               : isOverdue 
-                ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
-                : 'border-l-blue-500'
+              ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
+              : 'border-l-blue-500'
           }`}>
           <CardContent className="p-3 space-y-2">
             {/* Task Name */}

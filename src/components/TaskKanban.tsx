@@ -59,12 +59,14 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
   const defaultStatuses = [
     'Not Started',
     'In Progress', 
+    'Completed',
+    'Won',
+    'Lost',
     'On Hold',
     'On-Head',
     'Targeted',
     'Imp',
-    'Overdue',
-    'Completed'
+    'Overdue'
   ];
 
   const statuses = statusOrder || defaultStatuses;
@@ -146,6 +148,12 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
         return 'bg-gray-100 text-gray-800';
       case 'In Progress':
         return 'bg-blue-100 text-blue-800';
+      case 'Completed':
+        return 'bg-green-100 text-green-800';
+      case 'Won':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'Lost':
+        return 'bg-red-100 text-red-800';
       case 'On Hold':
         return 'bg-yellow-100 text-yellow-800';
       case 'On-Head':
@@ -156,8 +164,6 @@ const TaskKanban: React.FC<TaskKanbanProps> = ({
         return 'bg-red-100 text-red-800';
       case 'Overdue':
         return 'bg-red-600 text-white font-bold animate-pulse';
-      case 'Completed':
-        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
