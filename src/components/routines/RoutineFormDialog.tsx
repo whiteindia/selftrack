@@ -49,20 +49,21 @@ const DAYS_OF_WEEK = [
   'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
 ];
 
-// Predefined frequency options that match the database constraint
-const FREQUENCY_OPTIONS = [
+// Period options for frequency
+const PERIOD_OPTIONS = [
   { value: 'daily', label: 'Daily' },
-  { value: 'weekly_once', label: 'Weekly (Once)' },
-  { value: 'weekly_twice', label: 'Weekly (Twice)' },
-  { value: 'monthly_once', label: 'Monthly (Once)' },
-  { value: 'monthly_twice', label: 'Monthly (Twice)' },
-  { value: 'yearly_once', label: 'Yearly (Once)' }
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'halfyearly', label: 'Half-yearly' },
+  { value: 'annually', label: 'Annually' }
 ];
 
 const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: RoutineFormDialogProps) => {
   const [formData, setFormData] = useState({
     title: '',
-    frequency: '',
+    frequency_times: '1',
+    frequency_period: 'weekly',
     client_id: '',
     project_id: '',
     preferred_days: [] as string[],
@@ -90,9 +91,15 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
       console.log('Extracted clientId:', clientId);
       console.log('Extracted projectId:', projectId);
       
+      // Parse existing frequency format (e.g., "2_weekly" -> times: "2", period: "weekly")
+      const frequencyParts = editingRoutine.frequency?.split('_') || ['1', 'weekly'];
+      const times = frequencyParts[0] || '1';
+      const period = frequencyParts[1] || 'weekly';
+      
       const newFormData = {
         title: editingRoutine.title || '',
-        frequency: editingRoutine.frequency || '',
+        frequency_times: times,
+        frequency_period: period,
         client_id: clientId,
         project_id: projectId,
         preferred_days: editingRoutine.preferred_days || [],
@@ -107,7 +114,8 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
       console.log('Opening form for new routine - resetting form data');
       setFormData({
         title: '',
-        frequency: '',
+        frequency_times: '1',
+        frequency_period: 'weekly',
         client_id: '',
         project_id: '',
         preferred_days: [],
@@ -141,9 +149,12 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
     mutationFn: async (data: typeof formData) => {
       console.log('Saving routine with data:', data);
       
+      // Combine frequency_times and frequency_period into the format "2_weekly"
+      const frequency = `${data.frequency_times}_${data.frequency_period}`;
+      
       const routineData = {
         title: data.title,
-        frequency: data.frequency,
+        frequency: frequency,
         client_id: data.client_id,
         project_id: data.project_id,
         preferred_days: data.preferred_days.length > 0 ? data.preferred_days : null,
@@ -200,8 +211,12 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
       toast.error('Please enter a routine title');
       return;
     }
-    if (!formData.frequency.trim()) {
-      toast.error('Please select a frequency');
+    if (!formData.frequency_times.trim() || parseInt(formData.frequency_times) < 1) {
+      toast.error('Please enter a valid number of times');
+      return;
+    }
+    if (!formData.frequency_period.trim()) {
+      toast.error('Please select a period');
       return;
     }
     if (!formData.client_id) {
@@ -298,25 +313,44 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="frequency">Frequency *</Label>
-            <Select 
-              value={formData.frequency} 
-              onValueChange={(value) => {
-                console.log('Frequency changed to:', value);
-                setFormData({ ...formData, frequency: value });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select frequency" />
-              </SelectTrigger>
-              <SelectContent>
-                {FREQUENCY_OPTIONS.map(option => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Frequency *</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="frequency-times" className="text-sm text-gray-600">Number of times</Label>
+                <Input
+                  id="frequency-times"
+                  type="number"
+                  min="1"
+                  value={formData.frequency_times}
+                  onChange={(e) => {
+                    console.log('Frequency times changed to:', e.target.value);
+                    setFormData({ ...formData, frequency_times: e.target.value });
+                  }}
+                  placeholder="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="frequency-period" className="text-sm text-gray-600">Period</Label>
+                <Select 
+                  value={formData.frequency_period} 
+                  onValueChange={(value) => {
+                    console.log('Frequency period changed to:', value);
+                    setFormData({ ...formData, frequency_period: value });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERIOD_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <p className="text-xs text-gray-500">
-              Choose how often this routine should be performed
+              Choose how often this routine should be performed (e.g., 2 times weekly)
             </p>
           </div>
 
