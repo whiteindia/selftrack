@@ -243,6 +243,21 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
+  // Fetch running tasks (tasks with active timers)
+  const { data: runningTasks = [] } = useQuery({
+    queryKey: ['running-tasks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('task_id')
+        .is('end_time', null);
+      
+      if (error) throw error;
+      return data.map(entry => entry.task_id);
+    },
+    enabled: hasTasksAccess
+  });
+
   // Filter tasks based on filters - updated to handle multi-select status
   const filteredTasks = useMemo(() => {
     let filtered = tasks.filter(task => {
@@ -260,8 +275,15 @@ const Tasks = () => {
       return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
     });
 
-    // Sort tasks: overdue first, then by deadline
+    // Sort tasks: running timers first, then overdue, then by deadline
     return filtered.sort((a, b) => {
+      const aHasRunningTimer = runningTasks.includes(a.id);
+      const bHasRunningTimer = runningTasks.includes(b.id);
+      
+      // If one has running timer and the other doesn't, running timer comes first
+      if (aHasRunningTimer && !bHasRunningTimer) return -1;
+      if (!aHasRunningTimer && bHasRunningTimer) return 1;
+      
       const now = new Date();
       const aOverdue = a.deadline && new Date(a.deadline).getTime() < now.getTime();
       const bOverdue = b.deadline && new Date(b.deadline).getTime() < now.getTime();
@@ -281,7 +303,7 @@ const Tasks = () => {
       
       return 0;
     });
-  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients]);
+  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients, runningTasks]);
 
   // Create task mutation
   const createTaskMutation = useMutation({
