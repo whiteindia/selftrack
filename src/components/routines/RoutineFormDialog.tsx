@@ -52,14 +52,11 @@ const DAYS_OF_WEEK = [
 // Predefined frequency options that match the database constraint
 const FREQUENCY_OPTIONS = [
   { value: 'daily', label: 'Daily' },
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'every 2 days', label: 'Every 2 days' },
-  { value: 'every 3 days', label: 'Every 3 days' },
-  { value: 'every week', label: 'Every week' },
-  { value: 'every 2 weeks', label: 'Every 2 weeks' },
-  { value: 'twice a week', label: 'Twice a week' },
-  { value: 'once a month', label: 'Once a month' }
+  { value: 'weekly_once', label: 'Weekly (Once)' },
+  { value: 'weekly_twice', label: 'Weekly (Twice)' },
+  { value: 'monthly_once', label: 'Monthly (Once)' },
+  { value: 'monthly_twice', label: 'Monthly (Twice)' },
+  { value: 'yearly_once', label: 'Yearly (Once)' }
 ];
 
 const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: RoutineFormDialogProps) => {
@@ -233,8 +230,8 @@ const RoutineFormDialog = ({ open, onOpenChange, clients, editingRoutine }: Rout
 
   console.log('Current formData state:', formData);
 
-  // Force re-render key when formData changes significantly
-  const formKey = `${formData.client_id}-${formData.project_id}-${formData.title}-${editingRoutine?.id || 'new'}`;
+  // Force re-render key when formData changes significantly (excluding title to prevent cursor issues)
+  const formKey = `${formData.client_id}-${formData.project_id}-${editingRoutine?.id || 'new'}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
