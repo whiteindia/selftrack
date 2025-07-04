@@ -1106,7 +1106,6 @@ const AllTasks = () => {
             </DialogContent>
           </Dialog>
         )}
-
       </div>
     </Navigation>
   );
@@ -1297,133 +1296,140 @@ const TaskWithSubtasks: React.FC<{
               )}
             </div>
 
-            {/* Time Slot Duration */}
-            {slotDuration && (
-              <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                <CalendarClock className="h-3 w-3 flex-shrink-0" />
-                <span>Slot: {slotDuration}</span>
+            {/* Reminder and Slot Info */}
+            {(task.reminder_datetime || slotDuration) && (
+              <div className="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                {task.reminder_datetime && (
+                  <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
+                    <Bell className="h-3 w-3 text-orange-500" />
+                    <span>Reminder: {format(new Date(task.reminder_datetime), 'MMM d, HH:mm')}</span>
+                  </span>
+                )}
+                {slotDuration && (
+                  <span className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                    <CalendarClock className="h-3 w-3 text-blue-500" />
+                    <span>{slotDuration} Slot</span>
+                  </span>
+                )}
               </div>
             )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
-              <div className="flex items-center gap-1">
-                {hasOperationAccess('tasks', 'update') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingTask(task)}
-                    className="h-7 px-2 text-xs"
-                  >
-                    <Edit className="h-3 w-3 mr-1" />
-                    Edit
-                  </Button>
-                )}
-                {hasOperationAccess('tasks', 'delete') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteTaskMutation.mutate(task.id)}
-                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
-                    disabled={deleteTaskMutation.isPending}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Delete
-                  </Button>
-                )}
-              </div>
+            
+            {/* Action Icons Row */}
+            <div className="flex items-center gap-1">
+              {/* Enhanced Timer Component */}
+              <TaskTimer 
+                taskId={task.id}
+                taskName={task.name}
+                onTimeUpdate={handleTimeUpdate}
+              />
               
-              <div className="flex items-center gap-1">
-                {hasOperationAccess('tasks', 'update') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onCreateSubtask(task.id)}
-                    className="h-7 px-2 text-xs"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Subtask
-                  </Button>
-                )}
-                {hasOperationAccess('tasks', 'update') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleStartTask(task.id)}
-                    className="h-7 px-2 text-xs"
-                    disabled={hasRunningTimer}
-                  >
-                    <Play className="h-3 w-3 mr-1" />
-                    Start
-                  </Button>
-                )}
-              </div>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0 hover:bg-gray-100" onClick={handleCreateSubtask}>
+                <Plus className="h-3 w-3" />
+              </Button>
+              {subtasks.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-6 px-2 hover:bg-gray-100 text-xs"
+                  onClick={() => setShowSubtasks(!showSubtasks)}
+                >
+                  <span>{showSubtasks ? 'Hide' : 'Show'} ({subtasks.length})</span>
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 w-6 p-0 hover:bg-gray-100"
+                onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+              >
+                <MessageSquare className="h-3 w-3" />
+              </Button>
+              {timeEntryCount > 0 && (
+                <span className="text-xs text-gray-400 px-1">({timeEntryCount})</span>
+              )}
+              {hasOperationAccess('tasks', 'update') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => setEditingTask(task)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
+              {hasOperationAccess('tasks', 'delete') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  onClick={() => deleteTaskMutation.mutate(task.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
             </div>
-
-            {/* Timer Display */}
-            {hasRunningTimer && (
-              <div className="pt-2 border-t border-gray-100">
-                <TimeTrackerWithComment
-                  taskId={task.id}
-                  onTimeUpdate={handleTimeUpdate}
-                  entryType="task"
-                />
-              </div>
-            )}
-
-            {/* Subtasks Section */}
-            {subtasks && subtasks.length > 0 && (
-              <div className="pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <h5 className="text-xs font-medium text-gray-700">
-                    Subtasks ({subtasks.length})
-                  </h5>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSubtasks(!showSubtasks)}
-                    className="h-6 px-2 text-xs"
-                  >
-                    {showSubtasks ? 'Hide' : 'Show'}
-                  </Button>
-                </div>
-                
-                {showSubtasks && (
+          </CardContent>
+          
+          {expandedTask === task.id && (
+            <CardContent className="border-t pt-4 px-3 sm:px-6">
+              <div className="space-y-4">
+                {hasOperationAccess('tasks', 'update') && (
                   <div className="space-y-2">
-                    {subtasks.map((subtask) => (
-                      <SubtaskCard
-                        key={subtask.id}
-                        subtask={subtask}
-                        onStatusChange={handleSubtaskStatusChange}
-                        onEdit={() => onEditSubtask(task.id, subtask)}
-                        onDelete={() => deleteSubtaskMutation.mutate(subtask.id)}
-                        canUpdate={hasOperationAccess('tasks', 'update')}
-                        canDelete={hasOperationAccess('tasks', 'delete')}
-                      />
-                    ))}
+                    <Label htmlFor="status" className="text-sm font-medium">Status:</Label>
+                    <Select value={task.status} onValueChange={(value) => handleStatusChange(task.id, value)}>
+                      <SelectTrigger className="w-full sm:w-48 h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Not Started">Not Started</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="On Hold">On Hold</SelectItem>
+                        <SelectItem value="On-Head">On-Head</SelectItem>
+                        <SelectItem value="Targeted">Targeted</SelectItem>
+                        <SelectItem value="Imp">Imp</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
+                
+                <TaskHistory taskId={task.id} onUpdate={handleTimeUpdate} />
               </div>
-            )}
-
-            {/* Task History */}
-            {expandedTask === task.id && (
-              <div className="pt-2 border-t border-gray-100">
-                <TaskHistory taskId={task.id} />
-              </div>
-            )}
-          </CardContent>
+            </CardContent>
+          )}
         </Card>
+
+        {/* Subtasks - Mobile optimized */}
+        {showSubtasks && subtasks.length > 0 && (
+          <div className="space-y-2 pl-2 sm:pl-4">
+            {subtasks.map((subtask) => (
+              <SubtaskCard
+                key={subtask.id}
+                subtask={subtask}
+                onEdit={handleEditSubtask}
+                onDelete={(id) => deleteSubtaskMutation.mutate(id)}
+                onStatusChange={handleSubtaskStatusChange}
+                onTimeUpdate={handleTimeUpdate}
+                canUpdate={hasOperationAccess('tasks', 'update')}
+                canDelete={hasOperationAccess('tasks', 'delete')}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Subtask Dialog */}
+      {/* Subtask Dialog for this specific task */}
       <SubtaskDialog
-        open={subtaskDialogOpen}
-        onOpenChange={setSubtaskDialogOpen}
-        taskId={task.id}
-        subtask={editingSubtask}
+        isOpen={subtaskDialogOpen}
+        onClose={() => {
+          setSubtaskDialogOpen(false);
+          setEditingSubtask(null);
+        }}
         onSave={handleSubtaskSave}
+        taskId={task.id}
+        editingSubtask={editingSubtask}
         employees={employees}
+        isLoading={createSubtaskMutation.isPending || updateSubtaskMutation.isPending}
       />
     </>
   );
