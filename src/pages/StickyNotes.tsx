@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Filter, X, StickyNote } from 'lucide-react';
+import { Plus, Edit, Trash2, Filter, X, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,6 +56,7 @@ const StickyNotes = () => {
   const [clientFilter, setClientFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('recent'); // 'recent' or 'all'
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
   const [newNote, setNewNote] = useState({
     title: '',
@@ -296,6 +297,40 @@ const StickyNotes = () => {
     setDateFilter('recent');
   };
 
+  // Helper function to check if content needs "View More"
+  const needsViewMore = (content: string) => {
+    // Rough estimation: if content has more than 150 characters or more than 3 lines
+    return content.length > 150 || content.split('\n').length > 3;
+  };
+
+  // Helper function to toggle note expansion
+  const toggleNoteExpansion = (noteId: string) => {
+    setExpandedNotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper function to get truncated content
+  const getTruncatedContent = (content: string, maxLength: number = 150) => {
+    if (content.length <= maxLength) return content;
+    
+    // Find the last space before maxLength to avoid cutting words
+    const truncated = content.substring(0, maxLength);
+    const lastSpace = truncated.lastIndexOf(' ');
+    
+    if (lastSpace > maxLength * 0.8) { // If we can find a space in the last 20%
+      return truncated.substring(0, lastSpace) + '...';
+    }
+    
+    return truncated + '...';
+  };
+
   if (notesLoading) {
     return (
       <Navigation>
@@ -502,7 +537,36 @@ const StickyNotes = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 mb-4 line-clamp-3">{note.content}</p>
+                <div className="mb-4">
+                  <p className="text-gray-600">
+                    {expandedNotes.has(note.id) 
+                      ? note.content 
+                      : needsViewMore(note.content) 
+                        ? getTruncatedContent(note.content)
+                        : note.content
+                    }
+                  </p>
+                  {needsViewMore(note.content) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-2 p-0 h-auto text-blue-600 hover:text-blue-800 hover:bg-transparent"
+                      onClick={() => toggleNoteExpansion(note.id)}
+                    >
+                      {expandedNotes.has(note.id) ? (
+                        <>
+                          <ChevronUp className="h-3 w-3 mr-1" />
+                          View Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-3 w-3 mr-1" />
+                          View More
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
                 
                 <div className="space-y-2">
                   {note.service_name && (
