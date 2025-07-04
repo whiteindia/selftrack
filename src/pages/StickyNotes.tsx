@@ -55,6 +55,7 @@ const StickyNotes = () => {
   const [serviceFilter, setServiceFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('recent'); // 'recent' or 'all'
 
   const [newNote, setNewNote] = useState({
     title: '',
@@ -177,9 +178,20 @@ const StickyNotes = () => {
       const matchesClient = clientFilter === 'all' || note.client_id === clientFilter;
       const matchesProject = projectFilter === 'all' || note.project_id === projectFilter;
       
-      return matchesSearch && matchesService && matchesClient && matchesProject;
+      // Date filtering - show recent 2 months by default
+      let matchesDate = true;
+      if (dateFilter === 'recent') {
+        const noteDate = new Date(note.created_at);
+        const now = new Date();
+        const twoMonthsAgo = new Date();
+        twoMonthsAgo.setMonth(now.getMonth() - 1);
+        twoMonthsAgo.setDate(1); // Start of previous month
+        matchesDate = noteDate >= twoMonthsAgo;
+      }
+      
+      return matchesSearch && matchesService && matchesClient && matchesProject && matchesDate;
     });
-  }, [notes, searchTerm, serviceFilter, clientFilter, projectFilter]);
+  }, [notes, searchTerm, serviceFilter, clientFilter, projectFilter, dateFilter]);
 
   // Create note mutation
   const createNoteMutation = useMutation({
@@ -281,6 +293,7 @@ const StickyNotes = () => {
     setServiceFilter('all');
     setClientFilter('all');
     setProjectFilter('all');
+    setDateFilter('recent');
   };
 
   if (notesLoading) {
@@ -401,7 +414,7 @@ const StickyNotes = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div>
             <Input
               placeholder="Search notes..."
@@ -446,6 +459,15 @@ const StickyNotes = () => {
                   {project.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Recent (2 Months)</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={clearFilters} className="w-full">
