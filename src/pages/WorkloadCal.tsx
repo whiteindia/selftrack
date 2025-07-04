@@ -10,9 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarIcon, Plus, X, Repeat, Search, ChevronDown, Filter, Zap } from 'lucide-react';
+import { CalendarIcon, Plus, X, Repeat, Search, ChevronDown, Filter } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
@@ -106,10 +105,7 @@ const WorkloadCal = () => {
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false);
   const [isClearSubtaskDialogOpen, setIsClearSubtaskDialogOpen] = useState(false);
   const [isClearRoutinesDialogOpen, setIsClearRoutinesDialogOpen] = useState(false);
-  const [isQuickTaskDialogOpen, setIsQuickTaskDialogOpen] = useState(false);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
-  const [quickTaskName, setQuickTaskName] = useState('');
-  const [miscellaneousProjectId, setMiscellaneousProjectId] = useState<string>('');
   const [assignDialogClient, setAssignDialogClient] = useState<string>('');
   const [assignDialogProject, setAssignDialogProject] = useState<string>('');
   const [routineDialogClient, setRoutineDialogClient] = useState<string>('');
@@ -164,299 +160,315 @@ const WorkloadCal = () => {
   });
 
   // Fetch workload items for the selected date - UPDATED to correctly identify tasks vs subtasks
-  const { data: workloadItems = [], isLoading, error: workloadError } = useQuery({
+  const { data: workloadItems = [], isLoading } = useQuery({
     queryKey: ['workload-assignments', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
       const dateStr = selectedDate.toISOString().split('T')[0];
       
       console.log('Fetching workload items for date:', dateStr);
       
-      try {
-        // Fetch tasks (both direct assignments and followup assignments)
-        const { data: tasksData, error: tasksError } = await supabase
-          .from('tasks')
-          .select(`
-            id,
+      // Fetch tasks (both direct assignments and followup assignments)
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          name,
+          status,
+          scheduled_time,
+          date,
+          assignee:employees!tasks_assignee_id_fkey(name),
+          assigner:employees!tasks_assigner_id_fkey(name),
+          project:projects!tasks_project_id_fkey(
             name,
-            status,
-            scheduled_time,
-            date,
-            assignee:employees!tasks_assignee_id_fkey(name),
-            assigner:employees!tasks_assigner_id_fkey(name),
+            client:clients!projects_client_id_fkey(name)
+          )
+        `)
+        .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
+        .not('scheduled_time', 'is', null);
+
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
+        throw tasksError;
+      }
+
+      // Fetch subtasks (both direct assignments and followup assignments)
+      const { data: subtasksData, error: subtasksError } = await supabase
+        .from('subtasks')
+        .select(`
+          id,
+          name,
+          status,
+          scheduled_time,
+          date,
+          assignee:employees!subtasks_assignee_id_fkey(name),
+          assigner:employees!subtasks_assigner_id_fkey(name),
+          task:tasks!subtasks_task_id_fkey(
+            name,
             project:projects!tasks_project_id_fkey(
               name,
               client:clients!projects_client_id_fkey(name)
             )
-          `)
-          .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
-          .not('scheduled_time', 'is', null);
+          )
+        `)
+        .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
+        .not('scheduled_time', 'is', null);
 
-        if (tasksError) {
-          console.error('Error fetching tasks:', tasksError);
-          throw tasksError;
+      if (subtasksError) {
+        console.error('Error fetching subtasks:', subtasksError);
+        throw subtasksError;
+      }
+
+      // Filter tasks that have scheduled_time matching today's date
+      const filteredTasks = tasksData?.filter(task => {
+        if (task.date === dateStr) return true;
+        if (task.scheduled_time && !task.date) {
+          // For items assigned via followup without date, check if scheduled_time matches today
+          const scheduledDate = task.scheduled_time.split(' ')[0];
+          return scheduledDate === dateStr;
         }
+        return false;
+      }) || [];
 
-        // Fetch subtasks (both direct assignments and followup assignments)
-        const { data: subtasksData, error: subtasksError } = await supabase
-          .from('subtasks')
-          .select(`
-            id,
-            name,
-            status,
-            scheduled_time,
-            date,
-            assignee:employees!subtasks_assignee_id_fkey(name),
-            assigner:employees!subtasks_assigner_id_fkey(name),
-            task:tasks!subtasks_task_id_fkey(
-              name,
-              project:projects!tasks_project_id_fkey(
-                name,
-                client:clients!projects_client_id_fkey(name)
-              )
-            )
-          `)
-          .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
-          .not('scheduled_time', 'is', null);
-
-        if (subtasksError) {
-          console.error('Error fetching subtasks:', subtasksError);
-          throw subtasksError;
+      // Filter subtasks that have scheduled_time matching today's date
+      const filteredSubtasks = subtasksData?.filter(subtask => {
+        if (subtask.date === dateStr) return true;
+        if (subtask.scheduled_time && !subtask.date) {
+          // For items assigned via followup without date, check if scheduled_time matches today
+          const scheduledDate = subtask.scheduled_time.split(' ')[0];
+          return scheduledDate === dateStr;
         }
+        return false;
+      }) || [];
 
-        // Filter tasks that have scheduled_time matching today's date
-        const filteredTasks = tasksData?.filter(task => {
-          if (task.date === dateStr) return true;
-          if (task.scheduled_time && !task.date) {
-            // For items assigned via followup without date, check if scheduled_time matches today
-            const scheduledDate = task.scheduled_time.split(' ')[0];
-            return scheduledDate === dateStr;
-          }
-          return false;
-        }) || [];
-
-        // Filter subtasks that have scheduled_time matching today's date
-        const filteredSubtasks = subtasksData?.filter(subtask => {
-          if (subtask.date === dateStr) return true;
-          if (subtask.scheduled_time && !subtask.date) {
-            // For items assigned via followup without date, check if scheduled_time matches today
-            const scheduledDate = subtask.scheduled_time.split(' ')[0];
-            return scheduledDate === dateStr;
-          }
-          return false;
-        }) || [];
-
-        // Fetch routine completions
-        const { data: routineData, error: routineError } = await supabase
-          .from('routine_completions')
-          .select(`
-            id,
-            completion_date,
-            scheduled_time,
-            routine:routines!routine_completions_routine_id_fkey(
-              id,
-              title,
-              frequency,
-              client:clients!routines_client_id_fkey(name),
-              project:projects!routines_project_id_fkey(name)
-            )
-          `)
-          .eq('completion_date', dateStr);
-
-        if (routineError) {
-          console.error('Error fetching routine completions:', routineError);
-          throw routineError;
-        }
-
-        // Get sprint information for tasks
-        const taskIds = filteredTasks?.map(task => task.id) || [];
-        let sprintData: any[] = [];
-        
-        if (taskIds.length > 0) {
-          const { data: sprints, error: sprintError } = await supabase
-            .from('sprint_tasks')
-            .select(`
-              task_id,
-              sprint:sprints!sprint_tasks_sprint_id_fkey(name)
-            `)
-            .in('task_id', taskIds);
-
-          if (sprintError) {
-            console.error('Error fetching sprints:', sprintError);
-          } else {
-            sprintData = sprints || [];
-          }
-        }
-
-        // Process tasks - FIXED to properly identify as tasks
-        const taskItems: WorkloadItem[] = filteredTasks?.map(task => {
-          const sprintInfo = sprintData.find(s => s.task_id === task.id);
-          let scheduledTime = '09:00';
-          
-          if (task.scheduled_time) {
-            if (task.scheduled_time.includes(' ')) {
-              // Format: "2024-07-01 14:00:00" - extract time part
-              scheduledTime = task.scheduled_time.split(' ')[1].substring(0, 5);
-            } else {
-              // Format: "14:00"
-              scheduledTime = task.scheduled_time;
-            }
-          }
-          
-          return {
-            id: task.id,
-            type: 'task' as const, // FIXED: Always set as 'task' for tasks table items
-            scheduled_date: dateStr,
-            scheduled_time: scheduledTime,
-            task: {
-              id: task.id,
-              name: task.name,
-              assignee_name: task.assignee?.name || 'Unassigned',
-              assigner: task.assigner, // Keep the full assigner object
-              sprint_name: sprintInfo?.sprint?.name || null,
-              project_name: task.project?.name || '',
-              client_name: task.project?.client?.name || '',
-              status: task.status,
-              scheduled_time: task.scheduled_time
-            }
-          };
-        }) || [];
-
-        // Process subtasks - FIXED to properly identify as subtasks
-        const subtaskItems: WorkloadItem[] = filteredSubtasks?.map(subtask => {
-          let scheduledTime = '09:00';
-          
-          if (subtask.scheduled_time) {
-            if (subtask.scheduled_time.includes(' ')) {
-              // Format: "2024-07-01 14:00:00" - extract time part
-              scheduledTime = subtask.scheduled_time.split(' ')[1].substring(0, 5);
-            } else {
-              // Format: "14:00"
-              scheduledTime = subtask.scheduled_time;
-            }
-          }
-          
-          return {
-            id: subtask.id,
-            type: 'subtask' as const, // FIXED: Always set as 'subtask' for subtasks table items
-            scheduled_date: dateStr,
-            scheduled_time: scheduledTime,
-            subtask: {
-              id: subtask.id,
-              name: subtask.name,
-              assignee_name: subtask.assignee?.name || 'Unassigned',
-              assigner: subtask.assigner, // Keep the full assigner object
-              project_name: subtask.task?.project?.name || '',
-              client_name: subtask.task?.project?.client?.name || '',
-              status: subtask.status,
-              scheduled_time: subtask.scheduled_time,
-              parent_task_name: subtask.task?.name || ''
-            }
-          };
-        }) || [];
-
-        // Process routine completions
-        const routineItems: WorkloadItem[] = routineData?.map(completion => ({
-          id: completion.id,
-          type: 'routine' as const,
-          scheduled_date: dateStr,
-          scheduled_time: completion.scheduled_time || '09:00',
-          routine: {
-            id: completion.routine.id,
-            title: completion.routine.title,
-            client_name: completion.routine.client?.name || '',
-            project_name: completion.routine.project?.name || '',
-            frequency: completion.routine.frequency
-          }
-        })) || [];
-
-        // Fetch sprint time slots for the selected date
-        console.log('Fetching sprint time slots for date:', dateStr);
-        const { data: sprintTimeSlotsData, error: sprintTimeSlotsError } = await supabase
-          .from('sprints')
-          .select(`
+      // Fetch routine completions
+      const { data: routineData, error: routineError } = await supabase
+        .from('routine_completions')
+        .select(`
+          id,
+          completion_date,
+          scheduled_time,
+          routine:routines!routine_completions_routine_id_fkey(
             id,
             title,
-            start_time,
-            end_time,
-            slot_date,
-            estimated_hours,
-            status,
-            sprint_leader:employees!sprints_sprint_leader_id_fkey(name),
-            project:projects!sprints_project_id_fkey(
-              name,
-              clients:clients!projects_client_id_fkey(name)
-            )
-          `)
-          .eq('slot_date', dateStr);
+            frequency,
+            client:clients!routines_client_id_fkey(name),
+            project:projects!routines_project_id_fkey(name)
+          )
+        `)
+        .eq('completion_date', dateStr);
 
-        if (sprintTimeSlotsError) {
-          console.error('Error fetching sprint time slots:', sprintTimeSlotsError);
+      if (routineError) {
+        console.error('Error fetching routine completions:', routineError);
+        throw routineError;
+      }
+
+      // Get sprint information for tasks
+      const taskIds = filteredTasks?.map(task => task.id) || [];
+      let sprintData: any[] = [];
+      
+      if (taskIds.length > 0) {
+        const { data: sprints, error: sprintError } = await supabase
+          .from('sprint_tasks')
+          .select(`
+            task_id,
+            sprint:sprints!sprint_tasks_sprint_id_fkey(name)
+          `)
+          .in('task_id', taskIds);
+
+        if (sprintError) {
+          console.error('Error fetching sprints:', sprintError);
         } else {
-          console.log('Sprint time slots found:', sprintTimeSlotsData?.length || 0);
-          console.log('Sprint time slots data:', sprintTimeSlotsData);
-          
-          // Filter out sprints without start_time and log them
-          const sprintsWithStartTime = sprintTimeSlotsData?.filter(sprint => sprint.start_time) || [];
-          const sprintsWithoutStartTime = sprintTimeSlotsData?.filter(sprint => !sprint.start_time) || [];
-          
-          if (sprintsWithoutStartTime.length > 0) {
-            console.warn('Sprints without start_time found:', sprintsWithoutStartTime);
+          sprintData = sprints || [];
+        }
+      }
+
+      // Process tasks - FIXED to properly identify as tasks
+      const taskItems: WorkloadItem[] = filteredTasks?.map(task => {
+        const sprintInfo = sprintData.find(s => s.task_id === task.id);
+        let scheduledTime = '09:00';
+        
+        if (task.scheduled_time) {
+          if (task.scheduled_time.includes(' ')) {
+            // Format: "2024-07-01 14:00:00" - extract time part
+            scheduledTime = task.scheduled_time.split(' ')[1].substring(0, 5);
+          } else {
+            // Format: "14:00"
+            scheduledTime = task.scheduled_time;
           }
-          
-          // Process sprint time slots
-          const sprintItems: WorkloadItem[] = sprintsWithStartTime.map(sprint => {
-            let scheduledTime = '09:00';
-            
-            if (sprint.start_time) {
-              if (sprint.start_time.includes(' ')) {
-                // Format: "2024-07-01 14:00:00" - extract time part
-                scheduledTime = sprint.start_time.split(' ')[1].substring(0, 5);
-              } else {
-                // Format: "14:00"
-                scheduledTime = sprint.start_time;
-              }
-            }
-            
-            return {
-              id: sprint.id,
-              type: 'sprint' as const,
-              scheduled_date: dateStr,
-              scheduled_time: scheduledTime,
-              sprint: {
-                id: sprint.id,
-                title: sprint.title,
-                start_time: sprint.start_time,
-                end_time: sprint.end_time,
-                slot_date: sprint.slot_date,
-                estimated_hours: sprint.estimated_hours,
-                status: sprint.status,
-                sprint_leader: sprint.sprint_leader,
-                project: sprint.project
-              }
-            };
-          });
-          
-          // Combine all items
-          const allItems = [...taskItems, ...subtaskItems, ...routineItems, ...sprintItems];
-          console.log('Processed workload items:', allItems);
-          console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length, 'Sprint Time Slots:', sprintItems.length);
-          return allItems;
         }
         
-        // Combine all items (without sprints if there was an error)
-        const allItems = [...taskItems, ...subtaskItems, ...routineItems];
-        console.log('Processed workload items:', allItems);
-        console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length);
-        return allItems;
+        return {
+          id: task.id,
+          type: 'task' as const, // FIXED: Always set as 'task' for tasks table items
+          scheduled_date: dateStr,
+          scheduled_time: scheduledTime,
+          task: {
+            id: task.id,
+            name: task.name,
+            assignee_name: task.assignee?.name || 'Unassigned',
+            assigner: task.assigner, // Keep the full assigner object
+            sprint_name: sprintInfo?.sprint?.name || null,
+            project_name: task.project?.name || '',
+            client_name: task.project?.client?.name || '',
+            status: task.status,
+            scheduled_time: task.scheduled_time
+          }
+        };
+      }) || [];
+
+      // Process subtasks - FIXED to properly identify as subtasks
+      const subtaskItems: WorkloadItem[] = filteredSubtasks?.map(subtask => {
+        let scheduledTime = '09:00';
         
-      } catch (error) {
-        console.error('Error in workload query:', error);
-        // Return empty array instead of throwing to prevent page from going blank
-        return [];
+        if (subtask.scheduled_time) {
+          if (subtask.scheduled_time.includes(' ')) {
+            // Format: "2024-07-01 14:00:00" - extract time part
+            scheduledTime = subtask.scheduled_time.split(' ')[1].substring(0, 5);
+          } else {
+            // Format: "14:00"
+            scheduledTime = subtask.scheduled_time;
+          }
+        }
+        
+        return {
+          id: subtask.id,
+          type: 'subtask' as const, // FIXED: Always set as 'subtask' for subtasks table items
+          scheduled_date: dateStr,
+          scheduled_time: scheduledTime,
+          subtask: {
+            id: subtask.id,
+            name: subtask.name,
+            assignee_name: subtask.assignee?.name || 'Unassigned',
+            assigner: subtask.assigner, // Keep the full assigner object
+            project_name: subtask.task?.project?.name || '',
+            client_name: subtask.task?.project?.client?.name || '',
+            status: subtask.status,
+            scheduled_time: subtask.scheduled_time,
+            parent_task_name: subtask.task?.name || ''
+          }
+        };
+      }) || [];
+
+      // Process routine completions
+      const routineItems: WorkloadItem[] = routineData?.map(completion => ({
+        id: completion.id,
+        type: 'routine' as const,
+        scheduled_date: dateStr,
+        scheduled_time: completion.scheduled_time || '09:00',
+        routine: {
+          id: completion.routine.id,
+          title: completion.routine.title,
+          client_name: completion.routine.client?.name || '',
+          project_name: completion.routine.project?.name || '',
+          frequency: completion.routine.frequency
+        }
+      })) || [];
+
+      // Fetch sprint time slots for the selected date
+      console.log('Fetching sprint time slots for date:', dateStr);
+      const { data: sprintTimeSlotsData, error: sprintTimeSlotsError } = await supabase
+        .from('sprints')
+        .select(`
+          id,
+          title,
+          start_time,
+          end_time,
+          slot_date,
+          estimated_hours,
+          status,
+          sprint_leader:employees!sprints_sprint_leader_id_fkey(name),
+          project:projects!sprints_project_id_fkey(
+            name,
+            clients:clients!projects_client_id_fkey(name)
+          )
+        `)
+        .eq('slot_date', dateStr);
+
+      if (sprintTimeSlotsError) {
+        console.error('Error fetching sprint time slots:', sprintTimeSlotsError);
+      } else {
+        console.log('Sprint time slots found:', sprintTimeSlotsData?.length || 0);
+        console.log('Sprint time slots data:', sprintTimeSlotsData);
+        
+        // Filter out sprints without start_time and log them
+        const sprintsWithStartTime = sprintTimeSlotsData?.filter(sprint => sprint.start_time) || [];
+        const sprintsWithoutStartTime = sprintTimeSlotsData?.filter(sprint => !sprint.start_time) || [];
+        
+        console.log('Sprints with start_time:', sprintsWithStartTime.length);
+        console.log('Sprints without start_time:', sprintsWithoutStartTime.length);
+        
+        if (sprintsWithoutStartTime.length > 0) {
+          console.log('Sprints without start_time:', sprintsWithoutStartTime.map(s => ({ id: s.id, title: s.title, slot_date: s.slot_date })));
+        }
       }
-    },
-    retry: 1, // Only retry once
-    retryDelay: 1000
+
+      // Process sprint time slots (only those with start_time)
+      const sprintItems: WorkloadItem[] = [];
+      
+      (sprintTimeSlotsData?.filter(sprint => sprint.start_time) || []).forEach(sprint => {
+        console.log('Processing sprint:', sprint.title, 'start_time:', sprint.start_time, 'end_time:', sprint.end_time, 'slot_date:', sprint.slot_date);
+        
+        let startTime = '09:00';
+        let endTime = '10:00';
+        
+        if (sprint.start_time) {
+          // Handle different time formats for start time
+          if (sprint.start_time.includes(' ')) {
+            // Format: "2024-07-01 14:00:00" - extract time part
+            startTime = sprint.start_time.split(' ')[1].substring(0, 5);
+          } else {
+            // Format: "14:00" or "14:00:00"
+            startTime = sprint.start_time.substring(0, 5);
+          }
+        }
+        
+        if (sprint.end_time) {
+          // Handle different time formats for end time
+          if (sprint.end_time.includes(' ')) {
+            // Format: "2024-07-01 18:00:00" - extract time part
+            endTime = sprint.end_time.split(' ')[1].substring(0, 5);
+          } else {
+            // Format: "18:00" or "18:00:00"
+            endTime = sprint.end_time.substring(0, 5);
+          }
+        }
+        
+        // Calculate start and end hours
+        const startHour = parseInt(startTime.split(':')[0]);
+        const endHour = parseInt(endTime.split(':')[0]);
+        
+        console.log(`Sprint spans from ${startHour}:00 to ${endHour}:00`);
+        
+        // Create a workload item for each hour slot that the sprint spans
+        for (let hour = startHour; hour < endHour; hour++) {
+          const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+          console.log(`Creating sprint item for time slot: ${timeSlot}`);
+          
+          sprintItems.push({
+            id: `${sprint.id}-${timeSlot}`, // Unique ID for each time slot
+            type: 'sprint' as const,
+            scheduled_date: dateStr,
+            scheduled_time: timeSlot,
+            sprint: {
+              id: sprint.id,
+              title: sprint.title,
+              start_time: sprint.start_time,
+              end_time: sprint.end_time,
+              slot_date: sprint.slot_date,
+              estimated_hours: sprint.estimated_hours,
+              status: sprint.status,
+              sprint_leader: sprint.sprint_leader,
+              project: sprint.project
+            }
+          });
+        }
+      });
+
+      const allItems = [...taskItems, ...subtaskItems, ...routineItems, ...sprintItems];
+      console.log('Processed workload items:', allItems);
+      console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length, 'Sprint Time Slots:', sprintItems.length);
+      return allItems;
+    }
   });
 
   // Fetch available tasks for assignment
@@ -575,28 +587,6 @@ const WorkloadCal = () => {
         status: subtask.status
       })) || [];
     }
-  });
-
-  // Fetch miscellaneous project for quick tasks
-  const { data: miscellaneousProject } = useQuery({
-    queryKey: ['miscellaneous-project'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name')
-        .eq('name', 'Miscellanious-Quick-Temp-Orglater')
-        .single();
-
-      if (error) {
-        console.error('Error fetching miscellaneous project:', error);
-        // Don't throw error, just return null so the page still loads
-        return null;
-      }
-
-      return data;
-    },
-    retry: false, // Don't retry if project doesn't exist
-    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
   // Get unique clients and projects for filters
@@ -844,62 +834,6 @@ const WorkloadCal = () => {
     }
   });
 
-  // Quick task creation mutation
-  const createQuickTaskMutation = useMutation({
-    mutationFn: async ({ taskName, timeSlot }: { taskName: string; timeSlot: string }) => {
-      if (!miscellaneousProject) {
-        toast.error('Miscellaneous project not found. Please create the "Miscellanious-Quick-Temp-Orglater" project first.');
-        throw new Error('Miscellaneous project not found');
-      }
-
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const { data: employee, error: empError } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('email', user?.email)
-        .single();
-      
-      if (empError || !employee) {
-        throw new Error('Employee record not found');
-      }
-
-      // Create slot start and end times
-      const slotStartDateTime = `${dateStr}T${timeSlot}:00`;
-      const slotEndDateTime = `${dateStr}T${(parseInt(timeSlot.split(':')[0]) + 1).toString().padStart(2, '0')}:00:00`;
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert([{
-          name: taskName,
-          project_id: miscellaneousProject.id,
-          assigner_id: employee.id,
-          status: 'Not Started',
-          date: dateStr,
-          scheduled_time: timeSlot,
-          slot_start_datetime: slotStartDateTime,
-          slot_end_datetime: slotEndDateTime
-        }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
-      queryClient.invalidateQueries({ queryKey: ['available-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['all-tasks'] });
-      setIsQuickTaskDialogOpen(false);
-      setQuickTaskName('');
-      setSelectedTimeSlot('');
-      toast.success('Quick task created successfully!');
-    },
-    onError: (error) => {
-      console.error('Quick task creation error:', error);
-      toast.error('Failed to create quick task: ' + error.message);
-    }
-  });
-
   const handleAssignTask = (taskId: string) => {
     if (!selectedTimeSlot) {
       toast.error('Please select a time slot');
@@ -937,23 +871,6 @@ const WorkloadCal = () => {
   const handleOpenAssignRoutineDialog = (timeSlot: string) => {
     setSelectedTimeSlot(timeSlot);
     setIsAssignRoutineDialogOpen(true);
-  };
-
-  const handleOpenQuickTaskDialog = (timeSlot: string) => {
-    setSelectedTimeSlot(timeSlot);
-    setIsQuickTaskDialogOpen(true);
-  };
-
-  const handleCreateQuickTask = () => {
-    if (!quickTaskName.trim()) {
-      toast.error('Please enter a task name');
-      return;
-    }
-    if (!selectedTimeSlot) {
-      toast.error('Please select a time slot');
-      return;
-    }
-    createQuickTaskMutation.mutate({ taskName: quickTaskName.trim(), timeSlot: selectedTimeSlot });
   };
 
   const handleClearAssignment = (itemId: string, itemType: 'task' | 'subtask' | 'routine' | 'sprint') => {
@@ -1001,25 +918,6 @@ const WorkloadCal = () => {
       <Navigation>
         <div className="flex items-center justify-center h-64">
           <div className="text-lg">Loading...</div>
-        </div>
-      </Navigation>
-    );
-  }
-
-  if (workloadError) {
-    return (
-      <Navigation>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="text-lg text-red-600 mb-2">Error loading workload data</div>
-            <div className="text-sm text-gray-600 mb-4">{workloadError.message}</div>
-            <Button 
-              onClick={() => window.location.reload()} 
-              variant="outline"
-            >
-              Retry
-            </Button>
-          </div>
         </div>
       </Navigation>
     );
@@ -1558,21 +1456,6 @@ const WorkloadCal = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleOpenQuickTaskDialog(timeSlot)}
-                        disabled={!miscellaneousProject}
-                        className="shrink-0 bg-green-50 border-green-200 text-green-700 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={!miscellaneousProject ? 'Miscellaneous project not found' : 'Create quick task'}
-                      >
-                        <Zap className="h-4 w-4" />
-                        {!isMobile && (
-                          <>
-                            <span className="ml-2">Quick</span>
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
                         onClick={() => handleOpenAssignDialog(timeSlot)}
                         className="shrink-0"
                       >
@@ -1741,66 +1624,6 @@ const WorkloadCal = () => {
             );
           })}
         </div>
-
-        {/* Quick Task Dialog */}
-        <Dialog open={isQuickTaskDialogOpen} onOpenChange={setIsQuickTaskDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-green-600" />
-                Create Quick Task
-              </DialogTitle>
-              <DialogDescription>
-                Create a quick task for {formatTimeSlot(selectedTimeSlot)} in the Miscellaneous project
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="quick-task-name">Task Name</Label>
-                <Input
-                  id="quick-task-name"
-                  placeholder="Enter task name..."
-                  value={quickTaskName}
-                  onChange={(e) => setQuickTaskName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleCreateQuickTask();
-                    }
-                  }}
-                  autoFocus
-                />
-              </div>
-              
-              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
-                <div className="font-medium mb-1">Task Details:</div>
-                <div>• Project: Miscellanious-Quick-Temp-Orglater</div>
-                <div>• Time Slot: {formatTimeSlot(selectedTimeSlot)}</div>
-                <div>• Date: {format(selectedDate, 'PPP')}</div>
-                <div>• Status: Not Started</div>
-                <div className="mt-2 text-xs text-gray-500">
-                  You can edit this task later in the All Tasks page to add more details.
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-2 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setIsQuickTaskDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateQuickTask}
-                disabled={createQuickTaskMutation.isPending || !quickTaskName.trim()}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {createQuickTaskMutation.isPending ? 'Creating...' : 'Create Task'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </Navigation>
   );
