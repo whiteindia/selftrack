@@ -189,9 +189,9 @@ const StickyNotes = () => {
         .insert([{
           ...noteData,
           user_id: user?.id,
-          service_id: noteData.service_id || null,
-          client_id: noteData.client_id || null,
-          project_id: noteData.project_id || null
+          service_id: noteData.service_id === 'none' ? null : noteData.service_id || null,
+          client_id: noteData.client_id === 'none' ? null : noteData.client_id || null,
+          project_id: noteData.project_id === 'none' ? null : noteData.project_id || null
         }])
         .select()
         .single();
@@ -223,9 +223,9 @@ const StickyNotes = () => {
         .from('sticky_notes')
         .update({
           ...updates,
-          service_id: updates.service_id || null,
-          client_id: updates.client_id || null,
-          project_id: updates.project_id || null
+          service_id: updates.service_id === 'none' ? null : updates.service_id || null,
+          client_id: updates.client_id === 'none' ? null : updates.client_id || null,
+          project_id: updates.project_id === 'none' ? null : updates.project_id || null
         })
         .eq('id', id)
         .select()
@@ -346,7 +346,7 @@ const StickyNotes = () => {
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No service</SelectItem>
+                      <SelectItem value="none">No service</SelectItem>
                       {services.map((service) => (
                         <SelectItem key={service.id} value={service.id}>
                           {service.name}
@@ -362,7 +362,7 @@ const StickyNotes = () => {
                       <SelectValue placeholder="Select client" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No client</SelectItem>
+                      <SelectItem value="none">No client</SelectItem>
                       {clients.map((client) => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name}
@@ -378,7 +378,7 @@ const StickyNotes = () => {
                       <SelectValue placeholder="Select project" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No project</SelectItem>
+                      <SelectItem value="none">No project</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
@@ -553,14 +553,14 @@ const StickyNotes = () => {
                 <div>
                   <Label htmlFor="edit-service">Service (Optional)</Label>
                   <Select 
-                    value={editingNote.service_id || ''} 
-                    onValueChange={(value) => setEditingNote({ ...editingNote, service_id: value || null })}
+                    value={editingNote.service_id || 'none'} 
+                    onValueChange={(value) => setEditingNote({ ...editingNote, service_id: value === 'none' ? null : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No service</SelectItem>
+                      <SelectItem value="none">No service</SelectItem>
                       {services.map((service) => (
                         <SelectItem key={service.id} value={service.id}>
                           {service.name}
@@ -572,14 +572,14 @@ const StickyNotes = () => {
                 <div>
                   <Label htmlFor="edit-client">Client (Optional)</Label>
                   <Select 
-                    value={editingNote.client_id || ''} 
-                    onValueChange={(value) => setEditingNote({ ...editingNote, client_id: value || null })}
+                    value={editingNote.client_id || 'none'} 
+                    onValueChange={(value) => setEditingNote({ ...editingNote, client_id: value === 'none' ? null : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select client" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No client</SelectItem>
+                      <SelectItem value="none">No client</SelectItem>
                       {clients.map((client) => (
                         <SelectItem key={client.id} value={client.id}>
                           {client.name}
@@ -591,14 +591,14 @@ const StickyNotes = () => {
                 <div>
                   <Label htmlFor="edit-project">Project (Optional)</Label>
                   <Select 
-                    value={editingNote.project_id || ''} 
-                    onValueChange={(value) => setEditingNote({ ...editingNote, project_id: value || null })}
+                    value={editingNote.project_id || 'none'} 
+                    onValueChange={(value) => setEditingNote({ ...editingNote, project_id: value === 'none' ? null : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select project" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No project</SelectItem>
+                      <SelectItem value="none">No project</SelectItem>
                       {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
