@@ -25,6 +25,7 @@ import {
   ClipboardList,
   CalendarCheck,
   Bell,
+  StickyNote,
   Users2,
   UserCog,
   Users as UsersIcon,
@@ -75,6 +76,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const taskforceItems = [
     { path: '/alltasks', label: 'All Tasks', icon: CheckSquare, pageName: 'tasks' },
+    { path: '/sticky-notes', label: 'Sticky Notes', icon: StickyNote, pageName: 'tasks' },
     { path: '/buzman', label: 'Buzman', icon: UserCog, pageName: 'buzman' },
     { path: '/skillman', label: 'Skillman', icon: UsersIcon, pageName: 'skillman' },
     { path: '/cman', label: 'Cman', icon: UserPlus, pageName: 'cman' },

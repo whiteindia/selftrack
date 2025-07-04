@@ -34,6 +34,7 @@ import Reminders from "./pages/Reminders";
 import TimeUntil from "./pages/TimeUntil";
 import RoutinesTracker from "./pages/RoutinesTracker";
 import FollowupCal from '@/pages/FollowupCal';
+import StickyNotes from "./pages/StickyNotes";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,11 @@ function App() {
                 <Route path="/followupcal" element={
                   <ProtectedRoute>
                     <FollowupCal />
+                  </ProtectedRoute>
+                } />
+                <Route path="/sticky-notes" element={
+                  <ProtectedRoute>
+                    <StickyNotes />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />

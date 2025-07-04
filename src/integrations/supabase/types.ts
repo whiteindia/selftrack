@@ -840,6 +840,71 @@ export type Database = {
           },
         ]
       }
+      sticky_notes: {
+        Row: {
+          client_id: string | null
+          content: string
+          created_at: string
+          id: string
+          project_id: string | null
+          service_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          service_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          service_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sticky_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sticky_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sticky_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "task_project_info"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sticky_notes_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subtasks: {
         Row: {
           assignee_id: string | null
@@ -1351,6 +1416,8 @@ export type Database = {
         | "On-Head"
         | "Targeted"
         | "Imp"
+        | "Won"
+        | "Lost"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1476,6 +1543,8 @@ export const Constants = {
         "On-Head",
         "Targeted",
         "Imp",
+        "Won",
+        "Lost",
       ],
     },
   },
