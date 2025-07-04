@@ -48,9 +48,28 @@ interface Subtask {
   parent_task_name: string;
 }
 
+interface Sprint {
+  id: string;
+  title: string;
+  start_time: string | null;
+  end_time: string | null;
+  slot_date: string | null;
+  estimated_hours: number | null;
+  status: string;
+  sprint_leader?: {
+    name: string;
+  };
+  project?: {
+    name: string;
+    clients: {
+      name: string;
+    };
+  };
+}
+
 interface WorkloadItem {
   id: string;
-  type: 'task' | 'subtask' | 'routine';
+  type: 'task' | 'subtask' | 'routine' | 'sprint';
   scheduled_time: string;
   scheduled_date: string;
   task?: Task;
@@ -62,6 +81,7 @@ interface WorkloadItem {
     project_name: string;
     frequency: string;
   };
+  sprint?: Sprint;
 }
 
 interface Routine {
@@ -344,9 +364,109 @@ const WorkloadCal = () => {
         }
       })) || [];
 
-      const allItems = [...taskItems, ...subtaskItems, ...routineItems];
+      // Fetch sprint time slots for the selected date
+      console.log('Fetching sprint time slots for date:', dateStr);
+      const { data: sprintTimeSlotsData, error: sprintTimeSlotsError } = await supabase
+        .from('sprints')
+        .select(`
+          id,
+          title,
+          start_time,
+          end_time,
+          slot_date,
+          estimated_hours,
+          status,
+          sprint_leader:employees!sprints_sprint_leader_id_fkey(name),
+          project:projects!sprints_project_id_fkey(
+            name,
+            clients:clients!projects_client_id_fkey(name)
+          )
+        `)
+        .eq('slot_date', dateStr);
+
+      if (sprintTimeSlotsError) {
+        console.error('Error fetching sprint time slots:', sprintTimeSlotsError);
+      } else {
+        console.log('Sprint time slots found:', sprintTimeSlotsData?.length || 0);
+        console.log('Sprint time slots data:', sprintTimeSlotsData);
+        
+        // Filter out sprints without start_time and log them
+        const sprintsWithStartTime = sprintTimeSlotsData?.filter(sprint => sprint.start_time) || [];
+        const sprintsWithoutStartTime = sprintTimeSlotsData?.filter(sprint => !sprint.start_time) || [];
+        
+        console.log('Sprints with start_time:', sprintsWithStartTime.length);
+        console.log('Sprints without start_time:', sprintsWithoutStartTime.length);
+        
+        if (sprintsWithoutStartTime.length > 0) {
+          console.log('Sprints without start_time:', sprintsWithoutStartTime.map(s => ({ id: s.id, title: s.title, slot_date: s.slot_date })));
+        }
+      }
+
+      // Process sprint time slots (only those with start_time)
+      const sprintItems: WorkloadItem[] = [];
+      
+      (sprintTimeSlotsData?.filter(sprint => sprint.start_time) || []).forEach(sprint => {
+        console.log('Processing sprint:', sprint.title, 'start_time:', sprint.start_time, 'end_time:', sprint.end_time, 'slot_date:', sprint.slot_date);
+        
+        let startTime = '09:00';
+        let endTime = '10:00';
+        
+        if (sprint.start_time) {
+          // Handle different time formats for start time
+          if (sprint.start_time.includes(' ')) {
+            // Format: "2024-07-01 14:00:00" - extract time part
+            startTime = sprint.start_time.split(' ')[1].substring(0, 5);
+          } else {
+            // Format: "14:00" or "14:00:00"
+            startTime = sprint.start_time.substring(0, 5);
+          }
+        }
+        
+        if (sprint.end_time) {
+          // Handle different time formats for end time
+          if (sprint.end_time.includes(' ')) {
+            // Format: "2024-07-01 18:00:00" - extract time part
+            endTime = sprint.end_time.split(' ')[1].substring(0, 5);
+          } else {
+            // Format: "18:00" or "18:00:00"
+            endTime = sprint.end_time.substring(0, 5);
+          }
+        }
+        
+        // Calculate start and end hours
+        const startHour = parseInt(startTime.split(':')[0]);
+        const endHour = parseInt(endTime.split(':')[0]);
+        
+        console.log(`Sprint spans from ${startHour}:00 to ${endHour}:00`);
+        
+        // Create a workload item for each hour slot that the sprint spans
+        for (let hour = startHour; hour < endHour; hour++) {
+          const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+          console.log(`Creating sprint item for time slot: ${timeSlot}`);
+          
+          sprintItems.push({
+            id: `${sprint.id}-${timeSlot}`, // Unique ID for each time slot
+            type: 'sprint' as const,
+            scheduled_date: dateStr,
+            scheduled_time: timeSlot,
+            sprint: {
+              id: sprint.id,
+              title: sprint.title,
+              start_time: sprint.start_time,
+              end_time: sprint.end_time,
+              slot_date: sprint.slot_date,
+              estimated_hours: sprint.estimated_hours,
+              status: sprint.status,
+              sprint_leader: sprint.sprint_leader,
+              project: sprint.project
+            }
+          });
+        }
+      });
+
+      const allItems = [...taskItems, ...subtaskItems, ...routineItems, ...sprintItems];
       console.log('Processed workload items:', allItems);
-      console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length);
+      console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length, 'Sprint Time Slots:', sprintItems.length);
       return allItems;
     }
   });
@@ -753,12 +873,13 @@ const WorkloadCal = () => {
     setIsAssignRoutineDialogOpen(true);
   };
 
-  const handleClearAssignment = (itemId: string, itemType: 'task' | 'subtask' | 'routine') => {
+  const handleClearAssignment = (itemId: string, itemType: 'task' | 'subtask' | 'routine' | 'sprint') => {
     if (itemType === 'task' || itemType === 'subtask') {
       clearAssignmentMutation.mutate({ itemId, itemType });
-    } else {
+    } else if (itemType === 'routine') {
       clearRoutineCompletionMutation.mutate(itemId);
     }
+    // Note: Sprints cannot be cleared from workload calendar as they are time slots
   };
 
   const formatTimeSlot = (time: string) => {
@@ -1381,19 +1502,21 @@ const WorkloadCal = () => {
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {slotItems.map(item => (
                         <Card key={`${item.type}-${item.id}`} className="border border-gray-200 relative">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleClearAssignment(item.id, item.type);
-                            }}
-                            className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center text-red-600 hover:text-red-700 transition-colors z-10"
-                            title="Clear assignment"
-                            disabled={clearAssignmentMutation.isPending || clearRoutineCompletionMutation.isPending}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                          <CardContent className="p-3 pr-8">
+                          {item.type !== 'sprint' && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleClearAssignment(item.id, item.type);
+                              }}
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center text-red-600 hover:text-red-700 transition-colors z-10"
+                              title="Clear assignment"
+                              disabled={clearAssignmentMutation.isPending || clearRoutineCompletionMutation.isPending}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                          <CardContent className={cn("p-3", item.type !== 'sprint' && "pr-8")}>
                             <div className="space-y-2">
                               {item.type === 'task' ? (
                                 <>
@@ -1451,7 +1574,7 @@ const WorkloadCal = () => {
                                     />
                                   </div>
                                 </>
-                              ) : (
+                              ) : item.type === 'routine' ? (
                                 <>
                                   <div className="text-xs text-gray-600">
                                     <Repeat className="h-3 w-3 inline mr-1" />
@@ -1465,7 +1588,31 @@ const WorkloadCal = () => {
                                     {item.routine?.frequency}
                                   </Badge>
                                 </>
-                              )}
+                              ) : item.type === 'sprint' ? (
+                                <>
+                                  <div className="text-xs text-gray-600">
+                                    🏃 Sprint Time Slot
+                                  </div>
+                                  <div className="font-medium text-sm">{item.sprint?.title}</div>
+                                  <div className="text-xs text-gray-600">
+                                    {item.sprint?.project?.clients?.name || 'No Client'} || {item.sprint?.project?.name || 'No Project'}
+                                  </div>
+                                  {item.sprint?.sprint_leader?.name && (
+                                    <div className="text-xs text-gray-500">
+                                      👤 Leader: {item.sprint.sprint_leader.name}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-blue-600">
+                                    {item.sprint?.start_time} - {item.sprint?.end_time}
+                                    {item.sprint?.estimated_hours && (
+                                      <span className="ml-2">({item.sprint.estimated_hours}h)</span>
+                                    )}
+                                  </div>
+                                  <Badge className={getStatusColor(item.sprint?.status || '')}>
+                                    {item.sprint?.status}
+                                  </Badge>
+                                </>
+                              ) : null}
                             </div>
                           </CardContent>
                         </Card>

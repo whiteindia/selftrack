@@ -237,11 +237,18 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
   };
 
   const handleSubmit = () => {
+    // Prepare form data with proper date handling
+    const processedFormData = {
+      ...formData,
+      start_date: formData.start_date || null,
+      deadline: formData.deadline || null
+    };
+
     if (project) {
       // Update existing project
       updateProjectMutation.mutate({
         id: project.id,
-        updates: formData,
+        updates: processedFormData,
         brdFile
       }, {
         onSuccess: () => {
@@ -256,7 +263,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
     } else {
       // Create new project
       createProjectMutation.mutate({
-        projectData: formData,
+        projectData: processedFormData,
         brdFile
       }, {
         onSuccess: () => {
@@ -397,7 +404,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
           )}
           
           <div className="space-y-2">
-            <Label htmlFor="startDate">Start Date</Label>
+            <Label htmlFor="startDate">Start Date (Optional)</Label>
             <Input
               id="startDate"
               type="date"
@@ -407,7 +414,7 @@ const ProjectFormDialog = ({ isOpen, onClose, project, onSuccess }: ProjectFormD
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="deadline">Deadline</Label>
+            <Label htmlFor="deadline">Deadline (Optional)</Label>
             <Input
               id="deadline"
               type="date"

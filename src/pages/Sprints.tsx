@@ -10,6 +10,7 @@ import SprintsEmptyState from '@/components/SprintsEmptyState';
 import Navigation from '@/components/Navigation';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from '@/hooks/use-toast';
+import AddTasksToSprintDialog from '@/components/AddTasksToSprintDialog';
 
 interface Sprint {
   id: string;
@@ -21,6 +22,10 @@ interface Sprint {
   created_at: string;
   updated_at: string;
   completion_date?: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  slot_date?: string | null;
+  estimated_hours?: number | null;
 }
 
 interface Task {
@@ -32,6 +37,8 @@ interface Task {
   deadline: string | null;
   hours: number;
   estimated_duration: number | null;
+  scheduled_time?: string | null;
+  date?: string | null;
   projects?: {
     name: string;
     service: string;
@@ -66,6 +73,8 @@ interface SprintWithTasks extends Sprint {
 const Sprints = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
+  const [addTasksDialogOpen, setAddTasksDialogOpen] = useState(false);
+  const [selectedSprintForAddTasks, setSelectedSprintForAddTasks] = useState<{ id: string; title: string } | null>(null);
   const [selectedClient, setSelectedClient] = useState<string>('all');
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
@@ -245,6 +254,8 @@ const Sprints = () => {
                 deadline,
                 hours,
                 estimated_duration,
+                scheduled_time,
+                date,
                 projects (
                   name,
                   service,
@@ -291,6 +302,8 @@ const Sprints = () => {
                 deadline: task.deadline,
                 hours: task.hours || 0,
                 estimated_duration: task.estimated_duration,
+                scheduled_time: task.scheduled_time,
+                date: task.date,
                 projects: task.projects,
                 employees: employeeData
               });
@@ -368,9 +381,90 @@ const Sprints = () => {
           });
         }
 
-        // Sort sprints: recently updated first
+        // Enhanced sorting with priority: tasks with time slots, recently updated, overdue, near deadlines
         sprintsWithTasks.sort((a, b) => {
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+          const today = new Date();
+          const aDeadline = new Date(a.deadline);
+          const bDeadline = new Date(b.deadline);
+          
+          // Calculate days until deadline (negative if overdue)
+          const aDaysUntilDeadline = Math.floor((aDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          const bDaysUntilDeadline = Math.floor((bDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Priority 1: Tasks with actual time slots (scheduled_time or date) - highest priority
+          const aHasTimeSlots = a.tasks.some(task => task.scheduled_time || task.date);
+          const bHasTimeSlots = b.tasks.some(task => task.scheduled_time || task.date);
+          
+          if (aHasTimeSlots && !bHasTimeSlots) return -1;
+          if (!aHasTimeSlots && bHasTimeSlots) return 1;
+          
+          // If both have time slots, sort by earliest slot time
+          if (aHasTimeSlots && bHasTimeSlots) {
+            const aEarliestSlot = a.tasks
+              .filter(task => task.scheduled_time || task.date)
+              .map(task => {
+                if (task.scheduled_time) {
+                  const time = task.scheduled_time.includes(' ') ? task.scheduled_time.split(' ')[1] : task.scheduled_time;
+                  return time;
+                }
+                return '23:59'; // Default to end of day if only date
+              })
+              .sort()[0] || '23:59';
+            
+            const bEarliestSlot = b.tasks
+              .filter(task => task.scheduled_time || task.date)
+              .map(task => {
+                if (task.scheduled_time) {
+                  const time = task.scheduled_time.includes(' ') ? task.scheduled_time.split(' ')[1] : task.scheduled_time;
+                  return time;
+                }
+                return '23:59'; // Default to end of day if only date
+              })
+              .sort()[0] || '23:59';
+            
+            return aEarliestSlot.localeCompare(bEarliestSlot);
+          }
+          
+          // Priority 2: Tasks with deadlines (but no time slots)
+          const aHasDeadlines = a.tasks.some(task => task.deadline);
+          const bHasDeadlines = b.tasks.some(task => task.deadline);
+          
+          if (aHasDeadlines && !bHasDeadlines) return -1;
+          if (!aHasDeadlines && bHasDeadlines) return 1;
+          
+          // Priority 3: Recently updated (within last 7 days)
+          const aRecentlyUpdated = (today.getTime() - new Date(a.updated_at).getTime()) < (7 * 24 * 60 * 60 * 1000);
+          const bRecentlyUpdated = (today.getTime() - new Date(b.updated_at).getTime()) < (7 * 24 * 60 * 60 * 1000);
+          
+          if (aRecentlyUpdated && !bRecentlyUpdated) return -1;
+          if (!aRecentlyUpdated && bRecentlyUpdated) return 1;
+          
+          // Priority 4: Overdue sprints (negative days until deadline)
+          const aOverdue = aDaysUntilDeadline < 0;
+          const bOverdue = bDaysUntilDeadline < 0;
+          
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+          
+          // If both are overdue, sort by most overdue first (smaller negative number = more overdue)
+          if (aOverdue && bOverdue) {
+            return aDaysUntilDeadline - bDaysUntilDeadline;
+          }
+          
+          // Priority 5: Near deadlines (within 7 days) - sort by closest deadline first
+          const aNearDeadline = aDaysUntilDeadline >= 0 && aDaysUntilDeadline <= 7;
+          const bNearDeadline = bDaysUntilDeadline >= 0 && bDaysUntilDeadline <= 7;
+          
+          if (aNearDeadline && !bNearDeadline) return -1;
+          if (!aNearDeadline && bNearDeadline) return 1;
+          
+          // If both are near deadline, sort by closest deadline first
+          if (aNearDeadline && bNearDeadline) {
+            return aDaysUntilDeadline - bDaysUntilDeadline;
+          }
+          
+          // Priority 6: All other sprints - sort by deadline (earliest first)
+          return aDaysUntilDeadline - bDaysUntilDeadline;
         });
 
         console.log('Final sprints with tasks (RLS with project manager access):', sprintsWithTasks);
@@ -567,6 +661,38 @@ const Sprints = () => {
     }
   });
 
+  const removeTaskFromSprint = useMutation({
+    mutationFn: async ({ taskId, sprintId }: { taskId: string; sprintId: string }) => {
+      console.log('Removing task from sprint:', taskId, sprintId);
+      const { error } = await supabase
+        .from('sprint_tasks')
+        .delete()
+        .eq('sprint_id', sprintId)
+        .eq('task_id', taskId);
+      
+      if (error) {
+        console.error('Error removing task from sprint:', error);
+        throw error;
+      }
+      console.log('Task removed from sprint successfully');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      toast({
+        title: "Success",
+        description: "Task removed from sprint successfully",
+      });
+    },
+    onError: (error) => {
+      console.error('Remove task from sprint error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove task from sprint",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleTaskStatusChange = (taskId: string, newStatus: 'Not Started' | 'In Progress' | 'Completed', sprintId: string) => {
     if (!canUpdate) {
       toast({
@@ -633,6 +759,22 @@ const Sprints = () => {
     }
   };
 
+  const handleRemoveTask = (taskId: string, sprintId: string) => {
+    if (!canUpdate) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to remove tasks from sprints",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Remove task requested:', taskId, sprintId);
+    if (confirm('Are you sure you want to remove this task from the sprint?')) {
+      removeTaskFromSprint.mutate({ taskId, sprintId });
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Completed':
@@ -682,6 +824,28 @@ const Sprints = () => {
     console.log('Create sprint requested');
     setEditingSprint(null);
     setDialogOpen(true);
+  };
+
+  const handleAddTasksToSprint = (sprintId: string) => {
+    console.log('handleAddTasksToSprint called with sprintId:', sprintId);
+    console.log('canUpdate:', canUpdate);
+    
+    if (!canUpdate) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to add tasks to sprints",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const sprint = sprints.find(s => s.id === sprintId);
+    console.log('Found sprint:', sprint);
+    if (sprint) {
+      setSelectedSprintForAddTasks({ id: sprintId, title: sprint.title });
+      setAddTasksDialogOpen(true);
+      console.log('Dialog should open now');
+    }
   };
 
   console.log('Sprints loading:', isLoading);
@@ -783,6 +947,8 @@ const Sprints = () => {
                 canUpdate={canUpdate}
                 canDelete={canDelete}
                 onTaskStatusChange={handleTaskStatusChange}
+                onRemoveTask={handleRemoveTask}
+                onAddTasks={handleAddTasksToSprint}
                 onEdit={() => handleEditSprint(sprint)}
                 onDelete={() => handleDeleteSprint(sprint.id)}
                 getStatusIcon={getStatusIcon}
@@ -803,6 +969,21 @@ const Sprints = () => {
             setEditingSprint(null);
           }}
         />
+
+        {selectedSprintForAddTasks && (
+          <AddTasksToSprintDialog
+            open={addTasksDialogOpen}
+            onOpenChange={setAddTasksDialogOpen}
+            sprintId={selectedSprintForAddTasks.id}
+            sprintTitle={selectedSprintForAddTasks.title}
+            onSuccess={() => {
+              console.log('Add tasks dialog success callback');
+              queryClient.invalidateQueries({ queryKey: ['sprints'] });
+              setAddTasksDialogOpen(false);
+              setSelectedSprintForAddTasks(null);
+            }}
+          />
+        )}
       </div>
     </Navigation>
   );

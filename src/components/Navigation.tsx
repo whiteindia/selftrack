@@ -74,9 +74,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' },
   ];
 
+  const stickyNotesItem = { path: '/sticky-notes', label: '', icon: StickyNote, pageName: 'tasks' };
+
   const taskforceItems = [
     { path: '/alltasks', label: 'All Tasks', icon: CheckSquare, pageName: 'tasks' },
-    { path: '/sticky-notes', label: 'Sticky Notes', icon: StickyNote, pageName: 'tasks' },
     { path: '/buzman', label: 'Buzman', icon: UserCog, pageName: 'buzman' },
     { path: '/skillman', label: 'Skillman', icon: UsersIcon, pageName: 'skillman' },
     { path: '/cman', label: 'Cman', icon: UserPlus, pageName: 'cman' },
@@ -86,7 +87,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
   const goalTrackItems = [
     { path: '/time-until', label: 'Time Until', icon: Clock, pageName: 'time-until' },
-    { path: '/workload-cal', label: 'Workload Cal', icon: CalendarDays, pageName: 'workload-cal' },
     { path: '/routines-tracker', label: 'Routines Tracker', icon: Target, pageName: 'routines-tracker', requireAdmin: true },
   ];
 
@@ -204,6 +204,26 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     <div className="flex flex-col h-full">
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="space-y-6">
+          {/* Sticky Notes - before Main navigation */}
+          {hasPageAccess('tasks') && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Quick Access</h3>
+              <div className="space-y-1">
+                <Link
+                  to={stickyNotesItem.path}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive(stickyNotesItem.path)
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <StickyNote className="h-4 w-4" />
+                  <span>Sticky Notes</span>
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Main navigation items (Dashboard, Projects only) */}
           {visibleMainNavItems.slice(0, 2).length > 0 && (
             <div>
@@ -457,7 +477,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     <header className="bg-white shadow-sm border-b sticky top-0 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
-          <div className="hidden md:flex items-center space-x-6 flex-1 justify-center min-w-0 overflow-hidden">
+          <div className="hidden md:flex items-center space-x-4 flex-1 justify-center min-w-0 overflow-hidden">
             {/* Main navigation items (Dashboard, Projects only) */}
             {visibleMainNavItems.slice(0, 2).map((item) => {
               const Icon = item.icon;
@@ -476,11 +496,41 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 </Link>
               );
             })}
+
+            {/* Sticky Notes - icon only, after Dashboard */}
+            {hasPageAccess('tasks') && (
+              <Link
+                to={stickyNotesItem.path}
+                className={`flex items-center justify-center w-8 h-8 rounded-md text-sm font-medium transition-colors flex-shrink-0 border ${
+                  isActive(stickyNotesItem.path)
+                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    : 'text-gray-700 hover:bg-gray-100 border-gray-200'
+                }`}
+                title="Sticky Notes"
+              >
+                <StickyNote className="h-4 w-4" />
+              </Link>
+            )}
+
+            {/* WorkloadCal - icon only, after Sticky Notes */}
+            {hasPageAccess('workload-cal') && (
+              <Link
+                to="/workload-cal"
+                className={`flex items-center justify-center w-8 h-8 rounded-md text-sm font-medium transition-colors flex-shrink-0 border ${
+                  isActive('/workload-cal')
+                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    : 'text-gray-700 hover:bg-gray-100 border-gray-200'
+                }`}
+                title="Workload Calendar"
+              >
+                <CalendarDays className="h-4 w-4" />
+              </Link>
+            )}
             
             {shouldShowTaskforceMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-2 flex-shrink-0">
                     <Users2 className="h-4 w-4" />
                     <span>Taskforce</span>
                     <ChevronDown className="h-4 w-4" />
@@ -531,7 +581,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowGoalTrackMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-2 flex-shrink-0">
                     <Target className="h-4 w-4" />
                     <span>GoalTrack</span>
                     <ChevronDown className="h-4 w-4" />

@@ -2,7 +2,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, Info } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Service {
   id: string;
@@ -29,6 +30,31 @@ const SprintsHeader: React.FC<SprintsHeaderProps> = ({
       <div className="min-w-0">
         <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Sprints</h1>
         <p className="text-gray-600 mt-2 text-sm lg:text-base">Manage project sprints and track progress</p>
+        
+        {/* Sorting Priority Information */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <Info className="h-3 w-3" />
+            <span>Sorting Priority:</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+              Recently Updated
+            </Badge>
+            <span className="text-xs text-gray-400">→</span>
+            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+              Overdue
+            </Badge>
+            <span className="text-xs text-gray-400">→</span>
+            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
+              Near Deadline
+            </Badge>
+            <span className="text-xs text-gray-400">→</span>
+            <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs">
+              Others
+            </Badge>
+          </div>
+        </div>
       </div>
       
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
