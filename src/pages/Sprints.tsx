@@ -368,11 +368,9 @@ const Sprints = () => {
           });
         }
 
-        // Sort sprints: overdue first, then by deadline
+        // Sort sprints: recently updated first
         sprintsWithTasks.sort((a, b) => {
-          if (a.isOverdue && !b.isOverdue) return -1;
-          if (!a.isOverdue && b.isOverdue) return 1;
-          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         });
 
         console.log('Final sprints with tasks (RLS with project manager access):', sprintsWithTasks);
