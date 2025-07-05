@@ -46,6 +46,10 @@ interface SprintsFiltersProps {
   selectedMonth: string;
   setSelectedMonth: (value: string) => void;
   globalServiceFilter: string;
+  selectedPinFilter: string;
+  setSelectedPinFilter: (value: string) => void;
+  selectedFavoriteFilter: string;
+  setSelectedFavoriteFilter: (value: string) => void;
   clients: Client[];
   projects: Project[];
   employees: Employee[];
@@ -80,6 +84,10 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
   selectedMonth,
   setSelectedMonth,
   globalServiceFilter,
+  selectedPinFilter,
+  setSelectedPinFilter,
+  selectedFavoriteFilter,
+  setSelectedFavoriteFilter,
   clients,
   projects,
   employees,
@@ -195,6 +203,34 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
               </div>
 
               <div>
+                <label className="block text-xs font-medium mb-1">Pin Status</label>
+                <Select value={selectedPinFilter} onValueChange={setSelectedPinFilter}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Sprints" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sprints</SelectItem>
+                    <SelectItem value="pinned">Pinned Only</SelectItem>
+                    <SelectItem value="unpinned">Unpinned Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1">Favorite Status</label>
+                <Select value={selectedFavoriteFilter} onValueChange={setSelectedFavoriteFilter}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="All Sprints" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sprints</SelectItem>
+                    <SelectItem value="favorite">Favorites Only</SelectItem>
+                    <SelectItem value="unfavorite">Not Favorites</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium mb-1">Client</label>
                 <Select value={selectedClient} onValueChange={setSelectedClient}>
                   <SelectTrigger className="h-8 text-sm">
@@ -284,6 +320,16 @@ const SprintsFilters: React.FC<SprintsFiltersProps> = ({
                 {selectedAssignee !== 'all' && (
                   <Badge variant="secondary" className="text-xs">
                     Assignee: {employees.find(e => e.id === selectedAssignee)?.name}
+                  </Badge>
+                )}
+                {selectedPinFilter !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Pin: {selectedPinFilter === 'pinned' ? 'Pinned Only' : 'Unpinned Only'}
+                  </Badge>
+                )}
+                {selectedFavoriteFilter !== 'all' && (
+                  <Badge variant="secondary" className="text-xs">
+                    Favorite: {selectedFavoriteFilter === 'favorite' ? 'Favorites Only' : 'Not Favorites'}
                   </Badge>
                 )}
               </div>

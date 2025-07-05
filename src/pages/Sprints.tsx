@@ -26,6 +26,8 @@ interface Sprint {
   end_time?: string | null;
   slot_date?: string | null;
   estimated_hours?: number | null;
+  is_pinned?: boolean;
+  is_favorite?: boolean;
 }
 
 interface Task {
@@ -85,6 +87,8 @@ const Sprints = () => {
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [globalServiceFilter, setGlobalServiceFilter] = useState<string>('all');
+  const [selectedPinFilter, setSelectedPinFilter] = useState<string>('all');
+  const [selectedFavoriteFilter, setSelectedFavoriteFilter] = useState<string>('all');
   const queryClient = useQueryClient();
 
   console.log('Sprints component rendered');
@@ -381,7 +385,7 @@ const Sprints = () => {
           });
         }
 
-        // Enhanced sorting with priority: tasks with time slots, recently updated, overdue, near deadlines
+        // Enhanced sorting with priority: pinned sprints, tasks with time slots, recently updated, overdue, near deadlines
         sprintsWithTasks.sort((a, b) => {
           const today = new Date();
           const aDeadline = new Date(a.deadline);
@@ -391,7 +395,14 @@ const Sprints = () => {
           const aDaysUntilDeadline = Math.floor((aDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
           const bDaysUntilDeadline = Math.floor((bDeadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
           
-          // Priority 1: Tasks with actual time slots (scheduled_time or date) - highest priority
+          // Priority 1: Pinned sprints (highest priority)
+          const aIsPinned = a.is_pinned || false;
+          const bIsPinned = b.is_pinned || false;
+          
+          if (aIsPinned && !bIsPinned) return -1;
+          if (!aIsPinned && bIsPinned) return 1;
+          
+          // Priority 2: Tasks with actual time slots (scheduled_time or date)
           const aHasTimeSlots = a.tasks.some(task => task.scheduled_time || task.date);
           const bHasTimeSlots = b.tasks.some(task => task.scheduled_time || task.date);
           
@@ -425,21 +436,21 @@ const Sprints = () => {
             return aEarliestSlot.localeCompare(bEarliestSlot);
           }
           
-          // Priority 2: Tasks with deadlines (but no time slots)
+          // Priority 3: Tasks with deadlines (but no time slots)
           const aHasDeadlines = a.tasks.some(task => task.deadline);
           const bHasDeadlines = b.tasks.some(task => task.deadline);
           
           if (aHasDeadlines && !bHasDeadlines) return -1;
           if (!aHasDeadlines && bHasDeadlines) return 1;
           
-          // Priority 3: Recently updated (within last 7 days)
+          // Priority 4: Recently updated (within last 7 days)
           const aRecentlyUpdated = (today.getTime() - new Date(a.updated_at).getTime()) < (7 * 24 * 60 * 60 * 1000);
           const bRecentlyUpdated = (today.getTime() - new Date(b.updated_at).getTime()) < (7 * 24 * 60 * 60 * 1000);
           
           if (aRecentlyUpdated && !bRecentlyUpdated) return -1;
           if (!aRecentlyUpdated && bRecentlyUpdated) return 1;
           
-          // Priority 4: Overdue sprints (negative days until deadline)
+          // Priority 5: Overdue sprints (negative days until deadline)
           const aOverdue = aDaysUntilDeadline < 0;
           const bOverdue = bDaysUntilDeadline < 0;
           
@@ -451,7 +462,7 @@ const Sprints = () => {
             return aDaysUntilDeadline - bDaysUntilDeadline;
           }
           
-          // Priority 5: Near deadlines (within 7 days) - sort by closest deadline first
+          // Priority 6: Near deadlines (within 7 days) - sort by closest deadline first
           const aNearDeadline = aDaysUntilDeadline >= 0 && aDaysUntilDeadline <= 7;
           const bNearDeadline = bDaysUntilDeadline >= 0 && bDaysUntilDeadline <= 7;
           
@@ -463,7 +474,7 @@ const Sprints = () => {
             return aDaysUntilDeadline - bDaysUntilDeadline;
           }
           
-          // Priority 6: All other sprints - sort by deadline (earliest first)
+          // Priority 7: All other sprints - sort by deadline (earliest first)
           return aDaysUntilDeadline - bDaysUntilDeadline;
         });
 
@@ -523,6 +534,28 @@ const Sprints = () => {
     if (selectedMonth !== 'all') {
       const sprintMonth = new Date(sprint.deadline).getMonth();
       if (sprintMonth !== parseInt(selectedMonth)) {
+        return false;
+      }
+    }
+
+    // Pin filter
+    if (selectedPinFilter !== 'all') {
+      const isPinned = sprint.is_pinned || false;
+      if (selectedPinFilter === 'pinned' && !isPinned) {
+        return false;
+      }
+      if (selectedPinFilter === 'unpinned' && isPinned) {
+        return false;
+      }
+    }
+
+    // Favorite filter
+    if (selectedFavoriteFilter !== 'all') {
+      const isFavorite = sprint.is_favorite || false;
+      if (selectedFavoriteFilter === 'favorite' && !isFavorite) {
+        return false;
+      }
+      if (selectedFavoriteFilter === 'unfavorite' && isFavorite) {
         return false;
       }
     }
@@ -807,9 +840,11 @@ const Sprints = () => {
     setSelectedYear('all');
     setSelectedMonth('all');
     setGlobalServiceFilter('all');
+    setSelectedPinFilter('all');
+    setSelectedFavoriteFilter('all');
   };
 
-  const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedSprintLeader !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all';
+  const hasActiveFilters = selectedClient !== 'all' || selectedProject !== 'all' || selectedAssignee !== 'all' || selectedAssigner !== 'all' || selectedSprintLeader !== 'all' || selectedStatus !== 'active' || selectedYear !== 'all' || selectedMonth !== 'all' || globalServiceFilter !== 'all' || selectedPinFilter !== 'all' || selectedFavoriteFilter !== 'all';
 
   const handleCreateSprint = () => {
     if (!canCreate) {
@@ -921,6 +956,10 @@ const Sprints = () => {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
           globalServiceFilter={globalServiceFilter}
+          selectedPinFilter={selectedPinFilter}
+          setSelectedPinFilter={setSelectedPinFilter}
+          selectedFavoriteFilter={selectedFavoriteFilter}
+          setSelectedFavoriteFilter={setSelectedFavoriteFilter}
           clients={clients}
           projects={projects}
           employees={employees}

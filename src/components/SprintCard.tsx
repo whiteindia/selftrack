@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
-import { Edit, Trash2, Calendar, Clock, CheckCircle, Building2, User, X, AlertTriangle, TrendingUp, Plus } from 'lucide-react';
+import { Edit, Trash2, Calendar, Clock, CheckCircle, Building2, User, X, AlertTriangle, TrendingUp, Plus, Pin, Star } from 'lucide-react';
+import { useSprintPinFavorite } from '@/hooks/useSprintPinFavorite';
 
 interface Task {
   id: string;
@@ -42,6 +43,8 @@ interface SprintWithTasks {
   end_time?: string | null;
   slot_date?: string | null;
   estimated_hours?: number | null;
+  is_pinned?: boolean;
+  is_favorite?: boolean;
   sprint_leader?: {
     name: string;
   };
@@ -77,6 +80,8 @@ const SprintCard: React.FC<SprintCardProps> = ({
   getStatusIcon,
   getStatusColor
 }) => {
+  const { togglePin, toggleFavorite, isPinning, isFavoriting } = useSprintPinFavorite();
+  
   // Debug logging
   useEffect(() => {
     console.log('SprintCard render - canUpdate:', canUpdate, 'onAddTasks:', !!onAddTasks, 'sprintId:', sprint.id);
@@ -213,6 +218,29 @@ const SprintCard: React.FC<SprintCardProps> = ({
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
+            {/* Pin and Favorite buttons */}
+            <Button
+              variant={sprint.is_pinned ? "default" : "outline"}
+              size="sm"
+              onClick={() => togglePin({ sprintId: sprint.id, isPinned: sprint.is_pinned || false })}
+              disabled={isPinning}
+              className={`p-2 ${sprint.is_pinned ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}`}
+              title={sprint.is_pinned ? 'Unpin sprint' : 'Pin sprint'}
+            >
+              <Pin className={`h-4 w-4 ${sprint.is_pinned ? 'fill-current' : ''}`} />
+            </Button>
+            
+            <Button
+              variant={sprint.is_favorite ? "default" : "outline"}
+              size="sm"
+              onClick={() => toggleFavorite({ sprintId: sprint.id, isFavorite: sprint.is_favorite || false })}
+              disabled={isFavoriting}
+              className={`p-2 ${sprint.is_favorite ? 'bg-yellow-600 text-white hover:bg-yellow-700' : ''}`}
+              title={sprint.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Star className={`h-4 w-4 ${sprint.is_favorite ? 'fill-current' : ''}`} />
+            </Button>
+
             {canUpdate && onAddTasks && (
               <Button
                 variant="outline"
