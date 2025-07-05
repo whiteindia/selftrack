@@ -34,7 +34,8 @@ import {
   PersonStanding,
   AlertTriangle,
   CheckCircle,
-  Check
+  Check,
+  Plus
 } from 'lucide-react';
 import {
   Drawer,
@@ -60,12 +61,16 @@ import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useReminderNotifications } from '@/hooks/useReminderNotifications';
 import NotificationBadge from '@/components/NotificationBadge';
+import TaskCreateDialog from '@/components/TaskCreateDialog';
+import { useNavigate } from 'react-router-dom';
 
 const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const { signOut, user, userRole, loading: authLoading } = useAuth();
   const { hasPageAccess, loading: privilegesLoading } = usePrivileges();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const [isQuickTaskDialogOpen, setIsQuickTaskDialogOpen] = useState(false);
 
 
   const mainNavItems = [
@@ -218,11 +223,18 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   }`}
                 >
                   <StickyNote className="h-4 w-4" />
-                  <span>Sticky Notes</span>
-                </Link>
-              </div>
-            </div>
-          )}
+                   <span>Sticky Notes</span>
+                 </Link>
+                 <Button
+                   className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors bg-green-600 hover:bg-green-700 text-white"
+                   onClick={() => setIsQuickTaskDialogOpen(true)}
+                 >
+                   <Plus className="h-4 w-4" />
+                   <span>QuickTask</span>
+                 </Button>
+               </div>
+             </div>
+           )}
 
           {/* Main navigation items (Dashboard, Projects only) */}
           {visibleMainNavItems.slice(0, 2).length > 0 && (
@@ -510,6 +522,17 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               >
                 <StickyNote className="h-4 w-4" />
               </Link>
+            )}
+
+            {/* QuickTask - icon only, next to Sticky Notes */}
+            {hasPageAccess('tasks') && (
+              <Button
+                className="flex items-center justify-center w-8 h-8 rounded-md text-sm font-medium transition-colors flex-shrink-0 bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => setIsQuickTaskDialogOpen(true)}
+                title="QuickTask"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             )}
 
             {/* WorkloadCal - icon only, after Sticky Notes */}
@@ -940,6 +963,17 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
         <main className="w-full">
           {children}
         </main>
+        
+        {/* QuickTask Dialog for Mobile */}
+        <TaskCreateDialog
+          isOpen={isQuickTaskDialogOpen}
+          onClose={() => setIsQuickTaskDialogOpen(false)}
+          onSuccess={() => {
+            setIsQuickTaskDialogOpen(false);
+            navigate('/workload-cal');
+          }}
+          defaultProjectName="Miscellanious-Quick-Temp-Orglater"
+        />
       </div>
     );
   }
@@ -950,6 +984,17 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       <main className="w-full">
         {children}
       </main>
+      
+      {/* QuickTask Dialog */}
+      <TaskCreateDialog
+        isOpen={isQuickTaskDialogOpen}
+        onClose={() => setIsQuickTaskDialogOpen(false)}
+        onSuccess={() => {
+          setIsQuickTaskDialogOpen(false);
+          navigate('/workload-cal');
+        }}
+        defaultProjectName="Miscellanious-Quick-Temp-Orglater"
+      />
     </div>
   );
 };

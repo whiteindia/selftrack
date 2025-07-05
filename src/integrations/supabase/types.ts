@@ -775,10 +775,14 @@ export type Database = {
           completion_date: string | null
           created_at: string
           deadline: string
+          end_time: string | null
+          estimated_hours: number | null
           id: string
           name: string | null
           project_id: string | null
+          slot_date: string | null
           sprint_leader_id: string | null
+          start_time: string | null
           status: string
           title: string
           updated_at: string
@@ -788,10 +792,14 @@ export type Database = {
           completion_date?: string | null
           created_at?: string
           deadline: string
+          end_time?: string | null
+          estimated_hours?: number | null
           id?: string
           name?: string | null
           project_id?: string | null
+          slot_date?: string | null
           sprint_leader_id?: string | null
+          start_time?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -801,10 +809,14 @@ export type Database = {
           completion_date?: string | null
           created_at?: string
           deadline?: string
+          end_time?: string | null
+          estimated_hours?: number | null
           id?: string
           name?: string | null
           project_id?: string | null
+          slot_date?: string | null
           sprint_leader_id?: string | null
+          start_time?: string | null
           status?: string
           title?: string
           updated_at?: string

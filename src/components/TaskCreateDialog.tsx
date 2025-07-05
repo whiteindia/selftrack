@@ -20,6 +20,7 @@ interface TaskCreateDialogProps {
   onClose: () => void;
   parentTaskId?: string;
   onSuccess?: () => void;
+  defaultProjectName?: string;
 }
 
 const statusOptions = [
@@ -31,7 +32,7 @@ const statusOptions = [
   'Completed'
 ];
 
-const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCreateDialogProps) => {
+const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess, defaultProjectName }: TaskCreateDialogProps) => {
   const [formData, setFormData] = useState({
     name: '',
     status: 'Not Started',
@@ -102,10 +103,31 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
     enabled: !!formData.service,
   });
 
-  // Fetch projects based on selected service and client
+  // Fetch projects based on selected service and client OR default project
   const { data: projects = [] } = useQuery({
-    queryKey: ['projects-for-service-client', formData.service, formData.client_id],
+    queryKey: ['projects-for-service-client', formData.service, formData.client_id, defaultProjectName],
     queryFn: async () => {
+      // If defaultProjectName is provided, fetch that specific project
+      if (defaultProjectName && !formData.service) {
+        console.log('Fetching default project:', defaultProjectName);
+        const { data, error } = await supabase
+          .from('projects')
+          .select(`
+            id,
+            name,
+            clients!inner(name)
+          `)
+          .eq('name', defaultProjectName)
+          .order('name');
+
+        if (error) {
+          console.error('Error fetching default project:', error);
+          throw error;
+        }
+        console.log('Default project fetched:', data);
+        return data || [];
+      }
+
       if (!formData.service || !formData.client_id) return [];
       
       console.log('Fetching projects for service and client:', formData.service, formData.client_id);
@@ -127,7 +149,7 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
       console.log('Projects fetched:', data);
       return data || [];
     },
-    enabled: !!formData.service && !!formData.client_id,
+    enabled: !!formData.service && !!formData.client_id || !!defaultProjectName,
   });
 
   // Fetch employees
@@ -149,6 +171,22 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
     },
   });
 
+  // Set default project when defaultProjectName is provided and projects are loaded
+  useEffect(() => {
+    if (defaultProjectName && projects.length > 0 && !formData.project_id) {
+      const defaultProject = projects.find(project => 
+        project.name === defaultProjectName
+      );
+      
+      if (defaultProject) {
+        console.log('Setting default project:', defaultProject);
+        setFormData(prev => ({
+          ...prev,
+          project_id: defaultProject.id
+        }));
+      }
+    }
+  }, [defaultProjectName, projects, formData.project_id]);
   // Set default assignee to "yugandhar" when employees are loaded
   useEffect(() => {
     if (employees.length > 0 && !formData.assignee_id) {
@@ -326,8 +364,8 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Cascading Filters - Only for main tasks */}
-          {!parentTaskId && (
+          {/* Cascading Filters - Only for main tasks WITHOUT default project */}
+          {!parentTaskId && !defaultProjectName && (
             <>
               {/* Service Selection */}
               <div className="space-y-2">
@@ -400,6 +438,31 @@ const TaskCreateDialog = ({ isOpen, onClose, parentTaskId, onSuccess }: TaskCrea
                 </Select>
               </div>
             </>
+          )}
+
+          {/* Project Selection for QuickTask - simplified */}
+          {defaultProjectName && !parentTaskId && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                Project *
+              </Label>
+              <Select 
+                value={formData.project_id} 
+                onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name} - {project.clients?.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {/* Task Name */}
