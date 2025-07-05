@@ -233,6 +233,21 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                    <Plus className="h-4 w-4" />
                    <span>QuickTask</span>
                  </Button>
+                 
+                 {/* WorkloadCal - added to mobile navigation */}
+                 {hasPageAccess('workload-cal') && (
+                   <Link
+                     to="/workload-cal"
+                     className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                       isActive('/workload-cal')
+                         ? 'bg-blue-100 text-blue-700'
+                         : 'text-gray-700 hover:bg-gray-100'
+                     }`}
+                   >
+                     <CalendarDays className="h-4 w-4" />
+                     <span>WorkloadCal</span>
+                   </Link>
+                 )}
                </div>
              </div>
            )}
