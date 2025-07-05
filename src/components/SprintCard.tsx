@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
-import { Edit, Trash2, Calendar, Clock, CheckCircle, Building2, User, X, AlertTriangle, TrendingUp, Plus, Pin, Star } from 'lucide-react';
+import { Edit, Trash2, Calendar, Clock, CheckCircle, Building2, User, X, AlertTriangle, TrendingUp, Plus, Pin, Star, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSprintPinFavorite } from '@/hooks/useSprintPinFavorite';
 
 interface Task {
@@ -140,6 +141,8 @@ const SprintCard: React.FC<SprintCardProps> = ({
   };
 
   const priorityReason = getPriorityReason();
+
+  const [isTasksCollapsed, setIsTasksCollapsed] = useState(true);
 
   return (
     <Card className="w-full">
@@ -285,89 +288,108 @@ const SprintCard: React.FC<SprintCardProps> = ({
         </div>
       </CardHeader>
       <CardContent>
-        {sprint.tasks.length > 0 ? (
-          <div className="grid gap-2">
-            {sprint.tasks.map((task) => (
-              <div key={task.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-2 border rounded-md gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium break-words mb-1">{task.name}</div>
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    {task.projects && (
-                      <>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                          {task.projects.name}
-                        </Badge>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                          <Building2 className="h-3 w-3 mr-1" />
-                          {task.projects.clients.name}
-                        </Badge>
-                      </>
-                    )}
-                  </div>
-                  {task.employees && (
-                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span>Assignee: {task.employees.name}</span>
-                    </div>
-                  )}
-                  {/* Task Time Slot Information */}
-                  {(task.scheduled_time || task.date) && (
-                    <div className="text-sm text-blue-600 flex items-center gap-1 mt-1">
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        {task.date && format(new Date(task.date), "MMM dd")}
-                        {task.scheduled_time && (
+        <Collapsible open={!isTasksCollapsed} onOpenChange={(open) => setIsTasksCollapsed(!open)}>
+          <CollapsibleTrigger asChild>
+            <Button 
+              variant="ghost" 
+              className="w-full flex items-center justify-between p-2 hover:bg-gray-50"
+            >
+              <span className="text-sm font-medium">
+                Tasks ({sprint.tasks.length})
+              </span>
+              {isTasksCollapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            {sprint.tasks.length > 0 ? (
+              <div className="grid gap-2">
+                {sprint.tasks.map((task) => (
+                  <div key={task.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-2 border rounded-md gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium break-words mb-1">{task.name}</div>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {task.projects && (
                           <>
-                            {task.date && ' '}
-                            {task.scheduled_time.includes(' ') ? task.scheduled_time.split(' ')[1].substring(0, 5) : task.scheduled_time}
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                              {task.projects.name}
+                            </Badge>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                              <Building2 className="h-3 w-3 mr-1" />
+                              {task.projects.clients.name}
+                            </Badge>
                           </>
                         )}
-                      </span>
+                      </div>
+                      {task.employees && (
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          <span>Assignee: {task.employees.name}</span>
+                        </div>
+                      )}
+                      {/* Task Time Slot Information */}
+                      {(task.scheduled_time || task.date) && (
+                        <div className="text-sm text-blue-600 flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            {task.date && format(new Date(task.date), "MMM dd")}
+                            {task.scheduled_time && (
+                              <>
+                                {task.date && ' '}
+                                {task.scheduled_time.includes(' ') ? task.scheduled_time.split(' ')[1].substring(0, 5) : task.scheduled_time}
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto">
-                  {canUpdate ? (
-                    <Select 
-                      value={task.status} 
-                      onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed') => 
-                        onTaskStatusChange(task.id, value, sprint.id)
-                      }
-                    >
-                      <SelectTrigger className="w-full lg:w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Not Started">Not Started</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Badge className={getStatusColor(task.status)}>
-                      {task.status}
-                    </Badge>
-                  )}
-                  {onRemoveTask && canUpdate && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                      onClick={() => onRemoveTask(task.id, sprint.id)}
-                      title="Remove task from sprint"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto">
+                      {canUpdate ? (
+                        <Select 
+                          value={task.status} 
+                          onValueChange={(value: 'Not Started' | 'In Progress' | 'Completed') => 
+                            onTaskStatusChange(task.id, value, sprint.id)
+                          }
+                        >
+                          <SelectTrigger className="w-full lg:w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Not Started">Not Started</SelectItem>
+                            <SelectItem value="In Progress">In Progress</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge className={getStatusColor(task.status)}>
+                          {task.status}
+                        </Badge>
+                      )}
+                      {onRemoveTask && canUpdate && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                          onClick={() => onRemoveTask(task.id, sprint.id)}
+                          title="Remove task from sprint"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-4 text-gray-500">
-            No tasks assigned to this sprint yet.
-          </div>
-        )}
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                No tasks assigned to this sprint yet.
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );
