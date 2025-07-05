@@ -491,7 +491,8 @@ const WorkloadCal = () => {
           )
         `)
         .neq('status', 'Completed')
-        .or(`date.is.null,date.neq.${dateStr},scheduled_time.is.null`);
+        .or(`date.is.null,date.neq.${dateStr},scheduled_time.is.null`)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching available tasks:', error);
@@ -521,7 +522,7 @@ const WorkloadCal = () => {
           client:clients!routines_client_id_fkey(id, name),
           project:projects!routines_project_id_fkey(id, name)
         `)
-        .order('title');
+        .order('created_at', { ascending: false });
 
       if (routinesError) {
         console.error('Error fetching routines:', routinesError);
@@ -571,7 +572,8 @@ const WorkloadCal = () => {
           )
         `)
         .neq('status', 'Completed')
-        .or(`date.is.null,date.neq.${dateStr},scheduled_time.is.null`);
+        .or(`date.is.null,date.neq.${dateStr},scheduled_time.is.null`)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching available subtasks:', error);
