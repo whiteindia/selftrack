@@ -477,14 +477,14 @@ const StickyNotes = () => {
                 Add Note
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>Create New Note</DialogTitle>
                 <DialogDescription>
                   Add a new sticky note with optional categorization
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
                 <div>
                   <Label htmlFor="title">Title *</Label>
                   <Input
@@ -592,14 +592,14 @@ const StickyNotes = () => {
                     ))}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleCreateNote} disabled={createNoteMutation.isPending}>
-                    {createNoteMutation.isPending ? 'Creating...' : 'Create Note'}
-                  </Button>
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
+              </div>
+              <div className="flex gap-2 pt-4 border-t">
+                <Button onClick={handleCreateNote} disabled={createNoteMutation.isPending}>
+                  {createNoteMutation.isPending ? 'Creating...' : 'Create Note'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -797,7 +797,7 @@ const StickyNotes = () => {
 
         {/* Edit Dialog */}
         <Dialog open={!!editingNote} onOpenChange={(open) => !open && setEditingNote(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>Edit Note</DialogTitle>
               <DialogDescription>
@@ -805,7 +805,7 @@ const StickyNotes = () => {
               </DialogDescription>
             </DialogHeader>
             {editingNote && (
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
                 <div>
                   <Label htmlFor="edit-title">Title *</Label>
                   <Input
@@ -917,26 +917,26 @@ const StickyNotes = () => {
                     ))}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={() => handleUpdateNote({
-                      title: editingNote.title,
-                      content: editingNote.content,
-                      service_id: editingNote.service_id,
-                      client_id: editingNote.client_id,
-                      project_id: editingNote.project_id,
-                      selectedTags: editingNote.tags?.map(t => t.id) || []
-                    })} 
-                    disabled={updateNoteMutation.isPending}
-                  >
-                    {updateNoteMutation.isPending ? 'Updating...' : 'Update Note'}
-                  </Button>
-                  <Button variant="outline" onClick={() => setEditingNote(null)}>
-                    Cancel
-                  </Button>
-                </div>
               </div>
             )}
+            <div className="flex gap-2 pt-4 border-t">
+              <Button 
+                onClick={() => handleUpdateNote({
+                  title: editingNote.title,
+                  content: editingNote.content,
+                  service_id: editingNote.service_id,
+                  client_id: editingNote.client_id,
+                  project_id: editingNote.project_id,
+                  selectedTags: editingNote.tags?.map(t => t.id) || []
+                })} 
+                disabled={updateNoteMutation.isPending}
+              >
+                {updateNoteMutation.isPending ? 'Updating...' : 'Update Note'}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingNote(null)}>
+                Cancel
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
