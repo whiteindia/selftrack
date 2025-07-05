@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock } from 'lucide-react';
+import { Play, Clock, Eye } from 'lucide-react';
 import LiveTimer from './LiveTimer';
+import { Button } from '@/components/ui/button';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -48,6 +48,11 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     return pauseInfo.isPaused;
   };
 
+  const handleViewTask = (taskId: string) => {
+    // Navigate to alltasks page with the specific task highlighted
+    window.location.href = `/alltasks?highlight=${taskId}`;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -77,16 +82,27 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                       {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <Badge variant="default" className={isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}>
-                      {isPaused(entry) ? 'Paused' : 'Running'}
-                    </Badge>
-                    <div className="mt-1">
-                      <LiveTimer 
-                        startTime={entry.start_time} 
-                        timerMetadata={entry.timer_metadata}
-                      />
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <Badge variant="default" className={isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}>
+                        {isPaused(entry) ? 'Paused' : 'Running'}
+                      </Badge>
+                      <div className="mt-1">
+                        <LiveTimer 
+                          startTime={entry.start_time} 
+                          timerMetadata={entry.timer_metadata}
+                        />
+                      </div>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewTask(entry.tasks.id)}
+                      className="h-8 px-3 text-xs ml-2"
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      View
+                    </Button>
                   </div>
                 </div>
               </div>
