@@ -852,6 +852,42 @@ export type Database = {
           },
         ]
       }
+      sticky_note_tags: {
+        Row: {
+          created_at: string
+          id: string
+          sticky_note_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sticky_note_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sticky_note_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sticky_note_tags_sticky_note_id_fkey"
+            columns: ["sticky_note_id"]
+            isOneToOne: false
+            referencedRelation: "sticky_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sticky_note_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sticky_notes: {
         Row: {
           client_id: string | null
@@ -996,6 +1032,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       task_comments: {
         Row: {

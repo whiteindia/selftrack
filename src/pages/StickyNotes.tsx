@@ -27,6 +27,13 @@ interface StickyNote {
   service_name?: string;
   client_name?: string;
   project_name?: string;
+  tags?: Tag[];
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface Service {
@@ -58,12 +65,31 @@ const StickyNotes = () => {
   const [dateFilter, setDateFilter] = useState('recent'); // 'recent' or 'all'
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
+  const [tagFilter, setTagFilter] = useState('all');
+  const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#6366f1');
+
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
     service_id: '',
     client_id: '',
-    project_id: ''
+    project_id: '',
+    selectedTags: [] as string[]
+  });
+
+  // Fetch tags
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      return data as Tag[];
+    }
   });
 
   // Fetch sticky notes
@@ -72,12 +98,22 @@ const StickyNotes = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sticky_notes')
-        .select('*')
+        .select(`
+          *,
+          sticky_note_tags (
+            tag_id,
+            tags (
+              id,
+              name,
+              color
+            )
+          )
+        `)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
-      // Enrich notes with service, client, and project names
+      // Enrich notes with service, client, project names and tags
       const enrichedNotes = await Promise.all(
         (data || []).map(async (note) => {
           let serviceName = null;
@@ -111,11 +147,15 @@ const StickyNotes = () => {
             projectName = project?.name;
           }
 
+          // Extract tags from the joined data
+          const noteTags = note.sticky_note_tags?.map((snt: any) => snt.tags).filter(Boolean) || [];
+
           return {
             ...note,
             service_name: serviceName,
             client_name: clientName,
-            project_name: projectName
+            project_name: projectName,
+            tags: noteTags
           };
         })
       );
@@ -178,6 +218,7 @@ const StickyNotes = () => {
       const matchesService = serviceFilter === 'all' || note.service_id === serviceFilter;
       const matchesClient = clientFilter === 'all' || note.client_id === clientFilter;
       const matchesProject = projectFilter === 'all' || note.project_id === projectFilter;
+      const matchesTag = tagFilter === 'all' || note.tags?.some(tag => tag.id === tagFilter);
       
       // Date filtering - show recent 2 months by default
       let matchesDate = true;
@@ -190,9 +231,33 @@ const StickyNotes = () => {
         matchesDate = noteDate >= twoMonthsAgo;
       }
       
-      return matchesSearch && matchesService && matchesClient && matchesProject && matchesDate;
+      return matchesSearch && matchesService && matchesClient && matchesProject && matchesTag && matchesDate;
     });
-  }, [notes, searchTerm, serviceFilter, clientFilter, projectFilter, dateFilter]);
+  }, [notes, searchTerm, serviceFilter, clientFilter, projectFilter, tagFilter, dateFilter]);
+
+  // Create tag mutation
+  const createTagMutation = useMutation({
+    mutationFn: async ({ name, color }: { name: string; color: string }) => {
+      const { data, error } = await supabase
+        .from('tags')
+        .insert([{ name, color }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      setNewTagName('');
+      setNewTagColor('#6366f1');
+      setIsCreateTagDialogOpen(false);
+      toast.success('Tag created successfully!');
+    },
+    onError: (error) => {
+      toast.error('Failed to create tag: ' + error.message);
+    }
+  });
 
   // Create note mutation
   const createNoteMutation = useMutation({
@@ -200,7 +265,8 @@ const StickyNotes = () => {
       const { data, error } = await supabase
         .from('sticky_notes')
         .insert([{
-          ...noteData,
+          title: noteData.title,
+          content: noteData.content,
           user_id: user?.id,
           service_id: noteData.service_id === 'none' ? null : noteData.service_id || null,
           client_id: noteData.client_id === 'none' ? null : noteData.client_id || null,
@@ -210,6 +276,21 @@ const StickyNotes = () => {
         .single();
       
       if (error) throw error;
+
+      // Add tag relationships
+      if (noteData.selectedTags && noteData.selectedTags.length > 0) {
+        const tagRelations = noteData.selectedTags.map((tagId: string) => ({
+          sticky_note_id: data.id,
+          tag_id: tagId
+        }));
+        
+        const { error: tagError } = await supabase
+          .from('sticky_note_tags')
+          .insert(tagRelations);
+        
+        if (tagError) throw tagError;
+      }
+      
       return data;
     },
     onSuccess: () => {
@@ -219,7 +300,8 @@ const StickyNotes = () => {
         content: '',
         service_id: '',
         client_id: '',
-        project_id: ''
+        project_id: '',
+        selectedTags: []
       });
       setIsCreateDialogOpen(false);
       toast.success('Note created successfully!');
@@ -232,10 +314,12 @@ const StickyNotes = () => {
   // Update note mutation
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      // Update note
       const { data, error } = await supabase
         .from('sticky_notes')
         .update({
-          ...updates,
+          title: updates.title,
+          content: updates.content,
           service_id: updates.service_id === 'none' ? null : updates.service_id || null,
           client_id: updates.client_id === 'none' ? null : updates.client_id || null,
           project_id: updates.project_id === 'none' ? null : updates.project_id || null
@@ -245,6 +329,30 @@ const StickyNotes = () => {
         .single();
       
       if (error) throw error;
+
+      // Update tag relationships
+      if (updates.selectedTags !== undefined) {
+        // Delete existing tag relationships
+        await supabase
+          .from('sticky_note_tags')
+          .delete()
+          .eq('sticky_note_id', id);
+
+        // Add new tag relationships
+        if (updates.selectedTags.length > 0) {
+          const tagRelations = updates.selectedTags.map((tagId: string) => ({
+            sticky_note_id: id,
+            tag_id: tagId
+          }));
+          
+          const { error: tagError } = await supabase
+            .from('sticky_note_tags')
+            .insert(tagRelations);
+          
+          if (tagError) throw tagError;
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {
@@ -289,11 +397,20 @@ const StickyNotes = () => {
     updateNoteMutation.mutate({ id: editingNote.id, updates });
   };
 
+  const handleCreateTag = () => {
+    if (!newTagName.trim()) {
+      toast.error('Please enter a tag name');
+      return;
+    }
+    createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor });
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
     setServiceFilter('all');
     setClientFilter('all');
     setProjectFilter('all');
+    setTagFilter('all');
     setDateFilter('recent');
   };
 
@@ -435,6 +552,46 @@ const StickyNotes = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="tags">Tags (Optional)</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsCreateTagDialogOpen(true)}
+                      className="text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      New Tag
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {tags.map((tag) => (
+                      <label
+                        key={tag.id}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white cursor-pointer transition-opacity ${
+                          newNote.selectedTags.includes(tag.id) ? 'opacity-100' : 'opacity-60'
+                        }`}
+                        style={{ backgroundColor: tag.color }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={newNote.selectedTags.includes(tag.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewNote({ ...newNote, selectedTags: [...newNote.selectedTags, tag.id] });
+                            } else {
+                              setNewNote({ ...newNote, selectedTags: newNote.selectedTags.filter(id => id !== tag.id) });
+                            }
+                          }}
+                        />
+                        {tag.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <Button onClick={handleCreateNote} disabled={createNoteMutation.isPending}>
                     {createNoteMutation.isPending ? 'Creating...' : 'Create Note'}
@@ -449,7 +606,7 @@ const StickyNotes = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
           <div>
             <Input
               placeholder="Search notes..."
@@ -492,6 +649,25 @@ const StickyNotes = () => {
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={tagFilter} onValueChange={setTagFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by tag" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tags</SelectItem>
+              {tags.map((tag) => (
+                <SelectItem key={tag.id} value={tag.id}>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    {tag.name}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -569,6 +745,19 @@ const StickyNotes = () => {
                 </div>
                 
                 <div className="space-y-2">
+                  {note.tags && note.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {note.tags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium text-white"
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {note.service_name && (
                     <Badge variant="secondary" className="text-xs">
                       Service: {note.service_name}
@@ -693,6 +882,41 @@ const StickyNotes = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label htmlFor="edit-tags">Tags (Optional)</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {tags.map((tag) => (
+                      <label
+                        key={tag.id}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white cursor-pointer transition-opacity ${
+                          editingNote.tags?.some(t => t.id === tag.id) ? 'opacity-100' : 'opacity-60'
+                        }`}
+                        style={{ backgroundColor: tag.color }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={editingNote.tags?.some(t => t.id === tag.id) || false}
+                          onChange={(e) => {
+                            const currentTags = editingNote.tags || [];
+                            if (e.target.checked) {
+                              setEditingNote({ 
+                                ...editingNote, 
+                                tags: [...currentTags, tag]
+                              });
+                            } else {
+                              setEditingNote({ 
+                                ...editingNote, 
+                                tags: currentTags.filter(t => t.id !== tag.id)
+                              });
+                            }
+                          }}
+                        />
+                        {tag.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <Button 
                     onClick={() => handleUpdateNote({
@@ -700,7 +924,8 @@ const StickyNotes = () => {
                       content: editingNote.content,
                       service_id: editingNote.service_id,
                       client_id: editingNote.client_id,
-                      project_id: editingNote.project_id
+                      project_id: editingNote.project_id,
+                      selectedTags: editingNote.tags?.map(t => t.id) || []
                     })} 
                     disabled={updateNoteMutation.isPending}
                   >
@@ -712,6 +937,50 @@ const StickyNotes = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Create Tag Dialog */}
+        <Dialog open={isCreateTagDialogOpen} onOpenChange={setIsCreateTagDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Tag</DialogTitle>
+              <DialogDescription>
+                Add a new tag for organizing your notes
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="tag-name">Tag Name *</Label>
+                <Input
+                  id="tag-name"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="Enter tag name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="tag-color">Tag Color</Label>
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    id="tag-color"
+                    type="color"
+                    value={newTagColor}
+                    onChange={(e) => setNewTagColor(e.target.value)}
+                    className="w-12 h-8 rounded border cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600">{newTagColor}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleCreateTag} disabled={createTagMutation.isPending}>
+                  {createTagMutation.isPending ? 'Creating...' : 'Create Tag'}
+                </Button>
+                <Button variant="outline" onClick={() => setIsCreateTagDialogOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
