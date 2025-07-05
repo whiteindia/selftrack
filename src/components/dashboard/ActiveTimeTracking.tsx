@@ -73,37 +73,33 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
             {runningTasks.map((entry: any) => (
               <div
                 key={entry.id}
-                className="p-4 border rounded-lg bg-green-50 border-green-200"
+                className="p-3 border rounded-lg bg-green-50 border-green-200"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-green-900">{entry.tasks.name}</h4>
-                    <p className="text-sm text-green-700">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0 mr-2">
+                    <h4 className="font-medium text-green-900 text-sm leading-tight">{entry.tasks.name}</h4>
+                    <p className="text-xs text-green-700 mt-1">
                       {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
                     </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <Badge variant="default" className={isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant="default" className={`text-xs ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
                         {isPaused(entry) ? 'Paused' : 'Running'}
                       </Badge>
-                      <div className="mt-1">
-                        <LiveTimer 
-                          startTime={entry.start_time} 
-                          timerMetadata={entry.timer_metadata}
-                        />
-                      </div>
+                      <LiveTimer 
+                        startTime={entry.start_time} 
+                        timerMetadata={entry.timer_metadata}
+                      />
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewTask(entry.tasks.id)}
-                      className="h-8 px-3 text-xs ml-2"
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      View
-                    </Button>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewTask(entry.tasks.id)}
+                    className="h-7 px-2 text-xs flex-shrink-0"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    View
+                  </Button>
                 </div>
               </div>
             ))}
