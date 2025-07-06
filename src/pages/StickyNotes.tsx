@@ -484,7 +484,7 @@ const StickyNotes = () => {
                   Add a new sticky note with optional categorization
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
+              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-200px)] pr-2">
                 <div>
                   <Label htmlFor="title">Title *</Label>
                   <Input
@@ -805,7 +805,7 @@ const StickyNotes = () => {
               </DialogDescription>
             </DialogHeader>
             {editingNote && (
-              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pr-2">
+              <div className="space-y-4 overflow-y-auto max-h-[calc(90vh-200px)] pr-2">
                 <div>
                   <Label htmlFor="edit-title">Title *</Label>
                   <Input
