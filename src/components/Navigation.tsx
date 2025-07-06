@@ -36,7 +36,8 @@ import {
   CheckCircle,
   Check,
   Plus,
-  Shield
+  Shield,
+  X
 } from 'lucide-react';
 import {
   Drawer,
@@ -72,7 +73,27 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [isQuickTaskDialogOpen, setIsQuickTaskDialogOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
 
+  // Get notifications for both mobile and desktop
+  const { 
+    totalNotificationCount, 
+    dueSoonTasks, 
+    overdueTasks,
+    allDueSoonTasks,
+    allOverdueTasks,
+    markAllAsRead,
+    markAsRead,
+    setNotifiedItems
+  } = useReminderNotifications();
+
+  const handleMarkAllAsRead = () => {
+    setIsMarkingAsRead(true);
+    markAllAsRead();
+    // Reset loading state after a short delay
+    setTimeout(() => setIsMarkingAsRead(false), 500);
+  };
 
   const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home, pageName: 'dashboard' },
@@ -201,13 +222,30 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return email.substring(0, 2).toUpperCase();
   };
 
-  // Temporarily disable notifications to fix blank screen issue
-  const mobileNotificationCount = 0;
+  // Use actual notification count for mobile
+  const mobileNotificationCount = totalNotificationCount;
+
+  const handleMobileNavigation = (path: string) => {
+    navigate(path);
+    setIsMobileMenuOpen(false);
+  };
 
   const MobileMenuContent = () => {
     
     return (
     <div className="flex flex-col h-full">
+      {/* Mobile Menu Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="h-8 w-8"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="space-y-6">
           {/* Sticky Notes - before Main navigation */}
@@ -215,9 +253,9 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Quick Access</h3>
               <div className="space-y-1">
-                <Link
-                  to={stickyNotesItem.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                <button
+                  onClick={() => handleMobileNavigation(stickyNotesItem.path)}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                     isActive(stickyNotesItem.path)
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -225,7 +263,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 >
                   <StickyNote className="h-4 w-4" />
                    <span>Sticky Notes</span>
-                 </Link>
+                 </button>
                  <Button
                    className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors bg-green-600 hover:bg-green-700 text-white"
                    onClick={() => setIsQuickTaskDialogOpen(true)}
@@ -236,9 +274,9 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                  
                  {/* WorkloadCal - added to mobile navigation */}
                  {hasPageAccess('workload-cal') && (
-                   <Link
-                     to="/workload-cal"
-                     className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                   <button
+                     onClick={() => handleMobileNavigation('/workload-cal')}
+                     className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                        isActive('/workload-cal')
                          ? 'bg-blue-100 text-blue-700'
                          : 'text-gray-700 hover:bg-gray-100'
@@ -246,7 +284,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                    >
                      <CalendarDays className="h-4 w-4" />
                      <span>WorkloadCal</span>
-                   </Link>
+                   </button>
                  )}
                </div>
              </div>
@@ -260,10 +298,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {visibleMainNavItems.slice(0, 2).map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <button
                       key={item.path}
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                         isActive(item.path)
                           ? 'bg-blue-100 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-100'
@@ -271,7 +309,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -285,10 +323,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {visibleTaskforceItems.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <button
                       key={item.path}
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                         isActive(item.path)
                           ? 'bg-blue-100 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-100'
@@ -296,7 +334,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -311,10 +349,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {visibleMainNavItems.slice(2).map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <button
                       key={item.path}
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                         isActive(item.path)
                           ? 'bg-blue-100 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-100'
@@ -322,7 +360,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -336,10 +374,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {visibleGoalTrackItems.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <button
                       key={item.path}
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                         isActive(item.path)
                           ? 'bg-blue-100 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-100'
@@ -347,7 +385,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -361,10 +399,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {visiblePlannerItems.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <button
                       key={item.path}
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                         isActive(item.path)
                           ? 'bg-blue-100 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-100'
@@ -372,7 +410,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -386,10 +424,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {visibleTrakTeamItems.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <Link
+                    <button
                       key={item.path}
-                      to={item.path}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                         isActive(item.path)
                           ? 'bg-blue-100 text-blue-700'
                           : 'text-gray-700 hover:bg-gray-100'
@@ -397,7 +435,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -414,10 +452,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     {visibleAccItems.map((item) => {
                       const Icon = item.icon;
                       return (
-                        <Link
+                        <button
                           key={item.path}
-                          to={item.path}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          onClick={() => handleMobileNavigation(item.path)}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                             isActive(item.path)
                               ? 'bg-blue-100 text-blue-700'
                               : 'text-gray-700 hover:bg-gray-100'
@@ -425,7 +463,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                         >
                           <Icon className="h-4 w-4" />
                           <span>{item.label}</span>
-                        </Link>
+                        </button>
                       );
                     })}
                   </>
@@ -436,10 +474,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     {visibleConfigItems.map((item) => {
                       const Icon = item.icon;
                       return (
-                        <Link
+                        <button
                           key={item.path}
-                          to={item.path}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          onClick={() => handleMobileNavigation(item.path)}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
                             isActive(item.path)
                               ? 'bg-blue-100 text-blue-700'
                               : 'text-gray-700 hover:bg-gray-100'
@@ -447,7 +485,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                         >
                           <Icon className="h-4 w-4" />
                           <span>{item.label}</span>
-                        </Link>
+                        </button>
                       );
                     })}
                   </>
@@ -950,7 +988,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b sticky top-0 z-50">
           <div className="flex justify-between items-center h-16 px-4">
-            <Drawer>
+            <Drawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <DrawerTrigger asChild>
                 <Button variant="ghost" size="icon">
                   <Menu className="h-6 w-6" />
@@ -962,15 +1000,166 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             </Drawer>
             
             <div className="flex items-center space-x-2">
-              <div className="relative">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-blue-100 text-blue-700">
-                    {user?.email ? getInitials(user.email) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <NotificationBadge count={mobileNotificationCount} />
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full relative">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src="" />
+                      <AvatarFallback className="bg-blue-100 text-blue-700">
+                        {user?.email ? getInitials(user.email) : 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <NotificationBadge count={mobileNotificationCount} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80 max-h-96" style={{ zIndex: 9993 }}>
+                  {/* User Info */}
+                  <div className="px-3 py-2 border-b">
+                    <p className="text-sm text-gray-600 truncate">{user?.email}</p>
+                  </div>
+
+                  {/* Notifications Section */}
+                  {totalNotificationCount > 0 && (
+                    <>
+                      <div className="px-3 py-2 border-b bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="destructive" className="text-xs">
+                              {totalNotificationCount}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={handleMarkAllAsRead}
+                              disabled={isMarkingAsRead}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              {isMarkingAsRead ? 'Marking...' : 'Mark all read'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <ScrollArea className="max-h-64">
+                        {/* Due Soon Tasks */}
+                        {allDueSoonTasks.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-blue-600 mb-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Due Soon ({allDueSoonTasks.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allDueSoonTasks.slice(0, 5).map((task) => {
+                                const isRead = !dueSoonTasks.find(t => t.id === task.id);
+                                return (
+                                  <div 
+                                    key={task.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                                    }`}
+                                    onClick={() => {
+                                      // Mark this specific task as read
+                                      markAsRead('task_reminder', task.id);
+                                    }}
+                                  >
+                                    <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-blue-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{task.name}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-blue-600'
+                                      }`}>
+                                        {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {allDueSoonTasks.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allDueSoonTasks.length - 5} more due soon
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Overdue Tasks */}
+                        {allOverdueTasks.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Overdue ({allOverdueTasks.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allOverdueTasks.slice(0, 5).map((task) => {
+                                const isRead = !overdueTasks.find(t => t.id === task.id);
+                                return (
+                                  <div 
+                                    key={task.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-red-50 border-red-200 hover:bg-red-100'
+                                    }`}
+                                    onClick={() => {
+                                      // Mark this specific task as read
+                                      markAsRead('task_reminder', task.id);
+                                    }}
+                                  >
+                                    <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-red-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{task.name}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-red-600'
+                                      }`}>
+                                        Overdue since {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {allOverdueTasks.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allOverdueTasks.length - 5} more overdue
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </ScrollArea>
+
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+
+                  {/* No Notifications */}
+                  {totalNotificationCount === 0 && (
+                    <div className="px-3 py-4 text-center">
+                      <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">No notifications</p>
+                      <p className="text-xs text-gray-400">You're all caught up!</p>
+                    </div>
+                  )}
+
+                  {/* Sign Out */}
+                  <DropdownMenuItem onClick={signOut} className="cursor-pointer">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    <span>Sign Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
