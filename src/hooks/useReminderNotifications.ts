@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -9,30 +9,60 @@ interface ReminderTask {
   reminder_datetime: string;
 }
 
+interface SprintDeadline {
+  id: string;
+  title: string;
+  deadline: string;
+  project?: {
+    name: string;
+    client: {
+      name: string;
+    };
+  };
+}
+
+interface TaskSlot {
+  id: string;
+  name: string;
+  slot_start_datetime: string;
+  slot_end_datetime: string;
+  project?: {
+    name: string;
+    client: {
+      name: string;
+    };
+  };
+}
+
+interface NotificationRead {
+  notification_type: string;
+  notification_id: string;
+}
+
 export const useReminderNotifications = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notifiedTasks, setNotifiedTasks] = useState<Set<string>>(new Set());
-  
-  // Load read notifications from localStorage on initialization
-  const [readNotifications, setReadNotifications] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('readNotifications');
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    }
-    return new Set();
+  const [notifiedItems, setNotifiedItems] = useState<Set<string>>(new Set());
+
+  // Query for notification reads from Supabase
+  const { data: readNotifications = [] } = useQuery({
+    queryKey: ['notification-reads', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_reads')
+        .select('notification_type, notification_id')
+        .eq('user_id', user!.id);
+
+      if (error) throw error;
+      return data as NotificationRead[];
+    },
+    enabled: !!user,
   });
 
-  // Persist read notifications to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('readNotifications', JSON.stringify([...readNotifications]));
-    }
-  }, [readNotifications]);
-
   // Query for tasks with reminders
-  const { data: reminderTasks = [], refetch } = useQuery({
-    queryKey: ['reminder-notifications', user?.id],
+  const { data: reminderTasks = [] } = useQuery({
+    queryKey: ['reminder-tasks', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tasks')
@@ -47,10 +77,81 @@ export const useReminderNotifications = () => {
     refetchInterval: 60000, // Refetch every minute
   });
 
-  // Calculate notification counts and due tasks
+  // Query for sprint deadlines
+  const { data: sprintDeadlines = [] } = useQuery({
+    queryKey: ['sprint-deadlines', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sprints')
+        .select(`
+          id,
+          title,
+          deadline,
+          project:projects(
+            name,
+            client:clients(name)
+          )
+        `)
+        .order('deadline', { ascending: true });
+
+      if (error) throw error;
+      return data as SprintDeadline[];
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+
+  // Query for task slots
+  const { data: taskSlots = [] } = useQuery({
+    queryKey: ['task-slots', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          name,
+          slot_start_datetime,
+          slot_end_datetime,
+          project:projects(
+            name,
+            client:clients(name)
+          )
+        `)
+        .not('slot_start_datetime', 'is', null)
+        .not('slot_end_datetime', 'is', null)
+        .order('slot_start_datetime', { ascending: true });
+
+      if (error) throw error;
+      return data as TaskSlot[];
+    },
+    enabled: !!user,
+    refetchInterval: 60000,
+  });
+
+  // Mutation to mark notifications as read
+  const markAsReadMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+      const { error } = await supabase
+        .from('notification_reads')
+        .upsert({
+          user_id: user!.id,
+          notification_type: type,
+          notification_id: id,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-reads'] });
+    },
+  });
+
+  // Calculate notification counts and due items for each type
   const now = new Date();
   const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+  const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+  // Task reminders - due soon (within 30 minutes)
   const dueSoonTasks = reminderTasks.filter(task => {
     const reminderTime = new Date(task.reminder_datetime);
     return reminderTime <= thirtyMinutesFromNow && reminderTime > now;
@@ -61,42 +162,102 @@ export const useReminderNotifications = () => {
     return reminderTime <= now;
   });
 
-  // Filter out read notifications from the count
-  const unreadDueSoonTasks = dueSoonTasks.filter(task => !readNotifications.has(task.id));
-  const unreadOverdueTasks = overdueTasks.filter(task => !readNotifications.has(task.id));
+  // Sprint deadlines - due within 24 hours
+  const upcomingSprintDeadlines = sprintDeadlines.filter(sprint => {
+    const deadlineTime = new Date(sprint.deadline);
+    return deadlineTime <= twentyFourHoursFromNow && deadlineTime > now;
+  });
 
-  const totalNotificationCount = unreadDueSoonTasks.length + unreadOverdueTasks.length;
+  const overdueSprintDeadlines = sprintDeadlines.filter(sprint => {
+    const deadlineTime = new Date(sprint.deadline);
+    return deadlineTime <= now;
+  });
 
-  // Check if task is due soon (within 30 minutes)
-  const isTaskDueSoon = (reminderDatetime: string) => {
-    const reminderTime = new Date(reminderDatetime);
-    return reminderTime <= thirtyMinutesFromNow && reminderTime > now;
-  };
+  // Task slots - starting within 30 minutes
+  const upcomingTaskSlots = taskSlots.filter(slot => {
+    const slotStartTime = new Date(slot.slot_start_datetime);
+    return slotStartTime <= thirtyMinutesFromNow && slotStartTime > now;
+  });
 
-  // Check if task is overdue
-  const isTaskOverdue = (reminderDatetime: string) => {
-    const reminderTime = new Date(reminderDatetime);
-    return reminderTime <= now;
-  };
+  const overdueTaskSlots = taskSlots.filter(slot => {
+    const slotStartTime = new Date(slot.slot_start_datetime);
+    return slotStartTime <= now;
+  });
 
-  // Browser notification function
-  const sendBrowserNotification = (task: ReminderTask) => {
-    if (!notificationsEnabled || notifiedTasks.has(task.id)) return;
+  // Create read notification lookup
+  const readNotificationSet = new Set(
+    readNotifications.map(read => `${read.notification_type}:${read.notification_id}`)
+  );
+
+  // Filter out read notifications
+  const unreadDueSoonTasks = dueSoonTasks.filter(
+    task => !readNotificationSet.has(`task_reminder:${task.id}`)
+  );
+  const unreadOverdueTasks = overdueTasks.filter(
+    task => !readNotificationSet.has(`task_reminder:${task.id}`)
+  );
+  const unreadUpcomingSprintDeadlines = upcomingSprintDeadlines.filter(
+    sprint => !readNotificationSet.has(`sprint_deadline:${sprint.id}`)
+  );
+  const unreadOverdueSprintDeadlines = overdueSprintDeadlines.filter(
+    sprint => !readNotificationSet.has(`sprint_deadline:${sprint.id}`)
+  );
+  const unreadUpcomingTaskSlots = upcomingTaskSlots.filter(
+    slot => !readNotificationSet.has(`task_slot:${slot.id}`)
+  );
+  const unreadOverdueTaskSlots = overdueTaskSlots.filter(
+    slot => !readNotificationSet.has(`task_slot:${slot.id}`)
+  );
+
+  const totalNotificationCount = 
+    unreadDueSoonTasks.length + 
+    unreadOverdueTasks.length + 
+    unreadUpcomingSprintDeadlines.length + 
+    unreadOverdueSprintDeadlines.length + 
+    unreadUpcomingTaskSlots.length + 
+    unreadOverdueTaskSlots.length;
+
+  // Browser notification functions
+  const sendBrowserNotification = (item: any, type: 'task' | 'sprint' | 'slot') => {
+    const notificationKey = `${type}:${item.id}`;
+    if (!notificationsEnabled || notifiedItems.has(notificationKey)) return;
 
     if ('Notification' in window && Notification.permission === 'granted') {
-      const notification = new Notification(`Reminder: ${task.name}`, {
-        body: `Scheduled for ${new Date(task.reminder_datetime).toLocaleTimeString()}`,
+      let title = '';
+      let body = '';
+      let url = '';
+
+      switch (type) {
+        case 'task':
+          title = `Task Reminder: ${item.name}`;
+          body = `Scheduled for ${new Date(item.reminder_datetime).toLocaleTimeString()}`;
+          url = '/tasks';
+          break;
+        case 'sprint':
+          title = `Sprint Deadline: ${item.title}`;
+          body = `Due ${new Date(item.deadline).toLocaleString()}`;
+          url = '/sprints';
+          break;
+        case 'slot':
+          title = `Task Slot: ${item.name}`;
+          body = `Starts at ${new Date(item.slot_start_datetime).toLocaleTimeString()}`;
+          url = '/tasks';
+          break;
+      }
+
+      const notification = new Notification(title, {
+        body,
         icon: '/favicon.ico',
-        tag: task.id,
+        tag: notificationKey,
       });
 
       notification.onclick = () => {
         window.focus();
-        window.location.href = '/tasks';
+        window.location.href = url;
         notification.close();
       };
 
-      setNotifiedTasks(prev => new Set([...prev, task.id]));
+      setNotifiedItems(prev => new Set([...prev, notificationKey]));
     }
   };
 
@@ -110,49 +271,80 @@ export const useReminderNotifications = () => {
     return false;
   };
 
-  // Send notifications for due soon tasks
+  // Send browser notifications
   useEffect(() => {
     if (notificationsEnabled) {
-      dueSoonTasks.forEach(task => {
-        sendBrowserNotification(task);
-      });
+      unreadDueSoonTasks.forEach(task => sendBrowserNotification(task, 'task'));
+      unreadUpcomingSprintDeadlines.forEach(sprint => sendBrowserNotification(sprint, 'sprint'));
+      unreadUpcomingTaskSlots.forEach(slot => sendBrowserNotification(slot, 'slot'));
     }
-  }, [dueSoonTasks, notificationsEnabled]);
-
-  // Clean up notified tasks that are no longer due soon
-  useEffect(() => {
-    const currentDueSoonIds = new Set(dueSoonTasks.map(task => task.id));
-    setNotifiedTasks(prev => {
-      const filtered = new Set([...prev].filter(id => currentDueSoonIds.has(id)));
-      return filtered;
-    });
-  }, [dueSoonTasks]);
+  }, [unreadDueSoonTasks, unreadUpcomingSprintDeadlines, unreadUpcomingTaskSlots, notificationsEnabled]);
 
   // Mark all notifications as read
-  const markAllAsRead = () => {
-    const allTaskIds = [...dueSoonTasks.map(task => task.id), ...overdueTasks.map(task => task.id)];
-    setReadNotifications(prev => new Set([...prev, ...allTaskIds]));
+  const markAllAsRead = async () => {
+    const allNotifications = [
+      ...dueSoonTasks.map(task => ({ type: 'task_reminder', id: task.id })),
+      ...overdueTasks.map(task => ({ type: 'task_reminder', id: task.id })),
+      ...upcomingSprintDeadlines.map(sprint => ({ type: 'sprint_deadline', id: sprint.id })),
+      ...overdueSprintDeadlines.map(sprint => ({ type: 'sprint_deadline', id: sprint.id })),
+      ...upcomingTaskSlots.map(slot => ({ type: 'task_slot', id: slot.id })),
+      ...overdueTaskSlots.map(slot => ({ type: 'task_slot', id: slot.id })),
+    ];
+
+    for (const notification of allNotifications) {
+      await markAsReadMutation.mutateAsync(notification);
+    }
   };
 
   // Mark individual notification as read
-  const markAsRead = (taskId: string) => {
-    setReadNotifications(prev => new Set([...prev, taskId]));
+  const markAsRead = (type: string, id: string) => {
+    markAsReadMutation.mutate({ type, id });
   };
 
   return {
     totalNotificationCount,
+    // Task reminders
     dueSoonTasks: unreadDueSoonTasks,
     overdueTasks: unreadOverdueTasks,
     allDueSoonTasks: dueSoonTasks,
     allOverdueTasks: overdueTasks,
-    isTaskDueSoon,
-    isTaskOverdue,
+    // Sprint deadlines
+    upcomingSprintDeadlines: unreadUpcomingSprintDeadlines,
+    overdueSprintDeadlines: unreadOverdueSprintDeadlines,
+    allUpcomingSprintDeadlines: upcomingSprintDeadlines,
+    allOverdueSprintDeadlines: overdueSprintDeadlines,
+    // Task slots
+    upcomingTaskSlots: unreadUpcomingTaskSlots,
+    overdueTaskSlots: unreadOverdueTaskSlots,
+    allUpcomingTaskSlots: upcomingTaskSlots,
+    allOverdueTaskSlots: overdueTaskSlots,
+    // Helper functions
+    isTaskDueSoon: (reminderDatetime: string) => {
+      const reminderTime = new Date(reminderDatetime);
+      return reminderTime <= thirtyMinutesFromNow && reminderTime > now;
+    },
+    isTaskOverdue: (reminderDatetime: string) => {
+      const reminderTime = new Date(reminderDatetime);
+      return reminderTime <= now;
+    },
+    isSprintDeadlineUpcoming: (deadline: string) => {
+      const deadlineTime = new Date(deadline);
+      return deadlineTime <= twentyFourHoursFromNow && deadlineTime > now;
+    },
+    isTaskSlotUpcoming: (slotStartDatetime: string) => {
+      const slotStartTime = new Date(slotStartDatetime);
+      return slotStartTime <= thirtyMinutesFromNow && slotStartTime > now;
+    },
     notificationsEnabled,
     setNotificationsEnabled,
     requestNotificationPermission,
     markAllAsRead,
     markAsRead,
-    setNotifiedTasks,
-    refetch,
+    setNotifiedItems,
+    refetch: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminder-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['task-slots'] });
+    },
   };
 };

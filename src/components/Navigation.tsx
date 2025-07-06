@@ -491,7 +491,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       allOverdueTasks,
       markAllAsRead,
       markAsRead,
-      setNotifiedTasks
+      setNotifiedItems
     } = useReminderNotifications();
 
     const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
@@ -841,7 +841,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                   }`}
                                   onClick={() => {
                                     // Mark this specific task as read
-                                    markAsRead(task.id);
+                                    markAsRead('task_reminder', task.id);
                                   }}
                                 >
                                   <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -889,7 +889,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                   }`}
                                   onClick={() => {
                                     // Mark this specific task as read
-                                    markAsRead(task.id);
+                                    markAsRead('task_reminder', task.id);
                                   }}
                                 >
                                   <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
