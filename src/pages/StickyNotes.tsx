@@ -477,7 +477,7 @@ const StickyNotes = () => {
                 Add Note
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[90vh] overflow-hidden">
+            <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>Create New Note</DialogTitle>
                 <DialogDescription>
@@ -593,7 +593,7 @@ const StickyNotes = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
                 <Button onClick={handleCreateNote} disabled={createNoteMutation.isPending}>
                   {createNoteMutation.isPending ? 'Creating...' : 'Create Note'}
                 </Button>
@@ -606,7 +606,7 @@ const StickyNotes = () => {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
           <div>
             <Input
               placeholder="Search notes..."
@@ -693,8 +693,8 @@ const StickyNotes = () => {
             <Card key={note.id} className="h-fit">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg line-clamp-2">{note.title}</CardTitle>
-                  <div className="flex gap-1">
+                  <CardTitle className="text-lg break-words pr-2">{note.title}</CardTitle>
+                  <div className="flex gap-1 flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -714,7 +714,7 @@ const StickyNotes = () => {
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 break-words whitespace-pre-wrap">
                     {expandedNotes.has(note.id) 
                       ? note.content 
                       : needsViewMore(note.content) 
@@ -797,7 +797,7 @@ const StickyNotes = () => {
 
         {/* Edit Dialog */}
         <Dialog open={!!editingNote} onOpenChange={(open) => !open && setEditingNote(null)}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>Edit Note</DialogTitle>
               <DialogDescription>
@@ -919,7 +919,7 @@ const StickyNotes = () => {
                 </div>
               </div>
             )}
-            <div className="flex gap-2 pt-4 border-t">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
               <Button 
                 onClick={() => handleUpdateNote({
                   title: editingNote.title,

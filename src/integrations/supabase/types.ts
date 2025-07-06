@@ -778,6 +778,8 @@ export type Database = {
           end_time: string | null
           estimated_hours: number | null
           id: string
+          is_favorite: boolean | null
+          is_pinned: boolean | null
           name: string | null
           project_id: string | null
           slot_date: string | null
@@ -795,6 +797,8 @@ export type Database = {
           end_time?: string | null
           estimated_hours?: number | null
           id?: string
+          is_favorite?: boolean | null
+          is_pinned?: boolean | null
           name?: string | null
           project_id?: string | null
           slot_date?: string | null
@@ -812,6 +816,8 @@ export type Database = {
           end_time?: string | null
           estimated_hours?: number | null
           id?: string
+          is_favorite?: boolean | null
+          is_pinned?: boolean | null
           name?: string | null
           project_id?: string | null
           slot_date?: string | null
