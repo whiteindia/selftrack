@@ -22,6 +22,7 @@ export const convertISTToUTC = (istDateTime: string) => {
   if (!istDateTime) return null;
   
   try {
+    console.log('convertISTToUTC - Input IST:', istDateTime);
     // Parse the datetime-local input components
     const [datePart, timePart] = istDateTime.split('T');
     const [year, month, day] = datePart.split('-').map(Number);
@@ -30,9 +31,11 @@ export const convertISTToUTC = (istDateTime: string) => {
     // Create a Date object as if it's in the local timezone
     // This represents the IST time we want to convert
     const localDate = new Date(year, month - 1, day, hours, minutes, 0);
+    console.log('convertISTToUTC - Local date created:', localDate);
     
     // Convert from IST (treated as local time) to UTC
     const utcDate = fromZonedTime(localDate, IST_TIMEZONE);
+    console.log('convertISTToUTC - UTC result:', utcDate.toISOString());
     return utcDate.toISOString();
   } catch (error) {
     console.error('Error converting IST to UTC:', error);
@@ -45,10 +48,15 @@ export const formatUTCToISTInput = (utcDateTime: string | null) => {
   if (!utcDateTime) return '';
   
   try {
+    console.log('formatUTCToISTInput - Input UTC:', utcDateTime);
     const date = parseISO(utcDateTime);
+    console.log('formatUTCToISTInput - Parsed date:', date);
     const istDate = toZonedTime(date, IST_TIMEZONE);
+    console.log('formatUTCToISTInput - IST date:', istDate);
     // Format for datetime-local input (YYYY-MM-DDTHH:mm)
-    return format(istDate, "yyyy-MM-dd'T'HH:mm");
+    const formatted = format(istDate, "yyyy-MM-dd'T'HH:mm");
+    console.log('formatUTCToISTInput - Formatted result:', formatted);
+    return formatted;
   } catch (error) {
     console.error('Error converting UTC to IST input:', error);
     return '';

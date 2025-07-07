@@ -93,6 +93,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
   });
 
   useEffect(() => {
+    console.log('TaskEditDialog - Task data updated:', task);
     setFormData({
       name: task.name || '',
       status: task.status || 'Not Started',
@@ -100,6 +101,11 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
       assignee_id: task.assignee_id || '',
       deadline: task.deadline || '',
       estimated_duration: task.estimated_duration?.toString() || '',
+      reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
+      slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
+      slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
+    });
+    console.log('TaskEditDialog - Form data after conversion:', {
       reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
       slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
       slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
