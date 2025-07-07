@@ -10,10 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Filter, X, StickyNote, ChevronDown, ChevronUp } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Edit, Trash2, Filter, X, StickyNote, ChevronDown, ChevronUp, Search, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 
 interface StickyNote {
   id: string;
@@ -64,6 +68,11 @@ const StickyNotes = () => {
   const [projectFilter, setProjectFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('recent'); // 'recent' or 'all'
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  // Enhanced tag filtering
+  const [selectedTagFilters, setSelectedTagFilters] = useState<string[]>([]);
+  const [tagSearchTerm, setTagSearchTerm] = useState('');
+  const [isTagFilterOpen, setIsTagFilterOpen] = useState(false);
 
   const [tagFilter, setTagFilter] = useState('all');
   const [isCreateTagDialogOpen, setIsCreateTagDialogOpen] = useState(false);
@@ -218,7 +227,13 @@ const StickyNotes = () => {
       const matchesService = serviceFilter === 'all' || note.service_id === serviceFilter;
       const matchesClient = clientFilter === 'all' || note.client_id === clientFilter;
       const matchesProject = projectFilter === 'all' || note.project_id === projectFilter;
-      const matchesTag = tagFilter === 'all' || note.tags?.some(tag => tag.id === tagFilter);
+      
+      // Enhanced tag filtering - support multiple tag filters
+      let matchesTag = true;
+      if (selectedTagFilters.length > 0) {
+        const noteTagIds = note.tags?.map(tag => tag.id) || [];
+        matchesTag = selectedTagFilters.every(tagId => noteTagIds.includes(tagId));
+      }
       
       // Date filtering - show recent 2 months by default
       let matchesDate = true;
@@ -233,7 +248,15 @@ const StickyNotes = () => {
       
       return matchesSearch && matchesService && matchesClient && matchesProject && matchesTag && matchesDate;
     });
-  }, [notes, searchTerm, serviceFilter, clientFilter, projectFilter, tagFilter, dateFilter]);
+  }, [notes, searchTerm, serviceFilter, clientFilter, projectFilter, selectedTagFilters, dateFilter]);
+
+  // Filtered tags for search
+  const filteredTags = useMemo(() => {
+    if (!tagSearchTerm) return tags;
+    return tags.filter(tag => 
+      tag.name.toLowerCase().includes(tagSearchTerm.toLowerCase())
+    );
+  }, [tags, tagSearchTerm]);
 
   // Create tag mutation
   const createTagMutation = useMutation({
@@ -399,7 +422,7 @@ const StickyNotes = () => {
 
   const handleCreateTag = () => {
     if (!newTagName.trim()) {
-      toast.error('Please enter a tag name');
+      toast.error('Tag name is required');
       return;
     }
     createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor });
@@ -410,17 +433,14 @@ const StickyNotes = () => {
     setServiceFilter('all');
     setClientFilter('all');
     setProjectFilter('all');
-    setTagFilter('all');
+    setSelectedTagFilters([]);
     setDateFilter('recent');
   };
 
-  // Helper function to check if content needs "View More"
   const needsViewMore = (content: string) => {
-    // Rough estimation: if content has more than 150 characters or more than 3 lines
-    return content.length > 150 || content.split('\n').length > 3;
+    return content.length > 150;
   };
 
-  // Helper function to toggle note expansion
   const toggleNoteExpansion = (noteId: string) => {
     setExpandedNotes(prev => {
       const newSet = new Set(prev);
@@ -433,26 +453,109 @@ const StickyNotes = () => {
     });
   };
 
-  // Helper function to get truncated content
   const getTruncatedContent = (content: string, maxLength: number = 150) => {
     if (content.length <= maxLength) return content;
-    
-    // Find the last space before maxLength to avoid cutting words
-    const truncated = content.substring(0, maxLength);
-    const lastSpace = truncated.lastIndexOf(' ');
-    
-    if (lastSpace > maxLength * 0.8) { // If we can find a space in the last 20%
-      return truncated.substring(0, lastSpace) + '...';
-    }
-    
-    return truncated + '...';
+    return content.substring(0, maxLength) + '...';
+  };
+
+  // Tag selection component
+  const TagSelector = ({ 
+    selectedTags, 
+    onTagsChange, 
+    placeholder = "Select tags..." 
+  }: { 
+    selectedTags: string[]; 
+    onTagsChange: (tags: string[]) => void;
+    placeholder?: string;
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredTagsForSelection = useMemo(() => {
+      if (!searchTerm) return tags;
+      return tags.filter(tag => 
+        tag.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }, [tags, searchTerm]);
+
+    const handleTagToggle = (tagId: string) => {
+      const newSelectedTags = selectedTags.includes(tagId)
+        ? selectedTags.filter(id => id !== tagId)
+        : [...selectedTags, tagId];
+      onTagsChange(newSelectedTags);
+    };
+
+    const selectedTagObjects = tags.filter(tag => selectedTags.includes(tag.id));
+
+    return (
+      <div className="space-y-2">
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={isOpen}
+              className="w-full justify-between"
+            >
+              <div className="flex flex-wrap gap-1 flex-1">
+                {selectedTagObjects.length > 0 ? (
+                  selectedTagObjects.map(tag => (
+                    <Badge
+                      key={tag.id}
+                      variant="secondary"
+                      className="text-xs"
+                      style={{ backgroundColor: tag.color, color: 'white' }}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">{placeholder}</span>
+                )}
+              </div>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-full p-0" align="start">
+            <Command>
+              <CommandInput 
+                placeholder="Search tags..." 
+                value={searchTerm}
+                onValueChange={setSearchTerm}
+              />
+              <CommandList>
+                <CommandEmpty>No tags found.</CommandEmpty>
+                <CommandGroup>
+                  {filteredTagsForSelection.map((tag) => (
+                    <CommandItem
+                      key={tag.id}
+                      onSelect={() => handleTagToggle(tag.id)}
+                    >
+                      <Checkbox
+                        checked={selectedTags.includes(tag.id)}
+                        className="mr-2"
+                      />
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      {tag.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+    );
   };
 
   if (notesLoading) {
     return (
       <Navigation>
-        <div className="container mx-auto p-6">
-          <div className="text-center">Loading sticky notes...</div>
+        <div className="flex items-center justify-center py-8">
+          <div className="text-lg">Loading notes...</div>
         </div>
       </Navigation>
     );
@@ -460,13 +563,11 @@ const StickyNotes = () => {
 
   return (
     <Navigation>
-      <div className="container mx-auto p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-              <StickyNote className="h-8 w-8" />
-              Sticky Notes
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">Sticky Notes</h1>
             <p className="text-gray-600 mt-1">Organize your thoughts and ideas</p>
           </div>
           
@@ -566,31 +667,11 @@ const StickyNotes = () => {
                       New Tag
                     </Button>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {tags.map((tag) => (
-                      <label
-                        key={tag.id}
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white cursor-pointer transition-opacity ${
-                          newNote.selectedTags.includes(tag.id) ? 'opacity-100' : 'opacity-60'
-                        }`}
-                        style={{ backgroundColor: tag.color }}
-                      >
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={newNote.selectedTags.includes(tag.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setNewNote({ ...newNote, selectedTags: [...newNote.selectedTags, tag.id] });
-                            } else {
-                              setNewNote({ ...newNote, selectedTags: newNote.selectedTags.filter(id => id !== tag.id) });
-                            }
-                          }}
-                        />
-                        {tag.name}
-                      </label>
-                    ))}
-                  </div>
+                  <TagSelector
+                    selectedTags={newNote.selectedTags}
+                    onTagsChange={(tags) => setNewNote({ ...newNote, selectedTags: tags })}
+                    placeholder="Select tags..."
+                  />
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
@@ -605,7 +686,7 @@ const StickyNotes = () => {
           </Dialog>
         </div>
 
-        {/* Filters */}
+        {/* Enhanced Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
           <div>
             <Input
@@ -653,25 +734,76 @@ const StickyNotes = () => {
               ))}
             </SelectContent>
           </Select>
-          <Select value={tagFilter} onValueChange={setTagFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by tag" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Tags</SelectItem>
-              {tags.map((tag) => (
-                <SelectItem key={tag.id} value={tag.id}>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    {tag.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          
+          {/* Enhanced Tag Filter */}
+          <Popover open={isTagFilterOpen} onOpenChange={setIsTagFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={isTagFilterOpen}
+                className="w-full justify-between"
+              >
+                <Tag className="mr-2 h-4 w-4" />
+                <div className="flex flex-wrap gap-1 flex-1">
+                  {selectedTagFilters.length > 0 ? (
+                    selectedTagFilters.map(tagId => {
+                      const tag = tags.find(t => t.id === tagId);
+                      return tag ? (
+                        <Badge
+                          key={tag.id}
+                          variant="secondary"
+                          className="text-xs"
+                          style={{ backgroundColor: tag.color, color: 'white' }}
+                        >
+                          {tag.name}
+                        </Badge>
+                      ) : null;
+                    })
+                  ) : (
+                    <span className="text-muted-foreground">Filter by tags</span>
+                  )}
+                </div>
+                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="start">
+              <Command>
+                <CommandInput 
+                  placeholder="Search tags..." 
+                  value={tagSearchTerm}
+                  onValueChange={setTagSearchTerm}
+                />
+                <CommandList>
+                  <CommandEmpty>No tags found.</CommandEmpty>
+                  <CommandGroup>
+                    {filteredTags.map((tag) => (
+                      <CommandItem
+                        key={tag.id}
+                        onSelect={() => {
+                          const newSelectedTags = selectedTagFilters.includes(tag.id)
+                            ? selectedTagFilters.filter(id => id !== tag.id)
+                            : [...selectedTagFilters, tag.id];
+                          setSelectedTagFilters(newSelectedTags);
+                        }}
+                      >
+                        <Checkbox
+                          checked={selectedTagFilters.includes(tag.id)}
+                          className="mr-2"
+                        />
+                        <div 
+                          className="w-3 h-3 rounded-full mr-2" 
+                          style={{ backgroundColor: tag.color }}
+                        />
+                        {tag.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          
           <Select value={dateFilter} onValueChange={setDateFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Filter by date" />
@@ -883,39 +1015,32 @@ const StickyNotes = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="edit-tags">Tags (Optional)</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {tags.map((tag) => (
-                      <label
-                        key={tag.id}
-                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white cursor-pointer transition-opacity ${
-                          editingNote.tags?.some(t => t.id === tag.id) ? 'opacity-100' : 'opacity-60'
-                        }`}
-                        style={{ backgroundColor: tag.color }}
-                      >
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={editingNote.tags?.some(t => t.id === tag.id) || false}
-                          onChange={(e) => {
-                            const currentTags = editingNote.tags || [];
-                            if (e.target.checked) {
-                              setEditingNote({ 
-                                ...editingNote, 
-                                tags: [...currentTags, tag]
-                              });
-                            } else {
-                              setEditingNote({ 
-                                ...editingNote, 
-                                tags: currentTags.filter(t => t.id !== tag.id)
-                              });
-                            }
-                          }}
-                        />
-                        {tag.name}
-                      </label>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="edit-tags">Tags (Optional)</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsCreateTagDialogOpen(true)}
+                      className="text-xs"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      New Tag
+                    </Button>
                   </div>
+                  <TagSelector
+                    selectedTags={editingNote.tags?.map(t => t.id) || []}
+                    onTagsChange={(tags) => {
+                      const selectedTagObjects = tags.map(tagId => 
+                        tags.find(t => t.id === tagId)
+                      ).filter(Boolean);
+                      setEditingNote({ 
+                        ...editingNote, 
+                        tags: selectedTagObjects
+                      });
+                    }}
+                    placeholder="Select tags..."
+                  />
                 </div>
               </div>
             )}

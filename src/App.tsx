@@ -35,6 +35,8 @@ import TimeUntil from "./pages/TimeUntil";
 import RoutinesTracker from "./pages/RoutinesTracker";
 import FollowupCal from '@/pages/FollowupCal';
 import StickyNotes from "./pages/StickyNotes";
+import CodiNotes from "./pages/CodiNotes";
+import TradaNotes from "./pages/TradaNotes";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +84,16 @@ function App() {
                 <Route path="/sticky-notes" element={
                   <ProtectedRoute>
                     <StickyNotes />
+                  </ProtectedRoute>
+                } />
+                <Route path="/codi-notes" element={
+                  <ProtectedRoute>
+                    <CodiNotes />
+                  </ProtectedRoute>
+                } />
+                <Route path="/trada-notes" element={
+                  <ProtectedRoute>
+                    <TradaNotes />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />

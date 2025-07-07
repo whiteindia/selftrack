@@ -37,7 +37,9 @@ import {
   Check,
   Plus,
   Shield,
-  X
+  X,
+  Code,
+  TrendingUp
 } from 'lucide-react';
 import {
   Drawer,
@@ -102,7 +104,11 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' },
   ];
 
-  const stickyNotesItem = { path: '/sticky-notes', label: '', icon: StickyNote, pageName: 'tasks' };
+  const notesItems = [
+    { path: '/sticky-notes', label: 'Sticky Notes', icon: StickyNote, pageName: 'tasks' },
+    { path: '/codi-notes', label: 'CodiNotes', icon: Code, pageName: 'tasks' },
+    { path: '/trada-notes', label: 'TradaNotes', icon: TrendingUp, pageName: 'tasks' },
+  ];
 
   const taskforceItems = [
     { path: '/alltasks', label: 'All Tasks', icon: CheckSquare, pageName: 'tasks' },
@@ -249,22 +255,28 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="space-y-6">
-          {/* Sticky Notes - before Main navigation */}
+          {/* Notes - before Main navigation */}
           {hasPageAccess('tasks') && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Quick Access</h3>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
               <div className="space-y-1">
-                <button
-                  onClick={() => handleMobileNavigation(stickyNotesItem.path)}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
-                    isActive(stickyNotesItem.path)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <StickyNote className="h-4 w-4" />
-                   <span>Sticky Notes</span>
-                 </button>
+                {notesItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
                  <Button
                    className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors bg-green-600 hover:bg-green-700 text-white"
                    onClick={() => setIsQuickTaskDialogOpen(true)}
@@ -566,19 +578,37 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               );
             })}
 
-            {/* Sticky Notes - icon only, after Dashboard */}
+            {/* Notes - dropdown menu, after Projects */}
             {hasPageAccess('tasks') && (
-              <Link
-                to={stickyNotesItem.path}
-                className={`flex items-center justify-center w-8 h-8 rounded-md text-sm font-medium transition-colors flex-shrink-0 border ${
-                  isActive(stickyNotesItem.path)
-                    ? 'bg-blue-100 text-blue-700 border-blue-300'
-                    : 'text-gray-700 hover:bg-gray-100 border-gray-200'
-                }`}
-                title="Sticky Notes"
-              >
-                <StickyNote className="h-4 w-4" />
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-2 flex-shrink-0">
+                    <StickyNote className="h-4 w-4" />
+                    <span>Notes</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9999 }}>
+                  {notesItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {/* QuickTask - icon only, next to Sticky Notes */}
