@@ -22,10 +22,17 @@ export const convertISTToUTC = (istDateTime: string) => {
   if (!istDateTime) return null;
   
   try {
-    // Parse the datetime-local input as IST
-    const istDate = new Date(istDateTime);
-    // Convert IST to UTC for database storage
-    const utcDate = fromZonedTime(istDate, IST_TIMEZONE);
+    // Parse the datetime-local input components
+    const [datePart, timePart] = istDateTime.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes] = timePart.split(':').map(Number);
+    
+    // Create a Date object as if it's in the local timezone
+    // This represents the IST time we want to convert
+    const localDate = new Date(year, month - 1, day, hours, minutes, 0);
+    
+    // Convert from IST (treated as local time) to UTC
+    const utcDate = fromZonedTime(localDate, IST_TIMEZONE);
     return utcDate.toISOString();
   } catch (error) {
     console.error('Error converting IST to UTC:', error);
