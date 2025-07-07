@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban, Play, Bell, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
+import { formatToIST, formatUTCToISTInput, convertISTToUTC } from '@/utils/timezoneUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import TaskHistory from '@/components/TaskHistory';
@@ -318,16 +319,28 @@ const Tasks = () => {
         throw new Error('Employee record not found');
       }
 
+      // Convert IST datetime inputs to UTC for storage
+      const processedTaskData = { ...taskData };
+      if (taskData.reminder_datetime) {
+        processedTaskData.reminder_datetime = convertISTToUTC(taskData.reminder_datetime);
+      }
+      if (taskData.slot_start_datetime) {
+        processedTaskData.slot_start_datetime = convertISTToUTC(taskData.slot_start_datetime);
+      }
+      if (taskData.slot_end_datetime) {
+        processedTaskData.slot_end_datetime = convertISTToUTC(taskData.slot_end_datetime);
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
-          ...taskData,
+          ...processedTaskData,
           assigner_id: employee.id,
           deadline: taskData.deadline || null,
           estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null,
-          reminder_datetime: taskData.reminder_datetime || null,
-          slot_start_datetime: taskData.slot_start_datetime || null,
-          slot_end_datetime: taskData.slot_end_datetime || null
+          reminder_datetime: processedTaskData.reminder_datetime || null,
+          slot_start_datetime: processedTaskData.slot_start_datetime || null,
+          slot_end_datetime: processedTaskData.slot_end_datetime || null
         }])
         .select()
         .single();
@@ -359,9 +372,21 @@ const Tasks = () => {
   // Update task mutation
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      // Convert IST datetime inputs to UTC for storage
+      const processedUpdates = { ...updates };
+      if (updates.reminder_datetime !== undefined) {
+        processedUpdates.reminder_datetime = updates.reminder_datetime ? convertISTToUTC(updates.reminder_datetime) : null;
+      }
+      if (updates.slot_start_datetime !== undefined) {
+        processedUpdates.slot_start_datetime = updates.slot_start_datetime ? convertISTToUTC(updates.slot_start_datetime) : null;
+      }
+      if (updates.slot_end_datetime !== undefined) {
+        processedUpdates.slot_end_datetime = updates.slot_end_datetime ? convertISTToUTC(updates.slot_end_datetime) : null;
+      }
+
       const { data, error } = await supabase
         .from('tasks')
-        .update(updates)
+        .update(processedUpdates)
         .eq('id', id)
         .select()
         .single();
@@ -837,7 +862,7 @@ const Tasks = () => {
               <div className="space-y-2">
                 <Label htmlFor="reminder-datetime" className="flex items-center gap-2">
                   <Bell className="h-4 w-4" />
-                  Reminder (Optional)
+                  Reminder (Optional) - IST
                 </Label>
                 <Input
                   id="reminder-datetime"
@@ -845,17 +870,18 @@ const Tasks = () => {
                   value={newTask.reminder_datetime}
                   onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
                 />
+                <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
               </div>
 
               {/* New Slot Fields */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <CalendarClock className="h-4 w-4" />
-                  Slot Duration (Optional)
+                  Slot Duration (Optional) - IST
                 </Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="slot-start">Start Time</Label>
+                    <Label htmlFor="slot-start">Start Time (IST)</Label>
                     <Input
                       id="slot-start"
                       type="datetime-local"
@@ -864,7 +890,7 @@ const Tasks = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="slot-end">End Time</Label>
+                    <Label htmlFor="slot-end">End Time (IST)</Label>
                     <Input
                       id="slot-end"
                       type="datetime-local"
@@ -878,6 +904,7 @@ const Tasks = () => {
                     Duration: {calculateSlotDuration(newTask.slot_start_datetime, newTask.slot_end_datetime) || 'Invalid duration'}
                   </div>
                 )}
+                <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
               </div>
 
               <div className="flex justify-end space-x-2">
@@ -995,38 +1022,39 @@ const Tasks = () => {
                 <div className="space-y-2">
                   <Label htmlFor="edit-reminder-datetime" className="flex items-center gap-2">
                     <Bell className="h-4 w-4" />
-                    Reminder (Optional)
+                    Reminder (Optional) - IST
                   </Label>
                   <Input
                     id="edit-reminder-datetime"
                     type="datetime-local"
-                    value={editingTask.reminder_datetime ? format(new Date(editingTask.reminder_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                    value={editingTask.reminder_datetime ? formatUTCToISTInput(editingTask.reminder_datetime) : ''}
                     onChange={(e) => setEditingTask({ ...editingTask, reminder_datetime: e.target.value || null })}
                   />
+                  <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
                 </div>
 
                 {/* Edit Slot Fields */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <CalendarClock className="h-4 w-4" />
-                    Slot Duration (Optional)
+                    Slot Duration (Optional) - IST
                   </Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-slot-start">Start Time</Label>
+                      <Label htmlFor="edit-slot-start">Start Time (IST)</Label>
                       <Input
                         id="edit-slot-start"
                         type="datetime-local"
-                        value={editingTask.slot_start_datetime ? format(new Date(editingTask.slot_start_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        value={editingTask.slot_start_datetime ? formatUTCToISTInput(editingTask.slot_start_datetime) : ''}
                         onChange={(e) => setEditingTask({ ...editingTask, slot_start_datetime: e.target.value || null })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-slot-end">End Time</Label>
+                      <Label htmlFor="edit-slot-end">End Time (IST)</Label>
                       <Input
                         id="edit-slot-end"
                         type="datetime-local"
-                        value={editingTask.slot_end_datetime ? format(new Date(editingTask.slot_end_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        value={editingTask.slot_end_datetime ? formatUTCToISTInput(editingTask.slot_end_datetime) : ''}
                         onChange={(e) => setEditingTask({ ...editingTask, slot_end_datetime: e.target.value || null })}
                       />
                     </div>
@@ -1034,8 +1062,9 @@ const Tasks = () => {
                   {editingTask.slot_start_datetime && editingTask.slot_end_datetime && (
                     <div className="text-sm text-green-600 font-medium">
                       Duration: {calculateSlotDuration(editingTask.slot_start_datetime, editingTask.slot_end_datetime) || 'Invalid duration'}
-                    </div>
+                  </div>
                   )}
+                  <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
                 </div>
 
                 <div className="flex justify-end space-x-2">
@@ -1225,7 +1254,7 @@ const TaskWithSubtasks: React.FC<{
                 {task.reminder_datetime && (
                   <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
                     <Bell className="h-3 w-3 text-orange-500" />
-                    <span>Reminder: {format(new Date(task.reminder_datetime), 'MMM d, HH:mm')}</span>
+                                            <span>Reminder: {formatToIST(task.reminder_datetime, 'MMM d, HH:mm')}</span>
                   </span>
                 )}
                 {slotDuration && (

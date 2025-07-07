@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CalendarCheck, Calendar, Clock, User, Building, List, Edit, Trash2 } from 'lucide-react';
 import { format, differenceInMinutes, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, parseISO } from 'date-fns';
+import { formatToIST } from '@/utils/timezoneUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import TaskEditDialog from '@/components/TaskEditDialog';
 
@@ -315,8 +316,8 @@ const FixedSlots = () => {
                             <div className="font-medium truncate">{task.name}</div>
                             <div className="text-gray-600 truncate">{task.assignee?.name || 'Unassigned'}</div>
                             <div className="text-gray-500">
-                              {format(parseISO(task.slot_start_datetime), 'HH:mm')} - 
-                              {format(parseISO(task.slot_end_datetime), 'HH:mm')}
+                                                      {formatToIST(task.slot_start_datetime, 'HH:mm')} -
+                        {formatToIST(task.slot_end_datetime, 'HH:mm')}
                             </div>
                             <div className="opacity-0 group-hover:opacity-100 absolute top-1 right-1 flex gap-1">
                               <Button
@@ -408,14 +409,14 @@ const FixedSlots = () => {
                             </Button>
                           </div>
                           <div className="text-xs text-blue-600 space-y-1">
-                            <div>Start: {format(new Date(task.slot_start_datetime), 'PPp')}</div>
-                            <div>End: {format(new Date(task.slot_end_datetime), 'PPp')}</div>
+                            <div>Start: {formatToIST(task.slot_start_datetime, 'PPp')}</div>
+                            <div>End: {formatToIST(task.slot_end_datetime, 'PPp')}</div>
                           </div>
                         </div>
                         {task.deadline && (
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-red-500" />
-                            <span>Due: {format(new Date(task.deadline), 'PP')}</span>
+                            <span>Due: {formatToIST(task.deadline, 'PP')}</span>
                           </div>
                         )}
                       </div>

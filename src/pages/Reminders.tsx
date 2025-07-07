@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Bell, Calendar as CalendarIcon, Clock, User, Building, Edit, List, Grid, Target, AlertTriangle } from 'lucide-react';
 import { format, parseISO, isSameDay, isAfter, isBefore, addDays } from 'date-fns';
+import { formatToIST } from '@/utils/timezoneUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import TaskEditDialog from '@/components/TaskEditDialog';
 import NotificationSettings from '@/components/NotificationSettings';
@@ -606,7 +607,7 @@ const Reminders = () => {
                             <Clock className="h-3 w-3" />
                             <span className="font-medium">
                               {item.type === 'reminder' 
-                                ? format(parseISO(item.datetime), 'h:mm a')
+                                ? formatToIST(item.datetime, 'h:mm a')
                                 : 'End of day'
                               }
                             </span>
@@ -740,8 +741,8 @@ const Reminders = () => {
                                 : 'text-purple-800'
                             }`}>
                               {item.type === 'reminder' 
-                                ? format(parseISO(item.datetime), 'PPp')
-                                : format(parseISO(item.datetime), 'PP')
+                                ? formatToIST(item.datetime, 'PPp')
+                                : formatToIST(item.datetime, 'PP')
                               }
                             </span>
                           </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatToIST } from '@/utils/timezoneUtils';
 
 interface ReminderTask {
   id: string;
@@ -230,7 +231,7 @@ export const useReminderNotifications = () => {
       switch (type) {
         case 'task':
           title = `Task Reminder: ${item.name}`;
-          body = `Scheduled for ${new Date(item.reminder_datetime).toLocaleTimeString()}`;
+          body = `Scheduled for ${formatToIST(item.reminder_datetime, 'h:mm a')}`;
           url = '/tasks';
           break;
         case 'sprint':
@@ -240,7 +241,7 @@ export const useReminderNotifications = () => {
           break;
         case 'slot':
           title = `Task Slot: ${item.name}`;
-          body = `Starts at ${new Date(item.slot_start_datetime).toLocaleTimeString()}`;
+          body = `Starts at ${formatToIST(item.slot_start_datetime, 'h:mm a')}`;
           url = '/tasks';
           break;
       }

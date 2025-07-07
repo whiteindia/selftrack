@@ -10,6 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Clock, User, Building, Calendar as CalendarIconLucide } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
+import { formatToIST } from '@/utils/timezoneUtils';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import TaskEditDialog from '@/components/TaskEditDialog';
@@ -425,7 +426,7 @@ const TimelineSlots = () => {
                               getStatusColor(task.status)
                             )}
                             style={position}
-                            title={`${task.name} (${format(parseISO(task.slot_start_datetime), 'HH:mm')} - ${format(parseISO(task.slot_end_datetime), 'HH:mm')})`}
+                            title={`${task.name} (${formatToIST(task.slot_start_datetime, 'HH:mm')} - ${formatToIST(task.slot_end_datetime, 'HH:mm')})`}
                             onClick={() => handleTaskClick(task)}
                           >
                             <span className="truncate font-medium">{task.name}</span>

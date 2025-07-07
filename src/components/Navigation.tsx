@@ -65,6 +65,7 @@ import { useReminderNotifications } from '@/hooks/useReminderNotifications';
 import NotificationBadge from '@/components/NotificationBadge';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { useNavigate } from 'react-router-dom';
+import { formatToIST } from '@/utils/timezoneUtils';
 
 const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const { signOut, user, userRole, loading: authLoading } = useAuth();
@@ -892,7 +893,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     <p className={`text-xs ${
                                       isRead ? 'text-gray-400' : 'text-blue-600'
                                     }`}>
-                                      {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      {formatToIST(task.reminder_datetime, 'h:mm a')}
                                     </p>
                                   </div>
                                 </div>
@@ -940,7 +941,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     <p className={`text-xs ${
                                       isRead ? 'text-gray-400' : 'text-red-600'
                                     }`}>
-                                      Overdue since {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      Overdue since {formatToIST(task.reminder_datetime, 'h:mm a')}
                                     </p>
                                   </div>
                                 </div>
@@ -1076,7 +1077,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                       <p className={`text-xs ${
                                         isRead ? 'text-gray-400' : 'text-blue-600'
                                       }`}>
-                                        {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {formatToIST(task.reminder_datetime, 'h:mm a')}
                                       </p>
                                     </div>
                                   </div>
@@ -1124,7 +1125,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                       <p className={`text-xs ${
                                         isRead ? 'text-gray-400' : 'text-red-600'
                                       }`}>
-                                        Overdue since {new Date(task.reminder_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        Overdue since {formatToIST(task.reminder_datetime, 'h:mm a')}
                                       </p>
                                     </div>
                                   </div>
