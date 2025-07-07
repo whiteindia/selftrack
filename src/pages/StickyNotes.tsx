@@ -88,12 +88,12 @@ const StickyNotes = () => {
     selectedTags: [] as string[]
   });
 
-  // Fetch tags
+  // Fetch sticky tags
   const { data: tags = [] } = useQuery({
-    queryKey: ['tags'],
+    queryKey: ['sticky-tags'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('tags')
+        .from('sticky_tags')
         .select('*')
         .order('name');
       if (error) throw error;
@@ -111,7 +111,7 @@ const StickyNotes = () => {
           *,
           sticky_note_tags (
             tag_id,
-            tags (
+            sticky_tags (
               id,
               name,
               color
@@ -157,7 +157,7 @@ const StickyNotes = () => {
           }
 
           // Extract tags from the joined data
-          const noteTags = note.sticky_note_tags?.map((snt: any) => snt.tags).filter(Boolean) || [];
+          const noteTags = note.sticky_note_tags?.map((snt: any) => snt.sticky_tags).filter(Boolean) || [];
 
           return {
             ...note,
@@ -262,7 +262,7 @@ const StickyNotes = () => {
   const createTagMutation = useMutation({
     mutationFn: async ({ name, color }: { name: string; color: string }) => {
       const { data, error } = await supabase
-        .from('tags')
+        .from('sticky_tags')
         .insert([{ name, color }])
         .select()
         .single();
@@ -271,14 +271,14 @@ const StickyNotes = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['sticky-tags'] });
       setNewTagName('');
       setNewTagColor('#6366f1');
       setIsCreateTagDialogOpen(false);
-      toast.success('Tag created successfully!');
+      toast.success('Sticky tag created successfully!');
     },
     onError: (error) => {
-      toast.error('Failed to create tag: ' + error.message);
+      toast.error('Failed to create sticky tag: ' + error.message);
     }
   });
 
@@ -543,6 +543,20 @@ const StickyNotes = () => {
                     </CommandItem>
                   ))}
                 </CommandGroup>
+                <div className="border-t p-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsOpen(false);
+                      setIsCreateTagDialogOpen(true);
+                    }}
+                    className="w-full justify-start text-sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create new tag
+                  </Button>
+                </div>
               </CommandList>
             </Command>
           </PopoverContent>
@@ -1030,8 +1044,8 @@ const StickyNotes = () => {
                   </div>
                   <TagSelector
                     selectedTags={editingNote.tags?.map(t => t.id) || []}
-                    onTagsChange={(tags) => {
-                      const selectedTagObjects = tags.map(tagId => 
+                    onTagsChange={(tagIds) => {
+                      const selectedTagObjects = tagIds.map(tagId => 
                         tags.find(t => t.id === tagId)
                       ).filter(Boolean);
                       setEditingNote({ 

@@ -143,7 +143,11 @@ export const useReminderNotifications = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      // Invalidate all notification-related queries to ensure count updates
       queryClient.invalidateQueries({ queryKey: ['notification-reads'] });
+      queryClient.invalidateQueries({ queryKey: ['reminder-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['sprint-deadlines'] });
+      queryClient.invalidateQueries({ queryKey: ['task-slots'] });
     },
   });
 

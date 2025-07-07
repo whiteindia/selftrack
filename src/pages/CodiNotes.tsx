@@ -89,12 +89,12 @@ const CodiNotes = () => {
     selectedTags: [] as string[]
   });
 
-  // Fetch tags
+  // Fetch codi tags
   const { data: tags = [] } = useQuery({
-    queryKey: ['tags'],
+    queryKey: ['codi-tags'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('tags')
+        .from('codi_tags')
         .select('*')
         .order('name');
       if (error) throw error;
@@ -112,7 +112,7 @@ const CodiNotes = () => {
           *,
           codi_note_tags (
             tag_id,
-            tags (
+            codi_tags (
               id,
               name,
               color
@@ -158,7 +158,7 @@ const CodiNotes = () => {
           }
 
           // Extract tags from the joined data
-          const noteTags = note.codi_note_tags?.map((snt: any) => snt.tags).filter(Boolean) || [];
+          const noteTags = note.codi_note_tags?.map((snt: any) => snt.codi_tags).filter(Boolean) || [];
 
           return {
             ...note,
@@ -267,7 +267,7 @@ const CodiNotes = () => {
   const createTagMutation = useMutation({
     mutationFn: async ({ name, color }: { name: string; color: string }) => {
       const { data, error } = await supabase
-        .from('tags')
+        .from('codi_tags')
         .insert([{ name, color }])
         .select()
         .single();
@@ -276,14 +276,14 @@ const CodiNotes = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['codi-tags'] });
       setNewTagName('');
       setNewTagColor('#6366f1');
       setIsCreateTagDialogOpen(false);
-      toast.success('Tag created successfully!');
+      toast.success('Codi tag created successfully!');
     },
     onError: (error) => {
-      toast.error('Failed to create tag: ' + error.message);
+      toast.error('Failed to create codi tag: ' + error.message);
     }
   });
 
@@ -521,6 +521,20 @@ const CodiNotes = () => {
                   </CommandItem>
                 ))}
               </CommandGroup>
+              <div className="border-t p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsCreateTagDialogOpen(true);
+                  }}
+                  className="w-full justify-start text-sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create new tag
+                </Button>
+              </div>
             </CommandList>
           </Command>
         </PopoverContent>
