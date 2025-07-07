@@ -99,7 +99,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   };
 
   const mainNavItems = [
-    { path: '/', label: 'Dashboard', icon: Home, pageName: 'dashboard' },
+    { path: '/', label: 'Home', icon: Home, pageName: 'dashboard' },
     { path: '/projects', label: 'Projects', icon: FolderOpen, pageName: 'projects' },
     { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' },
   ];
