@@ -44,8 +44,11 @@ interface Task {
   project_service: string | null;
   client_name: string | null;
   reminder_datetime: string | null;
+  reminder_time: string | null;
   slot_start_datetime: string | null;
+  slot_start_time: string | null;
   slot_end_datetime: string | null;
+  slot_end_time: string | null;
   assignee: {
     name: string;
   } | null;
@@ -102,8 +105,11 @@ const AllTasks = () => {
     estimated_duration: '',
     status: 'Not Started',
     reminder_datetime: '',
+    reminder_time: '',
     slot_start_datetime: '',
-    slot_end_datetime: ''
+    slot_start_time: '',
+    slot_end_datetime: '',
+    slot_end_time: ''
   });
 
   // Define all available status options
@@ -365,8 +371,11 @@ const AllTasks = () => {
           deadline: taskData.deadline || null,
           estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null,
           reminder_datetime: taskData.reminder_datetime || null,
+          reminder_time: taskData.reminder_time || null,
           slot_start_datetime: taskData.slot_start_datetime || null,
-          slot_end_datetime: taskData.slot_end_datetime || null
+          slot_start_time: taskData.slot_start_time || null,
+          slot_end_datetime: taskData.slot_end_datetime || null,
+          slot_end_time: taskData.slot_end_time || null
         }])
         .select()
         .single();
@@ -384,8 +393,11 @@ const AllTasks = () => {
         estimated_duration: '', 
         status: 'Not Started',
         reminder_datetime: '',
+        reminder_time: '',
         slot_start_datetime: '',
-        slot_end_datetime: ''
+        slot_start_time: '',
+        slot_end_datetime: '',
+        slot_end_time: ''
       });
       setIsCreateDialogOpen(false);
       toast.success('Task created successfully!');
@@ -876,44 +888,80 @@ const AllTasks = () => {
                 </div>
               </div>
               
-              {/* New Reminder Field */}
+              {/* Reminder Fields */}
               <div className="space-y-2">
-                <Label htmlFor="reminder-datetime" className="flex items-center gap-2">
+                <Label className="flex items-center gap-2">
                   <Bell className="h-4 w-4" />
                   Reminder (Optional)
                 </Label>
-                <Input
-                  id="reminder-datetime"
-                  type="datetime-local"
-                  value={newTask.reminder_datetime}
-                  onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
-                />
-              </div>
-
-              {/* New Slot Fields */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4" />
-                  Slot Duration (Optional)
-                </Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="slot-start">Start Time</Label>
+                    <Label htmlFor="reminder-date">Date</Label>
                     <Input
-                      id="slot-start"
-                      type="datetime-local"
-                      value={newTask.slot_start_datetime}
-                      onChange={(e) => setNewTask({ ...newTask, slot_start_datetime: e.target.value })}
+                      id="reminder-date"
+                      type="date"
+                      value={newTask.reminder_datetime}
+                      onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="slot-end">End Time</Label>
+                    <Label htmlFor="reminder-time">Time</Label>
                     <Input
-                      id="slot-end"
-                      type="datetime-local"
-                      value={newTask.slot_end_datetime}
-                      onChange={(e) => setNewTask({ ...newTask, slot_end_datetime: e.target.value })}
+                      id="reminder-time"
+                      type="time"
+                      value={newTask.reminder_time}
+                      onChange={(e) => setNewTask({ ...newTask, reminder_time: e.target.value })}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Slot Fields */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4" />
+                  Time Slot (Optional)
+                </Label>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="slot-start-date">Start Date</Label>
+                      <Input
+                        id="slot-start-date"
+                        type="date"
+                        value={newTask.slot_start_datetime}
+                        onChange={(e) => setNewTask({ ...newTask, slot_start_datetime: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="slot-start-time">Start Time</Label>
+                      <Input
+                        id="slot-start-time"
+                        type="time"
+                        value={newTask.slot_start_time}
+                        onChange={(e) => setNewTask({ ...newTask, slot_start_time: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="slot-end-date">End Date</Label>
+                      <Input
+                        id="slot-end-date"
+                        type="date"
+                        value={newTask.slot_end_datetime}
+                        onChange={(e) => setNewTask({ ...newTask, slot_end_datetime: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="slot-end-time">End Time</Label>
+                      <Input
+                        id="slot-end-time"
+                        type="time"
+                        value={newTask.slot_end_time}
+                        onChange={(e) => setNewTask({ ...newTask, slot_end_time: e.target.value })}
+                      />
+                    </div>
                   </div>
                 </div>
                 {newTask.slot_start_datetime && newTask.slot_end_datetime && (

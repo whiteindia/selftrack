@@ -1329,9 +1329,12 @@ export type Database = {
           name: string
           project_id: string
           reminder_datetime: string | null
+          reminder_time: string | null
           scheduled_time: string | null
           slot_end_datetime: string | null
+          slot_end_time: string | null
           slot_start_datetime: string | null
+          slot_start_time: string | null
           status: Database["public"]["Enums"]["task_status"]
           updated_at: string
           wage_status: string | null
@@ -1351,9 +1354,12 @@ export type Database = {
           name: string
           project_id: string
           reminder_datetime?: string | null
+          reminder_time?: string | null
           scheduled_time?: string | null
           slot_end_datetime?: string | null
+          slot_end_time?: string | null
           slot_start_datetime?: string | null
+          slot_start_time?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
           wage_status?: string | null
@@ -1373,9 +1379,12 @@ export type Database = {
           name?: string
           project_id?: string
           reminder_datetime?: string | null
+          reminder_time?: string | null
           scheduled_time?: string | null
           slot_end_datetime?: string | null
+          slot_end_time?: string | null
           slot_start_datetime?: string | null
+          slot_start_time?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
           wage_status?: string | null
