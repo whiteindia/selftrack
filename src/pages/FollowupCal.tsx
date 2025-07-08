@@ -23,6 +23,15 @@ interface Task {
   status: string;
   deadline: string | null;
   assignee_id: string | null;
+  project_id: string;
+  projects: {
+    id: string;
+    name: string;
+    clients: {
+      id: string;
+      name: string;
+    };
+  };
   project: {
     id: string;
     name: string;
@@ -85,6 +94,10 @@ interface Project {
     id: string;
     name: string;
   };
+  client: {
+    id: string;
+    name: string;
+  };
 }
 
 interface Sprint {
@@ -95,6 +108,10 @@ interface Sprint {
   project?: {
     id: string;
     name: string;
+    clients: {
+      id: string;
+      name: string;
+    };
     client: {
       id: string;
       name: string;
@@ -136,10 +153,11 @@ const FollowupCal = () => {
           status,
           deadline,
           assignee_id,
-          project:projects(
+          project_id,
+          projects!tasks_project_id_fkey(
             id,
             name,
-            client:clients(
+            clients!projects_client_id_fkey(
               id,
               name
             )
@@ -151,8 +169,32 @@ const FollowupCal = () => {
         .not('reminder_datetime', 'is', null)
         .order('reminder_datetime', { ascending: true });
 
-      if (error) throw error;
-      return data as Task[];
+      if (error) {
+        console.error('Error fetching reminder tasks:', error);
+        throw error;
+      }
+      
+      // Transform the data to match the expected interface
+      const transformedData = (data || []).map(task => {
+        try {
+          return {
+            ...task,
+            project: {
+              id: task.projects?.id || '',
+              name: task.projects?.name || 'Unknown',
+              client: {
+                id: task.projects?.clients?.id || '',
+                name: task.projects?.clients?.name || 'Unknown'
+              }
+            }
+          };
+        } catch (err) {
+          console.error('Error transforming task data:', err, task);
+          return null;
+        }
+      }).filter(Boolean);
+      
+      return transformedData as Task[];
     },
     enabled: !!user,
   });
@@ -172,10 +214,11 @@ const FollowupCal = () => {
           deadline,
           status,
           assignee_id,
-          project:projects(
+          project_id,
+          projects!tasks_project_id_fkey(
             id,
             name,
-            client:clients(
+            clients!projects_client_id_fkey(
               id,
               name
             )
@@ -189,8 +232,32 @@ const FollowupCal = () => {
         .lte('deadline', futureDate.toISOString().split('T')[0])
         .order('deadline', { ascending: true });
 
-      if (error) throw error;
-      return data as TaskDeadline[];
+      if (error) {
+        console.error('Error fetching task deadlines:', error);
+        throw error;
+      }
+      
+      // Transform the data to match the expected interface
+      const transformedData = (data || []).map(task => {
+        try {
+          return {
+            ...task,
+            project: {
+              id: task.projects?.id || '',
+              name: task.projects?.name || 'Unknown',
+              client: {
+                id: task.projects?.clients?.id || '',
+                name: task.projects?.clients?.name || 'Unknown'
+              }
+            }
+          };
+        } catch (err) {
+          console.error('Error transforming task deadline data:', err, task);
+          return null;
+        }
+      }).filter(Boolean);
+      
+      return transformedData as TaskDeadline[];
     },
     enabled: !!user,
   });
@@ -208,10 +275,11 @@ const FollowupCal = () => {
           slot_end_datetime,
           status,
           assignee_id,
-          project:projects(
+          project_id,
+          projects!tasks_project_id_fkey(
             id,
             name,
-            client:clients(
+            clients!projects_client_id_fkey(
               id,
               name
             )
@@ -224,8 +292,32 @@ const FollowupCal = () => {
         .not('slot_end_datetime', 'is', null)
         .order('slot_start_datetime', { ascending: true });
 
-      if (error) throw error;
-      return data as FixedSlotTask[];
+      if (error) {
+        console.error('Error fetching fixed slot tasks:', error);
+        throw error;
+      }
+      
+      // Transform the data to match the expected interface
+      const transformedData = (data || []).map(task => {
+        try {
+          return {
+            ...task,
+            project: {
+              id: task.projects?.id || '',
+              name: task.projects?.name || 'Unknown',
+              client: {
+                id: task.projects?.clients?.id || '',
+                name: task.projects?.clients?.name || 'Unknown'
+              }
+            }
+          };
+        } catch (err) {
+          console.error('Error transforming fixed slot task data:', err, task);
+          return null;
+        }
+      }).filter(Boolean);
+      
+      return transformedData as FixedSlotTask[];
     },
     enabled: !!user,
   });
@@ -255,8 +347,28 @@ const FollowupCal = () => {
         .lte('deadline', futureDate.toISOString().split('T')[0])
         .order('deadline', { ascending: true });
 
-      if (error) throw error;
-      return data as Project[];
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+      
+      // Transform the data to match the expected interface
+      const transformedData = (data || []).map(project => {
+        try {
+          return {
+            ...project,
+            client: {
+              id: project.clients?.id || '',
+              name: project.clients?.name || 'Unknown'
+            }
+          };
+        } catch (err) {
+          console.error('Error transforming project data:', err, project);
+          return null;
+        }
+      }).filter(Boolean);
+      
+      return transformedData as Project[];
     },
     enabled: !!user,
   });
@@ -278,7 +390,7 @@ const FollowupCal = () => {
           project:project_id(
             id,
             name,
-            client:client_id(
+            clients:client_id(
               id,
               name
             )
@@ -289,17 +401,42 @@ const FollowupCal = () => {
         .lte('deadline', futureDate.toISOString().split('T')[0])
         .order('deadline', { ascending: true });
 
-      if (error) throw error;
-      return data as Sprint[];
+      if (error) {
+        console.error('Error fetching sprints:', error);
+        throw error;
+      }
+      
+      // Transform the data to match the expected interface
+      const transformedData = (data || []).map(sprint => {
+        try {
+          return {
+            ...sprint,
+            project: sprint.project ? {
+              ...sprint.project,
+              client: {
+                id: sprint.project.clients?.id || '',
+                name: sprint.project.clients?.name || 'Unknown'
+              }
+            } : undefined
+          };
+        } catch (err) {
+          console.error('Error transforming sprint data:', err, sprint);
+          return null;
+        }
+      }).filter(Boolean);
+      
+      return transformedData as Sprint[];
     },
     enabled: !!user,
   });
 
   const isLoading = tasksLoading || taskDeadlinesLoading || fixedSlotsLoading || projectsLoading || sprintsLoading;
 
+
+
   // Get unique clients from all data
   const clients = React.useMemo(() => {
-    const allItems = [...tasks, ...taskDeadlines, ...fixedSlotTasks, ...projects, ...sprints];
+    const allItems = [...(tasks || []), ...(taskDeadlines || []), ...(fixedSlotTasks || []), ...(projects || []), ...(sprints || [])];
     const clientsMap = new Map<string, { id: string; name: string }>();
     
     allItems.forEach(item => {
@@ -322,7 +459,7 @@ const FollowupCal = () => {
   const projectsForClient = React.useMemo(() => {
     if (!selectedClient) return [];
     
-    const allItems = [...tasks, ...taskDeadlines, ...fixedSlotTasks, ...projects, ...sprints];
+    const allItems = [...(tasks || []), ...(taskDeadlines || []), ...(fixedSlotTasks || []), ...(projects || []), ...(sprints || [])];
     const projectsMap = new Map<string, { id: string; name: string }>();
     
     allItems.forEach(item => {
@@ -346,32 +483,32 @@ const FollowupCal = () => {
   }, [selectedClient, tasks, taskDeadlines, fixedSlotTasks, projects, sprints]);
 
   // Filter data based on selected client and project
-  const filteredTasks = tasks.filter(task => {
-    if (selectedClient && task.project.client.id !== selectedClient) return false;
-    if (selectedProject && task.project.id !== selectedProject) return false;
+  const filteredTasks = (tasks || []).filter(task => {
+    if (selectedClient && task.project?.client?.id !== selectedClient) return false;
+    if (selectedProject && task.project?.id !== selectedProject) return false;
     return true;
   });
 
-  const filteredTaskDeadlines = taskDeadlines.filter(task => {
-    if (selectedClient && task.project.client.id !== selectedClient) return false;
-    if (selectedProject && task.project.id !== selectedProject) return false;
+  const filteredTaskDeadlines = (taskDeadlines || []).filter(task => {
+    if (selectedClient && task.project?.client?.id !== selectedClient) return false;
+    if (selectedProject && task.project?.id !== selectedProject) return false;
     return true;
   });
 
-  const filteredFixedSlotTasks = fixedSlotTasks.filter(task => {
-    if (selectedClient && task.project.client.id !== selectedClient) return false;
-    if (selectedProject && task.project.id !== selectedProject) return false;
+  const filteredFixedSlotTasks = (fixedSlotTasks || []).filter(task => {
+    if (selectedClient && task.project?.client?.id !== selectedClient) return false;
+    if (selectedProject && task.project?.id !== selectedProject) return false;
     return true;
   });
 
-  const filteredProjects = projects.filter(project => {
-    if (selectedClient && project.clients.id !== selectedClient) return false;
+  const filteredProjects = (projects || []).filter(project => {
+    if (selectedClient && project.clients?.id !== selectedClient) return false;
     if (selectedProject && project.id !== selectedProject) return false;
     return true;
   });
 
-  const filteredSprints = sprints.filter(sprint => {
-    if (selectedClient && sprint.project?.client.id !== selectedClient) return false;
+  const filteredSprints = (sprints || []).filter(sprint => {
+    if (selectedClient && sprint.project?.client?.id !== selectedClient) return false;
     if (selectedProject && sprint.project?.id !== selectedProject) return false;
     return true;
   });
@@ -385,10 +522,10 @@ const FollowupCal = () => {
         type: 'reminder',
         title: task.name,
         date: task.reminder_datetime,
-        client: task.project.client.name,
-        project: task.project.name,
+        client: task.project?.client?.name || 'Unknown',
+        project: task.project?.name || 'Unknown',
         assigneeId: task.assignee_id,
-        projectId: task.project.id,
+        projectId: task.project?.id || '',
         itemType: 'task'
       })),
       ...filteredTaskDeadlines.map(task => ({
@@ -397,10 +534,10 @@ const FollowupCal = () => {
         type: 'task-deadline',
         title: task.name,
         date: task.deadline,
-        client: task.project.client.name,
-        project: task.project.name,
+        client: task.project?.client?.name || 'Unknown',
+        project: task.project?.name || 'Unknown',
         assigneeId: task.assignee_id,
-        projectId: task.project.id,
+        projectId: task.project?.id || '',
         itemType: 'task'
       })),
       ...filteredFixedSlotTasks.map(task => ({
@@ -409,10 +546,10 @@ const FollowupCal = () => {
         type: 'fixed-slot',
         title: task.name,
         date: task.slot_start_datetime,
-        client: task.project.client.name,
-        project: task.project.name,
+        client: task.project?.client?.name || 'Unknown',
+        project: task.project?.name || 'Unknown',
         assigneeId: task.assignee_id,
-        projectId: task.project.id,
+        projectId: task.project?.id || '',
         itemType: 'task'
       }))
       // Note: We exclude project deadlines and sprint deadlines as they're not directly assignable tasks
@@ -429,8 +566,8 @@ const FollowupCal = () => {
       start: task.reminder_datetime,
       extendedProps: {
         type: 'reminder',
-        client: task.project.client.name,
-        project: task.project.name,
+        client: task.project?.client?.name || 'Unknown',
+        project: task.project?.name || 'Unknown',
         status: task.status,
         assignee: task.assignee?.name,
         icon: 'bell'
@@ -445,8 +582,8 @@ const FollowupCal = () => {
       allDay: true,
       extendedProps: {
         type: 'task-deadline',
-        client: task.project.client.name,
-        project: task.project.name,
+        client: task.project?.client?.name || 'Unknown',
+        project: task.project?.name || 'Unknown',
         status: task.status,
         assignee: task.assignee?.name,
         icon: 'clock'
@@ -461,8 +598,8 @@ const FollowupCal = () => {
       end: task.slot_end_datetime,
       extendedProps: {
         type: 'fixed-slot',
-        client: task.project.client.name,
-        project: task.project.name,
+        client: task.project?.client?.name || 'Unknown',
+        project: task.project?.name || 'Unknown',
         status: task.status,
         assignee: task.assignee?.name,
         icon: 'calendar-check'
@@ -477,7 +614,7 @@ const FollowupCal = () => {
       allDay: true,
       extendedProps: {
         type: 'project-deadline',
-        client: project.clients.name,
+        client: project.clients?.name || 'Unknown',
         status: project.status,
         service: project.service,
         icon: 'alert-triangle'
@@ -492,7 +629,7 @@ const FollowupCal = () => {
       allDay: true,
       extendedProps: {
         type: 'sprint-deadline',
-        client: sprint.project?.client.name || 'N/A',
+        client: sprint.project?.client?.name || 'N/A',
         project: sprint.project?.name || 'N/A',
         status: sprint.status,
         icon: 'target'
@@ -501,6 +638,8 @@ const FollowupCal = () => {
       borderColor: '#7c3aed'
     }))
   ].filter(event => visibleEventTypes.includes(event.extendedProps.type));
+
+
 
   // Event type filter configuration
   const eventTypeFilters = [
@@ -648,6 +787,20 @@ const FollowupCal = () => {
     );
   }
 
+  // Add error handling for missing data
+  if (!tasks && !taskDeadlines && !fixedSlotTasks && !projects && !sprints) {
+    return (
+      <Navigation>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">No Data Available</h2>
+            <p className="text-gray-600">No calendar events found. Please check your data or try refreshing the page.</p>
+          </div>
+        </div>
+      </Navigation>
+    );
+  }
+
   return (
     <Navigation>
       <div className="space-y-6">
@@ -658,6 +811,8 @@ const FollowupCal = () => {
             {calendarEvents.length} items
           </Badge>
         </div>
+        
+
 
         {/* Selection Actions */}
         {selectedItems.size > 0 && (

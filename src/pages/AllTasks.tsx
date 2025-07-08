@@ -105,11 +105,8 @@ const AllTasks = () => {
     estimated_duration: '',
     status: 'Not Started',
     reminder_datetime: '',
-    reminder_time: '',
     slot_start_datetime: '',
-    slot_start_time: '',
-    slot_end_datetime: '',
-    slot_end_time: ''
+    slot_end_datetime: ''
   });
 
   // Define all available status options
@@ -363,19 +360,28 @@ const AllTasks = () => {
         throw new Error('Employee record not found');
       }
 
+      // Convert local datetime inputs to UTC for storage
+      const processedTaskData = { ...taskData };
+      if (taskData.reminder_datetime) {
+        processedTaskData.reminder_datetime = convertLocalToUTC(taskData.reminder_datetime);
+      }
+      if (taskData.slot_start_datetime) {
+        processedTaskData.slot_start_datetime = convertLocalToUTC(taskData.slot_start_datetime);
+      }
+      if (taskData.slot_end_datetime) {
+        processedTaskData.slot_end_datetime = convertLocalToUTC(taskData.slot_end_datetime);
+      }
+
       const { data, error } = await supabase
         .from('tasks')
         .insert([{
-          ...taskData,
+          ...processedTaskData,
           assigner_id: employee.id,
           deadline: taskData.deadline || null,
           estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null,
-          reminder_datetime: taskData.reminder_datetime || null,
-          reminder_time: taskData.reminder_time || null,
-          slot_start_datetime: taskData.slot_start_datetime || null,
-          slot_start_time: taskData.slot_start_time || null,
-          slot_end_datetime: taskData.slot_end_datetime || null,
-          slot_end_time: taskData.slot_end_time || null
+          reminder_datetime: processedTaskData.reminder_datetime || null,
+          slot_start_datetime: processedTaskData.slot_start_datetime || null,
+          slot_end_datetime: processedTaskData.slot_end_datetime || null
         }])
         .select()
         .single();
@@ -393,11 +399,8 @@ const AllTasks = () => {
         estimated_duration: '', 
         status: 'Not Started',
         reminder_datetime: '',
-        reminder_time: '',
         slot_start_datetime: '',
-        slot_start_time: '',
-        slot_end_datetime: '',
-        slot_end_time: ''
+        slot_end_datetime: ''
       });
       setIsCreateDialogOpen(false);
       toast.success('Task created successfully!');
@@ -550,6 +553,34 @@ const AllTasks = () => {
     const now = new Date();
     const taskDeadline = new Date(deadline);
     return taskDeadline.getTime() < now.getTime();
+  };
+
+  // Helper function to convert browser local time to UTC for storage
+  const convertLocalToUTC = (localDateTime: string): string => {
+    if (!localDateTime) return '';
+    
+    // Create a date object from the local datetime string
+    // The browser will interpret this as local time
+    const localDate = new Date(localDateTime);
+    
+    // Convert to UTC - the browser handles the timezone conversion
+    return localDate.toISOString();
+  };
+
+  // Helper function to convert UTC datetime to local time for display
+  const convertUTCToLocal = (utcDateTime: string): string => {
+    if (!utcDateTime) return '';
+    
+    const utcDate = new Date(utcDateTime);
+    
+    // Format as YYYY-MM-DDTHH:mm for datetime-local input
+    const year = utcDate.getFullYear();
+    const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+    const day = String(utcDate.getDate()).padStart(2, '0');
+    const hours = String(utcDate.getHours()).padStart(2, '0');
+    const minutes = String(utcDate.getMinutes()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const calculateSlotDuration = (startDateTime: string | null, endDateTime: string | null) => {
@@ -894,26 +925,12 @@ const AllTasks = () => {
                   <Bell className="h-4 w-4" />
                   Reminder (Optional)
                 </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="reminder-date">Date</Label>
-                    <Input
-                      id="reminder-date"
-                      type="date"
-                      value={newTask.reminder_datetime}
-                      onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reminder-time">Time</Label>
-                    <Input
-                      id="reminder-time"
-                      type="time"
-                      value={newTask.reminder_time}
-                      onChange={(e) => setNewTask({ ...newTask, reminder_time: e.target.value })}
-                    />
-                  </div>
-                </div>
+                <Input
+                  id="reminder-datetime"
+                  type="datetime-local"
+                  value={newTask.reminder_datetime}
+                  onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
+                />
               </div>
 
               {/* Slot Fields */}
@@ -925,41 +942,21 @@ const AllTasks = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="slot-start-date">Start Date</Label>
+                      <Label htmlFor="slot-start-datetime">Start Date & Time</Label>
                       <Input
-                        id="slot-start-date"
-                        type="date"
+                        id="slot-start-datetime"
+                        type="datetime-local"
                         value={newTask.slot_start_datetime}
                         onChange={(e) => setNewTask({ ...newTask, slot_start_datetime: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="slot-start-time">Start Time</Label>
+                      <Label htmlFor="slot-end-datetime">End Date & Time</Label>
                       <Input
-                        id="slot-start-time"
-                        type="time"
-                        value={newTask.slot_start_time}
-                        onChange={(e) => setNewTask({ ...newTask, slot_start_time: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="slot-end-date">End Date</Label>
-                      <Input
-                        id="slot-end-date"
-                        type="date"
+                        id="slot-end-datetime"
+                        type="datetime-local"
                         value={newTask.slot_end_datetime}
                         onChange={(e) => setNewTask({ ...newTask, slot_end_datetime: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="slot-end-time">End Time</Label>
-                      <Input
-                        id="slot-end-time"
-                        type="time"
-                        value={newTask.slot_end_time}
-                        onChange={(e) => setNewTask({ ...newTask, slot_end_time: e.target.value })}
                       />
                     </div>
                   </div>
@@ -1084,14 +1081,14 @@ const AllTasks = () => {
 
                 {/* Edit Reminder Field */}
                 <div className="space-y-2">
-                  <Label htmlFor="edit-reminder-datetime" className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    Reminder (Optional)
-                  </Label>
+                                  <Label htmlFor="edit-reminder-datetime" className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  Reminder (Optional)
+                </Label>
                   <Input
                     id="edit-reminder-datetime"
                     type="datetime-local"
-                    value={editingTask.reminder_datetime ? format(new Date(editingTask.reminder_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                    value={editingTask.reminder_datetime ? convertUTCToLocal(editingTask.reminder_datetime) : ''}
                     onChange={(e) => setEditingTask({ ...editingTask, reminder_datetime: e.target.value || null })}
                   />
                 </div>
@@ -1108,7 +1105,7 @@ const AllTasks = () => {
                       <Input
                         id="edit-slot-start"
                         type="datetime-local"
-                        value={editingTask.slot_start_datetime ? format(new Date(editingTask.slot_start_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        value={editingTask.slot_start_datetime ? convertUTCToLocal(editingTask.slot_start_datetime) : ''}
                         onChange={(e) => setEditingTask({ ...editingTask, slot_start_datetime: e.target.value || null })}
                       />
                     </div>
@@ -1117,7 +1114,7 @@ const AllTasks = () => {
                       <Input
                         id="edit-slot-end"
                         type="datetime-local"
-                        value={editingTask.slot_end_datetime ? format(new Date(editingTask.slot_end_datetime), "yyyy-MM-dd'T'HH:mm") : ''}
+                        value={editingTask.slot_end_datetime ? convertUTCToLocal(editingTask.slot_end_datetime) : ''}
                         onChange={(e) => setEditingTask({ ...editingTask, slot_end_datetime: e.target.value || null })}
                       />
                     </div>
@@ -1134,17 +1131,37 @@ const AllTasks = () => {
                     Cancel
                   </Button>
                   <Button 
-                    onClick={() => handleUpdateTask({
-                      name: editingTask.name,
-                      project_id: editingTask.project_id,
-                      status: editingTask.status,
-                      assignee_id: editingTask.assignee_id,
-                      deadline: editingTask.deadline,
-                      estimated_duration: editingTask.estimated_duration,
-                      reminder_datetime: editingTask.reminder_datetime,
-                      slot_start_datetime: editingTask.slot_start_datetime,
-                      slot_end_datetime: editingTask.slot_end_datetime
-                    })}
+                    onClick={() => {
+                      // Convert IST datetime inputs to UTC for storage
+                      const updates: any = {
+                        name: editingTask.name,
+                        project_id: editingTask.project_id,
+                        status: editingTask.status,
+                        assignee_id: editingTask.assignee_id,
+                        deadline: editingTask.deadline,
+                        estimated_duration: editingTask.estimated_duration
+                      };
+
+                      if (editingTask.reminder_datetime) {
+                        updates.reminder_datetime = convertLocalToUTC(editingTask.reminder_datetime);
+                      } else {
+                        updates.reminder_datetime = null;
+                      }
+
+                      if (editingTask.slot_start_datetime) {
+                        updates.slot_start_datetime = convertLocalToUTC(editingTask.slot_start_datetime);
+                      } else {
+                        updates.slot_start_datetime = null;
+                      }
+
+                      if (editingTask.slot_end_datetime) {
+                        updates.slot_end_datetime = convertLocalToUTC(editingTask.slot_end_datetime);
+                      } else {
+                        updates.slot_end_datetime = null;
+                      }
+
+                      handleUpdateTask(updates);
+                    }}
                     disabled={updateTaskMutation.isPending}
                   >
                     {updateTaskMutation.isPending ? 'Updating...' : 'Update Task'}
