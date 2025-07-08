@@ -277,6 +277,39 @@ export const useReminderNotifications = () => {
     return false;
   };
 
+  // Send Telegram notifications
+  const sendTelegramNotification = async (item: any, type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue') => {
+    try {
+      const response = await fetch('/api/send-telegram-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user?.id}`,
+        },
+        body: JSON.stringify({
+          user_id: user!.id,
+          notification_type: type,
+          item_data: {
+            id: item.id,
+            name: item.name,
+            datetime: type === 'task_reminder' ? item.reminder_datetime : 
+                     type === 'sprint_deadline' ? item.deadline : 
+                     type === 'task_slot' ? item.slot_start_datetime : item.reminder_datetime,
+            project_name: item.project?.name,
+            client_name: item.project?.client?.name,
+            status: item.status,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to send Telegram notification');
+      }
+    } catch (error) {
+      console.error('Error sending Telegram notification:', error);
+    }
+  };
+
   // Send browser notifications
   useEffect(() => {
     if (notificationsEnabled) {
@@ -285,6 +318,27 @@ export const useReminderNotifications = () => {
       unreadUpcomingTaskSlots.forEach(slot => sendBrowserNotification(slot, 'slot'));
     }
   }, [unreadDueSoonTasks, unreadUpcomingSprintDeadlines, unreadUpcomingTaskSlots, notificationsEnabled]);
+
+  // Send Telegram notifications
+  useEffect(() => {
+    // Send due soon task notifications
+    unreadDueSoonTasks.forEach(task => sendTelegramNotification(task, 'task_reminder'));
+    
+    // Send overdue task notifications
+    unreadOverdueTasks.forEach(task => sendTelegramNotification(task, 'overdue'));
+    
+    // Send sprint deadline notifications
+    unreadUpcomingSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'sprint_deadline'));
+    
+    // Send overdue sprint notifications
+    unreadOverdueSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'overdue'));
+    
+    // Send task slot notifications
+    unreadUpcomingTaskSlots.forEach(slot => sendTelegramNotification(slot, 'task_slot'));
+    
+    // Send overdue task slot notifications
+    unreadOverdueTaskSlots.forEach(slot => sendTelegramNotification(slot, 'overdue'));
+  }, [unreadDueSoonTasks, unreadOverdueTasks, unreadUpcomingSprintDeadlines, unreadOverdueSprintDeadlines, unreadUpcomingTaskSlots, unreadOverdueTaskSlots]);
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
