@@ -222,6 +222,19 @@ export const useReminderNotifications = () => {
     unreadUpcomingTaskSlots.length + 
     unreadOverdueTaskSlots.length;
 
+  // Debug logging
+  console.log('🔔 Notification Debug:', {
+    totalCount: totalNotificationCount,
+    unreadDueSoonTasks: unreadDueSoonTasks.length,
+    unreadOverdueTasks: unreadOverdueTasks.length,
+    unreadUpcomingSprintDeadlines: unreadUpcomingSprintDeadlines.length,
+    unreadOverdueSprintDeadlines: unreadOverdueSprintDeadlines.length,
+    unreadUpcomingTaskSlots: unreadUpcomingTaskSlots.length,
+    unreadOverdueTaskSlots: unreadOverdueTaskSlots.length,
+    readNotifications: readNotifications.length,
+    readNotificationSet: Array.from(readNotificationSet)
+  });
+
   // Browser notification functions
   const sendBrowserNotification = (item: any, type: 'task' | 'sprint' | 'slot') => {
     const notificationKey = `${type}:${item.id}`;
