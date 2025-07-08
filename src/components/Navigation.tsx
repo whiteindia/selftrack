@@ -578,15 +578,15 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     <header className="bg-white shadow-sm border-b sticky top-0 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
-          <div className="hidden md:flex items-center space-x-4 flex-1 justify-center min-w-0 overflow-hidden">
-            {/* Main navigation items (Dashboard, Projects only) */}
-            {visibleMainNavItems.slice(0, 2).map((item) => {
+          <div className="hidden md:flex items-center space-x-2 flex-1 justify-start min-w-0 overflow-hidden">
+            {/* Main navigation items (Home, Projects, Sprints) */}
+            {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
                     isActive(item.path)
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
@@ -602,7 +602,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {hasPageAccess('tasks') && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <StickyNote className="h-4 w-4" />
                     <span>Notes</span>
                     <ChevronDown className="h-4 w-4" />
@@ -660,7 +660,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowTaskforceMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <Users2 className="h-4 w-4" />
                     <span>Taskforce</span>
                     <ChevronDown className="h-4 w-4" />
@@ -711,7 +711,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowGoalTrackMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <Target className="h-4 w-4" />
                     <span>GoalTrack</span>
                     <ChevronDown className="h-4 w-4" />
@@ -743,7 +743,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowPlannerMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <ClipboardList className="h-4 w-4" />
                     <span>Planner</span>
                     <ChevronDown className="h-4 w-4" />
@@ -775,7 +775,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowTrakTeamMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <Calendar className="h-4 w-4" />
                     <span>TrakTeam</span>
                     <ChevronDown className="h-4 w-4" />
@@ -807,7 +807,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowAdminMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <Shield className="h-4 w-4" />
                     <span>Admin</span>
                     <ChevronDown className="h-4 w-4" />
@@ -866,7 +866,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             )}
           </div>
 
-          <div className="flex items-center space-x-4 flex-shrink-0">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full relative">
