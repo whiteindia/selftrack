@@ -721,7 +721,7 @@ const TradaNotes = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEditingNote(note)}
+                      onClick={() => setEditingNote({ ...note, selectedTags: note.tags?.map(tag => tag.id) || [] })}
                       className="h-8 w-8 p-0"
                     >
                       <Edit className="h-4 w-4" />
@@ -1036,7 +1036,7 @@ const TradaNotes = () => {
                 <div>
                   <Label>Tags</Label>
                   <TagSelector
-                    selectedTags={editingNote.tags?.map(tag => tag.id) || []}
+                    selectedTags={editingNote.selectedTags || editingNote.tags?.map(tag => tag.id) || []}
                     onTagsChange={(tags) => setEditingNote({ ...editingNote, selectedTags: tags })}
                     placeholder="Select tags for this trading note..."
                   />

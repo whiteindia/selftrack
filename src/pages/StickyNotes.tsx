@@ -88,12 +88,12 @@ const StickyNotes = () => {
     selectedTags: [] as string[]
   });
 
-  // Fetch sticky tags
+  // Fetch tags (temporarily using original tags table until migration is complete)
   const { data: tags = [] } = useQuery({
-    queryKey: ['sticky-tags'],
+    queryKey: ['tags'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('sticky_tags')
+        .from('tags')
         .select('*')
         .order('name');
       if (error) throw error;
@@ -105,13 +105,23 @@ const StickyNotes = () => {
   const { data: notes = [], isLoading: notesLoading } = useQuery({
     queryKey: ['sticky-notes'],
     queryFn: async () => {
+      // Debug: Check if user is authenticated
+      console.log('Current user:', user);
+      
+      // First, let's check if we can fetch basic notes
+      const { data: basicNotes, error: basicError } = await supabase
+        .from('sticky_notes')
+        .select('id, title, user_id')
+        .limit(5);
+      
+      console.log('Basic notes test:', basicNotes, basicError);
       const { data, error } = await supabase
         .from('sticky_notes')
         .select(`
           *,
           sticky_note_tags (
             tag_id,
-            sticky_tags (
+            tags (
               id,
               name,
               color
@@ -121,6 +131,9 @@ const StickyNotes = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
+      
+      // Debug: Log raw data
+      console.log('StickyNotes raw data:', data);
 
       // Enrich notes with service, client, project names and tags
       const enrichedNotes = await Promise.all(
@@ -157,7 +170,11 @@ const StickyNotes = () => {
           }
 
           // Extract tags from the joined data
-          const noteTags = note.sticky_note_tags?.map((snt: any) => snt.sticky_tags).filter(Boolean) || [];
+          const noteTags = note.sticky_note_tags?.map((snt: any) => snt.tags).filter(Boolean) || [];
+          
+          // Debug: Log tag data
+          console.log('StickyNote:', note.id, 'Raw sticky_note_tags:', note.sticky_note_tags);
+          console.log('StickyNote:', note.id, 'Extracted tags:', noteTags);
 
           return {
             ...note,
@@ -258,11 +275,11 @@ const StickyNotes = () => {
     );
   }, [tags, tagSearchTerm]);
 
-  // Create tag mutation
+  // Create tag mutation (temporarily using original tags table)
   const createTagMutation = useMutation({
     mutationFn: async ({ name, color }: { name: string; color: string }) => {
       const { data, error } = await supabase
-        .from('sticky_tags')
+        .from('tags')
         .insert([{ name, color }])
         .select()
         .single();
@@ -271,14 +288,14 @@ const StickyNotes = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sticky-tags'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
       setNewTagName('');
       setNewTagColor('#6366f1');
       setIsCreateTagDialogOpen(false);
-      toast.success('Sticky tag created successfully!');
+      toast.success('Tag created successfully!');
     },
     onError: (error) => {
-      toast.error('Failed to create sticky tag: ' + error.message);
+      toast.error('Failed to create tag: ' + error.message);
     }
   });
 

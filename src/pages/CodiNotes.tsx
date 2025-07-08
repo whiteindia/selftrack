@@ -106,6 +106,14 @@ const CodiNotes = () => {
   const { data: notes = [], isLoading: notesLoading } = useQuery({
     queryKey: ['codi-notes'],
     queryFn: async () => {
+      // First, let's check what's in the codi_note_tags table
+      const { data: tagRelations, error: tagError } = await supabase
+        .from('codi_note_tags')
+        .select('*');
+      
+      console.log('codi_note_tags data:', tagRelations);
+      if (tagError) console.error('Error fetching tag relations:', tagError);
+
       const { data, error } = await supabase
         .from('codi_notes')
         .select(`
@@ -122,6 +130,9 @@ const CodiNotes = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
+
+      // Debug: Log raw data
+      console.log('Raw notes data:', data);
 
       // Enrich notes with service, client, project names and tags
       const enrichedNotes = await Promise.all(
@@ -159,6 +170,10 @@ const CodiNotes = () => {
 
           // Extract tags from the joined data
           const noteTags = note.codi_note_tags?.map((snt: any) => snt.codi_tags).filter(Boolean) || [];
+          
+          // Debug: Log the tag data
+          console.log('Note:', note.id, 'Raw codi_note_tags:', note.codi_note_tags);
+          console.log('Note:', note.id, 'Extracted tags:', noteTags);
 
           return {
             ...note,
@@ -312,9 +327,14 @@ const CodiNotes = () => {
           tag_id: tagId
         }));
         
-        const { error: tagError } = await supabase
+        console.log('Creating tag relationships:', tagRelations);
+        
+        const { data: tagData, error: tagError } = await supabase
           .from('codi_note_tags')
-          .insert(tagRelations);
+          .insert(tagRelations)
+          .select();
+        
+        console.log('Tag creation result:', tagData, tagError);
         
         if (tagError) throw tagError;
       }
@@ -373,9 +393,14 @@ const CodiNotes = () => {
             tag_id: tagId
           }));
           
-          const { error: tagError } = await supabase
+          console.log('Updating tag relationships:', tagRelations);
+          
+          const { data: tagData, error: tagError } = await supabase
             .from('codi_note_tags')
-            .insert(tagRelations);
+            .insert(tagRelations)
+            .select();
+          
+          console.log('Tag update result:', tagData, tagError);
           
           if (tagError) throw tagError;
         }
@@ -721,7 +746,7 @@ const CodiNotes = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEditingNote(note)}
+                      onClick={() => setEditingNote({ ...note, selectedTags: note.tags?.map(tag => tag.id) || [] })}
                       className="h-8 w-8 p-0"
                     >
                       <Edit className="h-4 w-4" />
@@ -752,6 +777,10 @@ const CodiNotes = () => {
                     ))}
                   </div>
                 )}
+                {/* Debug: Show tag count */}
+                <div className="text-xs text-gray-400 mt-1">
+                  Debug: {note.tags?.length || 0} tags
+                </div>
 
                 {/* Related Info */}
                 <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
@@ -1036,7 +1065,7 @@ const CodiNotes = () => {
                 <div>
                   <Label>Tags</Label>
                   <TagSelector
-                    selectedTags={editingNote.tags?.map(tag => tag.id) || []}
+                    selectedTags={editingNote.selectedTags || editingNote.tags?.map(tag => tag.id) || []}
                     onTagsChange={(tags) => setEditingNote({ ...editingNote, selectedTags: tags })}
                     placeholder="Select tags for this coding note..."
                   />
