@@ -105,6 +105,7 @@ const StickyNotes = () => {
   const { data: notes = [], isLoading: notesLoading } = useQuery({
     queryKey: ['sticky-notes'],
     queryFn: async () => {
+<<<<<<< HEAD
       // Debug: Check if user is authenticated
       console.log('Current user:', user);
       
@@ -115,6 +116,9 @@ const StickyNotes = () => {
         .limit(5);
       
       console.log('Basic notes test:', basicNotes, basicError);
+=======
+      console.log('🔍 StickyNotes: Fetching notes, user:', user?.id);
+>>>>>>> 49203f05e67e1e69fb282a5a06df84030bb645fa
       const { data, error } = await supabase
         .from('sticky_notes')
         .select(`
@@ -130,10 +134,18 @@ const StickyNotes = () => {
         `)
         .order('updated_at', { ascending: false });
 
+<<<<<<< HEAD
       if (error) throw error;
       
       // Debug: Log raw data
       console.log('StickyNotes raw data:', data);
+=======
+      console.log('📝 StickyNotes: Query result:', { data: data?.length, error });
+      if (error) {
+        console.error('❌ StickyNotes: Query error:', error);
+        throw error;
+      }
+>>>>>>> 49203f05e67e1e69fb282a5a06df84030bb645fa
 
       // Enrich notes with service, client, project names and tags
       const enrichedNotes = await Promise.all(
