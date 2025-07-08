@@ -50,13 +50,11 @@ export const useReminderNotifications = () => {
   const { data: readNotifications = [] } = useQuery({
     queryKey: ['notification-reads', user?.id],
     queryFn: async () => {
-      console.log('🔍 Fetching notification reads for user:', user?.id);
       const { data, error } = await supabase
         .from('notification_reads')
         .select('notification_type, notification_id')
         .eq('user_id', user!.id);
 
-      console.log('📖 Notification reads result:', { data, error });
       if (error) throw error;
       return data as NotificationRead[];
     },
@@ -224,37 +222,6 @@ export const useReminderNotifications = () => {
     unreadUpcomingTaskSlots.length + 
     unreadOverdueTaskSlots.length;
 
-  // Debug logging
-  console.log('🔔 Notification Debug:', {
-    totalCount: totalNotificationCount,
-    unreadDueSoonTasks: unreadDueSoonTasks.length,
-    unreadOverdueTasks: unreadOverdueTasks.length,
-    unreadUpcomingSprintDeadlines: unreadUpcomingSprintDeadlines.length,
-    unreadOverdueSprintDeadlines: unreadOverdueSprintDeadlines.length,
-    unreadUpcomingTaskSlots: unreadUpcomingTaskSlots.length,
-    unreadOverdueTaskSlots: unreadOverdueTaskSlots.length,
-    readNotifications: readNotifications.length,
-    readNotificationSet: Array.from(readNotificationSet)
-  });
-
-  // Debug: Show actual overdue items
-  if (unreadOverdueTasks.length > 0) {
-    console.log('📋 Overdue Tasks:', unreadOverdueTasks.map(task => ({
-      id: task.id,
-      name: task.name,
-      reminder_datetime: task.reminder_datetime,
-      isOverdue: new Date(task.reminder_datetime) <= now
-    })));
-  }
-  
-  if (unreadOverdueTaskSlots.length > 0) {
-    console.log('🕐 Overdue Task Slots:', unreadOverdueTaskSlots.map(slot => ({
-      id: slot.id,
-      name: slot.name,
-      slot_start_datetime: slot.slot_start_datetime,
-      isOverdue: new Date(slot.slot_start_datetime) <= now
-    })));
-  }
 
   // Browser notification functions
   const sendBrowserNotification = (item: any, type: 'task' | 'sprint' | 'slot') => {

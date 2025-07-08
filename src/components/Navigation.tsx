@@ -88,8 +88,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     allOverdueTasks,
     upcomingSprintDeadlines,
     allUpcomingSprintDeadlines,
+    overdueSprintDeadlines,
+    allOverdueSprintDeadlines,
     upcomingTaskSlots,
     allUpcomingTaskSlots,
+    overdueTaskSlots,
+    allOverdueTaskSlots,
     markAllAsRead,
     markAsRead,
     setNotifiedItems
@@ -875,7 +879,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   <NotificationBadge count={totalNotificationCount} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80 max-h-96" style={{ zIndex: 9993 }}>
+              <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80" style={{ zIndex: 9993 }}>
                 {/* User Info */}
                 <div className="px-3 py-2 border-b">
                   <p className="text-sm text-gray-600 truncate">{user?.email}</p>
@@ -905,217 +909,309 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                       </div>
                     </div>
                     
-                    <ScrollArea className="max-h-64">
-                      {/* Due Soon Tasks */}
-                      {allDueSoonTasks.length > 0 && (
-                        <div className="px-3 py-2">
-                          <h4 className="text-xs font-medium text-blue-600 mb-2 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Due Soon ({allDueSoonTasks.length})
-                          </h4>
-                          <div className="space-y-2">
-                            {allDueSoonTasks.slice(0, 5).map((task) => {
-                              const isRead = !dueSoonTasks.find(t => t.id === task.id);
-                              return (
-                                <div 
-                                  key={task.id} 
-                                  className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
-                                    isRead 
-                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
-                                      : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
-                                  }`}
-                                  onClick={() => {
-                                    // Mark this specific task as read
-                                    markAsRead('task_reminder', task.id);
-                                    // Navigate to tasks page
-                                    navigate('/alltasks');
-                                  }}
-                                >
-                                  <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
-                                    isRead ? 'text-gray-500' : 'text-blue-600'
-                                  }`} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-xs font-medium truncate ${
-                                      isRead ? 'text-gray-500' : 'text-gray-900'
-                                    }`}>{task.name}</p>
-                                    <p className={`text-xs ${
-                                      isRead ? 'text-gray-400' : 'text-blue-600'
-                                    }`}>
-                                      {formatToIST(task.reminder_datetime, 'h:mm a')}
-                                    </p>
+                    <div className="max-h-80 overflow-y-auto">
+                      <ScrollArea className="h-full">
+                        {/* Due Soon Tasks */}
+                        {allDueSoonTasks.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-blue-600 mb-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Due Soon ({allDueSoonTasks.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allDueSoonTasks.slice(0, 5).map((task) => {
+                                const isRead = !dueSoonTasks.find(t => t.id === task.id);
+                                return (
+                                  <div 
+                                    key={task.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                                    }`}
+                                    onClick={() => {
+                                      markAsRead('task_reminder', task.id);
+                                      navigate('/alltasks');
+                                    }}
+                                  >
+                                    <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-blue-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{task.name}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-blue-600'
+                                      }`}>
+                                        {formatToIST(task.reminder_datetime, 'h:mm a')}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                            {allDueSoonTasks.length > 5 && (
-                              <p className="text-xs text-gray-500 text-center py-1">
-                                +{allDueSoonTasks.length - 5} more due soon
-                              </p>
-                            )}
+                                );
+                              })}
+                              {allDueSoonTasks.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allDueSoonTasks.length - 5} more due soon
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                       {/* Overdue Tasks */}
-                       {(() => {
-                         console.log('🔍 Navigation Debug - allOverdueTasks:', allOverdueTasks);
-                         console.log('🔍 Navigation Debug - overdueTasks:', overdueTasks);
-                         return allOverdueTasks.length > 0;
-                       })() && (
-                        <div className="px-3 py-2">
-                          <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Overdue ({allOverdueTasks.length})
-                          </h4>
-                          <div className="space-y-2">
-                            {allOverdueTasks.slice(0, 5).map((task) => {
-                              const isRead = !overdueTasks.find(t => t.id === task.id);
-                              return (
-                                <div 
-                                  key={task.id} 
-                                  className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
-                                    isRead 
-                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
-                                      : 'bg-red-50 border-red-200 hover:bg-red-100'
-                                  }`}
-                                  onClick={() => {
-                                    // Mark this specific task as read
-                                    markAsRead('task_reminder', task.id);
-                                    // Navigate to tasks page
-                                    navigate('/alltasks');
-                                  }}
-                                >
-                                  <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
-                                    isRead ? 'text-gray-500' : 'text-red-600'
-                                  }`} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-xs font-medium truncate ${
-                                      isRead ? 'text-gray-500' : 'text-gray-900'
-                                    }`}>{task.name}</p>
-                                    <p className={`text-xs ${
-                                      isRead ? 'text-gray-400' : 'text-red-600'
-                                    }`}>
-                                      Overdue since {formatToIST(task.reminder_datetime, 'h:mm a')}
-                                    </p>
+                        {/* Overdue Tasks */}
+                        {allOverdueTasks.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Overdue ({allOverdueTasks.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allOverdueTasks.slice(0, 5).map((task) => {
+                                const isRead = !overdueTasks.find(t => t.id === task.id);
+                                return (
+                                  <div 
+                                    key={task.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-red-50 border-red-200 hover:bg-red-100'
+                                    }`}
+                                    onClick={() => {
+                                      markAsRead('task_reminder', task.id);
+                                      navigate('/alltasks');
+                                    }}
+                                  >
+                                    <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-red-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{task.name}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-red-600'
+                                      }`}>
+                                        Overdue since {formatToIST(task.reminder_datetime, 'h:mm a')}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                            {allOverdueTasks.length > 5 && (
-                              <p className="text-xs text-gray-500 text-center py-1">
-                                +{allOverdueTasks.length - 5} more overdue
-                              </p>
-                            )}
+                                );
+                              })}
+                              {allOverdueTasks.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allOverdueTasks.length - 5} more overdue
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Sprint Deadlines */}
-                      {allUpcomingSprintDeadlines.length > 0 && (
-                        <div className="px-3 py-2">
-                          <h4 className="text-xs font-medium text-orange-600 mb-2 flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            Sprint Deadlines ({allUpcomingSprintDeadlines.length})
-                          </h4>
-                          <div className="space-y-2">
-                            {allUpcomingSprintDeadlines.slice(0, 5).map((sprint) => {
-                              const isRead = !upcomingSprintDeadlines.find(s => s.id === sprint.id);
-                              return (
-                                <div 
-                                  key={sprint.id} 
-                                  className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
-                                    isRead 
-                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
-                                      : 'bg-orange-50 border-orange-200 hover:bg-orange-100'
-                                  }`}
-                                  onClick={() => {
-                                    // Mark this specific sprint as read
-                                    markAsRead('sprint_deadline', sprint.id);
-                                    // Navigate to sprints page
-                                    navigate('/sprints');
-                                  }}
-                                >
-                                  <Calendar className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
-                                    isRead ? 'text-gray-500' : 'text-orange-600'
-                                  }`} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-xs font-medium truncate ${
-                                      isRead ? 'text-gray-500' : 'text-gray-900'
-                                    }`}>{sprint.title}</p>
-                                    <p className={`text-xs ${
-                                      isRead ? 'text-gray-400' : 'text-orange-600'
-                                    }`}>
-                                      Due {formatToIST(sprint.deadline, 'MMM d, h:mm a')}
-                                      {sprint.project && (
-                                        <span className="text-gray-500"> • {sprint.project.name}</span>
-                                      )}
-                                    </p>
+                        {/* Overdue Task Slots */}
+                        {allOverdueTaskSlots.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Overdue Slots ({allOverdueTaskSlots.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allOverdueTaskSlots.slice(0, 5).map((slot) => {
+                                const isRead = !overdueTaskSlots.find(s => s.id === slot.id);
+                                return (
+                                  <div 
+                                    key={slot.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-red-50 border-red-200 hover:bg-red-100'
+                                    }`}
+                                    onClick={() => {
+                                      markAsRead('task_slot', slot.id);
+                                      navigate('/alltasks');
+                                    }}
+                                  >
+                                    <Clock className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-red-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{slot.name}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-red-600'
+                                      }`}>
+                                        Overdue since {formatToIST(slot.slot_start_datetime, 'h:mm a')}
+                                        {slot.project && (
+                                          <span className="text-gray-500"> • {slot.project.name}</span>
+                                        )}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                            {allUpcomingSprintDeadlines.length > 5 && (
-                              <p className="text-xs text-gray-500 text-center py-1">
-                                +{allUpcomingSprintDeadlines.length - 5} more deadlines
-                              </p>
-                            )}
+                                );
+                              })}
+                              {allOverdueTaskSlots.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allOverdueTaskSlots.length - 5} more overdue slots
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Task Slots */}
-                      {allUpcomingTaskSlots.length > 0 && (
-                        <div className="px-3 py-2">
-                          <h4 className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Task Slots ({allUpcomingTaskSlots.length})
-                          </h4>
-                          <div className="space-y-2">
-                            {allUpcomingTaskSlots.slice(0, 5).map((slot) => {
-                              const isRead = !upcomingTaskSlots.find(s => s.id === slot.id);
-                              return (
-                                <div 
-                                  key={slot.id} 
-                                  className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
-                                    isRead 
-                                      ? 'bg-gray-50 border-gray-200 opacity-60' 
-                                      : 'bg-purple-50 border-purple-200 hover:bg-purple-100'
-                                  }`}
-                                  onClick={() => {
-                                    // Mark this specific slot as read
-                                    markAsRead('task_slot', slot.id);
-                                    // Navigate to tasks page
-                                    navigate('/alltasks');
-                                  }}
-                                >
-                                  <Clock className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
-                                    isRead ? 'text-gray-500' : 'text-purple-600'
-                                  }`} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-xs font-medium truncate ${
-                                      isRead ? 'text-gray-500' : 'text-gray-900'
-                                    }`}>{slot.name}</p>
-                                    <p className={`text-xs ${
-                                      isRead ? 'text-gray-400' : 'text-purple-600'
-                                    }`}>
-                                      Starts {formatToIST(slot.slot_start_datetime, 'h:mm a')}
-                                      {slot.project && (
-                                        <span className="text-gray-500"> • {slot.project.name}</span>
-                                      )}
-                                    </p>
+                        {/* Sprint Deadlines */}
+                        {allUpcomingSprintDeadlines.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-orange-600 mb-2 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Sprint Deadlines ({allUpcomingSprintDeadlines.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allUpcomingSprintDeadlines.slice(0, 5).map((sprint) => {
+                                const isRead = !upcomingSprintDeadlines.find(s => s.id === sprint.id);
+                                return (
+                                  <div 
+                                    key={sprint.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-orange-50 border-orange-200 hover:bg-orange-100'
+                                    }`}
+                                    onClick={() => {
+                                      markAsRead('sprint_deadline', sprint.id);
+                                      navigate('/sprints');
+                                    }}
+                                  >
+                                    <Calendar className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-orange-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{sprint.title}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-orange-600'
+                                      }`}>
+                                        Due {formatToIST(sprint.deadline, 'MMM d, h:mm a')}
+                                        {sprint.project && (
+                                          <span className="text-gray-500"> • {sprint.project.name}</span>
+                                        )}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                            {allUpcomingTaskSlots.length > 5 && (
-                              <p className="text-xs text-gray-500 text-center py-1">
-                                +{allUpcomingTaskSlots.length - 5} more slots
-                              </p>
-                            )}
+                                );
+                              })}
+                              {allUpcomingSprintDeadlines.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allUpcomingSprintDeadlines.length - 5} more deadlines
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </ScrollArea>
+                        )}
+
+                        {/* Overdue Sprint Deadlines */}
+                        {allOverdueSprintDeadlines.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Overdue Sprint Deadlines ({allOverdueSprintDeadlines.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allOverdueSprintDeadlines.slice(0, 5).map((sprint) => {
+                                const isRead = !overdueSprintDeadlines.find(s => s.id === sprint.id);
+                                return (
+                                  <div 
+                                    key={sprint.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-red-50 border-red-200 hover:bg-red-100'
+                                    }`}
+                                    onClick={() => {
+                                      markAsRead('sprint_deadline', sprint.id);
+                                      navigate('/sprints');
+                                    }}
+                                  >
+                                    <Calendar className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-red-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{sprint.title}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-red-600'
+                                      }`}>
+                                        Overdue since {formatToIST(sprint.deadline, 'MMM d, h:mm a')}
+                                        {sprint.project && (
+                                          <span className="text-gray-500"> • {sprint.project.name}</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {allOverdueSprintDeadlines.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allOverdueSprintDeadlines.length - 5} more overdue deadlines
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Task Slots */}
+                        {allUpcomingTaskSlots.length > 0 && (
+                          <div className="px-3 py-2">
+                            <h4 className="text-xs font-medium text-purple-600 mb-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Task Slots ({allUpcomingTaskSlots.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {allUpcomingTaskSlots.slice(0, 5).map((slot) => {
+                                const isRead = !upcomingTaskSlots.find(s => s.id === slot.id);
+                                return (
+                                  <div 
+                                    key={slot.id} 
+                                    className={`flex items-start gap-2 p-2 rounded-md border transition-colors cursor-pointer ${
+                                      isRead 
+                                        ? 'bg-gray-50 border-gray-200 opacity-60' 
+                                        : 'bg-purple-50 border-purple-200 hover:bg-purple-100'
+                                    }`}
+                                    onClick={() => {
+                                      markAsRead('task_slot', slot.id);
+                                      navigate('/alltasks');
+                                    }}
+                                  >
+                                    <Clock className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
+                                      isRead ? 'text-gray-500' : 'text-purple-600'
+                                    }`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium truncate ${
+                                        isRead ? 'text-gray-500' : 'text-gray-900'
+                                      }`}>{slot.name}</p>
+                                      <p className={`text-xs ${
+                                        isRead ? 'text-gray-400' : 'text-purple-600'
+                                      }`}>
+                                        Starts {formatToIST(slot.slot_start_datetime, 'h:mm a')}
+                                        {slot.project && (
+                                          <span className="text-gray-500"> • {slot.project.name}</span>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {allUpcomingTaskSlots.length > 5 && (
+                                <p className="text-xs text-gray-500 text-center py-1">
+                                  +{allUpcomingTaskSlots.length - 5} more slots
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </div>
 
                     <DropdownMenuSeparator />
                   </>
@@ -1173,7 +1269,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <NotificationBadge count={mobileNotificationCount} />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80 max-h-96" style={{ zIndex: 9993 }}>
+                <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80" style={{ zIndex: 9993 }}>
                   {/* User Info */}
                   <div className="px-3 py-2 border-b">
                     <p className="text-sm text-gray-600 truncate">{user?.email}</p>
