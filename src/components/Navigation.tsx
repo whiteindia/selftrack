@@ -956,8 +956,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                         </div>
                       )}
 
-                      {/* Overdue Tasks */}
-                      {allOverdueTasks.length > 0 && (
+                       {/* Overdue Tasks */}
+                       {(() => {
+                         console.log('🔍 Navigation Debug - allOverdueTasks:', allOverdueTasks);
+                         console.log('🔍 Navigation Debug - overdueTasks:', overdueTasks);
+                         return allOverdueTasks.length > 0;
+                       })() && (
                         <div className="px-3 py-2">
                           <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
