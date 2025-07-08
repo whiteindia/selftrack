@@ -189,7 +189,7 @@ const AllTasks = () => {
     enabled: hasTasksAccess && !privilegesLoading
   });
 
-  // Auto-expand highlighted task when component mounts
+  // Auto-expand highlighted task when component mount
   useEffect(() => {
     if (highlightTaskId && tasks.length > 0) {
       setExpandedTask(highlightTaskId);
