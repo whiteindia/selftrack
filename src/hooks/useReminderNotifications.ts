@@ -50,11 +50,13 @@ export const useReminderNotifications = () => {
   const { data: readNotifications = [] } = useQuery({
     queryKey: ['notification-reads', user?.id],
     queryFn: async () => {
+      console.log('🔍 Fetching notification reads for user:', user?.id);
       const { data, error } = await supabase
         .from('notification_reads')
         .select('notification_type, notification_id')
         .eq('user_id', user!.id);
 
+      console.log('📖 Notification reads result:', { data, error });
       if (error) throw error;
       return data as NotificationRead[];
     },
