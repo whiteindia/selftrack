@@ -1082,7 +1082,7 @@ const CodiNotes = () => {
                   service_id: editingNote.service_id,
                   client_id: editingNote.client_id,
                   project_id: editingNote.project_id,
-                  selectedTags: editingNote.tags?.map(tag => tag.id) || []
+                  selectedTags: editingNote.selectedTags || []
                 })} disabled={updateNoteMutation.isPending}>
                   {updateNoteMutation.isPending ? 'Updating...' : 'Update Coding Note'}
                 </Button>
