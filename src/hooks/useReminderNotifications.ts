@@ -237,6 +237,25 @@ export const useReminderNotifications = () => {
     readNotificationSet: Array.from(readNotificationSet)
   });
 
+  // Debug: Show actual overdue items
+  if (unreadOverdueTasks.length > 0) {
+    console.log('📋 Overdue Tasks:', unreadOverdueTasks.map(task => ({
+      id: task.id,
+      name: task.name,
+      reminder_datetime: task.reminder_datetime,
+      isOverdue: new Date(task.reminder_datetime) <= now
+    })));
+  }
+  
+  if (unreadOverdueTaskSlots.length > 0) {
+    console.log('🕐 Overdue Task Slots:', unreadOverdueTaskSlots.map(slot => ({
+      id: slot.id,
+      name: slot.name,
+      slot_start_datetime: slot.slot_start_datetime,
+      isOverdue: new Date(slot.slot_start_datetime) <= now
+    })));
+  }
+
   // Browser notification functions
   const sendBrowserNotification = (item: any, type: 'task' | 'sprint' | 'slot') => {
     const notificationKey = `${type}:${item.id}`;
