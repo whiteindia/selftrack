@@ -10,7 +10,18 @@ export const formatToIST = (utcDateTime: string | Date, formatStr: string = 'dd/
   
   try {
     const date = typeof utcDateTime === 'string' ? parseISO(utcDateTime) : utcDateTime;
-    return formatInTimeZone(date, IST_TIMEZONE, formatStr);
+    const result = formatInTimeZone(date, IST_TIMEZONE, formatStr);
+    
+    // Debug logging for task reminders and slots
+    if (typeof utcDateTime === 'string' && (utcDateTime.includes('T') || formatStr.includes('h:mm'))) {
+      console.log(`formatToIST Debug:
+        Input: ${utcDateTime}
+        Parsed date: ${date.toISOString()}
+        Format: ${formatStr}
+        IST Result: ${result}`);
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error formatting to IST:', error);
     return '';
