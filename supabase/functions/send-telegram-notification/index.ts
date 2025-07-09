@@ -32,22 +32,22 @@ interface NotificationData {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-  const body = await req.text();
-  console.log("Incoming request body:", body);
-  // Initialize Supabase client with proper headers
+
+  // ✅ Read once and parse
+  const textBody = await req.text();
+  console.log("Incoming request body:", textBody);
+
+  const { user_id, notification_type, item_data }: NotificationRequest = JSON.parse(textBody);
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-   
   );
 
   try {
-    const { user_id, notification_type, item_data }: NotificationRequest = await req.json();
-    
     if (!user_id || !notification_type || !item_data) {
       throw new Error('Missing required parameters');
     }
