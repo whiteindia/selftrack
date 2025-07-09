@@ -36,7 +36,8 @@ const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
-
+  const body = await req.text();
+  console.log("Incoming request body:", body);
   // Initialize Supabase client with proper headers
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
