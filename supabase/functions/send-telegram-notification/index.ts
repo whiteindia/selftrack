@@ -31,21 +31,22 @@ interface NotificationData {
   };
 }
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-  {
-    global: {
-      headers: { Authorization: req.headers.get('Authorization')! },
-    },
-  }
-);
-
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Initialize Supabase client with proper headers
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    {
+      global: {
+        headers: { Authorization: req.headers.get('Authorization')! },
+      },
+    }
+  );
 
   try {
     const { user_id, notification_type, item_data }: NotificationRequest = await req.json();
@@ -178,66 +179,59 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 // Helper function to check if current time is in quiet hours
-function isInQuietHours(currentTime: string, startTime: string, endTime: string): boolean {
-  if (startTime <= endTime) {
+function isInQuietHours(currentTime: string, quietStart: string, quietEnd: string): boolean {
+  const current = new Date(`2000-01-01T${currentTime}`);
+  const start = new Date(`2000-01-01T${quietStart}`);
+  const end = new Date(`2000-01-01T${quietEnd}`);
+  
+  if (start <= end) {
     // Same day quiet hours (e.g., 22:00 to 08:00)
-    return currentTime >= startTime || currentTime <= endTime;
+    return current >= start && current <= end;
   } else {
-    // Overnight quiet hours (e.g., 22:00 to 08:00)
-    return currentTime >= startTime || currentTime <= endTime;
+    // Overnight quiet hours (e.g., 22:00 to 08:00 next day)
+    return current >= start || current <= end;
   }
 }
 
 // Helper function to format notification messages
-function formatNotificationMessage(type: string, item: any): string {
-  const datetime = new Date(item.datetime);
-  const formattedTime = datetime.toLocaleString('en-US', {
+function formatNotificationMessage(type: string, itemData: any): string {
+  const emoji = {
+    task_reminder: '⏰',
+    sprint_deadline: '📅',
+    task_slot: '🎯',
+    overdue: '🚨'
+  }[type] || '📢';
+
+  const title = {
+    task_reminder: 'Task Reminder',
+    sprint_deadline: 'Sprint Deadline',
+    task_slot: 'Task Time Slot',
+    overdue: 'Overdue Item'
+  }[type] || 'Notification';
+
+  const datetime = new Date(itemData.datetime).toLocaleString('en-US', {
     timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
+    year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 
-  let emoji = '';
-  let title = '';
-  let description = '';
+  let message = `${emoji} *${title}*\n\n`;
+  message += `**${itemData.name}**\n`;
+  message += `📅 ${datetime}\n`;
 
-  switch (type) {
-    case 'task_reminder':
-      emoji = '🔔';
-      title = 'Task Reminder';
-      description = `Task "${item.name}" is scheduled for ${formattedTime}`;
-      break;
-    case 'sprint_deadline':
-      emoji = '📅';
-      title = 'Sprint Deadline';
-      description = `Sprint "${item.name}" is due on ${formattedTime}`;
-      break;
-    case 'task_slot':
-      emoji = '⏰';
-      title = 'Task Slot Starting';
-      description = `Task slot "${item.name}" starts at ${formattedTime}`;
-      break;
-    case 'overdue':
-      emoji = '⚠️';
-      title = 'Overdue Item';
-      description = `"${item.name}" is overdue since ${formattedTime}`;
-      break;
+  if (itemData.project_name) {
+    message += `📁 Project: ${itemData.project_name}\n`;
   }
 
-  let message = `${emoji} *${title}*\n\n${description}`;
-  
-  if (item.project_name) {
-    message += `\n📁 Project: ${item.project_name}`;
-  }
-  
-  if (item.client_name) {
-    message += `\n🏢 Client: ${item.client_name}`;
+  if (itemData.client_name) {
+    message += `👤 Client: ${itemData.client_name}\n`;
   }
 
-  if (item.status) {
-    message += `\n📊 Status: ${item.status}`;
+  if (itemData.status) {
+    message += `📊 Status: ${itemData.status}\n`;
   }
 
   return message;
