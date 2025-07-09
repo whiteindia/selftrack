@@ -104,6 +104,11 @@ function App() {
                     <TelegramNotificationSettings />
                   </ProtectedRoute>
                 } />
+                <Route path="/settings/telegram-bot-admin" element={
+                  <ProtectedRoute requireAdmin>
+                    <TelegramBotAdmin />
+                  </ProtectedRoute>
+                } />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
