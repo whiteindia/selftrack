@@ -325,41 +325,23 @@ export const useReminderNotifications = () => {
     }
   };
 
-  // Send browser notifications
+  // Send browser and Telegram notifications
   useEffect(() => {
-  // Always send Telegram notifications if there are unread items
-  unreadDueSoonTasks.forEach(task => sendTelegramNotification(task, 'task_reminder'));
-  unreadUpcomingSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'sprint_deadline'));
-  unreadUpcomingTaskSlots.forEach(slot => sendTelegramNotification(slot, 'task_slot'));
-
-  // Only send browser notifications if enabled
-  if (notificationsEnabled) {
-    unreadDueSoonTasks.forEach(task => sendBrowserNotification(task, 'task'));
-    unreadUpcomingSprintDeadlines.forEach(sprint => sendBrowserNotification(sprint, 'sprint'));
-    unreadUpcomingTaskSlots.forEach(slot => sendBrowserNotification(slot, 'slot'));
-  }
-}, [unreadDueSoonTasks, unreadUpcomingSprintDeadlines, unreadUpcomingTaskSlots, notificationsEnabled]);
-
-  // Send Telegram notifications
-  useEffect(() => {
-    // Send due soon task notifications
+    // Always send Telegram notifications if there are unread items
     unreadDueSoonTasks.forEach(task => sendTelegramNotification(task, 'task_reminder'));
-    
-    // Send overdue task notifications
     unreadOverdueTasks.forEach(task => sendTelegramNotification(task, 'overdue'));
-    
-    // Send sprint deadline notifications
     unreadUpcomingSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'sprint_deadline'));
-    
-    // Send overdue sprint notifications
     unreadOverdueSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'overdue'));
-    
-    // Send task slot notifications
     unreadUpcomingTaskSlots.forEach(slot => sendTelegramNotification(slot, 'task_slot'));
-    
-    // Send overdue task slot notifications
     unreadOverdueTaskSlots.forEach(slot => sendTelegramNotification(slot, 'overdue'));
-  }, [unreadDueSoonTasks, unreadOverdueTasks, unreadUpcomingSprintDeadlines, unreadOverdueSprintDeadlines, unreadUpcomingTaskSlots, unreadOverdueTaskSlots]);
+
+    // Only send browser notifications if enabled
+    if (notificationsEnabled) {
+      unreadDueSoonTasks.forEach(task => sendBrowserNotification(task, 'task'));
+      unreadUpcomingSprintDeadlines.forEach(sprint => sendBrowserNotification(sprint, 'sprint'));
+      unreadUpcomingTaskSlots.forEach(slot => sendBrowserNotification(slot, 'slot'));
+    }
+  }, [unreadDueSoonTasks, unreadOverdueTasks, unreadUpcomingSprintDeadlines, unreadOverdueSprintDeadlines, unreadUpcomingTaskSlots, unreadOverdueTaskSlots, notificationsEnabled]);
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
