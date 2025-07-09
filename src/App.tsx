@@ -38,6 +38,7 @@ import StickyNotes from "./pages/StickyNotes";
 import CodiNotes from "./pages/CodiNotes";
 import TradaNotes from "./pages/TradaNotes";
 import TelegramBotAdmin from "./pages/TelegramBotAdmin";
+import TelegramNotificationSettings from './components/TelegramNotificationSettings';
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,11 @@ function App() {
                 <Route path="/trada-notes" element={
                   <ProtectedRoute>
                     <TradaNotes />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings/telegram-notifications" element={
+                  <ProtectedRoute>
+                    <TelegramNotificationSettings />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />

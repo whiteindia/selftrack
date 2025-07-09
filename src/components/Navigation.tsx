@@ -39,7 +39,8 @@ import {
   Shield,
   X,
   Code,
-  TrendingUp
+  TrendingUp,
+  MessageCircle
 } from 'lucide-react';
 import {
   Drawer,
@@ -1231,6 +1232,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   <LogOut className="h-4 w-4 mr-2" />
                   <span>Sign Out</span>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/telegram-notifications" className="flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    <span>Telegram Notifications</span>
+                  </Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1524,6 +1531,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                   <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2" />
                     <span>Sign Out</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings/telegram-notifications" className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      <span>Telegram Notifications</span>
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
