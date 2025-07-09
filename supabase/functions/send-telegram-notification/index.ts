@@ -147,7 +147,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Send the notification
     await sendTelegramMessage({
       chat_id: telegramNotification.chat_id,
-      message: message,
+      text: message,
       parse_mode: 'Markdown',
       reply_markup: replyMarkup
     }, botConfig.bot_token);

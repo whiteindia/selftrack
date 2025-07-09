@@ -113,7 +113,7 @@ Use /help for more commands.
 
         await sendTelegramMessage({
           chat_id: chat.id,
-          message: welcomeMessage,
+          text: welcomeMessage,
           parse_mode: 'Markdown'
         }, botToken);
 
@@ -138,7 +138,7 @@ Manage your notification preferences through the SelfTrack dashboard.
 
         await sendTelegramMessage({
           chat_id: chat.id,
-          message: helpMessage,
+          text: helpMessage,
           parse_mode: 'Markdown'
         }, botToken);
 
@@ -163,7 +163,7 @@ To manage settings, visit your SelfTrack dashboard.
 
           await sendTelegramMessage({
             chat_id: chat.id,
-            message: statusMessage,
+            text: statusMessage,
             parse_mode: 'Markdown'
           }, botToken);
         } else {
@@ -181,7 +181,7 @@ To connect:
 
           await sendTelegramMessage({
             chat_id: chat.id,
-            message: notConnectedMessage,
+            text: notConnectedMessage,
             parse_mode: 'Markdown'
           }, botToken);
         }
@@ -207,7 +207,7 @@ To reconnect, visit your SelfTrack dashboard and follow the connection process a
 
         await sendTelegramMessage({
           chat_id: chat.id,
-          message: disconnectMessage,
+          text: disconnectMessage,
           parse_mode: 'Markdown'
         }, botToken);
 
@@ -221,7 +221,7 @@ Use /help to see available commands.
 
         await sendTelegramMessage({
           chat_id: chat.id,
-          message: unknownMessage,
+          text: unknownMessage,
           parse_mode: 'Markdown'
         }, botToken);
       }
