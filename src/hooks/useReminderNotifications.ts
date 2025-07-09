@@ -40,6 +40,21 @@ interface NotificationRead {
   notification_id: string;
 }
 
+function mapUiTypeToTelegramType(uiType: string): 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | null {
+  switch (uiType) {
+    case 'Due Soon':
+      return 'task_reminder';
+    case 'Overdue':
+      return 'overdue';
+    case 'Sprint Deadlines':
+      return 'sprint_deadline';
+    case 'Task Time Slots':
+      return 'task_slot';
+    default:
+      return null;
+  }
+}
+
 export const useReminderNotifications = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -313,9 +328,18 @@ export const useReminderNotifications = () => {
   // Send browser notifications
   useEffect(() => {
     if (notificationsEnabled) {
-      unreadDueSoonTasks.forEach(task => sendBrowserNotification(task, 'task'));
-      unreadUpcomingSprintDeadlines.forEach(sprint => sendBrowserNotification(sprint, 'sprint'));
-      unreadUpcomingTaskSlots.forEach(slot => sendBrowserNotification(slot, 'slot'));
+      unreadDueSoonTasks.forEach(task => {
+        sendBrowserNotification(task, 'task');
+        sendTelegramNotification(task, 'task_reminder');
+      });
+      unreadUpcomingSprintDeadlines.forEach(sprint => {
+        sendBrowserNotification(sprint, 'sprint');
+        sendTelegramNotification(sprint, 'sprint_deadline');
+      });
+      unreadUpcomingTaskSlots.forEach(slot => {
+        sendBrowserNotification(slot, 'slot');
+        sendTelegramNotification(slot, 'task_slot');
+      });
     }
   }, [unreadDueSoonTasks, unreadUpcomingSprintDeadlines, unreadUpcomingTaskSlots, notificationsEnabled]);
 
