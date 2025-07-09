@@ -37,6 +37,7 @@ import FollowupCal from '@/pages/FollowupCal';
 import StickyNotes from "./pages/StickyNotes";
 import CodiNotes from "./pages/CodiNotes";
 import TradaNotes from "./pages/TradaNotes";
+import TelegramBotAdmin from "./pages/TelegramBotAdmin";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ function App() {
                 <Route path="/wages" element={<ProtectedRoute><Wages /></ProtectedRoute>} />
                 <Route path="/invitations" element={<ProtectedRoute requireAdmin><Invitations /></ProtectedRoute>} />
                 <Route path="/roles" element={<ProtectedRoute requireSuperAdmin><Roles /></ProtectedRoute>} />
+                <Route path="/telegram-bot-admin" element={<ProtectedRoute requireAdmin><TelegramBotAdmin /></ProtectedRoute>} />
                 <Route path="/gantt-view" element={<ProtectedRoute><GanttView /></ProtectedRoute>} />
                 <Route path="/agenda-cal" element={<ProtectedRoute><AgendaCal /></ProtectedRoute>} />
                 <Route path="/log-cal" element={<ProtectedRoute><LogCal /></ProtectedRoute>} />
