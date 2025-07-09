@@ -71,11 +71,11 @@ const TelegramBotAdmin = () => {
   // Test bot connection mutation
   const testConnectionMutation = useMutation({
     mutationFn: async () => {
-      if (!botConfig?.bot_token) {
+      if (!botToken.trim()) {
         throw new Error('Bot token not configured');
       }
 
-      const response = await fetch(`https://api.telegram.org/bot${botConfig.bot_token}/getMe`);
+      const response = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
       const data = await response.json();
 
       if (!data.ok) {
@@ -95,11 +95,11 @@ const TelegramBotAdmin = () => {
   // Set webhook mutation
   const setWebhookMutation = useMutation({
     mutationFn: async (webhookUrl: string) => {
-      if (!botConfig?.bot_token) {
+      if (!botToken.trim()) {
         throw new Error('Bot token not configured');
       }
 
-      const response = await fetch(`https://api.telegram.org/bot${botConfig.bot_token}/setWebhook`, {
+      const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -306,7 +306,7 @@ const TelegramBotAdmin = () => {
               </p>
               <Button
                 onClick={() => testConnectionMutation.mutate()}
-                disabled={testConnectionMutation.isPending || !botConfig?.bot_token}
+                disabled={testConnectionMutation.isPending || !botToken.trim()}
               >
                 {testConnectionMutation.isPending ? 'Testing...' : 'Test Bot Connection'}
               </Button>
