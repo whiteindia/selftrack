@@ -327,21 +327,18 @@ export const useReminderNotifications = () => {
 
   // Send browser notifications
   useEffect(() => {
-    if (notificationsEnabled) {
-      unreadDueSoonTasks.forEach(task => {
-        sendBrowserNotification(task, 'task');
-        sendTelegramNotification(task, 'task_reminder');
-      });
-      unreadUpcomingSprintDeadlines.forEach(sprint => {
-        sendBrowserNotification(sprint, 'sprint');
-        sendTelegramNotification(sprint, 'sprint_deadline');
-      });
-      unreadUpcomingTaskSlots.forEach(slot => {
-        sendBrowserNotification(slot, 'slot');
-        sendTelegramNotification(slot, 'task_slot');
-      });
-    }
-  }, [unreadDueSoonTasks, unreadUpcomingSprintDeadlines, unreadUpcomingTaskSlots, notificationsEnabled]);
+  // Always send Telegram notifications if there are unread items
+  unreadDueSoonTasks.forEach(task => sendTelegramNotification(task, 'task_reminder'));
+  unreadUpcomingSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'sprint_deadline'));
+  unreadUpcomingTaskSlots.forEach(slot => sendTelegramNotification(slot, 'task_slot'));
+
+  // Only send browser notifications if enabled
+  if (notificationsEnabled) {
+    unreadDueSoonTasks.forEach(task => sendBrowserNotification(task, 'task'));
+    unreadUpcomingSprintDeadlines.forEach(sprint => sendBrowserNotification(sprint, 'sprint'));
+    unreadUpcomingTaskSlots.forEach(slot => sendBrowserNotification(slot, 'slot'));
+  }
+}, [unreadDueSoonTasks, unreadUpcomingSprintDeadlines, unreadUpcomingTaskSlots, notificationsEnabled]);
 
   // Send Telegram notifications
   useEffect(() => {
