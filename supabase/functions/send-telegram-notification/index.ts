@@ -21,7 +21,7 @@ interface NotificationRequest {
 
 interface NotificationData {
   chat_id: number;
-  message: string;
+  text: string;
   parse_mode?: 'HTML' | 'Markdown';
   reply_markup?: {
     inline_keyboard: Array<Array<{
@@ -268,8 +268,10 @@ async function sendTelegramMessage(data: NotificationData, botToken: string): Pr
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error('Telegram API error:', errorData);
+    console.error('Telegram API error:', errorData); // <-- LOG ERROR
     throw new Error(`Telegram API error: ${errorData.description}`);
+  } else {
+    console.log('Notification sent to chat_id:', data.chat_id); // <-- LOG SUCCESS
   }
 }
 
