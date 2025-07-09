@@ -295,8 +295,8 @@ export const useReminderNotifications = () => {
             datetime: type === 'task_reminder' ? item.reminder_datetime : 
                      type === 'sprint_deadline' ? item.deadline : 
                      type === 'task_slot' ? item.slot_start_datetime : item.reminder_datetime,
-            project_name: item.project?.name,
-            client_name: item.project?.client?.name,
+            project_name: item.project?.name || item.project_name || 'N/A',
+            client_name: item.project?.client?.name || item.client_name || 'N/A',
             status: item.status,
           },
         }),
