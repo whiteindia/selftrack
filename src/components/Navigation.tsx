@@ -1238,6 +1238,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <span>Telegram Notifications</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/telegram-bot-admin" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4 mr-2" />
+                    <span>Telegram Bot Admin</span>
+                  </Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1536,6 +1542,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <Link to="/settings/telegram-notifications" className="flex items-center gap-2">
                       <MessageCircle className="h-4 w-4 mr-2" />
                       <span>Telegram Notifications</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings/telegram-bot-admin" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4 mr-2" />
+                      <span>Telegram Bot Admin</span>
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
