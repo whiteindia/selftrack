@@ -37,10 +37,10 @@ const TelegramBotAdmin = () => {
       const { data, error } = await supabase
         .from('telegram_bot_config')
         .select('*')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data as BotConfig;
+      return data as BotConfig | null;
     },
     enabled: isAdmin,
   });
@@ -48,15 +48,28 @@ const TelegramBotAdmin = () => {
   // Update bot configuration mutation
   const updateConfigMutation = useMutation({
     mutationFn: async (config: Partial<BotConfig>) => {
-      const { data, error } = await supabase
-        .from('telegram_bot_config')
-        .update(config)
-        .eq('id', botConfig!.id)
-        .select()
-        .single();
+      if (botConfig?.id) {
+        // Update existing record
+        const { data, error } = await supabase
+          .from('telegram_bot_config')
+          .update(config)
+          .eq('id', botConfig.id)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } else {
+        // Create new record if none exists
+        const { data, error } = await supabase
+          .from('telegram_bot_config')
+          .insert(config)
+          .select()
+          .single();
+
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['telegram-bot-config'] });
