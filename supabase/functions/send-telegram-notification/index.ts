@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface NotificationRequest {
   user_id: string;
-  notification_type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue';
+  notification_type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon';
   item_data: {
     id: string;
     name: string;
@@ -97,6 +97,9 @@ const handler = async (req: Request): Promise<Response> => {
         break;
       case 'overdue':
         isEnabled = settings?.overdue_notifications ?? true;
+        break;
+      case 'due_soon':
+        isEnabled = settings?.task_reminders ?? true; // Assuming 'due_soon' uses the same setting as 'task_reminders'
         break;
     }
 
@@ -196,14 +199,16 @@ function formatNotificationMessage(type: string, itemData: any): string {
     task_reminder: '⏰',
     sprint_deadline: '📅',
     task_slot: '🎯',
-    overdue: '🚨'
+    overdue: '🚨',
+    due_soon: '⏳'
   }[type] || '📢';
 
   const title = {
     task_reminder: 'Task Reminder',
     sprint_deadline: 'Sprint Deadline',
     task_slot: 'Task Time Slot',
-    overdue: 'Overdue Item'
+    overdue: 'Overdue Item',
+    due_soon: 'Task Due Soon'
   }[type] || 'Notification';
 
   const datetime = new Date(itemData.datetime).toLocaleString('en-US', {

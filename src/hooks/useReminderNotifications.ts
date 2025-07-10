@@ -36,14 +36,14 @@ interface TaskSlot {
 }
 
 interface NotificationRead {
-  notification_type: string;
+  notification_type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon';
   notification_id: string;
 }
 
-function mapUiTypeToTelegramType(uiType: string): 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | null {
+function mapUiTypeToTelegramType(uiType: string): 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon' | null {
   switch (uiType) {
     case 'Due Soon':
-      return 'task_reminder';
+      return 'due_soon';
     case 'Overdue':
       return 'overdue';
     case 'Sprint Deadlines':
@@ -146,7 +146,7 @@ export const useReminderNotifications = () => {
 
   // Mutation to mark notifications as read
   const markAsReadMutation = useMutation({
-    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+    mutationFn: async ({ type, id }: { type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon'; id: string }) => {
       const { error } = await supabase
         .from('notification_reads')
         .upsert({
@@ -211,10 +211,10 @@ export const useReminderNotifications = () => {
 
   // Filter out read notifications
   const unreadDueSoonTasks = dueSoonTasks.filter(
-    task => !readNotificationSet.has(`task_reminder:${task.id}`)
+    task => !readNotificationSet.has(`due_soon:${task.id}`)
   );
   const unreadOverdueTasks = overdueTasks.filter(
-    task => !readNotificationSet.has(`task_reminder:${task.id}`)
+    task => !readNotificationSet.has(`overdue:${task.id}`)
   );
   const unreadUpcomingSprintDeadlines = upcomingSprintDeadlines.filter(
     sprint => !readNotificationSet.has(`sprint_deadline:${sprint.id}`)
@@ -293,7 +293,7 @@ export const useReminderNotifications = () => {
   };
 
   // Send Telegram notifications
-  const sendTelegramNotification = async (item: any, type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue') => {
+  const sendTelegramNotification = async (item: any, type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon') => {
     try {
       const response = await fetch('/api/send-telegram-notification', {
         method: 'POST',
@@ -307,7 +307,8 @@ export const useReminderNotifications = () => {
           item_data: {
             id: item.id,
             name: item.name,
-            datetime: type === 'task_reminder' ? item.reminder_datetime : 
+            datetime: type === 'due_soon' ? item.reminder_datetime :
+                     type === 'task_reminder' ? item.reminder_datetime : 
                      type === 'sprint_deadline' ? item.deadline : 
                      type === 'task_slot' ? item.slot_start_datetime : item.reminder_datetime,
             project_name: item.project?.name || item.project_name || 'N/A',
@@ -328,7 +329,7 @@ export const useReminderNotifications = () => {
   // Send browser and Telegram notifications
   useEffect(() => {
     // Always send Telegram notifications if there are unread items
-    unreadDueSoonTasks.forEach(task => sendTelegramNotification(task, 'task_reminder'));
+    unreadDueSoonTasks.forEach(task => sendTelegramNotification(task, 'due_soon'));
     unreadOverdueTasks.forEach(task => sendTelegramNotification(task, 'overdue'));
     unreadUpcomingSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'sprint_deadline'));
     unreadOverdueSprintDeadlines.forEach(sprint => sendTelegramNotification(sprint, 'overdue'));
@@ -346,12 +347,12 @@ export const useReminderNotifications = () => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     const allNotifications = [
-      ...dueSoonTasks.map(task => ({ type: 'task_reminder', id: task.id })),
-      ...overdueTasks.map(task => ({ type: 'task_reminder', id: task.id })),
+      ...dueSoonTasks.map(task => ({ type: 'due_soon', id: task.id })),
+      ...overdueTasks.map(task => ({ type: 'overdue', id: task.id })),
       ...upcomingSprintDeadlines.map(sprint => ({ type: 'sprint_deadline', id: sprint.id })),
-      ...overdueSprintDeadlines.map(sprint => ({ type: 'sprint_deadline', id: sprint.id })),
+      ...overdueSprintDeadlines.map(sprint => ({ type: 'overdue', id: sprint.id })),
       ...upcomingTaskSlots.map(slot => ({ type: 'task_slot', id: slot.id })),
-      ...overdueTaskSlots.map(slot => ({ type: 'task_slot', id: slot.id })),
+      ...overdueTaskSlots.map(slot => ({ type: 'overdue', id: slot.id })),
     ];
 
     for (const notification of allNotifications) {
@@ -360,7 +361,7 @@ export const useReminderNotifications = () => {
   };
 
   // Mark individual notification as read
-  const markAsRead = (type: string, id: string) => {
+  const markAsRead = (type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon', id: string) => {
     markAsReadMutation.mutate({ type, id });
   };
 

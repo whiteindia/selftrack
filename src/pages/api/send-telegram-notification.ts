@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     // Forward Authorization header if present
     const auth = request.headers.get('authorization');
     if (auth) headers['Authorization'] = auth;
-
+console.log('Forwarding to Supabase:', { body, headers }); // Add this
     const response = await fetch(
       'https://ljmdbrunpuhnnmouuzg.supabase.co/functions/v1/send-telegram-notification',
       {
