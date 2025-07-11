@@ -195,7 +195,9 @@ const TelegramNotificationSettings = () => {
     toggleConnectionMutation.mutate(enabled);
   };
 
-  const handleSettingChange = (key: keyof TelegramSettings, value: any) => {
+  type SettingsValue = string | boolean;
+
+  const handleSettingChange = (key: keyof TelegramSettings, value: SettingsValue) => {
     if (!telegramSettings) {
       // Create default settings if none exist
       updateSettingsMutation.mutate({

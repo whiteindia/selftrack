@@ -161,13 +161,15 @@ const handler = async (req: Request): Promise<Response> => {
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error sending Telegram notification:", error);
     
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message,
+        error: errorMessage,
         details: "Check the edge function logs for more information"
       }),
       {
@@ -194,7 +196,7 @@ function isInQuietHours(currentTime: string, quietStart: string, quietEnd: strin
 }
 
 // Helper function to format notification messages
-function formatNotificationMessage(type: string, itemData: any): string {
+function formatNotificationMessage(type: string, itemData: NotificationRequest['item_data']): string {
   const emoji = {
     task_reminder: '⏰',
     sprint_deadline: '📅',

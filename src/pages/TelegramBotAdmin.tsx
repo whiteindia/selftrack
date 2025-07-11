@@ -19,6 +19,15 @@ interface BotConfig {
   is_active: boolean;
 }
 
+type TelegramBotConfig = {
+  id: string;
+  bot_token: string;
+  webhook_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 const TelegramBotAdmin = () => {
   const { user, userRole } = useAuth();
   const queryClient = useQueryClient();
@@ -35,12 +44,13 @@ const TelegramBotAdmin = () => {
     queryKey: ['telegram-bot-config'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('telegram_bot_config')
+        .from<TelegramBotConfig>('telegram_bot_config')
         .select('*')
         .maybeSingle();
 
       if (error) throw error;
-      return data as BotConfig | null;
+      if (!data || 'error' in data) return null;
+      return data;
     },
     enabled: isAdmin,
   });

@@ -28,8 +28,9 @@ console.log('Forwarding to Supabase:', { body, headers }); // Add this
       status: response.status,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return new Response(JSON.stringify({ error: errorMessage || 'Internal Server Error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
