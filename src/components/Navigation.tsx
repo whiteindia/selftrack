@@ -114,8 +114,8 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const mainNavItems = [
     { path: '/', label: 'Home', icon: Home, pageName: 'dashboard' },
     { path: '/projects', label: 'Projects', icon: FolderOpen, pageName: 'projects' },
-    { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' },
   ];
+  const sprintsNavItem = { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' };
 
   const notesItems = [
     { path: '/sticky-notes', label: 'Sticky Notes', icon: StickyNote, pageName: 'tasks' },
@@ -368,27 +368,22 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
           )}
 
           {/* Sprints - moved next to Taskforce */}
-          {visibleMainNavItems.slice(2).length > 0 && (
+          {hasPageAccess('sprints') && (
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Planning</h3>
               <div className="space-y-1">
-                {visibleMainNavItems.slice(2).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => handleMobileNavigation(item.path)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
-                        isActive(item.path)
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
+                <Link
+                  key={sprintsNavItem.path}
+                  to={sprintsNavItem.path}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
+                    isActive(sprintsNavItem.path)
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Calendar className="h-4 w-4" />
+                  <span>{sprintsNavItem.label}</span>
+                </Link>
               </div>
             </div>
           )}
@@ -579,8 +574,8 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     <header className="bg-white shadow-sm border-b sticky top-0 w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
-          <div className="hidden md:flex items-center space-x-2 flex-1 justify-start min-w-0 overflow-hidden">
-            {/* Main navigation items (Home, Projects, Sprints) */}
+          <div className="hidden md:flex items-center space-x-2 flex-1 justify-center min-w-0 overflow-hidden">
+            {/* Main navigation items (Home, Projects only) */}
             {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -690,25 +685,23 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               </DropdownMenu>
             )}
 
-            {/* Sprints - moved next to Taskforce */}
-            {visibleMainNavItems.slice(2).map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
-                    isActive(item.path)
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+            {/* Sprints - as a main tab after Taskforce */}
+            {hasPageAccess('sprints') && (
+              <Link
+                key={sprintsNavItem.path}
+                to={sprintsNavItem.path}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
+                  isActive(sprintsNavItem.path)
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <Calendar className="h-4 w-4" />
+                <span>{sprintsNavItem.label}</span>
+              </Link>
+            )}
 
+            {/* GoalTrack, Planner, TrakTeam, Admin, etc. */}
             {shouldShowGoalTrackMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
