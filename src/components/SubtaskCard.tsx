@@ -74,7 +74,7 @@ const SubtaskCard: React.FC<SubtaskCardProps> = ({
         <div className="flex flex-col gap-4">
           {/* Subtask Title and Basic Info - Always on top */}
           <div className="flex flex-col gap-2">
-            <CardTitle className="text-base leading-tight">{subtask.name}</CardTitle>
+            <CardTitle className="text-base leading-tight break-words whitespace-pre-line overflow-hidden">{subtask.name}</CardTitle>
             
             {/* Subtask Details - Stack on mobile, wrap on larger screens */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-sm text-gray-600">
