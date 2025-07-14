@@ -39,7 +39,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const fetchUserRole = async (userId: string) => {
     try {
-      console.log('Fetching user role for:', userId);
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -47,26 +46,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('Error fetching user role:', error);
         return null;
       }
-      
-      console.log('User roles data:', data);
       
       // If user has multiple roles, prioritize admin role
       if (data && data.length > 0) {
         const adminRole = data.find(r => r.role === 'admin');
         const role = adminRole ? adminRole.role : data[0].role;
-        console.log('Selected role:', role);
         setUserRole(role);
         return role;
       }
       
-      console.log('No roles found for user');
       setUserRole(null);
       return null;
     } catch (error) {
-      console.error('Error fetching user role:', error);
       setUserRole(null);
       return null;
     }
@@ -74,16 +67,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getDefaultLandingPage = async (): Promise<string> => {
     try {
-      console.log('Getting landing page for user:', user?.email, 'role:', userRole);
-
       // Superadmin always gets dashboard
       if (user?.email === 'yugandhar@whiteindia.in') {
-        console.log('Superadmin user, defaulting to dashboard');
         return '/';
       }
 
       if (!userRole) {
-        console.log('No user role, checking for first accessible page');
         
         // Get all user privileges to find first accessible page
         const { data: userPrivileges, error: privilegesError } = await supabase
@@ -95,59 +84,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .order('page_name');
 
         if (privilegesError) {
-          console.error('Error fetching privileges:', privilegesError);
           return '/login'; // Redirect to login if no access
         }
 
         if (userPrivileges && userPrivileges.length > 0) {
           const firstPage = userPrivileges[0].page_name;
-          console.log('First accessible page for user without role:', firstPage);
           return getRouteFromPageName(firstPage);
         }
 
         return '/login'; // No accessible pages
       }
 
-      console.log('Getting landing page for role:', userRole);
-
       // Check if role has a custom landing page set
       const { data: roleData, error: roleError } = await supabase
         .rpc('get_role_landing_page', { role_name: userRole });
 
       if (roleError) {
-        console.error('Error fetching role landing page:', roleError);
       } else if (roleData) {
-        console.log('Custom landing page found:', roleData);
         
         // Verify user has access to this landing page
         const hasAccess = await checkPageAccess(roleData);
         if (hasAccess) {
           return `/${roleData}`;
         } else {
-          console.log('User does not have access to custom landing page, finding alternative');
         }
       }
 
       // Fallback: get first accessible page from privileges
-      console.log('No custom landing page or no access, finding first accessible page');
       const { data: pagesData, error: pagesError } = await supabase
         .rpc('get_role_available_pages', { role_name: userRole });
 
       if (pagesError) {
-        console.error('Error fetching available pages:', pagesError);
         return '/login';
       }
 
       if (pagesData && pagesData.length > 0) {
         const firstPage = pagesData[0].page_name;
-        console.log('First accessible page:', firstPage);
         return getRouteFromPageName(firstPage);
       }
 
-      console.log('No accessible pages found, redirecting to login');
       return '/login';
     } catch (error) {
-      console.error('Error determining landing page:', error);
       return '/login';
     }
   };
@@ -166,13 +143,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .single();
 
       if (error) {
-        console.error('Error checking page access:', error);
         return false;
       }
 
       return data?.allowed || false;
     } catch (error) {
-      console.error('Error checking page access:', error);
       return false;
     }
   };
@@ -201,7 +176,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkPasswordResetNeeded = (user: User) => {
     // Check if user metadata indicates they need a password reset
     const needsReset = user.user_metadata?.needs_password_reset === true;
-    console.log('User needs password reset:', needsReset, user.user_metadata);
     setNeedsPasswordReset(needsReset);
     
     if (needsReset) {
@@ -212,7 +186,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email || 'No session');
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -225,10 +198,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('=== AUTH STATE CHANGE ===');
-        console.log('Event:', event);
-        console.log('Session user:', session?.user?.email || 'No user');
-        console.log('Session object:', session);
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -249,9 +218,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    console.log('=== AuthContext signIn called ===');
-    console.log('Email:', email);
-    console.log('Password length:', password.length);
     
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -259,10 +225,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
     
     if (error) {
-      console.error('=== AuthContext signIn error ===');
-      console.error('Error:', error);
     } else {
-      console.log('=== AuthContext signIn success ===');
     }
     
     return { error };
@@ -293,7 +256,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updatePassword = async (newPassword: string) => {
-    console.log('Updating password for user');
+    
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
       data: {

@@ -111,9 +111,6 @@ const CodiNotes = () => {
         .from('codi_note_tags')
         .select('*');
       
-      console.log('codi_note_tags data:', tagRelations);
-      if (tagError) console.error('Error fetching tag relations:', tagError);
-
       const { data, error } = await supabase
         .from('codi_notes')
         .select(`
@@ -130,9 +127,6 @@ const CodiNotes = () => {
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-
-      // Debug: Log raw data
-      console.log('Raw notes data:', data);
 
       // Enrich notes with service, client, project names and tags
       const enrichedNotes = await Promise.all(
@@ -171,10 +165,6 @@ const CodiNotes = () => {
           // Extract tags from the joined data
           const noteTags = note.codi_note_tags?.map((snt: any) => snt.codi_tags).filter(Boolean) || [];
           
-          // Debug: Log the tag data
-          console.log('Note:', note.id, 'Raw codi_note_tags:', note.codi_note_tags);
-          console.log('Note:', note.id, 'Extracted tags:', noteTags);
-
           return {
             ...note,
             service_name: serviceName,
@@ -327,14 +317,10 @@ const CodiNotes = () => {
           tag_id: tagId
         }));
         
-        console.log('Creating tag relationships:', tagRelations);
-        
         const { data: tagData, error: tagError } = await supabase
           .from('codi_note_tags')
           .insert(tagRelations)
           .select();
-        
-        console.log('Tag creation result:', tagData, tagError);
         
         if (tagError) throw tagError;
       }
@@ -393,14 +379,10 @@ const CodiNotes = () => {
             tag_id: tagId
           }));
           
-          console.log('Updating tag relationships:', tagRelations);
-          
           const { data: tagData, error: tagError } = await supabase
             .from('codi_note_tags')
             .insert(tagRelations)
             .select();
-          
-          console.log('Tag update result:', tagData, tagError);
           
           if (tagError) throw tagError;
         }
