@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatToIST } from '@/utils/timezoneUtils';
+import { sendTelegramNotification as sendTelegramNotificationApi } from '@/api/telegram-notification';
 
 interface ReminderTask {
   id: string;
@@ -295,30 +296,23 @@ export const useReminderNotifications = () => {
   // Send Telegram notifications
   const sendTelegramNotification = async (item: any, type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon') => {
     try {
-      const response = await fetch('/api/send-telegram-notification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.id}`,
+      const result = await sendTelegramNotificationApi({
+        user_id: user!.id,
+        notification_type: type,
+        item_data: {
+          id: item.id,
+          name: item.name,
+          datetime: type === 'due_soon' ? item.reminder_datetime :
+                   type === 'task_reminder' ? item.reminder_datetime : 
+                   type === 'sprint_deadline' ? item.deadline : 
+                   type === 'task_slot' ? item.slot_start_datetime : item.reminder_datetime,
+          project_name: item.project?.name || item.project_name || 'N/A',
+          client_name: item.project?.client?.name || item.client_name || 'N/A',
+          status: item.status,
         },
-        body: JSON.stringify({
-          user_id: user!.id,
-          notification_type: type,
-          item_data: {
-            id: item.id,
-            name: item.name,
-            datetime: type === 'due_soon' ? item.reminder_datetime :
-                     type === 'task_reminder' ? item.reminder_datetime : 
-                     type === 'sprint_deadline' ? item.deadline : 
-                     type === 'task_slot' ? item.slot_start_datetime : item.reminder_datetime,
-            project_name: item.project?.name || item.project_name || 'N/A',
-            client_name: item.project?.client?.name || item.client_name || 'N/A',
-            status: item.status,
-          },
-        }),
       });
 
-      if (!response.ok) {
+      if (!result.success) {
         console.error('Failed to send Telegram notification');
       }
     } catch (error) {
