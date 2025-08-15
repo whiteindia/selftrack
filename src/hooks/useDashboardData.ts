@@ -45,10 +45,15 @@ export const useDashboardData = () => {
               .select(`
                 id,
                 name,
+                assignee_id,
+                assigner_id,
                 tasks!inner(
                   id,
                   name,
+                  assignee_id,
+                  assigner_id,
                   projects!inner(
+                    id,
                     name,
                     clients!inner(name)
                   )
@@ -67,6 +72,8 @@ export const useDashboardData = () => {
               tasks: {
                 id: subtaskData.tasks.id,
                 name: `${subtaskData.tasks.name} > ${subtaskData.name}`, // Show parent task > subtask
+                assignee_id: subtaskData.assignee_id || subtaskData.tasks.assignee_id,
+                assigner_id: subtaskData.assigner_id || subtaskData.tasks.assigner_id,
                 projects: subtaskData.tasks.projects
               },
               employee: entry.employees
@@ -78,7 +85,10 @@ export const useDashboardData = () => {
               .select(`
                 id,
                 name,
+                assignee_id,
+                assigner_id,
                 projects!inner(
+                  id,
                   name,
                   clients!inner(name)
                 )
