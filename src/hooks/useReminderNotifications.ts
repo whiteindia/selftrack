@@ -340,13 +340,13 @@ export const useReminderNotifications = () => {
 
   // Mark all notifications as read
   const markAllAsRead = async () => {
-    const allNotifications = [
-      ...dueSoonTasks.map(task => ({ type: 'due_soon', id: task.id })),
-      ...overdueTasks.map(task => ({ type: 'overdue', id: task.id })),
-      ...upcomingSprintDeadlines.map(sprint => ({ type: 'sprint_deadline', id: sprint.id })),
-      ...overdueSprintDeadlines.map(sprint => ({ type: 'overdue', id: sprint.id })),
-      ...upcomingTaskSlots.map(slot => ({ type: 'task_slot', id: slot.id })),
-      ...overdueTaskSlots.map(slot => ({ type: 'overdue', id: slot.id })),
+    const allNotifications: Array<{ type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon', id: string }> = [
+      ...dueSoonTasks.map(task => ({ type: 'due_soon' as const, id: task.id })),
+      ...overdueTasks.map(task => ({ type: 'overdue' as const, id: task.id })),
+      ...upcomingSprintDeadlines.map(sprint => ({ type: 'sprint_deadline' as const, id: sprint.id })),
+      ...overdueSprintDeadlines.map(sprint => ({ type: 'overdue' as const, id: sprint.id })),
+      ...upcomingTaskSlots.map(slot => ({ type: 'task_slot' as const, id: slot.id })),
+      ...overdueTaskSlots.map(slot => ({ type: 'overdue' as const, id: slot.id })),
     ];
 
     for (const notification of allNotifications) {
