@@ -40,7 +40,12 @@ const TelegramNotificationSettings = () => {
   const [chatId, setChatId] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Fetch user's Telegram connection
+  // Fetch user's Telegram connection - DISABLED: table doesn't exist
+  const telegramNotification = null;
+  const telegramLoading = false;
+  
+  // TODO: Create telegram_notifications table or implement alternative connection method
+  /*
   const { data: telegramNotification, isLoading: telegramLoading } = useQuery({
     queryKey: ['telegram-notification', user?.id],
     queryFn: async () => {
@@ -58,8 +63,14 @@ const TelegramNotificationSettings = () => {
     },
     enabled: !!user,
   });
+  */
 
-  // Fetch user's Telegram settings
+  // Fetch user's Telegram settings - DISABLED: table schema mismatch
+  const telegramSettings = null;
+  const settingsLoading = false;
+  
+  // TODO: Fix TelegramSettings interface to match actual table schema
+  /*
   const { data: telegramSettings, isLoading: settingsLoading } = useQuery({
     queryKey: ['telegram-settings', user?.id],
     queryFn: async () => {
@@ -77,142 +88,30 @@ const TelegramNotificationSettings = () => {
     },
     enabled: !!user,
   });
+  */
 
-  // Connect Telegram account mutation
-  const connectMutation = useMutation({
-    mutationFn: async (chatId: string) => {
-      const { data, error } = await supabase
-        .from('telegram_notifications')
-        .upsert({
-          user_id: user!.id,
-          chat_id: parseInt(chatId),
-          is_active: true,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['telegram-notification'] });
-      setIsConnectDialogOpen(false);
-      setChatId('');
-      toast.success('Telegram account connected successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to connect Telegram account: ' + error.message);
-    },
-  });
-
-  // Disconnect Telegram account mutation
-  const disconnectMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from('telegram_notifications')
-        .delete()
-        .eq('user_id', user!.id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['telegram-notification'] });
-      toast.success('Telegram account disconnected successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to disconnect Telegram account: ' + error.message);
-    },
-  });
-
-  // Update settings mutation
-  const updateSettingsMutation = useMutation({
-    mutationFn: async (settings: Partial<TelegramSettings>) => {
-      const { data, error } = await supabase
-        .from('telegram_notification_settings')
-        .upsert({
-          user_id: user!.id,
-          ...settings,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['telegram-settings'] });
-      toast.success('Settings updated successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to update settings: ' + error.message);
-    },
-  });
-
-  // Toggle connection status mutation
-  const toggleConnectionMutation = useMutation({
-    mutationFn: async (isActive: boolean) => {
-      const { data, error } = await supabase
-        .from('telegram_notifications')
-        .update({ is_active: isActive })
-        .eq('user_id', user!.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['telegram-notification'] });
-      toast.success('Connection status updated!');
-    },
-    onError: (error) => {
-      toast.error('Failed to update connection status: ' + error.message);
-    },
-  });
+  // DISABLED: All mutations until telegram tables are properly set up
+  const connectMutation = { mutate: () => {}, isPending: false };
+  const disconnectMutation = { mutate: () => {}, isPending: false };
+  const updateSettingsMutation = { mutate: () => {}, isPending: false };
+  const toggleConnectionMutation = { mutate: () => {}, isPending: false };
 
   const handleConnect = () => {
-    if (!chatId.trim()) {
-      toast.error('Please enter a valid Chat ID');
-      return;
-    }
-    
-    if (isNaN(parseInt(chatId))) {
-      toast.error('Chat ID must be a number');
-      return;
-    }
-
-    setIsConnecting(true);
-    connectMutation.mutate(chatId, {
-      onSettled: () => setIsConnecting(false),
-    });
+    toast.error('Telegram integration is currently disabled - database schema mismatch');
   };
 
   const handleDisconnect = () => {
-    disconnectMutation.mutate();
+    toast.error('Telegram integration is currently disabled - database schema mismatch');
   };
 
   const handleToggleConnection = (enabled: boolean) => {
-    toggleConnectionMutation.mutate(enabled);
+    toast.error('Telegram integration is currently disabled - database schema mismatch');
   };
 
   type SettingsValue = string | boolean;
 
   const handleSettingChange = (key: keyof TelegramSettings, value: SettingsValue) => {
-    if (!telegramSettings) {
-      // Create default settings if none exist
-      updateSettingsMutation.mutate({
-        [key]: value,
-        task_reminders: true,
-        sprint_deadlines: true,
-        task_slots: true,
-        overdue_notifications: true,
-        quiet_hours_start: '22:00:00',
-        quiet_hours_end: '08:00:00',
-        timezone: 'Asia/Kolkata',
-      });
-    } else {
-      updateSettingsMutation.mutate({ [key]: value });
-    }
+    toast.error('Telegram settings are currently disabled - database schema mismatch');
   };
 
   const timezoneOptions = [

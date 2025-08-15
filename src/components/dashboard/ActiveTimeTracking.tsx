@@ -78,7 +78,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const filteredTasks = useMemo(() => {
     let filtered = runningTasks;
     
-    if (selectedRole) {
+    if (selectedRole && selectedRole !== 'all-roles') {
       const roleEmployees = employees?.filter(emp => emp.role === selectedRole).map(emp => emp.id) || [];
       filtered = filtered.filter((entry: any) => {
         // Check if the task assignee or assigner belongs to the selected role
@@ -87,7 +87,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
       });
     }
     
-    if (selectedProject) {
+    if (selectedProject && selectedProject !== 'all-projects') {
       filtered = filtered.filter((entry: any) => {
         return entry.tasks.projects.id === selectedProject;
       });
@@ -161,7 +161,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                   <SelectValue placeholder="Filter by Role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Roles</SelectItem>
+                  <SelectItem value="all-roles">All Roles</SelectItem>
                   {availableRoles.map((role) => (
                     <SelectItem key={role} value={role}>
                       {role}
@@ -171,13 +171,13 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               </Select>
 
               {/* Project Filter - Only show when role is selected */}
-              {selectedRole && (
+              {selectedRole && selectedRole !== 'all-roles' && (
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Filter by Project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Projects</SelectItem>
+                    <SelectItem value="all-projects">All Projects</SelectItem>
                     {projects?.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -188,7 +188,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               )}
 
               {/* Clear Filters Button */}
-              {(selectedRole || selectedProject) && (
+              {((selectedRole && selectedRole !== 'all-roles') || (selectedProject && selectedProject !== 'all-projects')) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -204,7 +204,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
             </div>
 
             {/* Filter Results Info */}
-            {(selectedRole || selectedProject) && (
+            {((selectedRole && selectedRole !== 'all-roles') || (selectedProject && selectedProject !== 'all-projects')) && (
               <div className="text-xs text-muted-foreground">
                 Showing {filteredTasks.length} of {runningTasks.length} running tasks
               </div>
