@@ -35,50 +35,50 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     }
   });
 
-  // Fetch projects for projects filter (when role is selected)
-  const { data: projects } = useQuery({
-    queryKey: ['projects', selectedRole],
-    queryFn: async () => {
-      if (!selectedRole) return [];
-      
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          id, 
-          name,
-          assignee_employee_id,
-          tasks!inner(
-            assignee_id,
-            assigner_id
-          )
-        `)
-        .order('name');
-      if (error) throw error;
-      
-      // Filter projects based on role
-      const roleEmployees = employees?.filter(emp => emp.role === selectedRole).map(emp => emp.id) || [];
-      return data.filter(project => 
-        roleEmployees.includes(project.assignee_employee_id) ||
-        project.tasks.some((task: any) => 
-          roleEmployees.includes(task.assignee_id) || roleEmployees.includes(task.assigner_id)
-        )
-      );
-    },
-    enabled: !!selectedRole && !!employees
-  });
+  // Get available projects from running tasks based on selected role
+  const availableProjects = useMemo(() => {
+    if (!selectedRole || !runningTasks || !employees) return [];
+    
+    const roleEmployees = employees.filter(emp => emp.role === selectedRole).map(emp => emp.id);
+    const projectsSet = new Set();
+    
+    runningTasks.forEach((entry: any) => {
+      const task = entry.tasks;
+      if (roleEmployees.includes(task.assignee_id) || roleEmployees.includes(task.assigner_id)) {
+        projectsSet.add(JSON.stringify({
+          id: task.projects.id,
+          name: task.projects.name
+        }));
+      }
+    });
+    
+    return Array.from(projectsSet).map(p => JSON.parse(p as string));
+  }, [selectedRole, runningTasks, employees]);
 
-  // Get unique roles from employees
+  // Get unique roles from running tasks only
   const availableRoles = useMemo(() => {
-    if (!employees) return [];
-    const roles = [...new Set(employees.map(emp => emp.role))];
-    return roles.filter(role => role && role !== '');
-  }, [employees]);
+    if (!runningTasks || !employees) return [];
+    const roleIds = new Set();
+    
+    runningTasks.forEach((entry: any) => {
+      const task = entry.tasks;
+      if (task.assignee_id) roleIds.add(task.assignee_id);
+      if (task.assigner_id) roleIds.add(task.assigner_id);
+    });
+    
+    const roles = employees
+      .filter(emp => roleIds.has(emp.id))
+      .map(emp => emp.role)
+      .filter(role => role && role !== '');
+    
+    return [...new Set(roles)];
+  }, [runningTasks, employees]);
 
   // Filter running tasks based on selected filters
   const filteredTasks = useMemo(() => {
     let filtered = runningTasks;
     
-    if (selectedRole && selectedRole !== 'all-roles') {
+    if (selectedRole) {
       const roleEmployees = employees?.filter(emp => emp.role === selectedRole).map(emp => emp.id) || [];
       filtered = filtered.filter((entry: any) => {
         // Check if the task assignee or assigner belongs to the selected role
@@ -154,57 +154,58 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               <span className="text-sm font-medium text-muted-foreground">Filters:</span>
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              {/* Role Filter */}
-              <Select value={selectedRole} onValueChange={handleRoleChange}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Filter by Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-roles">All Roles</SelectItem>
-                  {availableRoles.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Project Filter - Only show when role is selected */}
-              {selectedRole && selectedRole !== 'all-roles' && (
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filter by Project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all-projects">All Projects</SelectItem>
-                    {projects?.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              {/* Clear Filters Button */}
-              {((selectedRole && selectedRole !== 'all-roles') || (selectedProject && selectedProject !== 'all-projects')) && (
+            {/* Role Filter Buttons */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
-                  variant="outline"
+                  variant={selectedRole === '' ? "default" : "outline"}
                   size="sm"
-                  onClick={() => {
-                    setSelectedRole('');
-                    setSelectedProject('');
-                  }}
+                  onClick={() => handleRoleChange('')}
                   className="text-xs"
                 >
-                  Clear Filters
+                  All Roles
                 </Button>
+                {availableRoles.map((role) => (
+                  <Button
+                    key={role}
+                    variant={selectedRole === role ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleRoleChange(role)}
+                    className="text-xs"
+                  >
+                    {role}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Project Filter Buttons - Only show when role is selected */}
+              {selectedRole && (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedProject === '' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedProject('')}
+                    className="text-xs"
+                  >
+                    All Projects
+                  </Button>
+                  {availableProjects.map((project) => (
+                    <Button
+                      key={project.id}
+                      variant={selectedProject === project.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedProject(project.id)}
+                      className="text-xs"
+                    >
+                      {project.name}
+                    </Button>
+                  ))}
+                </div>
               )}
             </div>
 
             {/* Filter Results Info */}
-            {((selectedRole && selectedRole !== 'all-roles') || (selectedProject && selectedProject !== 'all-projects')) && (
+            {(selectedRole || selectedProject) && (
               <div className="text-xs text-muted-foreground">
                 Showing {filteredTasks.length} of {runningTasks.length} running tasks
               </div>
