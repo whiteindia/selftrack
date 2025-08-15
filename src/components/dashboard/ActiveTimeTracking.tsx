@@ -19,32 +19,18 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   isError,
   onRunningTaskClick
 }) => {
-  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedService, setSelectedService] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('');
-  
-  // Fetch employees for roles filter
-  const { data: employees } = useQuery({
-    queryKey: ['employees'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('id, name, role')
-        .order('name');
-      if (error) throw error;
-      return data;
-    }
-  });
 
-  // Get available projects from running tasks based on selected role
+  // Get available projects from running tasks based on selected service
   const availableProjects = useMemo(() => {
-    if (!selectedRole || !runningTasks || !employees) return [];
+    if (!selectedService || !runningTasks) return [];
     
-    const roleEmployees = employees.filter(emp => emp.role === selectedRole).map(emp => emp.id);
     const projectsSet = new Set();
     
     runningTasks.forEach((entry: any) => {
       const task = entry.tasks;
-      if (roleEmployees.includes(task.assignee_id) || roleEmployees.includes(task.assigner_id)) {
+      if (task.projects.service === selectedService) {
         projectsSet.add(JSON.stringify({
           id: task.projects.id,
           name: task.projects.name
@@ -53,52 +39,45 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     });
     
     return Array.from(projectsSet).map(p => JSON.parse(p as string));
-  }, [selectedRole, runningTasks, employees]);
+  }, [selectedService, runningTasks]);
 
-  // Get unique roles from running tasks only
-  const availableRoles = useMemo(() => {
-    if (!runningTasks || !employees) return [];
-    const roleIds = new Set();
+  // Get unique services from running tasks only
+  const availableServices = useMemo(() => {
+    if (!runningTasks) return [];
+    const servicesSet = new Set<string>();
     
     runningTasks.forEach((entry: any) => {
       const task = entry.tasks;
-      if (task.assignee_id) roleIds.add(task.assignee_id);
-      if (task.assigner_id) roleIds.add(task.assigner_id);
+      if (task.projects.service) {
+        servicesSet.add(task.projects.service);
+      }
     });
     
-    const roles = employees
-      .filter(emp => roleIds.has(emp.id))
-      .map(emp => emp.role)
-      .filter(role => role && role !== '');
-    
-    return [...new Set(roles)];
-  }, [runningTasks, employees]);
+    return Array.from(servicesSet).sort();
+  }, [runningTasks]);
 
   // Filter running tasks based on selected filters
   const filteredTasks = useMemo(() => {
     let filtered = runningTasks;
     
-    if (selectedRole) {
-      const roleEmployees = employees?.filter(emp => emp.role === selectedRole).map(emp => emp.id) || [];
+    if (selectedService) {
       filtered = filtered.filter((entry: any) => {
-        // Check if the task assignee or assigner belongs to the selected role
-        const task = entry.tasks;
-        return roleEmployees.includes(task.assignee_id) || roleEmployees.includes(task.assigner_id);
+        return entry.tasks.projects.service === selectedService;
       });
     }
     
-    if (selectedProject && selectedProject !== 'all-projects') {
+    if (selectedProject) {
       filtered = filtered.filter((entry: any) => {
         return entry.tasks.projects.id === selectedProject;
       });
     }
     
     return filtered;
-  }, [runningTasks, selectedRole, selectedProject, employees]);
+  }, [runningTasks, selectedService, selectedProject]);
 
-  const handleRoleChange = (value: string) => {
-    setSelectedRole(value);
-    setSelectedProject(''); // Reset project when role changes
+  const handleServiceChange = (value: string) => {
+    setSelectedService(value);
+    setSelectedProject(''); // Reset project when service changes
   };
   // Helper function to parse pause information from timer_metadata
   const parsePauseInfo = (timerMetadata: string | null) => {
@@ -154,32 +133,32 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               <span className="text-sm font-medium text-muted-foreground">Filters:</span>
             </div>
             
-            {/* Role Filter Buttons */}
+            {/* Service Filter Buttons */}
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant={selectedRole === '' ? "default" : "outline"}
+                  variant={selectedService === '' ? "default" : "outline"}
                   size="sm"
-                  onClick={() => handleRoleChange('')}
+                  onClick={() => handleServiceChange('')}
                   className="text-xs"
                 >
-                  All Roles
+                  All Services
                 </Button>
-                {availableRoles.map((role) => (
+                {availableServices.map((service) => (
                   <Button
-                    key={role}
-                    variant={selectedRole === role ? "default" : "outline"}
+                    key={service}
+                    variant={selectedService === service ? "default" : "outline"}
                     size="sm"
-                    onClick={() => handleRoleChange(role)}
+                    onClick={() => handleServiceChange(service)}
                     className="text-xs"
                   >
-                    {role}
+                    {service}
                   </Button>
                 ))}
               </div>
 
-              {/* Project Filter Buttons - Only show when role is selected */}
-              {selectedRole && (
+              {/* Project Filter Buttons - Only show when service is selected */}
+              {selectedService && (
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant={selectedProject === '' ? "default" : "outline"}
@@ -205,7 +184,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
             </div>
 
             {/* Filter Results Info */}
-            {(selectedRole || selectedProject) && (
+            {(selectedService || selectedProject) && (
               <div className="text-xs text-muted-foreground">
                 Showing {filteredTasks.length} of {runningTasks.length} running tasks
               </div>
