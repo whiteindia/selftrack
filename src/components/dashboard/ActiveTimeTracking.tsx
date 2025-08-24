@@ -178,18 +178,21 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {/* Hierarchical Filter Section */}
+        {/* Hierarchical Filter Section - Cascade: Services → Clients → Projects */}
         {runningTasks.length > 0 && (
           <div className="mb-4 space-y-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Filters:</span>
+              <span className="text-sm font-medium text-muted-foreground">Filters (Cascade Mode):</span>
             </div>
             
-            {/* Service Filter */}
+            {/* Step 1: Service Filter */}
             {availableServices.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium mb-2">Services ({availableServices.length})</h3>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">1</span>
+                  Services ({availableServices.length})
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {availableServices.map((service) => (
                     <Button
@@ -207,10 +210,13 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               </div>
             )}
 
-            {/* Client Filter - Only show when services are selected */}
-            {availableClients.length > 0 && (
+            {/* Step 2: Client Filter - Only show when services are selected */}
+            {selectedServices.length > 0 && availableClients.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium mb-2">Clients ({availableClients.length})</h3>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span>
+                  Clients ({availableClients.length})
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {availableClients.map((client) => (
                     <Button
@@ -228,10 +234,13 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               </div>
             )}
 
-            {/* Project Filter - Only show when clients are selected */}
-            {availableProjects.length > 0 && (
+            {/* Step 3: Project Filter - Only show when clients are selected */}
+            {selectedClients.length > 0 && availableProjects.length > 0 && (
               <div>
-                <h3 className="text-sm font-medium mb-2">Projects ({availableProjects.length})</h3>
+                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
+                  Projects ({availableProjects.length})
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {availableProjects.map((project) => (
                     <Button
@@ -251,8 +260,11 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
 
             {/* Filter Results Info */}
             {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProjects.length > 0) && (
-              <div className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
                 Showing {filteredTasks.length} of {runningTasks.length} running tasks
+                {selectedServices.length > 0 && ` | Services: ${selectedServices.length}`}
+                {selectedClients.length > 0 && ` | Clients: ${selectedClients.length}`}
+                {selectedProjects.length > 0 && ` | Projects: ${selectedProjects.length}`}
               </div>
             )}
           </div>
