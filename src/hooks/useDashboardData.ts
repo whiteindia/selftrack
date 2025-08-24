@@ -55,7 +55,8 @@ export const useDashboardData = () => {
                   projects!inner(
                     id,
                     name,
-                    clients!inner(name)
+                    service,
+                    clients!inner(id, name)
                   )
                 )
               `)
@@ -90,7 +91,8 @@ export const useDashboardData = () => {
                 projects!inner(
                   id,
                   name,
-                  clients!inner(name)
+                  service,
+                  clients!inner(id, name)
                 )
               `)
               .eq('id', entry.task_id)
