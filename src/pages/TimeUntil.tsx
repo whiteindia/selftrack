@@ -346,24 +346,25 @@ const TimeUntil = () => {
 
   return (
     <Navigation>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Time Until</h1>
-          <p className="text-gray-600">Track countdown timers for your important events</p>
+      <div className="container mx-auto px-4 py-6 max-w-full overflow-hidden">
+        <div className="mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Time Until</h1>
+          <p className="text-muted-foreground">Track countdown timers for your important events</p>
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-6">
+        <div className="space-y-4 mb-6">
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">Filters:</span>
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Filters:</span>
           </div>
           
           {/* Client Filter - only show clients with events */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 max-w-full overflow-x-auto pb-2">
             <Button
               variant={selectedClient === '' ? 'default' : 'outline'}
               size="sm"
+              className="flex-shrink-0"
               onClick={() => {
                 setSelectedClient('');
                 setSelectedProject('');
@@ -376,6 +377,7 @@ const TimeUntil = () => {
                 key={client.id}
                 variant={selectedClient === client.id ? 'default' : 'outline'}
                 size="sm"
+                className="flex-shrink-0"
                 onClick={() => {
                   setSelectedClient(client.id);
                   setSelectedProject('');
@@ -388,10 +390,11 @@ const TimeUntil = () => {
 
           {/* Project Filter - only show projects with events */}
           {selectedClient && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 max-w-full overflow-x-auto pb-2">
               <Button
                 variant={selectedProject === '' ? 'default' : 'outline'}
                 size="sm"
+                className="flex-shrink-0"
                 onClick={() => setSelectedProject('')}
               >
                 All Projects
@@ -401,6 +404,7 @@ const TimeUntil = () => {
                   key={project.id}
                   variant={selectedProject === project.id ? 'default' : 'outline'}
                   size="sm"
+                  className="flex-shrink-0"
                   onClick={() => setSelectedProject(project.id)}
                 >
                   {project.name}
@@ -629,7 +633,7 @@ const TimeUntil = () => {
 
         {/* Events Grid */}
         {!eventsLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
             {filteredEvents.map((event, index) => {
               const timeData = calculateTimeRemaining(event.deadline);
               const project = getEventProject(event);
@@ -637,10 +641,10 @@ const TimeUntil = () => {
               const isOverdue = timeData.isPast;
 
               return (
-                <Card 
+                 <Card 
                   key={event.id} 
                   className={cn(
-                    "bg-gradient-to-br text-white border-0 relative transition-all duration-300",
+                    "bg-gradient-to-br text-white border-0 relative transition-all duration-300 w-full max-w-full",
                     getCardGradient(index, isOverdue),
                     isOverdue && "ring-2 ring-red-400 transform scale-105"
                   )}
@@ -648,7 +652,7 @@ const TimeUntil = () => {
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg font-semibold text-white truncate">
+                        <CardTitle className="text-base md:text-lg font-semibold text-white truncate">
                           {event.title}
                         </CardTitle>
                         {(project || client) && (
