@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Play, Clock, Eye, Filter, Check } from 'lucide-react';
 import LiveTimer from './LiveTimer';
+import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -305,15 +306,23 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                       />
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleViewTask(entry.tasks.id)}
-                    className="h-7 px-2 text-xs flex-shrink-0"
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    View
-                  </Button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <CompactTimerControls
+                      taskId={entry.tasks.id}
+                      taskName={entry.tasks.name}
+                      entryId={entry.id}
+                      timerMetadata={entry.timer_metadata}
+                      onTimerUpdate={onRunningTaskClick}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewTask(entry.tasks.id)}
+                      className="h-6 px-2 text-xs"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
