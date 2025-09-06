@@ -204,7 +204,9 @@ const CompactTimerControls: React.FC<CompactTimerControlsProps> = ({
     return data?.timer_metadata || null;
   };
 
-  const handlePauseResume = () => {
+  const handlePauseResume = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (pauseInfo.isPaused) {
       resumeTimerMutation.mutate();
     } else {
@@ -212,7 +214,9 @@ const CompactTimerControls: React.FC<CompactTimerControlsProps> = ({
     }
   };
 
-  const handleStop = () => {
+  const handleStop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setShowCommentDialog(true);
   };
 
