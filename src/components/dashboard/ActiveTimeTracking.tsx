@@ -317,7 +317,11 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleViewTask(entry.tasks.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleViewTask(entry.tasks.id);
+                      }}
                       className="h-6 px-2 text-xs"
                     >
                       <Eye className="h-3 w-3" />
