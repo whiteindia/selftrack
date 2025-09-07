@@ -9,12 +9,26 @@ import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
+import TaskCreateDialog from '@/components/TaskCreateDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, Search, Play } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
+  const queryClient = useQueryClient();
 
   console.log('Dashboard - Current user:', user?.email, 'Role:', userRole);
+
+  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const {
     statsQuery,
@@ -23,6 +37,89 @@ const Index = () => {
   } = useDashboardData();
 
   const { activityFeedQuery } = useActivityFeed();
+
+  // Search tasks functionality
+  const searchTasks = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data: tasksData, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignee:employees!assignee_id (name),
+          assigner:employees!assigner_id (name)
+        `)
+        .ilike('name', `%${query}%`)
+        .limit(5);
+
+      if (error) throw error;
+
+      // Get project info for each task
+      const tasksWithProjects = await Promise.all(
+        (tasksData || []).map(async (task) => {
+          const { data: projectData } = await supabase
+            .rpc('get_project_info_for_task', { 
+              project_uuid: task.project_id 
+            });
+          
+          const projectInfo = projectData?.[0];
+          
+          return {
+            ...task,
+            project_name: projectInfo?.name || null,
+            project_service: projectInfo?.service || null,
+            client_name: projectInfo?.client_name || null,
+          };
+        })
+      );
+
+      setSearchResults(tasksWithProjects);
+    } catch (error) {
+      console.error('Error searching tasks:', error);
+      toast.error('Failed to search tasks');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Start task functionality
+  const startTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .update({ status: 'In Progress' })
+        .eq('id', taskId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+      toast.success('Task started!');
+      setSearchTerm('');
+      setSearchResults([]);
+    },
+    onError: (error) => {
+      console.error('Error starting task:', error);
+      toast.error('Failed to start task');
+    }
+  });
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchTasks(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Log all errors for debugging
   useEffect(() => {
@@ -98,6 +195,70 @@ const Index = () => {
           <p className="text-gray-600 mt-2">Welcome back!</p>
         </div>
 
+        {/* Quick Actions Section */}
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <Button 
+              onClick={() => setIsCreateTaskDialogOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Task
+            </Button>
+            
+            <div className="relative w-full sm:w-96">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {(searchResults.length > 0 || isSearching) && searchTerm && (
+                <Card className="absolute top-full left-0 right-0 mt-1 z-50 shadow-lg">
+                  <CardContent className="p-2">
+                    {isSearching ? (
+                      <div className="p-2 text-sm text-gray-500">Searching...</div>
+                    ) : searchResults.length > 0 ? (
+                      <div className="space-y-1">
+                        {searchResults.map((task: any) => (
+                          <div
+                            key={task.id}
+                            className="flex items-center justify-between p-2 hover:bg-gray-50 rounded text-sm"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{task.name}</div>
+                              <div className="text-gray-500 text-xs">
+                                {task.project_name} • {task.status}
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startTaskMutation.mutate(task.id)}
+                              disabled={task.status === 'Completed' || task.status === 'In Progress'}
+                              className="ml-2"
+                            >
+                              <Play className="h-3 w-3 mr-1" />
+                              Start
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-2 text-sm text-gray-500">No tasks found</div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Active Time Tracking Section */}
         <div className="mb-8">
           <ActiveTimeTracking
@@ -137,6 +298,16 @@ const Index = () => {
           isError={!!statsQuery.error} 
         />
       </div>
+
+      {/* Task Create Dialog */}
+      <TaskCreateDialog
+        isOpen={isCreateTaskDialogOpen}
+        onClose={() => setIsCreateTaskDialogOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+          setIsCreateTaskDialogOpen(false);
+        }}
+      />
     </Navigation>
   );
 };
