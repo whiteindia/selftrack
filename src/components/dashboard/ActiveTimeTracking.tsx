@@ -166,8 +166,8 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   };
 
   const handleViewTask = (taskId: string) => {
-    // Navigate to tasks page with the specific task highlighted
-    window.location.href = `/tasks?highlight=${taskId}`;
+    // Navigate to alltasks page with the specific task highlighted
+    window.location.href = `/alltasks?highlight=${taskId}`;
   };
 
   return (

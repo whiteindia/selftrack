@@ -103,7 +103,7 @@ const Index = () => {
           <ActiveTimeTracking
             runningTasks={runningTasksQuery.data || []}
             isError={!!runningTasksQuery.error}
-            onRunningTaskClick={() => navigate('/tasks')}
+            onRunningTaskClick={() => { /* stay on dashboard after timer actions */ }}
           />
         </div>
 
