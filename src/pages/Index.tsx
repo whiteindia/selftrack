@@ -89,20 +89,50 @@ const Index = () => {
 
   // Start task functionality
   const startTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .update({ status: 'In Progress' })
-        .eq('id', taskId)
+    mutationFn: async ({ taskId, taskName }: { taskId: string; taskName: string }) => {
+      // Get current employee ID
+      const { data: employee, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('email', user?.email)
+        .single();
+
+      if (empError || !employee) {
+        throw new Error('Employee record not found');
+      }
+
+      const startTime = new Date().toISOString();
+
+      // Start timer by creating a time entry
+      const { data: timeEntry, error: timeError } = await supabase
+        .from('time_entries')
+        .insert({
+          task_id: taskId,
+          employee_id: employee.id,
+          start_time: startTime,
+          entry_type: 'task',
+          timer_metadata: `Timer started for task: ${taskName}`
+        })
         .select()
         .single();
-      
-      if (error) throw error;
-      return data;
+
+      if (timeError) throw timeError;
+
+      // Ensure task status is set to In Progress
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({ status: 'In Progress' })
+        .eq('id', taskId);
+
+      if (updateError) {
+        console.error('Error updating task status:', updateError);
+      }
+
+      return timeEntry;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
-      toast.success('Task started!');
+      toast.success('Timer started!');
       setSearchTerm('');
       setSearchResults([]);
     },
@@ -239,7 +269,7 @@ const Index = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => startTaskMutation.mutate(task.id)}
+                              onClick={() => startTaskMutation.mutate({ taskId: task.id, taskName: task.name })}
                               disabled={task.status === 'Completed' || task.status === 'In Progress'}
                               className="ml-2"
                             >
