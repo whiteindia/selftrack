@@ -26,6 +26,7 @@ const Index = () => {
   console.log('Dashboard - Current user:', user?.email, 'Role:', userRole);
 
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const [isQuickTaskDialogOpen, setIsQuickTaskDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -239,7 +240,7 @@ const Index = () => {
               <Button 
                 variant="outline"
                 className="flex items-center gap-2"
-                onClick={() => {/* Quick task functionality */}}
+                onClick={() => setIsQuickTaskDialogOpen(true)}
               >
                 <Plus className="h-4 w-4" />
                 QuickTask
@@ -247,7 +248,7 @@ const Index = () => {
               <Button 
                 variant="outline"
                 size="icon"
-                onClick={() => navigate('/workloadcal')}
+                onClick={() => navigate('/workload-cal')}
                 title="Workload Calendar"
               >
                 <Calendar className="h-4 w-4" />
@@ -355,6 +356,17 @@ const Index = () => {
           queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
           setIsCreateTaskDialogOpen(false);
         }}
+      />
+
+      {/* QuickTask Dialog */}
+      <TaskCreateDialog
+        isOpen={isQuickTaskDialogOpen}
+        onClose={() => setIsQuickTaskDialogOpen(false)}
+        onSuccess={() => {
+          setIsQuickTaskDialogOpen(false);
+          navigate('/workload-cal');
+        }}
+        defaultProjectName="Miscellanious-Quick-Temp-Orglater"
       />
     </Navigation>
   );
