@@ -268,7 +268,33 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="space-y-6">
-          {/* Notes - before Main navigation */}
+          {/* Main navigation items (Dashboard, Projects only) - moved to first */}
+          {visibleMainNavItems.slice(0, 2).length > 0 && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
+              <div className="space-y-1">
+                {visibleMainNavItems.slice(0, 2).map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Notes - after Main navigation */}
           {hasPageAccess('tasks') && (
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
@@ -315,32 +341,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                </div>
              </div>
            )}
-
-          {/* Main navigation items (Dashboard, Projects only) */}
-          {visibleMainNavItems.slice(0, 2).length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
-              <div className="space-y-1">
-                {visibleMainNavItems.slice(0, 2).map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => handleMobileNavigation(item.path)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
-                        isActive(item.path)
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {shouldShowTaskforceMenu && (
             <div>
