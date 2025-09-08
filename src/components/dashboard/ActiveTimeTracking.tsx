@@ -178,7 +178,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
           Active Time Tracking
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
         {/* Hierarchical Filter Section - Cascade: Services → Clients → Projects */}
         {runningTasks.length > 0 && (
           <div className="mb-4 space-y-4">
