@@ -13,7 +13,7 @@ import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Search, Play } from 'lucide-react';
+import { Plus, Search, Play, Calendar } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -228,13 +228,31 @@ const Index = () => {
         {/* Quick Actions Section */}
         <div className="mb-8 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <Button 
-              onClick={() => setIsCreateTaskDialogOpen(true)}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Task
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => setIsCreateTaskDialogOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Task
+              </Button>
+              <Button 
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => {/* Quick task functionality */}}
+              >
+                <Plus className="h-4 w-4" />
+                QuickTask
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/workloadcal')}
+                title="Workload Calendar"
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </div>
             
             <div className="relative w-full sm:w-96">
               <div className="relative">
