@@ -11,11 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { CalendarIcon, Plus, X, Repeat, Search, ChevronDown, Filter } from 'lucide-react';
+import { CalendarIcon, Plus, X, Repeat, Search, ChevronDown, Filter, Eye } from 'lucide-react';
 import { format, addDays, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
 import TaskTimer from '@/components/TaskTimer';
+import CompactTimerControls from '@/components/dashboard/CompactTimerControls';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -898,11 +899,59 @@ const WorkloadCal = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Completed': return 'bg-green-100 text-green-800';
-      case 'In Progress': return 'bg-blue-100 text-blue-800';
-      case 'Not Started': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'Not Started':
+        return 'bg-gray-100 text-gray-600';
+      case 'In Progress':
+        return 'bg-blue-100 text-blue-600';
+      case 'Completed':
+        return 'bg-green-100 text-green-600';
+      case 'On Hold':
+        return 'bg-yellow-100 text-yellow-600';
+      case 'Cancelled':
+        return 'bg-red-100 text-red-600';
+      default:
+        return 'bg-gray-100 text-gray-600';
     }
+  };
+
+  // Fetch running tasks to check which tasks have active timers
+  const { data: runningTasks = [] } = useQuery({
+    queryKey: ['running-tasks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select(`
+          id,
+          task_id,
+          entry_type,
+          start_time,
+          timer_metadata,
+          tasks:tasks!time_entries_task_id_fkey(
+            id,
+            name,
+            projects:projects!tasks_project_id_fkey(
+              name,
+              clients:clients!projects_client_id_fkey(name)
+            )
+          )
+        `)
+        .is('end_time', null);
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const getRunningTimerEntry = (taskId: string, isSubtask?: boolean) => {
+    return runningTasks.find(entry => 
+      entry.task_id === taskId && 
+      entry.entry_type === (isSubtask ? 'subtask' : 'task')
+    );
+  };
+
+  const handleViewTask = (taskId: string) => {
+    // Navigate to alltasks page with the specific task highlighted
+    window.location.href = `/alltasks?highlight=${taskId}`;
   };
 
   const handleTimeUpdate = () => {
@@ -1539,12 +1588,39 @@ const WorkloadCal = () => {
                                       🏃 {item.task.sprint_name}
                                     </Badge>
                                   )}
-                                  <div className="pt-2 border-t border-gray-100">
+                                  <div className="pt-2 border-t border-gray-100 space-y-2">
                                     <TaskTimer
                                       taskId={item.task.id}
                                       taskName={item.task.name}
                                       onTimeUpdate={handleTimeUpdate}
                                     />
+                                    {/* Action buttons when timer is running */}
+                                    {(() => {
+                                      const runningEntry = getRunningTimerEntry(item.task.id, false);
+                                      return runningEntry ? (
+                                        <div className="flex items-center gap-2">
+                                          <CompactTimerControls
+                                            taskId={item.task.id}
+                                            taskName={item.task.name}
+                                            entryId={runningEntry.id}
+                                            timerMetadata={runningEntry.timer_metadata}
+                                            onTimerUpdate={handleTimeUpdate}
+                                          />
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleViewTask(item.task.id);
+                                            }}
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ) : null;
+                                    })()}
                                   </div>
                                 </>
                               ) : item.type === 'subtask' ? (
@@ -1567,13 +1643,41 @@ const WorkloadCal = () => {
                                   <div className="text-xs text-gray-600">
                                     {item.subtask?.client_name} || {item.subtask?.project_name}
                                   </div>
-                                  <div className="pt-2 border-t border-gray-100">
+                                  <div className="pt-2 border-t border-gray-100 space-y-2">
                                     <TaskTimer
                                       taskId={item.subtask.id}
                                       taskName={item.subtask.name}
                                       onTimeUpdate={handleTimeUpdate}
                                       isSubtask={true}
                                     />
+                                    {/* Action buttons when timer is running */}
+                                    {(() => {
+                                      const runningEntry = getRunningTimerEntry(item.subtask.id, true);
+                                      return runningEntry ? (
+                                        <div className="flex items-center gap-2">
+                                          <CompactTimerControls
+                                            taskId={item.subtask.id}
+                                            taskName={item.subtask.name}
+                                            entryId={runningEntry.id}
+                                            timerMetadata={runningEntry.timer_metadata}
+                                            onTimerUpdate={handleTimeUpdate}
+                                            isSubtask={true}
+                                          />
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleViewTask(item.subtask.id);
+                                            }}
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ) : null;
+                                    })()}
                                   </div>
                                 </>
                               ) : item.type === 'routine' ? (
