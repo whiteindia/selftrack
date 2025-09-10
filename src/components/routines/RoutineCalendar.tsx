@@ -71,10 +71,10 @@ const RoutineCalendar = ({
 
   const selectedDateRoutines = getRoutinesForDate(selectedDate);
 
-  // Generate hourly slots (6 AM to 11 PM)
+  // Generate hourly slots (full 24 hours)
   const generateHourlySlots = () => {
     const slots = [];
-    for (let hour = 6; hour <= 23; hour++) {
+    for (let hour = 0; hour < 24; hour++) {
       slots.push({
         hour,
         time: `${hour.toString().padStart(2, '0')}:00`,
