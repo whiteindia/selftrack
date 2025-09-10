@@ -13,7 +13,7 @@ import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Search, Play, Calendar } from 'lucide-react';
+import { Plus, Search, Play, Calendar, RotateCw, Clock } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -252,6 +252,22 @@ const Index = () => {
                 title="Workload Calendar"
               >
                 <Calendar className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/routines-tracker')}
+                title="Routines Tracker"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/time-until')}
+                title="Time Until"
+              >
+                <Clock className="h-4 w-4" />
               </Button>
             </div>
             
