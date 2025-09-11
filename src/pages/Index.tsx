@@ -13,7 +13,7 @@ import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Search, Play, Calendar, RotateCw, Clock } from 'lucide-react';
+import { Plus, Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -229,7 +229,7 @@ const Index = () => {
         {/* Quick Actions Section */}
         <div className="mb-8 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button 
                 onClick={() => setIsCreateTaskDialogOpen(true)}
                 className="flex items-center gap-2"
@@ -245,30 +245,80 @@ const Index = () => {
                 <Plus className="h-4 w-4" />
                 QuickTask
               </Button>
-              <Button 
-                variant="outline"
-                size="icon"
-                onClick={() => navigate('/workload-cal')}
-                title="Workload Calendar"
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline"
-                size="icon"
-                onClick={() => navigate('/routines-tracker')}
-                title="Routines Tracker"
-              >
-                <RotateCw className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline"
-                size="icon"
-                onClick={() => navigate('/time-until')}
-                title="Time Until"
-              >
-                <Clock className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-1 flex-wrap">
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/workload-cal')}
+                  title="Workload Calendar"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/routines-tracker')}
+                  title="Routines Tracker"
+                >
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/time-until')}
+                  title="Time Until"
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/sprints')}
+                  title="Sprints"
+                >
+                  <Target className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/followup-cal')}
+                  title="Followup Calendar"
+                >
+                  <CalendarCheck className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/fixed-slots')}
+                  title="Fixed Slots"
+                >
+                  <AlarmClock className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/reminders')}
+                  title="Reminders & Deadlines"
+                >
+                  <Bell className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/log-cal')}
+                  title="Log Calendar"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/timeline-slots')}
+                  title="Team Slots"
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             
             <div className="relative w-full sm:w-96">
