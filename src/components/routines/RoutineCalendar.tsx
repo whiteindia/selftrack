@@ -147,10 +147,10 @@ const RoutineCalendar = ({
     const timeSlot = formatTimeSlot(routine);
     
     return (
-      <div key={routine.id} className="border rounded-lg p-2 space-y-2 bg-white shadow-sm min-w-0 flex-shrink-0" style={{ width: 'calc(50% - 4px)' }}>
-        <div className="flex items-start justify-between gap-1">
+      <div key={routine.id} className="border rounded-lg p-3 space-y-2 bg-white shadow-sm">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-xs line-clamp-2 leading-tight">
+            <h4 className="font-medium text-sm line-clamp-1 leading-tight">
               {routine.title}
             </h4>
             {showTime && timeSlot && (
@@ -172,7 +172,7 @@ const RoutineCalendar = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-4 w-4 p-0"
+                className="h-5 w-5 p-0"
                 onClick={() => onEditRoutine(routine)}
               >
                 <Edit className="h-3 w-3" />
@@ -182,7 +182,7 @@ const RoutineCalendar = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-4 w-4 p-0 text-red-600 hover:text-red-700"
+                className="h-5 w-5 p-0 text-red-600 hover:text-red-700"
                 onClick={() => onDeleteRoutine(routine.id)}
               >
                 <Trash2 className="h-3 w-3" />
@@ -197,7 +197,7 @@ const RoutineCalendar = ({
             variant="ghost"
             size="sm"
             className={cn(
-              "h-5 w-5 p-0 rounded-full border-2 transition-all",
+              "h-6 w-6 p-0 rounded-full border-2 transition-all",
               completed 
                 ? "bg-green-500 border-green-500 text-white hover:bg-green-600" 
                 : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
@@ -306,7 +306,7 @@ const RoutineCalendar = ({
                       </div>
                       <div className="flex-1">
                         {routinesInSlot.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
+                          <div className="space-y-2">
                             {routinesInSlot.map((routine, index) => 
                               <div key={`${routine.id}-${index}`}>
                                 {renderRoutineCard(routine)}
