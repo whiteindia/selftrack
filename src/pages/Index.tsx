@@ -231,6 +231,30 @@ const Index = () => {
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/time-until')}
+                title="Time Until"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/sprints')}
+                title="Sprints"
+              >
+                <Target className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/reminders')}
+                title="Reminders & Deadlines"
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
+              <Button 
                 onClick={() => setIsCreateTaskDialogOpen(true)}
                 className="flex items-center gap-2"
               >
@@ -243,7 +267,7 @@ const Index = () => {
                 onClick={() => setIsQuickTaskDialogOpen(true)}
               >
                 <Plus className="h-4 w-4" />
-                QuickTask
+                Quick
               </Button>
               <div className="flex items-center gap-1 flex-wrap">
                 <Button 
@@ -265,23 +289,7 @@ const Index = () => {
                 <Button 
                   variant="outline"
                   size="icon"
-                  onClick={() => navigate('/time-until')}
-                  title="Time Until"
-                >
-                  <Clock className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/sprints')}
-                  title="Sprints"
-                >
-                  <Target className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/followup-cal')}
+                  onClick={() => navigate('/followupcal')}
                   title="Followup Calendar"
                 >
                   <CalendarCheck className="h-4 w-4" />
@@ -297,14 +305,6 @@ const Index = () => {
                 <Button 
                   variant="outline"
                   size="icon"
-                  onClick={() => navigate('/reminders')}
-                  title="Reminders & Deadlines"
-                >
-                  <Bell className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
                   onClick={() => navigate('/log-cal')}
                   title="Log Calendar"
                 >
@@ -313,7 +313,7 @@ const Index = () => {
                 <Button 
                   variant="outline"
                   size="icon"
-                  onClick={() => navigate('/timeline-slots')}
+                  onClick={() => navigate('/team-slots')}
                   title="Team Slots"
                 >
                   <Users className="h-4 w-4" />
