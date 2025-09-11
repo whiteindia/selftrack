@@ -1251,16 +1251,24 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b sticky top-0 z-50">
           <div className="flex justify-between items-center h-16 px-4">
-            <Drawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <DrawerTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-6 w-6" />
+            <div className="flex items-center space-x-2">
+              <Drawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+                <DrawerTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                </DrawerTrigger>
+                <DrawerContent className="h-[85vh]">
+                  <MobileMenuContent />
+                </DrawerContent>
+              </Drawer>
+              
+              <Link to="/">
+                <Button variant="ghost" size="icon" title="Home">
+                  <Home className="h-5 w-5" />
                 </Button>
-              </DrawerTrigger>
-              <DrawerContent className="h-[85vh]">
-                <MobileMenuContent />
-              </DrawerContent>
-            </Drawer>
+              </Link>
+            </div>
             
             <div className="flex items-center space-x-2">
               <DropdownMenu>
