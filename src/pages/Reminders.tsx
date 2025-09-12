@@ -496,7 +496,10 @@ const Reminders = () => {
             {/* Calendar */}
             <Card>
               <CardHeader>
-                <CardTitle>Reminders & Deadlines Calendar</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  <span className="hidden sm:inline">Reminders & Deadlines Calendar</span>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Calendar

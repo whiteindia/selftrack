@@ -68,6 +68,7 @@ const FixedSlots = () => {
         `)
         .not('slot_start_datetime', 'is', null)
         .not('slot_end_datetime', 'is', null)
+        .neq('status', 'Completed')
         .order('slot_start_datetime', { ascending: true });
 
       if (error) throw error;
@@ -295,7 +296,7 @@ const FixedSlots = () => {
             </div>
 
             {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-2 min-h-[600px]">
+            <div className="hidden md:grid grid-cols-7 gap-2 min-h-[600px]">
               {getWeekDays().map((day) => {
                 const dayTasks = getTasksForDay(day);
                 return (
@@ -316,8 +317,8 @@ const FixedSlots = () => {
                             <div className="font-medium truncate">{task.name}</div>
                             <div className="text-gray-600 truncate">{task.assignee?.name || 'Unassigned'}</div>
                             <div className="text-gray-500">
-                                                      {formatToIST(task.slot_start_datetime, 'HH:mm')} -
-                        {formatToIST(task.slot_end_datetime, 'HH:mm')}
+                              {formatToIST(task.slot_start_datetime, 'HH:mm')} -
+                              {formatToIST(task.slot_end_datetime, 'HH:mm')}
                             </div>
                             <div className="opacity-0 group-hover:opacity-100 absolute top-1 right-1 flex gap-1">
                               <Button
@@ -337,6 +338,56 @@ const FixedSlots = () => {
                       })}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile Calendar List */}
+            <div className="md:hidden space-y-4">{getWeekDays().map((day) => {
+                const dayTasks = getTasksForDay(day);
+                if (dayTasks.length === 0) return null;
+                return (
+                  <Card key={day.toISOString()}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">
+                        {format(day, 'EEEE, MMM d')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {dayTasks.map((task) => (
+                        <div key={task.id} className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="font-medium text-sm">{task.name}</div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingTask(task)}
+                              className="h-6 w-6 p-0 hover:bg-blue-100"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <div className="text-xs text-gray-600 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <User className="h-3 w-3" />
+                              <span>{task.assignee?.name || 'Unassigned'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3 w-3" />
+                              <span>
+                                {formatToIST(task.slot_start_datetime, 'HH:mm')} -
+                                {formatToIST(task.slot_end_datetime, 'HH:mm')}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3" />
+                              <span>{task.project.name}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
