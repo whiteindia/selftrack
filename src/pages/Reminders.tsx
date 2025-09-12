@@ -431,7 +431,7 @@ const Reminders = () => {
               className="flex items-center gap-2"
             >
               <List className="h-4 w-4" />
-              List
+              <span className="hidden sm:inline">List</span>
             </Button>
             <Button
               variant={viewMode === 'calendar' ? 'default' : 'outline'}
@@ -440,7 +440,7 @@ const Reminders = () => {
               className="flex items-center gap-2"
             >
               <Grid className="h-4 w-4" />
-              Calendar
+              <span className="hidden sm:inline">Calendar</span>
             </Button>
           </div>
         </div>

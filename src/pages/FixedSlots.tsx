@@ -413,12 +413,12 @@ const FixedSlots = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {filteredTasks.map((task) => (
                   <Card key={task.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
-                        <CardTitle className="text-base font-medium leading-tight">
+                        <CardTitle className="text-base font-medium leading-tight break-words min-w-0">
                           {task.name}
                         </CardTitle>
                         <Badge className={getStatusColor(task.status)} variant="secondary">
@@ -428,25 +428,25 @@ const FixedSlots = () => {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Building className="h-4 w-4" />
-                          <span>{task.project.client.name}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{task.project.client.name}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>{task.project.name}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Calendar className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{task.project.name}</span>
                         </div>
                         {task.assignee && (
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            <span>{task.assignee.name}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <User className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{task.assignee.name}</span>
                           </div>
                         )}
                         <div className="bg-blue-50 p-3 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <CalendarCheck className="h-4 w-4 text-blue-600" />
-                              <span className="font-medium text-blue-800">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <CalendarCheck className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              <span className="font-medium text-blue-800 text-xs sm:text-sm">
                                 {formatDuration(task.slot_start_datetime, task.slot_end_datetime)} Slot
                               </span>
                             </div>
@@ -454,20 +454,20 @@ const FixedSlots = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => setEditingTask(task)}
-                              className="h-6 w-6 p-0 hover:bg-blue-100"
+                              className="h-6 w-6 p-0 hover:bg-blue-100 flex-shrink-0"
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
                           </div>
                           <div className="text-xs text-blue-600 space-y-1">
-                            <div>Start: {formatToIST(task.slot_start_datetime, 'PPp')}</div>
-                            <div>End: {formatToIST(task.slot_end_datetime, 'PPp')}</div>
+                            <div className="break-all">Start: {formatToIST(task.slot_start_datetime, 'PPp')}</div>
+                            <div className="break-all">End: {formatToIST(task.slot_end_datetime, 'PPp')}</div>
                           </div>
                         </div>
                         {task.deadline && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-red-500" />
-                            <span>Due: {formatToIST(task.deadline, 'PP')}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Clock className="h-4 w-4 text-red-500 flex-shrink-0" />
+                            <span className="truncate">Due: {formatToIST(task.deadline, 'PP')}</span>
                           </div>
                         )}
                       </div>
