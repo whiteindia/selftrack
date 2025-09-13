@@ -1588,7 +1588,12 @@ const WorkloadCal = () => {
                                       🏃 {item.task.sprint_name}
                                     </Badge>
                                   )}
-                                  <div className="pt-2 border-t border-gray-100">
+                                  <div className="pt-2 border-t border-gray-100 space-y-2">
+                                    <TaskTimer
+                                      taskId={item.task.id}
+                                      taskName={item.task.name}
+                                      onTimeUpdate={handleTimeUpdate}
+                                    />
                                     {(() => {
                                       const runningEntry = getRunningTimerEntry(item.task.id, false);
                                       return runningEntry ? (
@@ -1646,7 +1651,13 @@ const WorkloadCal = () => {
                                   <div className="text-xs text-gray-600">
                                     {item.subtask?.client_name} || {item.subtask?.project_name}
                                   </div>
-                                  <div className="pt-2 border-t border-gray-100">
+                                  <div className="pt-2 border-t border-gray-100 space-y-2">
+                                    <TaskTimer
+                                      taskId={item.subtask.id}
+                                      taskName={item.subtask.name}
+                                      onTimeUpdate={handleTimeUpdate}
+                                      isSubtask={true}
+                                    />
                                     {(() => {
                                       const runningEntry = getRunningTimerEntry(item.subtask.id, true);
                                       return runningEntry ? (
