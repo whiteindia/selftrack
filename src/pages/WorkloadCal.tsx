@@ -15,6 +15,7 @@ import { CalendarIcon, Plus, X, Repeat, Search, ChevronDown, Filter, Eye } from 
 import { format, addDays, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
+import TaskTimer from '@/components/TaskTimer';
 import CompactTimerControls from '@/components/dashboard/CompactTimerControls';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -1587,7 +1588,12 @@ const WorkloadCal = () => {
                                       🏃 {item.task.sprint_name}
                                     </Badge>
                                   )}
-                                  <div className="pt-2 border-t border-gray-100">
+                                  <div className="pt-2 border-t border-gray-100 space-y-2">
+                                    <TaskTimer
+                                      taskId={item.task.id}
+                                      taskName={item.task.name}
+                                      onTimeUpdate={handleTimeUpdate}
+                                    />
                                     {(() => {
                                       const runningEntry = getRunningTimerEntry(item.task.id, false);
                                       return runningEntry ? (
@@ -1619,7 +1625,7 @@ const WorkloadCal = () => {
                                           onClick={() => handleViewTask(item.task.id)}
                                           className="h-6 px-2 text-xs"
                                         >
-                                          View Task
+                                          <Eye className="h-3 w-3" />
                                         </Button>
                                       );
                                     })()}
@@ -1645,7 +1651,13 @@ const WorkloadCal = () => {
                                   <div className="text-xs text-gray-600">
                                     {item.subtask?.client_name} || {item.subtask?.project_name}
                                   </div>
-                                  <div className="pt-2 border-t border-gray-100">
+                                  <div className="pt-2 border-t border-gray-100 space-y-2">
+                                    <TaskTimer
+                                      taskId={item.subtask.id}
+                                      taskName={item.subtask.name}
+                                      onTimeUpdate={handleTimeUpdate}
+                                      isSubtask={true}
+                                    />
                                     {(() => {
                                       const runningEntry = getRunningTimerEntry(item.subtask.id, true);
                                       return runningEntry ? (
@@ -1678,7 +1690,7 @@ const WorkloadCal = () => {
                                           onClick={() => handleViewTask(item.subtask.id)}
                                           className="h-6 px-2 text-xs"
                                         >
-                                          View Subtask
+                                          <Eye className="h-3 w-3" />
                                         </Button>
                                       );
                                     })()}
