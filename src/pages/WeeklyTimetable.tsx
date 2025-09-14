@@ -43,6 +43,7 @@ export default function WeeklyTimetable() {
   const [selectedCell, setSelectedCell] = useState<{ day: number; shift: number } | null>(null);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [mobileDayOffset, setMobileDayOffset] = useState(0); // For mobile 2-day navigation
   
   const queryClient = useQueryClient();
   const weekStart = startOfWeek(currentWeek);
@@ -211,6 +212,24 @@ export default function WeeklyTimetable() {
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     setCurrentWeek(prev => direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1));
+    setMobileDayOffset(0); // Reset mobile offset when changing weeks
+  };
+
+  const navigateMobileDays = (direction: 'prev' | 'next') => {
+    setMobileDayOffset(prev => {
+      const newOffset = direction === 'next' ? prev + 2 : prev - 2;
+      // Keep within bounds (0-6 for days of week)
+      return Math.max(0, Math.min(5, newOffset));
+    });
+  };
+
+  // Get days to display based on viewport
+  const getDisplayDays = () => {
+    return DAYS_OF_WEEK.slice(mobileDayOffset, mobileDayOffset + 2);
+  };
+
+  const getMobileDayIndices = () => {
+    return [mobileDayOffset, mobileDayOffset + 1].filter(i => i < 7);
   };
 
   if (projectsLoading || assignmentsLoading) {
@@ -227,30 +246,77 @@ export default function WeeklyTimetable() {
     <Navigation>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Weekly Timetable</h1>
-            <p className="text-muted-foreground mt-2">
-              Week of {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold">Weekly Timetable</h1>
+              <p className="text-muted-foreground mt-2">
+                Week of {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+              </p>
+            </div>
+            
+            {/* Desktop week navigation */}
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant="outline" onClick={() => navigateWeek('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentWeek(new Date())}>
+                Today
+              </Button>
+              <Button variant="outline" onClick={() => navigateWeek('next')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigateWeek('prev')}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" onClick={() => setCurrentWeek(new Date())}>
-              Today
-            </Button>
-            <Button variant="outline" onClick={() => navigateWeek('next')}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+
+          {/* Mobile navigation controls */}
+          <div className="flex md:hidden items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentWeek(new Date())}>
+                Today
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigateWeek('next')}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Mobile day navigation */}
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigateMobileDays('prev')}
+                disabled={mobileDayOffset === 0}
+              >
+                ←
+              </Button>
+              <span className="text-sm font-medium px-2">
+                {getDisplayDays().map((day, index) => (
+                  <span key={day}>
+                    {day.slice(0, 3)}
+                    {index < getDisplayDays().length - 1 && ' • '}
+                  </span>
+                ))}
+              </span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigateMobileDays('next')}
+                disabled={mobileDayOffset >= 5}
+              >
+                →
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Timetable Grid */}
-        <Card className="p-6">
-          <div className="grid grid-cols-8 gap-1">
+        <Card className="p-3 md:p-6">
+          {/* Desktop Grid - 7 days */}
+          <div className="hidden md:grid grid-cols-8 gap-1">
             {/* Header Row */}
             <div className="p-3 font-medium text-center bg-muted rounded">
               Time
@@ -297,6 +363,63 @@ export default function WeeklyTimetable() {
                       ) : (
                         <div className="flex items-center justify-center h-full">
                           <Plus className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Mobile Grid - 2 days */}
+          <div className="md:hidden grid grid-cols-3 gap-1">
+            {/* Header Row */}
+            <div className="p-2 font-medium text-center bg-muted rounded text-xs">
+              Time
+            </div>
+            {getMobileDayIndices().map((dayIndex) => (
+              <div key={dayIndex} className="p-2 font-medium text-center bg-muted rounded">
+                <div className="text-xs">{DAYS_OF_WEEK[dayIndex]}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {format(addDays(weekStart, dayIndex), 'MMM d')}
+                </div>
+              </div>
+            ))}
+
+            {/* Shift Rows */}
+            {SHIFT_TIMES.map((time, shiftIndex) => (
+              <React.Fragment key={shiftIndex}>
+                {/* Time Label */}
+                <div className="p-2 text-[10px] font-medium text-center bg-muted rounded flex items-center justify-center">
+                  {time}
+                </div>
+                
+                {/* Day Cells */}
+                {getMobileDayIndices().map((dayIndex) => {
+                  const assignment = getAssignmentForCell(dayIndex, shiftIndex + 1);
+                  
+                  return (
+                    <div
+                      key={`${dayIndex}-${shiftIndex}`}
+                      className="min-h-[70px] border-2 border-dashed border-border rounded cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors p-1 flex flex-col"
+                      onClick={() => handleCellClick(dayIndex, shiftIndex + 1)}
+                    >
+                      {assignment ? (
+                        <div className="text-[9px] space-y-0.5">
+                          <Badge variant="secondary" className="text-[8px] px-0.5 py-0">
+                            {assignment.project.service.slice(0, 8)}...
+                          </Badge>
+                          <div className="font-medium text-[8px] text-muted-foreground">
+                            {assignment.project.clients.name.slice(0, 10)}...
+                          </div>
+                          <div className="font-semibold text-[9px] text-foreground">
+                            {assignment.project.name.slice(0, 15)}...
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <Plus className="h-3 w-3 text-muted-foreground" />
                         </div>
                       )}
                     </div>
