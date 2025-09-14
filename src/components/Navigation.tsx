@@ -133,6 +133,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   ];
 
   const goalTrackItems = [
+    { path: '/weekly-timetable', label: 'Weekly Timetable', icon: Calendar, pageName: 'weekly-timetable' },
     { path: '/time-until', label: 'Time Until', icon: Clock, pageName: 'time-until' },
     { path: '/routines-tracker', label: 'Routines Tracker', icon: Target, pageName: 'routines-tracker', requireAdmin: true },
   ];
@@ -141,7 +142,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/followupcal', label: 'FollowupCal', icon: CalendarCheck, pageName: 'followupcal' },
     { path: '/fixed-slots', label: 'Fixed Slots', icon: CalendarCheck, pageName: 'fixed-slots' },
     { path: '/reminders', label: 'Reminders-DLs', icon: Bell, pageName: 'reminders' },
-    { path: '/weekly-timetable', label: 'Weekly Timetable', icon: Calendar, pageName: 'weekly-timetable' },
   ];
 
   const trakTeamItems = [

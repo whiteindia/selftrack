@@ -241,6 +241,14 @@ const Index = () => {
               <Button 
                 variant="outline"
                 size="icon"
+                onClick={() => navigate('/weekly-timetable')}
+                title="Weekly Timetable"
+              >
+                <Calendar className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
                 onClick={() => navigate('/sprints')}
                 title="Sprints"
               >
