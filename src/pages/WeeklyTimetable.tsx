@@ -241,6 +241,14 @@ export default function WeeklyTimetable() {
     return p ? `${p.name}` : '';
   };
 
+  // Determine current IST day and 4-hour shift
+  const IST_TZ = 'Asia/Kolkata';
+  const istNow = toZonedTime(new Date(), IST_TZ);
+  const istCurrentDayIndex = istNow.getDay();
+  const istCurrentShiftNumber = Math.floor(istNow.getHours() / 4) + 1; // 1..6
+  const isCurrentWeekIST = formatInTimeZone(startOfWeek(istNow), IST_TZ, 'yyyy-MM-dd') === formatInTimeZone(weekStart, IST_TZ, 'yyyy-MM-dd');
+  const isCurrentISTShift = (dayIndex: number, shiftNumber: number) => isCurrentWeekIST && dayIndex === istCurrentDayIndex && shiftNumber === istCurrentShiftNumber;
+
   if (projectsLoading || assignmentsLoading) {
     return (
       <Navigation>
@@ -344,7 +352,7 @@ export default function WeeklyTimetable() {
               <React.Fragment key={shiftIndex}>
                 {/* Time Label */}
                 <div className={`p-3 text-sm font-medium text-center rounded flex items-center justify-center ${
-                  isDisplayedWeekCurrentIST && (shiftIndex + 1) === istCurrentShiftNumber ? 'bg-blue-50 text-blue-700' : 'bg-muted'
+                  isCurrentWeekIST && (shiftIndex + 1) === istCurrentShiftNumber ? 'bg-blue-50 text-blue-700' : 'bg-muted'
                 }`}>
                   {time}
                 </div>
@@ -406,7 +414,7 @@ export default function WeeklyTimetable() {
               <React.Fragment key={shiftIndex}>
                 {/* Time Label */}
                 <div className={`p-2 text-[10px] font-medium text-center rounded flex items-center justify-center ${
-                  isDisplayedWeekCurrentIST && (shiftIndex + 1) === istCurrentShiftNumber ? 'bg-blue-50 text-blue-700' : 'bg-muted'
+                  isCurrentWeekIST && (shiftIndex + 1) === istCurrentShiftNumber ? 'bg-blue-50 text-blue-700' : 'bg-muted'
                 }`}>
                   {time}
                 </div>
