@@ -35,7 +35,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Check,
-  Plus,
   Shield,
   X,
   Code,
@@ -66,7 +65,6 @@ import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useReminderNotifications } from '@/hooks/useReminderNotifications';
 import NotificationBadge from '@/components/NotificationBadge';
-import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { useNavigate } from 'react-router-dom';
 import { formatToIST } from '@/utils/timezoneUtils';
 
@@ -76,7 +74,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const [isQuickTaskDialogOpen, setIsQuickTaskDialogOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
 
@@ -111,9 +108,9 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     }
   };
 
+  // Reordered: show Notes before Projects by splitting main tabs and injecting Notes after Home
   const mainNavItems = [
     { path: '/', label: 'Home', icon: Home, pageName: 'dashboard' },
-    { path: '/projects', label: 'Projects', icon: FolderOpen, pageName: 'projects' },
   ];
   const sprintsNavItem = { path: '/sprints', label: 'Sprints', icon: Calendar, pageName: 'sprints' };
 
@@ -139,6 +136,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   ];
 
   const plannerItems = [
+    { path: '/workload-cal', label: 'WorkloadCal', icon: CalendarDays, pageName: 'workload-cal' },
     { path: '/followupcal', label: 'FollowupCal', icon: CalendarCheck, pageName: 'followupcal' },
     { path: '/fixed-slots', label: 'Fixed Slots', icon: CalendarCheck, pageName: 'fixed-slots' },
     { path: '/reminders', label: 'Reminders-DLs', icon: Bell, pageName: 'reminders' },
@@ -269,12 +267,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       </div>
       <ScrollArea className="flex-1 px-4 py-4">
         <div className="space-y-6">
-          {/* Main navigation items (Dashboard, Projects only) - moved to first */}
-          {visibleMainNavItems.slice(0, 2).length > 0 && (
+          {/* Main navigation items (Dashboard only) - Projects moved after Notes */}
+          {visibleMainNavItems.slice(0, 1).length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Main</h3>
               <div className="space-y-1">
-                {visibleMainNavItems.slice(0, 2).map((item) => {
+                {visibleMainNavItems.slice(0, 1).map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
@@ -295,7 +293,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             </div>
           )}
 
-          {/* Notes - after Main navigation */}
+          {/* Notes - after Main navigation, before Projects */}
           {hasPageAccess('tasks') && (
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Notes</h3>
@@ -317,31 +315,29 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     </button>
                   );
                 })}
-                 <Button
-                   className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors bg-green-600 hover:bg-green-700 text-white"
-                   onClick={() => setIsQuickTaskDialogOpen(true)}
-                 >
-                   <Plus className="h-4 w-4" />
-                   <span>QuickTask</span>
-                 </Button>
-                 
-                 {/* WorkloadCal - added to mobile navigation */}
-                 {hasPageAccess('workload-cal') && (
-                   <button
-                     onClick={() => handleMobileNavigation('/workload-cal')}
-                     className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
-                       isActive('/workload-cal')
-                         ? 'bg-blue-100 text-blue-700'
-                         : 'text-gray-700 hover:bg-gray-100'
-                     }`}
-                   >
-                     <CalendarDays className="h-4 w-4" />
-                     <span>WorkloadCal</span>
-                   </button>
-                 )}
-               </div>
-             </div>
-           )}
+              </div>
+            </div>
+          )}
+
+          {/* Projects - moved after Notes */}
+          {hasPageAccess('projects') && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Projects</h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => handleMobileNavigation('/projects')}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
+                    isActive('/projects')
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  <span>Projects</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {shouldShowTaskforceMenu && (
             <div>
@@ -576,7 +572,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
           <div className="hidden md:flex items-center space-x-2 flex-1 justify-center min-w-0 overflow-hidden">
-            {/* Main navigation items (Home, Projects only) */}
+            {/* Main navigation: Home */}
             {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -595,7 +591,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               );
             })}
 
-            {/* Notes - dropdown menu, after Projects */}
+            {/* Notes - dropdown menu, moved before Projects */}
             {hasPageAccess('tasks') && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -628,29 +624,19 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               </DropdownMenu>
             )}
 
-            {/* QuickTask - icon only, next to Sticky Notes */}
-            {hasPageAccess('tasks') && (
-              <Button
-                className="flex items-center justify-center w-8 h-8 rounded-md text-sm font-medium transition-colors flex-shrink-0 bg-green-600 hover:bg-green-700 text-white"
-                onClick={() => setIsQuickTaskDialogOpen(true)}
-                title="QuickTask"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
-
-            {/* WorkloadCal - icon only, after Sticky Notes */}
-            {hasPageAccess('workload-cal') && (
+            {/* Projects - moved to after Notes */}
+            {hasPageAccess('projects') && (
               <Link
-                to="/workload-cal"
-                className={`flex items-center justify-center w-8 h-8 rounded-md text-sm font-medium transition-colors flex-shrink-0 border ${
-                  isActive('/workload-cal')
-                    ? 'bg-blue-100 text-blue-700 border-blue-300'
-                    : 'text-gray-700 hover:bg-gray-100 border-gray-200'
+                key="/projects"
+                to="/projects"
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
+                  isActive('/projects')
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
                 }`}
-                title="Workload Calendar"
               >
-                <CalendarDays className="h-4 w-4" />
+                <FolderOpen className="h-4 w-4" />
+                <span>Projects</span>
               </Link>
             )}
             
@@ -1561,17 +1547,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
         <main className="w-full">
           {children}
         </main>
-        
-        {/* QuickTask Dialog for Mobile */}
-        <TaskCreateDialog
-          isOpen={isQuickTaskDialogOpen}
-          onClose={() => setIsQuickTaskDialogOpen(false)}
-          onSuccess={() => {
-            setIsQuickTaskDialogOpen(false);
-            navigate('/workload-cal');
-          }}
-          defaultProjectName="Miscellanious-Quick-Temp-Orglater"
-        />
       </div>
     );
   }
@@ -1582,17 +1557,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
       <main className="w-full">
         {children}
       </main>
-      
-      {/* QuickTask Dialog */}
-      <TaskCreateDialog
-        isOpen={isQuickTaskDialogOpen}
-        onClose={() => setIsQuickTaskDialogOpen(false)}
-        onSuccess={() => {
-          setIsQuickTaskDialogOpen(false);
-          navigate('/workload-cal');
-        }}
-        defaultProjectName="Miscellanious-Quick-Temp-Orglater"
-      />
     </div>
   );
 };

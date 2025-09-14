@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { format, startOfWeek, addDays, addWeeks, subWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -44,6 +46,7 @@ export default function WeeklyTimetable() {
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [mobileDayOffset, setMobileDayOffset] = useState(0); // For mobile 2-day navigation
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   
   const queryClient = useQueryClient();
   const weekStart = startOfWeek(currentWeek);
@@ -231,6 +234,11 @@ export default function WeeklyTimetable() {
   const getMobileDayIndices = () => {
     return [mobileDayOffset, mobileDayOffset + 1].filter(i => i < 7);
   };
+  
+  const getSelectedProjectLabel = () => {
+    const p = projects.find(pr => pr.id === selectedProject);
+    return p ? `${p.name}` : '';
+  };
 
   if (projectsLoading || assignmentsLoading) {
     return (
@@ -402,19 +410,19 @@ export default function WeeklyTimetable() {
                   return (
                     <div
                       key={`${dayIndex}-${shiftIndex}`}
-                      className="min-h-[70px] border-2 border-dashed border-border rounded cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors p-1 flex flex-col"
+                      className="min-h-[70px] border-2 border-dashed border-border rounded cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors p-1 flex flex-col items-stretch"
                       onClick={() => handleCellClick(dayIndex, shiftIndex + 1)}
                     >
                       {assignment ? (
-                        <div className="text-[9px] space-y-0.5">
-                          <Badge variant="secondary" className="text-[8px] px-0.5 py-0">
-                            {assignment.project.service.slice(0, 8)}...
+                        <div className="text-[9px] space-y-0.5 w-full text-left">
+                          <Badge variant="secondary" className="text-[8px] px-0.5 py-0 w-max">
+                            {assignment.project.service}
                           </Badge>
-                          <div className="font-medium text-[8px] text-muted-foreground">
-                            {assignment.project.clients.name.slice(0, 10)}...
+                          <div className="font-medium text-[8px] text-muted-foreground whitespace-normal break-words leading-tight">
+                            {assignment.project.clients.name}
                           </div>
-                          <div className="font-semibold text-[9px] text-foreground">
-                            {assignment.project.name.slice(0, 15)}...
+                          <div className="font-semibold text-[9px] text-foreground whitespace-normal break-words leading-tight">
+                            {assignment.project.name}
                           </div>
                         </div>
                       ) : (
@@ -445,23 +453,38 @@ export default function WeeklyTimetable() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">Select Project</label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a project..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex flex-col">
-                          <div className="font-medium">{project.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {project.service} • {project.clients.name}
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={projectPickerOpen} onOpenChange={setProjectPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={projectPickerOpen} className="w-full justify-between">
+                      {getSelectedProjectLabel() || 'Choose a project...'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" align="start" avoidCollisions={false} className="w-[90vw] sm:w-[420px] p-0 max-h-[70vh] overflow-hidden">
+                    <Command className="[&_[cmdk-input-wrapper]]:sticky [&_[cmdk-input-wrapper]]:top-0 [&_[cmdk-input-wrapper]]:z-10 [&_[cmdk-input-wrapper]]:bg-popover">
+                      <CommandInput autoFocus placeholder="Search projects..." />
+                      <CommandList className="max-h-[60vh] sm:max-h-[300px]">
+                        <CommandEmpty>No matching projects.</CommandEmpty>
+                        <CommandGroup>
+                          {projects.map((project) => (
+                            <CommandItem
+                              key={project.id}
+                              value={`${project.name} ${project.service} ${project.clients.name}`}
+                              onSelect={() => {
+                                setSelectedProject(project.id);
+                                setProjectPickerOpen(false);
+                              }}
+                            >
+                              <div className="flex flex-col">
+                                <div className="font-medium text-sm">{project.name}</div>
+                                <div className="text-xs text-muted-foreground">{project.service} • {project.clients.name}</div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="flex gap-2 justify-end">
