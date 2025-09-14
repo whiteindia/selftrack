@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { toZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
@@ -342,7 +343,9 @@ export default function WeeklyTimetable() {
             {SHIFT_TIMES.map((time, shiftIndex) => (
               <React.Fragment key={shiftIndex}>
                 {/* Time Label */}
-                <div className="p-3 text-sm font-medium text-center bg-muted rounded flex items-center justify-center">
+                <div className={`p-3 text-sm font-medium text-center rounded flex items-center justify-center ${
+                  isDisplayedWeekCurrentIST && (shiftIndex + 1) === istCurrentShiftNumber ? 'bg-blue-50 text-blue-700' : 'bg-muted'
+                }`}>
                   {time}
                 </div>
                 
@@ -350,10 +353,13 @@ export default function WeeklyTimetable() {
                 {DAYS_OF_WEEK.map((_, dayIndex) => {
                   const assignment = getAssignmentForCell(dayIndex, shiftIndex + 1);
                   
+                  const highlight = isCurrentISTShift(dayIndex, shiftIndex + 1);
                   return (
                     <div
                       key={`${dayIndex}-${shiftIndex}`}
-                      className="min-h-[80px] border-2 border-dashed border-border rounded cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors p-2 flex flex-col"
+                      className={`min-h-[80px] border-2 border-dashed rounded cursor-pointer transition-colors p-2 flex flex-col hover:border-primary/50 hover:bg-accent/50 ${
+                        highlight ? 'bg-blue-50 border-blue-400' : 'border-border'
+                      }`}
                       onClick={() => handleCellClick(dayIndex, shiftIndex + 1)}
                     >
                       {assignment ? (
@@ -399,7 +405,9 @@ export default function WeeklyTimetable() {
             {SHIFT_TIMES.map((time, shiftIndex) => (
               <React.Fragment key={shiftIndex}>
                 {/* Time Label */}
-                <div className="p-2 text-[10px] font-medium text-center bg-muted rounded flex items-center justify-center">
+                <div className={`p-2 text-[10px] font-medium text-center rounded flex items-center justify-center ${
+                  isDisplayedWeekCurrentIST && (shiftIndex + 1) === istCurrentShiftNumber ? 'bg-blue-50 text-blue-700' : 'bg-muted'
+                }`}>
                   {time}
                 </div>
                 
@@ -407,10 +415,13 @@ export default function WeeklyTimetable() {
                 {getMobileDayIndices().map((dayIndex) => {
                   const assignment = getAssignmentForCell(dayIndex, shiftIndex + 1);
                   
+                  const highlight = isCurrentISTShift(dayIndex, shiftIndex + 1);
                   return (
                     <div
                       key={`${dayIndex}-${shiftIndex}`}
-                      className="min-h-[70px] border-2 border-dashed border-border rounded cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors p-1 flex flex-col items-stretch"
+                      className={`min-h-[70px] border-2 border-dashed rounded cursor-pointer transition-colors p-1 flex flex-col items-stretch hover:border-primary/50 hover:bg-accent/50 ${
+                        highlight ? 'bg-blue-50 border-blue-400' : 'border-border'
+                      }`}
                       onClick={() => handleCellClick(dayIndex, shiftIndex + 1)}
                     >
                       {assignment ? (
@@ -460,9 +471,9 @@ export default function WeeklyTimetable() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent side="bottom" align="start" avoidCollisions={false} className="w-[90vw] sm:w-[420px] p-0 max-h-[70vh] overflow-hidden">
-                    <Command className="[&_[cmdk-input-wrapper]]:sticky [&_[cmdk-input-wrapper]]:top-0 [&_[cmdk-input-wrapper]]:z-10 [&_[cmdk-input-wrapper]]:bg-popover">
+                    <Command className="max-h-[70vh] overflow-y-auto [&_[cmdk-input-wrapper]]:sticky [&_[cmdk-input-wrapper]]:top-0 [&_[cmdk-input-wrapper]]:z-10 [&_[cmdk-input-wrapper]]:bg-popover">
                       <CommandInput autoFocus placeholder="Search projects..." />
-                      <CommandList className="max-h-[60vh] sm:max-h-[300px]">
+                      <CommandList className="max-h-none overflow-visible">
                         <CommandEmpty>No matching projects.</CommandEmpty>
                         <CommandGroup>
                           {projects.map((project) => (
