@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -1420,6 +1420,111 @@ export type Database = {
           },
         ]
       }
+      telegram_bot_config: {
+        Row: {
+          bot_token: string
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          webhook_url: string | null
+        }
+        Insert: {
+          bot_token: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          bot_token?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      telegram_notification_settings: {
+        Row: {
+          created_at: string
+          id: string
+          overdue_notifications: boolean
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          sprint_deadlines: boolean
+          task_reminders: boolean
+          task_slots: boolean
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          overdue_notifications?: boolean
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          sprint_deadlines?: boolean
+          task_reminders?: boolean
+          task_slots?: boolean
+          timezone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          overdue_notifications?: boolean
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          sprint_deadlines?: boolean
+          task_reminders?: boolean
+          task_slots?: boolean
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_notifications: {
+        Row: {
+          chat_id: number
+          created_at: string
+          first_name: string | null
+          id: string
+          is_active: boolean
+          last_name: string | null
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          first_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_name?: string | null
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          first_name?: string | null
+          id?: string
+          is_active?: boolean
+          last_name?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       time_entries: {
         Row: {
           comment: string | null
@@ -1524,6 +1629,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      timetable_assignments: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          project_id: string
+          shift_number: number
+          updated_at: string
+          user_id: string
+          week_start_date: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          project_id: string
+          shift_number: number
+          updated_at?: string
+          user_id: string
+          week_start_date: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          project_id?: string
+          shift_number?: number
+          updated_at?: string
+          user_id?: string
+          week_start_date?: string
+        }
+        Relationships: []
       }
       trada_note_tags: {
         Row: {
@@ -1705,13 +1843,13 @@ export type Database = {
       }
       create_invoice_with_tasks: {
         Args: {
-          p_invoice_id: string
-          p_client_id: string
-          p_project_id: string
           p_amount: number
-          p_hours: number
-          p_rate: number
+          p_client_id: string
           p_due_date: string
+          p_hours: number
+          p_invoice_id: string
+          p_project_id: string
+          p_rate: number
           p_task_ids: string[]
         }
         Returns: Json
@@ -1723,23 +1861,23 @@ export type Database = {
       get_active_projects_for_invoicing: {
         Args: Record<PropertyKey, never>
         Returns: {
-          id: string
-          name: string
-          status: string
           client_id: string
           client_name: string
-          service: string
-          type: string
+          id: string
+          name: string
           project_amount: number
+          service: string
+          status: string
+          type: string
         }[]
       }
       get_completed_tasks_for_invoicing: {
         Args: { project_uuid: string }
         Returns: {
+          hourly_rate: number
+          hours: number
           id: string
           name: string
-          hours: number
-          hourly_rate: number
         }[]
       }
       get_current_user_employee_id: {
@@ -1749,18 +1887,18 @@ export type Database = {
       get_invoice_tasks: {
         Args: { invoice_id_param: string }
         Returns: {
+          hours: number
           id: string
           name: string
-          hours: number
         }[]
       }
       get_project_info_for_task: {
         Args: { project_uuid: string }
         Returns: {
+          client_name: string
           id: string
           name: string
           service: string
-          client_name: string
         }[]
       }
       get_role_available_pages: {
@@ -1786,11 +1924,11 @@ export type Database = {
         Returns: string
       }
       has_role: {
-        Args: { _user_id: string; _role: string }
+        Args: { _role: string; _user_id: string }
         Returns: boolean
       }
       is_rls_enabled: {
-        Args: { role_name: string; page_name: string }
+        Args: { page_name: string; role_name: string }
         Returns: boolean
       }
       setup_admin_user: {

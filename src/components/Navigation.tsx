@@ -141,6 +141,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/followupcal', label: 'FollowupCal', icon: CalendarCheck, pageName: 'followupcal' },
     { path: '/fixed-slots', label: 'Fixed Slots', icon: CalendarCheck, pageName: 'fixed-slots' },
     { path: '/reminders', label: 'Reminders-DLs', icon: Bell, pageName: 'reminders' },
+    { path: '/weekly-timetable', label: 'Weekly Timetable', icon: Calendar, pageName: 'weekly-timetable' },
   ];
 
   const trakTeamItems = [

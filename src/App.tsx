@@ -37,6 +37,7 @@ import FollowupCal from '@/pages/FollowupCal';
 import StickyNotes from "./pages/StickyNotes";
 import CodiNotes from "./pages/CodiNotes";
 import TradaNotes from "./pages/TradaNotes";
+import WeeklyTimetable from "./pages/WeeklyTimetable";
 import TelegramBotAdmin from "./pages/TelegramBotAdmin";
 import TelegramNotificationSettings from './components/TelegramNotificationSettings';
 
@@ -79,6 +80,7 @@ function App() {
                 <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
                 <Route path="/time-until" element={<ProtectedRoute><TimeUntil /></ProtectedRoute>} />
                 <Route path="/routines-tracker" element={<ProtectedRoute requireAdmin><RoutinesTracker /></ProtectedRoute>} />
+                <Route path="/weekly-timetable" element={<ProtectedRoute><WeeklyTimetable /></ProtectedRoute>} />
                 <Route path="/followupcal" element={
                   <ProtectedRoute>
                     <FollowupCal />
