@@ -290,13 +290,15 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                 key={entry.id}
                 className="p-3 border rounded-lg bg-green-50 border-green-200"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0 mr-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-green-900 text-sm leading-tight truncate" title={entry.tasks.name}>{entry.tasks.name}</h4>
                     <p className="text-xs text-green-700 mt-1 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
                       {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
                     </p>
-                    <div className="flex items-center gap-2 mt-2">
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       <Badge variant="default" className={`text-xs ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
                         {isPaused(entry) ? 'Paused' : 'Running'}
                       </Badge>
@@ -305,27 +307,27 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                         timerMetadata={entry.timer_metadata}
                       />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <CompactTimerControls
-                      taskId={entry.tasks.id}
-                      taskName={entry.tasks.name}
-                      entryId={entry.id}
-                      timerMetadata={entry.timer_metadata}
-                      onTimerUpdate={onRunningTaskClick}
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleViewTask(entry.tasks.id);
-                      }}
-                      className="h-6 px-2 text-xs"
-                    >
-                      <Eye className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <CompactTimerControls
+                        taskId={entry.tasks.id}
+                        taskName={entry.tasks.name}
+                        entryId={entry.id}
+                        timerMetadata={entry.timer_metadata}
+                        onTimerUpdate={onRunningTaskClick}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleViewTask(entry.tasks.id);
+                        }}
+                        className="h-6 px-2 text-xs"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
