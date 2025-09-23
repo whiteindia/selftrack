@@ -292,7 +292,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               >
                 <div className="flex flex-col gap-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-green-900 text-sm leading-tight truncate" title={entry.tasks.name}>{entry.tasks.name}</h4>
+                    <h4 className="font-medium text-green-900 text-sm leading-tight break-words" title={entry.tasks.name}>{entry.tasks.name}</h4>
                     <p className="text-xs text-green-700 mt-1 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
                       {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
                     </p>
