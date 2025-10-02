@@ -427,20 +427,20 @@ export default function WeeklyTimetable() {
                   return (
                     <div
                       key={`${dayIndex}-${shiftIndex}`}
-                      className={`min-h-[70px] border-2 border-dashed rounded cursor-pointer transition-colors p-1 flex flex-col items-stretch hover:border-primary/50 hover:bg-accent/50 ${
+                      className={`min-h-[70px] border-2 border-dashed rounded cursor-pointer transition-colors p-1 flex flex-col items-stretch hover:border-primary/50 hover:bg-accent/50 overflow-hidden ${
                         highlight ? 'bg-blue-50 border-blue-400' : 'border-border'
                       }`}
                       onClick={() => handleCellClick(dayIndex, shiftIndex + 1)}
                     >
                       {assignment ? (
-                        <div className="text-[9px] space-y-0.5 w-full text-left">
-                          <Badge variant="secondary" className="text-[8px] px-0.5 py-0 w-max">
+                        <div className="text-[9px] space-y-0.5 w-full text-left overflow-hidden">
+                          <Badge variant="secondary" className="text-[8px] px-0.5 py-0 w-max max-w-full truncate block">
                             {assignment.project.service}
                           </Badge>
-                          <div className="font-medium text-[8px] text-muted-foreground whitespace-normal break-words leading-tight">
+                          <div className="font-medium text-[8px] text-muted-foreground break-words leading-tight overflow-hidden">
                             {assignment.project.clients.name}
                           </div>
-                          <div className="font-semibold text-[9px] text-foreground whitespace-normal break-words leading-tight">
+                          <div className="font-semibold text-[9px] text-foreground break-words leading-tight overflow-hidden">
                             {assignment.project.name}
                           </div>
                         </div>
