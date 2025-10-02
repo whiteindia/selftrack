@@ -48,6 +48,7 @@ export default function WeeklyTimetable() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [mobileDayOffset, setMobileDayOffset] = useState(0); // For mobile 2-day navigation
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const currentSlotRef = React.useRef<HTMLDivElement>(null);
   
   const queryClient = useQueryClient();
   const weekStart = startOfWeek(currentWeek);
@@ -249,6 +250,15 @@ export default function WeeklyTimetable() {
   const isCurrentWeekIST = formatInTimeZone(startOfWeek(istNow), IST_TZ, 'yyyy-MM-dd') === formatInTimeZone(weekStart, IST_TZ, 'yyyy-MM-dd');
   const isCurrentISTShift = (dayIndex: number, shiftNumber: number) => isCurrentWeekIST && dayIndex === istCurrentDayIndex && shiftNumber === istCurrentShiftNumber;
 
+  // Auto-scroll to current time slot
+  useEffect(() => {
+    if (isCurrentWeekIST && currentSlotRef.current) {
+      setTimeout(() => {
+        currentSlotRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [isCurrentWeekIST, assignments]);
+
   if (projectsLoading || assignmentsLoading) {
     return (
       <Navigation>
@@ -427,6 +437,7 @@ export default function WeeklyTimetable() {
                   return (
                     <div
                       key={`${dayIndex}-${shiftIndex}`}
+                      ref={highlight ? currentSlotRef : null}
                       className={`min-h-[70px] border-2 border-dashed rounded cursor-pointer transition-colors p-1 flex flex-col items-stretch hover:border-primary/50 hover:bg-accent/50 overflow-hidden ${
                         highlight ? 'bg-blue-50 border-blue-400' : 'border-border'
                       }`}
