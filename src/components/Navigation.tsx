@@ -16,6 +16,7 @@ import {
   ChevronDown,
   User,
   Calendar,
+  Apple,
   ChartGantt,
   CalendarClock,
   CalendarRange,
@@ -142,6 +143,13 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/reminders', label: 'Reminders-DLs', icon: Bell, pageName: 'reminders' },
   ];
 
+  const dietItems = [
+    { path: '/nutrients', label: 'Nutrients', icon: Apple, pageName: 'nutrients' },
+    { path: '/recipes', label: 'Recipes', icon: FileText, pageName: 'recipes' },
+    { path: '/default-menu', label: 'Default Menu', icon: ClipboardList, pageName: 'default-menu' },
+    { path: '/custom-menu', label: 'Custom Menu', icon: StickyNote, pageName: 'custom-menu' },
+  ];
+
   const trakTeamItems = [
     { path: '/gantt-view', label: 'Gantt View', icon: ChartGantt, pageName: 'gantt-view' },
     { path: '/agenda-cal', label: 'Agenda Cal', icon: CalendarRange, pageName: 'agenda-cal' },
@@ -197,6 +205,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return access;
   });
 
+  const visibleDietItems = dietItems.filter(item => {
+    const access = hasPageAccess(item.pageName);
+    console.log(`Diet filtering ${item.label} (${item.pageName}):`, access);
+    return access;
+  });
+
   const visibleTrakTeamItems = trakTeamItems.filter(item => {
     const access = hasPageAccess(item.pageName);
     console.log(`TrakTeam filtering ${item.label} (${item.pageName}):`, access);
@@ -223,6 +237,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const shouldShowTaskforceMenu = visibleTaskforceItems.length > 0;
   const shouldShowGoalTrackMenu = visibleGoalTrackItems.length > 0;
   const shouldShowPlannerMenu = visiblePlannerItems.length > 0;
+  const shouldShowDietMenu = visibleDietItems.length > 0;
   const shouldShowTrakTeamMenu = visibleTrakTeamItems.length > 0;
   const shouldShowAdminMenu = visibleAccItems.length > 0 || visibleConfigItems.length > 0;
 
@@ -415,6 +430,31 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               <h3 className="text-sm font-medium text-gray-500 mb-2">Planner</h3>
               <div className="space-y-1">
                 {visiblePlannerItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {shouldShowDietMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Diet</h3>
+              <div className="space-y-1">
+                {visibleDietItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
@@ -732,6 +772,38 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9997 }}>
                   {visiblePlannerItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {shouldShowDietMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                    <Apple className="h-4 w-4" />
+                    <span>Diet</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9996 }}>
+                  {visibleDietItems.map((item) => {
                     const Icon = item.icon;
                     return (
                       <DropdownMenuItem key={item.path} asChild>
