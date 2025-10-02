@@ -55,9 +55,9 @@ const RoutineMatrix = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-x-auto">
       {/* Header with dates */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 min-w-[320px]">
         {last7Days.map((date, index) => (
           <div key={index} className="text-center">
             <div className="text-xs font-medium text-gray-700">
@@ -76,14 +76,14 @@ const RoutineMatrix = ({
           {/* Title and badges row */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-gray-900 line-clamp-2 leading-tight mb-1">
+              <h3 className="text-sm font-medium text-gray-900 line-clamp-2 leading-tight mb-1 break-words">
                 {routine.title}
               </h3>
               <div className="flex flex-wrap gap-1">
-                <Badge variant="outline" className="text-xs px-1 py-0">
+                <Badge variant="outline" className="text-xs px-1 py-0 truncate max-w-[100px]">
                   {routine.frequency}
                 </Badge>
-                <Badge variant="secondary" className="text-xs px-1 py-0">
+                <Badge variant="secondary" className="text-xs px-1 py-0 truncate max-w-[120px]">
                   {routine.project.name}
                 </Badge>
               </div>
@@ -113,7 +113,7 @@ const RoutineMatrix = ({
           </div>
           
           {/* Completion checkboxes row */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1 min-w-[320px]">
             {last7Days.map((date, index) => {
               const completed = isCompleted(routine.id, date);
               const isHighlighted = shouldHighlightDay(routine, date);

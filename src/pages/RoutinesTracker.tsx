@@ -293,7 +293,7 @@ const RoutinesTracker = () => {
 
   return (
     <Navigation>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-full overflow-x-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-3xl font-bold">Routines Tracker</h1>
           <Button onClick={() => setIsFormOpen(true)} className="shrink-0">
@@ -325,7 +325,7 @@ const RoutinesTracker = () => {
                 {/* Client Filter Buttons */}
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-gray-700">Clients</h4>
-                  <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+                  <div className="flex flex-wrap gap-2 pb-2">
                     {availableClients.map(client => (
                       <Button
                         key={client.id}
@@ -344,7 +344,7 @@ const RoutinesTracker = () => {
                 {selectedClient && availableProjects.length > 0 && (
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700">Projects</h4>
-                    <div className="flex flex-wrap gap-2 overflow-x-auto pb-2">
+                    <div className="flex flex-wrap gap-2 pb-2">
                       {availableProjects.map(project => (
                         <Button
                           key={project.id}
@@ -399,19 +399,20 @@ const RoutinesTracker = () => {
                 {/* Date Navigation for Matrix View */}
                 <Card className="mb-6">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center justify-between gap-2 md:gap-4 flex-wrap sm:flex-nowrap">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={handlePreviousWeek}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-1 md:gap-2 text-xs md:text-sm shrink-0"
                       >
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous Week
+                        <ChevronLeft className="h-3 w-3 md:h-4 md:w-4" />
+                        <span className="hidden sm:inline">Previous Week</span>
+                        <span className="sm:hidden">Prev</span>
                       </Button>
                       
-                      <div className="text-center flex-1">
-                        <div className="text-sm text-gray-600">
+                      <div className="text-center flex-1 min-w-0">
+                        <div className="text-xs md:text-sm text-gray-600 truncate">
                           {format(last7Days[0], 'MMM d')} - {format(last7Days[6], 'MMM d, yyyy')}
                         </div>
                         {!isCurrentWeek && (
@@ -430,10 +431,11 @@ const RoutinesTracker = () => {
                         variant="outline"
                         size="sm"
                         onClick={handleNextWeek}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-1 md:gap-2 text-xs md:text-sm shrink-0"
                       >
-                        Next Week
-                        <ChevronRight className="h-4 w-4" />
+                        <span className="hidden sm:inline">Next Week</span>
+                        <span className="sm:hidden">Next</span>
+                        <ChevronRight className="h-3 w-3 md:h-4 md:w-4" />
                       </Button>
                     </div>
                   </CardContent>
