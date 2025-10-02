@@ -217,7 +217,12 @@ export default function WeeklyTimetable() {
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     setCurrentWeek(prev => direction === 'next' ? addWeeks(prev, 1) : subWeeks(prev, 1));
-    setMobileDayOffset(0); // Reset mobile offset when changing weeks
+  };
+
+  const goToToday = () => {
+    const now = new Date();
+    setCurrentWeek(now);
+    // Mobile offset will be adjusted by useEffect when isCurrentWeekIST changes
   };
 
   const navigateMobileDays = (direction: 'prev' | 'next') => {
@@ -250,14 +255,21 @@ export default function WeeklyTimetable() {
   const isCurrentWeekIST = formatInTimeZone(startOfWeek(istNow), IST_TZ, 'yyyy-MM-dd') === formatInTimeZone(weekStart, IST_TZ, 'yyyy-MM-dd');
   const isCurrentISTShift = (dayIndex: number, shiftNumber: number) => isCurrentWeekIST && dayIndex === istCurrentDayIndex && shiftNumber === istCurrentShiftNumber;
 
-  // Auto-scroll to current time slot
+  // Auto-scroll to current time slot and adjust mobile day view
   useEffect(() => {
-    if (isCurrentWeekIST && currentSlotRef.current) {
-      setTimeout(() => {
-        currentSlotRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
+    if (isCurrentWeekIST) {
+      // Adjust mobile offset to show current day (show 2-day window containing current day)
+      const newOffset = istCurrentDayIndex % 2 === 0 ? istCurrentDayIndex : istCurrentDayIndex - 1;
+      setMobileDayOffset(Math.max(0, Math.min(5, newOffset)));
+      
+      // Scroll to current slot after offset is adjusted
+      if (currentSlotRef.current) {
+        setTimeout(() => {
+          currentSlotRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 400);
+      }
     }
-  }, [isCurrentWeekIST, assignments]);
+  }, [isCurrentWeekIST, assignments, istCurrentDayIndex]);
 
   if (projectsLoading || assignmentsLoading) {
     return (
@@ -287,7 +299,7 @@ export default function WeeklyTimetable() {
               <Button variant="outline" onClick={() => navigateWeek('prev')}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" onClick={() => setCurrentWeek(new Date())}>
+              <Button variant="outline" onClick={goToToday}>
                 Today
               </Button>
               <Button variant="outline" onClick={() => navigateWeek('next')}>
@@ -302,7 +314,7 @@ export default function WeeklyTimetable() {
               <Button variant="outline" size="sm" onClick={() => navigateWeek('prev')}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setCurrentWeek(new Date())}>
+              <Button variant="outline" size="sm" onClick={goToToday}>
                 Today
               </Button>
               <Button variant="outline" size="sm" onClick={() => navigateWeek('next')}>
