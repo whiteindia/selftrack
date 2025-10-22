@@ -41,6 +41,7 @@ import WeeklyTimetable from "./pages/WeeklyTimetable";
 import TelegramBotAdmin from "./pages/TelegramBotAdmin";
 import TelegramNotificationSettings from './components/TelegramNotificationSettings';
 import Nutrients from "./pages/Nutrients";
+import Foods from "./pages/Foods";
 
 const queryClient = new QueryClient();
 
@@ -105,6 +106,11 @@ function App() {
                 <Route path="/nutrients" element={
                   <ProtectedRoute>
                     <Nutrients />
+                  </ProtectedRoute>
+                } />
+                <Route path="/foods" element={
+                  <ProtectedRoute>
+                    <Foods />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings/telegram-notifications" element={

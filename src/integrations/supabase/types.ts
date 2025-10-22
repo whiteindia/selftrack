@@ -277,6 +277,33 @@ export type Database = {
         }
         Relationships: []
       }
+      foods: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          nutrients: Json | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          nutrients?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          nutrients?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invitations: {
         Row: {
           client_id: string | null
