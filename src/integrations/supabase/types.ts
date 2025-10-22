@@ -494,6 +494,30 @@ export type Database = {
         }
         Relationships: []
       }
+      nutrients: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          subtypes: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          subtypes?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          subtypes?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number

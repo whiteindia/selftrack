@@ -40,6 +40,7 @@ import TradaNotes from "./pages/TradaNotes";
 import WeeklyTimetable from "./pages/WeeklyTimetable";
 import TelegramBotAdmin from "./pages/TelegramBotAdmin";
 import TelegramNotificationSettings from './components/TelegramNotificationSettings';
+import Nutrients from "./pages/Nutrients";
 
 const queryClient = new QueryClient();
 
@@ -99,6 +100,11 @@ function App() {
                 <Route path="/trada-notes" element={
                   <ProtectedRoute>
                     <TradaNotes />
+                  </ProtectedRoute>
+                } />
+                <Route path="/nutrients" element={
+                  <ProtectedRoute>
+                    <Nutrients />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings/telegram-notifications" element={
