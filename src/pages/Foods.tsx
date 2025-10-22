@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { FoodDialog } from '@/components/foods/FoodDialog';
+import Navigation from '@/components/Navigation';
 
 interface Food {
   id: string;
@@ -78,6 +79,7 @@ export default function Foods() {
   };
 
   return (
+    <Navigation>
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
@@ -162,5 +164,6 @@ export default function Foods() {
         food={editingFood}
       />
     </div>
+    </Navigation>
   );
 }
