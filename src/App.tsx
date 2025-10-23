@@ -42,6 +42,7 @@ import TelegramBotAdmin from "./pages/TelegramBotAdmin";
 import TelegramNotificationSettings from './components/TelegramNotificationSettings';
 import Nutrients from "./pages/Nutrients";
 import Foods from "./pages/Foods";
+import Recipes from "./pages/Recipes";
 
 const queryClient = new QueryClient();
 
@@ -111,6 +112,11 @@ function App() {
                 <Route path="/foods" element={
                   <ProtectedRoute>
                     <Foods />
+                  </ProtectedRoute>
+                } />
+                <Route path="/recipes" element={
+                  <ProtectedRoute>
+                    <Recipes />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings/telegram-notifications" element={

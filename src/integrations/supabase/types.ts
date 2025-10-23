@@ -730,6 +730,36 @@ export type Database = {
           },
         ]
       }
+      recipes: {
+        Row: {
+          calories_unit: string
+          calories_value: number
+          created_at: string
+          foods: string[] | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          calories_unit?: string
+          calories_value?: number
+          created_at?: string
+          foods?: string[] | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          calories_unit?: string
+          calories_value?: number
+          created_at?: string
+          foods?: string[] | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       role_privileges: {
         Row: {
           allowed: boolean
