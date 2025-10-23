@@ -19,6 +19,7 @@ interface Nutrient {
   id: string;
   category: string;
   subtypes: string[];
+  main_functions: string[];
   created_at: string;
   updated_at: string;
 }
@@ -102,13 +103,14 @@ export default function Nutrients() {
               <TableRow>
                 <TableHead className="text-white font-bold text-base">Category</TableHead>
                 <TableHead className="text-white font-bold text-base">Sub-Types</TableHead>
+                <TableHead className="text-white font-bold text-base">Main Functions</TableHead>
                 <TableHead className="text-white font-bold text-base text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {nutrients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     No nutrients found. Add your first nutrient category.
                   </TableCell>
                 </TableRow>
@@ -125,6 +127,19 @@ export default function Nutrients() {
                             className="bg-green-100 text-green-800 hover:bg-green-200"
                           >
                             {subtype}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {nutrient.main_functions?.map((func, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="bg-blue-100 text-blue-800 hover:bg-blue-200"
+                          >
+                            {func}
                           </Badge>
                         ))}
                       </div>

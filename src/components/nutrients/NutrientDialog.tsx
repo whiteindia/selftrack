@@ -19,6 +19,7 @@ interface Nutrient {
   id: string;
   category: string;
   subtypes: string[];
+  main_functions: string[];
 }
 
 interface NutrientDialogProps {
@@ -30,15 +31,18 @@ interface NutrientDialogProps {
 export function NutrientDialog({ open, onOpenChange, nutrient }: NutrientDialogProps) {
   const [category, setCategory] = useState('');
   const [subtypes, setSubtypes] = useState<string[]>([]);
+  const [mainFunctions, setMainFunctions] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (nutrient) {
       setCategory(nutrient.category);
       setSubtypes(nutrient.subtypes || []);
+      setMainFunctions(nutrient.main_functions || []);
     } else {
       setCategory('');
       setSubtypes([]);
+      setMainFunctions([]);
     }
   }, [nutrient]);
 
@@ -47,6 +51,7 @@ export function NutrientDialog({ open, onOpenChange, nutrient }: NutrientDialogP
       const data = {
         category,
         subtypes,
+        main_functions: mainFunctions,
       };
 
       if (nutrient) {
@@ -78,6 +83,7 @@ export function NutrientDialog({ open, onOpenChange, nutrient }: NutrientDialogP
   const handleClose = () => {
     setCategory('');
     setSubtypes([]);
+    setMainFunctions([]);
     onOpenChange(false);
   };
 
@@ -121,6 +127,17 @@ export function NutrientDialog({ open, onOpenChange, nutrient }: NutrientDialogP
             />
             <p className="text-sm text-muted-foreground">
               Type a sub-type and press Tab to add it. Press Backspace to remove the last item.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Main Functions</Label>
+            <SubtypesInput
+              subtypes={mainFunctions}
+              onChange={setMainFunctions}
+            />
+            <p className="text-sm text-muted-foreground">
+              Type a function and press Tab to add it. Press Backspace to remove the last item.
             </p>
           </div>
         </div>

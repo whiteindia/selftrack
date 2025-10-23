@@ -526,6 +526,7 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          main_functions: string[] | null
           subtypes: string[] | null
           updated_at: string
         }
@@ -533,6 +534,7 @@ export type Database = {
           category: string
           created_at?: string
           id?: string
+          main_functions?: string[] | null
           subtypes?: string[] | null
           updated_at?: string
         }
@@ -540,6 +542,7 @@ export type Database = {
           category?: string
           created_at?: string
           id?: string
+          main_functions?: string[] | null
           subtypes?: string[] | null
           updated_at?: string
         }
@@ -1888,10 +1891,7 @@ export type Database = {
       }
     }
     Functions: {
-      apply_rls_policies: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      apply_rls_policies: { Args: never; Returns: undefined }
       create_invoice_with_tasks: {
         Args: {
           p_amount: number
@@ -1910,7 +1910,7 @@ export type Database = {
         Returns: undefined
       }
       get_active_projects_for_invoicing: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           client_id: string
           client_name: string
@@ -1931,10 +1931,7 @@ export type Database = {
           name: string
         }[]
       }
-      get_current_user_employee_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_employee_id: { Args: never; Returns: string }
       get_invoice_tasks: {
         Args: { invoice_id_param: string }
         Returns: {
@@ -1958,34 +1955,16 @@ export type Database = {
           page_name: string
         }[]
       }
-      get_role_landing_page: {
-        Args: { role_name: string }
-        Returns: string
-      }
-      get_user_client_id: {
-        Args: { user_id: string }
-        Returns: string
-      }
-      get_user_employee_id: {
-        Args: { user_id: string }
-        Returns: string
-      }
-      get_user_role: {
-        Args: { user_id: string }
-        Returns: string
-      }
-      has_role: {
-        Args: { _role: string; _user_id: string }
-        Returns: boolean
-      }
+      get_role_landing_page: { Args: { role_name: string }; Returns: string }
+      get_user_client_id: { Args: { user_id: string }; Returns: string }
+      get_user_employee_id: { Args: { user_id: string }; Returns: string }
+      get_user_role: { Args: { user_id: string }; Returns: string }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_rls_enabled: {
         Args: { page_name: string; role_name: string }
         Returns: boolean
       }
-      setup_admin_user: {
-        Args: { admin_email: string }
-        Returns: string
-      }
+      setup_admin_user: { Args: { admin_email: string }; Returns: string }
     }
     Enums: {
       crud_operation: "create" | "read" | "update" | "delete"
