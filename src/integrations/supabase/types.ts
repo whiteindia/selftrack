@@ -208,6 +208,30 @@ export type Database = {
         }
         Relationships: []
       }
+      diseases: {
+        Row: {
+          created_at: string
+          disease_name: string
+          id: string
+          nutrients: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          disease_name: string
+          id?: string
+          nutrients?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          disease_name?: string
+          id?: string
+          nutrients?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employee_services: {
         Row: {
           created_at: string
