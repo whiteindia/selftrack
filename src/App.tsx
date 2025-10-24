@@ -44,6 +44,8 @@ import Nutrients from "./pages/Nutrients";
 import Foods from "./pages/Foods";
 import Recipes from "./pages/Recipes";
 import Diseases from "./pages/Diseases";
+import WorkProfile from "./pages/WorkProfile";
+import DefaultMenu from "./pages/DefaultMenu";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +125,16 @@ function App() {
                 <Route path="/diseases" element={
                   <ProtectedRoute>
                     <Diseases />
+                  </ProtectedRoute>
+                } />
+                <Route path="/work-profile" element={
+                  <ProtectedRoute>
+                    <WorkProfile />
+                  </ProtectedRoute>
+                } />
+                <Route path="/default-menu" element={
+                  <ProtectedRoute>
+                    <DefaultMenu />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings/telegram-notifications" element={

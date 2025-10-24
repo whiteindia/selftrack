@@ -208,6 +208,51 @@ export type Database = {
         }
         Relationships: []
       }
+      default_menu: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          meal_type: string
+          profile_id: string
+          recipe_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          meal_type: string
+          profile_id: string
+          recipe_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          meal_type?: string
+          profile_id?: string
+          recipe_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "default_menu_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "work_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "default_menu_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diseases: {
         Row: {
           created_at: string
@@ -1914,6 +1959,30 @@ export type Database = {
           id?: string
           role?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      work_profiles: {
+        Row: {
+          calories_required: number
+          created_at: string
+          id: string
+          profile_name: string
+          updated_at: string
+        }
+        Insert: {
+          calories_required?: number
+          created_at?: string
+          id?: string
+          profile_name: string
+          updated_at?: string
+        }
+        Update: {
+          calories_required?: number
+          created_at?: string
+          id?: string
+          profile_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
