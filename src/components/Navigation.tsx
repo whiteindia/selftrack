@@ -147,6 +147,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/nutrients', label: 'Nutrients', icon: Apple, pageName: 'nutrients' },
     { path: '/foods', label: 'Foods', icon: Apple, pageName: 'foods' },
     { path: '/recipes', label: 'Recipes', icon: FileText, pageName: 'recipes' },
+    { path: '/diseases', label: 'Diseases', icon: AlertTriangle, pageName: 'diseases' },
     { path: '/default-menu', label: 'Default Menu', icon: ClipboardList, pageName: 'default-menu' },
     { path: '/custom-menu', label: 'Custom Menu', icon: StickyNote, pageName: 'custom-menu' },
   ];
