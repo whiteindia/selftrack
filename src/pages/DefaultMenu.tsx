@@ -41,8 +41,12 @@ const DefaultMenu = () => {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedMealType, setSelectedMealType] = useState<string>('');
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
+  const [selectedRecipes, setSelectedRecipes] = useState<Record<string, string[]>>({
+    Breakfast: [],
+    Lunch: [],
+    Dinner: [],
+    Snacks: []
+  });
 
   const { data: profiles } = useQuery({
     queryKey: ['work-profiles'],
@@ -92,22 +96,21 @@ const DefaultMenu = () => {
   });
 
   const addMenuMutation = useMutation({
-    mutationFn: async (data: { date: string; profile_id: string; meal_type: string; recipe_id: string }) => {
+    mutationFn: async (entries: { date: string; profile_id: string; meal_type: string; recipe_id: string }[]) => {
       const { error } = await supabase
         .from('default_menu')
-        .insert([data]);
+        .insert(entries);
       
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['default-menu'] });
-      toast.success('Recipe added to menu');
+      toast.success('Recipes added to menu');
       setIsDialogOpen(false);
-      setSelectedMealType('');
-      setSelectedRecipeId('');
+      setSelectedRecipes({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
     },
     onError: (error) => {
-      toast.error('Failed to add recipe to menu');
+      toast.error('Failed to add recipes to menu');
       console.error(error);
     },
   });
@@ -136,26 +139,68 @@ const DefaultMenu = () => {
 
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
+    // Load existing recipes for this date
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existingEntries = menuEntries?.filter(entry => entry.date === dateStr) || [];
+    const recipesByMealType: Record<string, string[]> = {
+      Breakfast: [],
+      Lunch: [],
+      Dinner: [],
+      Snacks: []
+    };
+    existingEntries.forEach(entry => {
+      if (!recipesByMealType[entry.meal_type].includes(entry.recipe_id)) {
+        recipesByMealType[entry.meal_type].push(entry.recipe_id);
+      }
+    });
+    setSelectedRecipes(recipesByMealType);
     setIsDialogOpen(true);
   };
 
-  const handleAddRecipe = () => {
-    if (!selectedDate || !selectedProfile || !selectedMealType || !selectedRecipeId) {
-      toast.error('Please fill all fields');
+  const handleAddRecipes = () => {
+    if (!selectedDate || !selectedProfile) {
+      toast.error('Please select a date and profile');
       return;
     }
 
-    addMenuMutation.mutate({
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      profile_id: selectedProfile,
-      meal_type: selectedMealType,
-      recipe_id: selectedRecipeId,
+    const entries: { date: string; profile_id: string; meal_type: string; recipe_id: string }[] = [];
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    MEAL_TYPES.forEach(mealType => {
+      selectedRecipes[mealType].forEach(recipeId => {
+        entries.push({
+          date: dateStr,
+          profile_id: selectedProfile,
+          meal_type: mealType,
+          recipe_id: recipeId,
+        });
+      });
     });
+
+    if (entries.length === 0) {
+      toast.error('Please select at least one recipe');
+      return;
+    }
+
+    // First, delete existing entries for this date
+    supabase
+      .from('default_menu')
+      .delete()
+      .eq('profile_id', selectedProfile)
+      .eq('date', dateStr)
+      .then(() => {
+        addMenuMutation.mutate(entries);
+      });
   };
 
   const getMenuForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return menuEntries?.filter(entry => entry.date === dateStr) || [];
+  };
+
+  const getTotalCalories = (date: Date) => {
+    const dayMenu = getMenuForDate(date);
+    return dayMenu.reduce((total, entry) => total + (entry.recipes.calories_value || 0), 0);
   };
 
   const renderMonthView = () => {
@@ -172,6 +217,7 @@ const DefaultMenu = () => {
         ))}
         {days.map(day => {
           const dayMenu = getMenuForDate(day);
+          const totalCalories = getTotalCalories(day);
           const isCurrentMonth = isSameMonth(day, currentDate);
           
           return (
@@ -183,10 +229,15 @@ const DefaultMenu = () => {
               }`}
             >
               <div className="font-semibold text-sm mb-1">{format(day, 'd')}</div>
+              {totalCalories > 0 && (
+                <div className="text-xs font-medium text-primary mb-1">
+                  {totalCalories} kcal
+                </div>
+              )}
               <div className="text-xs space-y-1">
                 {dayMenu.length > 0 ? (
                   <div className="text-muted-foreground">
-                    {dayMenu.length} meal{dayMenu.length > 1 ? 's' : ''}
+                    {dayMenu.length} item{dayMenu.length > 1 ? 's' : ''}
                   </div>
                 ) : (
                   <div className="text-muted-foreground">No meals</div>
@@ -326,45 +377,67 @@ const DefaultMenu = () => {
         )}
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                Add Recipe - {selectedDate && format(selectedDate, 'MMM d, yyyy')}
+                Manage Recipes - {selectedDate && format(selectedDate, 'MMM d, yyyy')}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Meal Type</Label>
-                <Select value={selectedMealType} onValueChange={setSelectedMealType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select meal type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MEAL_TYPES.map(type => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Recipe</Label>
-                <Select value={selectedRecipeId} onValueChange={setSelectedRecipeId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select recipe..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recipes?.map(recipe => (
-                      <SelectItem key={recipe.id} value={recipe.id}>
-                        {recipe.name} ({recipe.calories_value} kcal)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full" onClick={handleAddRecipe}>
-                Add Recipe
+            <div className="space-y-6">
+              {MEAL_TYPES.map(mealType => (
+                <div key={mealType} className="space-y-2">
+                  <Label className="text-base font-semibold">{mealType}</Label>
+                  <Select
+                    value={selectedRecipes[mealType][0] || ''}
+                    onValueChange={(value) => {
+                      if (value && !selectedRecipes[mealType].includes(value)) {
+                        setSelectedRecipes(prev => ({
+                          ...prev,
+                          [mealType]: [...prev[mealType], value]
+                        }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={`Add ${mealType.toLowerCase()} recipe...`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {recipes?.map(recipe => (
+                        <SelectItem key={recipe.id} value={recipe.id}>
+                          {recipe.name} ({recipe.calories_value} kcal)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRecipes[mealType].map(recipeId => {
+                      const recipe = recipes?.find(r => r.id === recipeId);
+                      if (!recipe) return null;
+                      return (
+                        <div
+                          key={recipeId}
+                          className="flex items-center gap-2 bg-accent px-3 py-1 rounded-full text-sm"
+                        >
+                          <span>{recipe.name} ({recipe.calories_value} kcal)</span>
+                          <button
+                            onClick={() => {
+                              setSelectedRecipes(prev => ({
+                                ...prev,
+                                [mealType]: prev[mealType].filter(id => id !== recipeId)
+                              }));
+                            }}
+                            className="hover:text-destructive"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+              <Button className="w-full" onClick={handleAddRecipes}>
+                Save Recipes
               </Button>
             </div>
           </DialogContent>
