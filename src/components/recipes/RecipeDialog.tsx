@@ -28,6 +28,7 @@ interface Recipe {
   foods: string[];
   calories_value: number;
   calories_unit: string;
+  recipe_type: string;
 }
 
 interface RecipeDialogProps {
@@ -41,6 +42,7 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
   const [foods, setFoods] = useState<string[]>([]);
   const [caloriesValue, setCaloriesValue] = useState<string>('0');
   const [caloriesUnit, setCaloriesUnit] = useState<string>('Per 100G');
+  const [recipeType, setRecipeType] = useState<string>('Breakfast');
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -49,11 +51,13 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
       setFoods(recipe.foods || []);
       setCaloriesValue(recipe.calories_value.toString());
       setCaloriesUnit(recipe.calories_unit);
+      setRecipeType(recipe.recipe_type || 'Breakfast');
     } else {
       setName('');
       setFoods([]);
       setCaloriesValue('0');
       setCaloriesUnit('Per 100G');
+      setRecipeType('Breakfast');
     }
   }, [recipe]);
 
@@ -64,6 +68,7 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
         foods,
         calories_value: parseFloat(caloriesValue) || 0,
         calories_unit: caloriesUnit,
+        recipe_type: recipeType,
       };
 
       if (recipe) {
@@ -97,6 +102,7 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
     setFoods([]);
     setCaloriesValue('0');
     setCaloriesUnit('Per 100G');
+    setRecipeType('Breakfast');
     onOpenChange(false);
   };
 
@@ -134,6 +140,22 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Greek Salad, Chicken Curry"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="recipeType">Recipe Type</Label>
+            <Select value={recipeType} onValueChange={setRecipeType}>
+              <SelectTrigger id="recipeType">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Breakfast">Breakfast</SelectItem>
+                <SelectItem value="Lunch">Lunch</SelectItem>
+                <SelectItem value="Dinner">Dinner</SelectItem>
+                <SelectItem value="Snacks">Snacks</SelectItem>
+                <SelectItem value="Juices">Juices</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

@@ -34,7 +34,7 @@ interface MenuEntry {
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
-const DefaultMenu = () => {
+const CustomMenu = () => {
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedProfile, setSelectedProfile] = useState<string>('');
@@ -320,7 +320,7 @@ const DefaultMenu = () => {
     <Navigation>
       <div className="container mx-auto p-6">
         <div className="mb-6 space-y-4">
-          <h1 className="text-3xl font-bold">Default Menu Calendar</h1>
+          <h1 className="text-3xl font-bold">Custom Menu Calendar</h1>
           
           <div className="flex gap-4 items-center">
             <div className="w-64">
@@ -447,4 +447,4 @@ const DefaultMenu = () => {
   );
 };
 
-export default DefaultMenu;
+export default CustomMenu;

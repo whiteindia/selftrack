@@ -44,8 +44,9 @@ import Nutrients from "./pages/Nutrients";
 import Foods from "./pages/Foods";
 import Recipes from "./pages/Recipes";
 import Diseases from "./pages/Diseases";
+import CustomMenu from "./pages/CustomMenu";
+import DefaultSchedule from "./pages/DefaultSchedule";
 import WorkProfile from "./pages/WorkProfile";
-import DefaultMenu from "./pages/DefaultMenu";
 
 const queryClient = new QueryClient();
 
@@ -122,21 +123,10 @@ function App() {
                     <Recipes />
                   </ProtectedRoute>
                 } />
-                <Route path="/diseases" element={
-                  <ProtectedRoute>
-                    <Diseases />
-                  </ProtectedRoute>
-                } />
-                <Route path="/work-profile" element={
-                  <ProtectedRoute>
-                    <WorkProfile />
-                  </ProtectedRoute>
-                } />
-                <Route path="/default-menu" element={
-                  <ProtectedRoute>
-                    <DefaultMenu />
-                  </ProtectedRoute>
-                } />
+                <Route path="/diseases" element={<ProtectedRoute><Diseases /></ProtectedRoute>} />
+                <Route path="/work-profile" element={<ProtectedRoute><WorkProfile /></ProtectedRoute>} />
+                <Route path="/default-schedule" element={<ProtectedRoute><DefaultSchedule /></ProtectedRoute>} />
+                <Route path="/custom-menu" element={<ProtectedRoute><CustomMenu /></ProtectedRoute>} />
                 <Route path="/settings/telegram-notifications" element={
                   <ProtectedRoute>
                     <TelegramNotificationSettings />

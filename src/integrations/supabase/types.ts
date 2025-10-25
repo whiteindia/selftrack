@@ -807,6 +807,7 @@ export type Database = {
           foods: string[] | null
           id: string
           name: string
+          recipe_type: string | null
           updated_at: string
         }
         Insert: {
@@ -816,6 +817,7 @@ export type Database = {
           foods?: string[] | null
           id?: string
           name: string
+          recipe_type?: string | null
           updated_at?: string
         }
         Update: {
@@ -825,6 +827,7 @@ export type Database = {
           foods?: string[] | null
           id?: string
           name?: string
+          recipe_type?: string | null
           updated_at?: string
         }
         Relationships: []

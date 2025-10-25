@@ -22,6 +22,7 @@ interface Recipe {
   foods: string[];
   calories_value: number;
   calories_unit: string;
+  recipe_type: string;
   created_at: string;
   updated_at: string;
 }
@@ -105,6 +106,7 @@ export default function Recipes() {
               <TableHeader className="bg-orange-700">
                 <TableRow>
                   <TableHead className="text-white font-bold text-base">Recipe</TableHead>
+                  <TableHead className="text-white font-bold text-base">Type</TableHead>
                   <TableHead className="text-white font-bold text-base">Foods</TableHead>
                   <TableHead className="text-white font-bold text-base">Calories</TableHead>
                   <TableHead className="text-white font-bold text-base text-right">Actions</TableHead>
@@ -113,7 +115,7 @@ export default function Recipes() {
               <TableBody>
                 {recipes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No recipes found. Add your first recipe.
                     </TableCell>
                   </TableRow>
@@ -121,6 +123,11 @@ export default function Recipes() {
                   recipes.map((recipe) => (
                     <TableRow key={recipe.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium">{recipe.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {recipe.recipe_type}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-2">
                           {recipe.foods.map((food, index) => (
