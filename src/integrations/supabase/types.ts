@@ -258,21 +258,24 @@ export type Database = {
           created_at: string
           disease_name: string
           id: string
-          nutrients: Json | null
+          reasons: string[] | null
+          symptoms: string[] | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           disease_name: string
           id?: string
-          nutrients?: Json | null
+          reasons?: string[] | null
+          symptoms?: string[] | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           disease_name?: string
           id?: string
-          nutrients?: Json | null
+          reasons?: string[] | null
+          symptoms?: string[] | null
           updated_at?: string
         }
         Relationships: []
@@ -1941,6 +1944,33 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      treatments: {
+        Row: {
+          created_at: string
+          disease_name: string
+          id: string
+          medications: string[] | null
+          treatments: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          disease_name: string
+          id?: string
+          medications?: string[] | null
+          treatments?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          disease_name?: string
+          id?: string
+          medications?: string[] | null
+          treatments?: string[] | null
+          updated_at?: string
         }
         Relationships: []
       }

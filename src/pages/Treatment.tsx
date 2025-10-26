@@ -14,66 +14,66 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DiseaseDialog } from '@/components/diseases/DiseaseDialog';
+import { TreatmentDialog } from '@/components/treatments/TreatmentDialog';
 
-interface Disease {
+interface Treatment {
   id: string;
   disease_name: string;
-  reasons: string[];
-  symptoms: string[];
+  treatments: string[];
+  medications: string[];
   created_at: string;
   updated_at: string;
 }
 
-export default function Diseases() {
+export default function Treatment() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingDisease, setEditingDisease] = useState<Disease | undefined>();
+  const [editingTreatment, setEditingTreatment] = useState<Treatment | undefined>();
   const queryClient = useQueryClient();
 
-  const { data: diseases = [], isLoading } = useQuery({
-    queryKey: ['diseases'],
+  const { data: treatments = [], isLoading } = useQuery({
+    queryKey: ['treatments'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('diseases')
+        .from('treatments')
         .select('*')
         .order('disease_name');
       
       if (error) throw error;
-      return data as Disease[];
+      return data as Treatment[];
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('diseases')
+        .from('treatments')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['diseases'] });
-      toast.success('Disease deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['treatments'] });
+      toast.success('Treatment deleted successfully');
     },
     onError: (error) => {
-      toast.error('Failed to delete disease');
-      console.error('Error deleting disease:', error);
+      toast.error('Failed to delete treatment');
+      console.error('Error deleting treatment:', error);
     },
   });
 
-  const handleEdit = (disease: Disease) => {
-    setEditingDisease(disease);
+  const handleEdit = (treatment: Treatment) => {
+    setEditingTreatment(treatment);
     setIsDialogOpen(true);
   };
 
   const handleDialogClose = () => {
     setIsDialogOpen(false);
-    setEditingDisease(undefined);
+    setEditingTreatment(undefined);
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this disease?')) {
+    if (confirm('Are you sure you want to delete this treatment?')) {
       deleteMutation.mutate(id);
     }
   };
@@ -83,14 +83,14 @@ export default function Diseases() {
       <div className="p-8 space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Diseases</h1>
+            <h1 className="text-3xl font-bold">Treatment</h1>
             <p className="text-muted-foreground mt-2">
-              Manage disease information with reasons and symptoms
+              Manage treatment information with treatments and medications
             </p>
           </div>
           <Button onClick={() => setIsDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Disease
+            Add Treatment
           </Button>
         </div>
 
@@ -102,53 +102,53 @@ export default function Diseases() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Disease Name</TableHead>
-                  <TableHead>Reasons</TableHead>
-                  <TableHead>Symptoms</TableHead>
+                  <TableHead>Treatments</TableHead>
+                  <TableHead>Medications</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {diseases.length === 0 ? (
+                {treatments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      No diseases found. Add your first disease to get started.
+                      No treatments found. Add your first treatment to get started.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  diseases.map((disease) => (
-                    <TableRow key={disease.id}>
-                      <TableCell className="font-medium">{disease.disease_name}</TableCell>
+                  treatments.map((treatment) => (
+                    <TableRow key={treatment.id}>
+                      <TableCell className="font-medium">{treatment.disease_name}</TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {disease.reasons && disease.reasons.length > 0 ? (
-                            disease.reasons.map((reason, index) => (
+                          {treatment.treatments && treatment.treatments.length > 0 ? (
+                            treatment.treatments.map((item, index) => (
                               <Badge
                                 key={index}
                                 variant="secondary"
-                                className="bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                className="bg-green-100 text-green-800 hover:bg-green-200"
                               >
-                                {reason}
+                                {item}
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-muted-foreground text-sm">No reasons</span>
+                            <span className="text-muted-foreground text-sm">No treatments</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {disease.symptoms && disease.symptoms.length > 0 ? (
-                            disease.symptoms.map((symptom, index) => (
+                          {treatment.medications && treatment.medications.length > 0 ? (
+                            treatment.medications.map((medication, index) => (
                               <Badge
                                 key={index}
                                 variant="secondary"
-                                className="bg-orange-100 text-orange-800 hover:bg-orange-200"
+                                className="bg-purple-100 text-purple-800 hover:bg-purple-200"
                               >
-                                {symptom}
+                                {medication}
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-muted-foreground text-sm">No symptoms</span>
+                            <span className="text-muted-foreground text-sm">No medications</span>
                           )}
                         </div>
                       </TableCell>
@@ -157,14 +157,14 @@ export default function Diseases() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleEdit(disease)}
+                            onClick={() => handleEdit(treatment)}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDelete(disease.id)}
+                            onClick={() => handleDelete(treatment.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -178,10 +178,10 @@ export default function Diseases() {
           </div>
         )}
 
-        <DiseaseDialog
+        <TreatmentDialog
           open={isDialogOpen}
           onOpenChange={handleDialogClose}
-          disease={editingDisease}
+          treatment={editingTreatment}
         />
       </div>
     </Navigation>

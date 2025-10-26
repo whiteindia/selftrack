@@ -10,77 +10,77 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrayInput } from './ArrayInput';
+import { ArrayInput } from '@/components/diseases/ArrayInput';
 
-interface Disease {
+interface Treatment {
   id: string;
   disease_name: string;
-  reasons: string[];
-  symptoms: string[];
+  treatments: string[];
+  medications: string[];
   created_at: string;
   updated_at: string;
 }
 
-interface DiseaseDialogProps {
+interface TreatmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  disease?: Disease;
+  treatment?: Treatment;
 }
 
-export function DiseaseDialog({ open, onOpenChange, disease }: DiseaseDialogProps) {
+export function TreatmentDialog({ open, onOpenChange, treatment }: TreatmentDialogProps) {
   const [diseaseName, setDiseaseName] = useState('');
-  const [reasons, setReasons] = useState<string[]>([]);
-  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [treatments, setTreatments] = useState<string[]>([]);
+  const [medications, setMedications] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (disease) {
-      setDiseaseName(disease.disease_name);
-      setReasons(disease.reasons || []);
-      setSymptoms(disease.symptoms || []);
+    if (treatment) {
+      setDiseaseName(treatment.disease_name);
+      setTreatments(treatment.treatments || []);
+      setMedications(treatment.medications || []);
     } else {
       setDiseaseName('');
-      setReasons([]);
-      setSymptoms([]);
+      setTreatments([]);
+      setMedications([]);
     }
-  }, [disease]);
+  }, [treatment]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       const data = {
         disease_name: diseaseName,
-        reasons,
-        symptoms,
+        treatments,
+        medications,
       };
 
-      if (disease) {
+      if (treatment) {
         const { error } = await supabase
-          .from('diseases')
+          .from('treatments')
           .update(data)
-          .eq('id', disease.id);
+          .eq('id', treatment.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('diseases')
+          .from('treatments')
           .insert([data]);
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['diseases'] });
-      toast.success(disease ? 'Disease updated successfully' : 'Disease created successfully');
+      queryClient.invalidateQueries({ queryKey: ['treatments'] });
+      toast.success(treatment ? 'Treatment updated successfully' : 'Treatment created successfully');
       handleClose();
     },
     onError: (error) => {
-      toast.error('Failed to save disease');
-      console.error('Error saving disease:', error);
+      toast.error('Failed to save treatment');
+      console.error('Error saving treatment:', error);
     },
   });
 
   const handleClose = () => {
     setDiseaseName('');
-    setReasons([]);
-    setSymptoms([]);
+    setTreatments([]);
+    setMedications([]);
     onOpenChange(false);
   };
 
@@ -96,7 +96,7 @@ export function DiseaseDialog({ open, onOpenChange, disease }: DiseaseDialogProp
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{disease ? 'Edit Disease' : 'Add Disease'}</DialogTitle>
+          <DialogTitle>{treatment ? 'Edit Treatment' : 'Add Treatment'}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -109,17 +109,17 @@ export function DiseaseDialog({ open, onOpenChange, disease }: DiseaseDialogProp
           </div>
 
           <ArrayInput
-            label="Reasons"
-            items={reasons}
-            onChange={setReasons}
-            placeholder="Add reason and press Enter"
+            label="Treatments"
+            items={treatments}
+            onChange={setTreatments}
+            placeholder="Add treatment and press Enter"
           />
 
           <ArrayInput
-            label="Symptoms"
-            items={symptoms}
-            onChange={setSymptoms}
-            placeholder="Add symptom and press Enter"
+            label="Medications"
+            items={medications}
+            onChange={setMedications}
+            placeholder="Add medication and press Enter"
           />
 
           <div className="flex justify-end gap-2 pt-4">

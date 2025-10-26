@@ -44,6 +44,7 @@ import Nutrients from "./pages/Nutrients";
 import Foods from "./pages/Foods";
 import Recipes from "./pages/Recipes";
 import Diseases from "./pages/Diseases";
+import Treatment from "./pages/Treatment";
 import CustomMenu from "./pages/CustomMenu";
 import DefaultSchedule from "./pages/DefaultSchedule";
 import WorkProfile from "./pages/WorkProfile";
@@ -124,6 +125,7 @@ function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="/diseases" element={<ProtectedRoute><Diseases /></ProtectedRoute>} />
+                <Route path="/treatment" element={<ProtectedRoute><Treatment /></ProtectedRoute>} />
                 <Route path="/work-profile" element={<ProtectedRoute><WorkProfile /></ProtectedRoute>} />
                 <Route path="/default-schedule" element={<ProtectedRoute><DefaultSchedule /></ProtectedRoute>} />
                 <Route path="/custom-menu" element={<ProtectedRoute><CustomMenu /></ProtectedRoute>} />
