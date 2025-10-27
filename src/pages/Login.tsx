@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
+import PasswordResetDialog from '@/components/PasswordResetDialog';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,13 +16,13 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, user, userRole, getDefaultLandingPage } = useAuth();
+  const { signIn, user, userRole, getDefaultLandingPage, needsPasswordReset } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // Redirect if already logged in and password reset not needed
   useEffect(() => {
     const handleRedirect = async () => {
-      if (user && userRole) {
+      if (user && userRole && !needsPasswordReset) {
         console.log('User already logged in, redirecting...');
         const landingPage = await getDefaultLandingPage();
         console.log('Redirecting to:', landingPage);
@@ -30,7 +31,7 @@ const Login = () => {
     };
 
     handleRedirect();
-  }, [user, userRole, navigate, getDefaultLandingPage]);
+  }, [user, userRole, needsPasswordReset, navigate, getDefaultLandingPage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +63,21 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  // Show password reset dialog if needed
+  if (user && needsPasswordReset) {
+    return (
+      <>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+          <div className="text-lg">Please set your new password...</div>
+        </div>
+        <PasswordResetDialog 
+          open={needsPasswordReset} 
+          onClose={() => {}} 
+        />
+      </>
+    );
+  }
 
   // Don't render the login form if user is already authenticated
   if (user) {
