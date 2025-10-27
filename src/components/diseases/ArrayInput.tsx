@@ -14,7 +14,7 @@ export function ArrayInput({ label, items, onChange, placeholder }: ArrayInputPr
   const [currentValue, setCurrentValue] = useState('');
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && currentValue.trim()) {
+    if ((e.key === 'Enter' || e.key === 'Tab') && currentValue.trim()) {
       e.preventDefault();
       if (!items.includes(currentValue.trim())) {
         onChange([...items, currentValue.trim()]);
@@ -22,6 +22,13 @@ export function ArrayInput({ label, items, onChange, placeholder }: ArrayInputPr
       setCurrentValue('');
     } else if (e.key === 'Backspace' && !currentValue && items.length > 0) {
       onChange(items.slice(0, -1));
+    }
+  };
+
+  const handleBlur = () => {
+    if (currentValue.trim() && !items.includes(currentValue.trim())) {
+      onChange([...items, currentValue.trim()]);
+      setCurrentValue('');
     }
   };
 
@@ -54,7 +61,8 @@ export function ArrayInput({ label, items, onChange, placeholder }: ArrayInputPr
         value={currentValue}
         onChange={(e) => setCurrentValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={placeholder || `Add ${label.toLowerCase()} and press Enter`}
+        onBlur={handleBlur}
+        placeholder={placeholder || `Add ${label.toLowerCase()} and press Enter or Tab`}
       />
     </div>
   );
