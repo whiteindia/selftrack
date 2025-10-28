@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { NutrientDialog } from '@/components/nutrients/NutrientDialog';
+import Navigation from '@/components/Navigation';
 
 interface Nutrient {
   id: string;
@@ -78,7 +79,8 @@ export default function Nutrients() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <Navigation>
+      <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Nutrients</h1>
@@ -173,6 +175,7 @@ export default function Nutrients() {
         onOpenChange={handleDialogClose}
         nutrient={editingNutrient}
       />
-    </div>
+      </div>
+    </Navigation>
   );
 }

@@ -23,7 +23,7 @@ interface Recipe {
 
 interface MenuEntry {
   id: string;
-  date: string;
+  date: number;
   meal_type: string;
   recipe_id: string;
   profile_id: string;
@@ -79,12 +79,12 @@ const DefaultSchedule = () => {
     queryFn: async () => {
       if (!selectedProfile) return [];
       
-      // Query for entries with dates from 1-31 (as strings '1', '2', etc.)
+      // Query for entries with dates from 1-31 (as integers)
       const { data, error } = await supabase
         .from('default_menu')
         .select('*, recipes(*)')
         .eq('profile_id', selectedProfile)
-        .in('date', DEFAULT_DAYS.map(d => d.toString()));
+        .in('date', DEFAULT_DAYS);
       
       if (error) throw error;
       return data as MenuEntry[];
@@ -93,7 +93,7 @@ const DefaultSchedule = () => {
   });
 
   const addMenuMutation = useMutation({
-    mutationFn: async (entries: { date: string; profile_id: string; meal_type: string; recipe_id: string }[]) => {
+    mutationFn: async (entries: { date: number; profile_id: string; meal_type: string; recipe_id: string }[]) => {
       const { error } = await supabase
         .from('default_menu')
         .insert(entries);
@@ -134,7 +134,7 @@ const DefaultSchedule = () => {
   const handleDayClick = (day: number) => {
     setSelectedDay(day);
     // Load existing recipes for this day
-    const existingEntries = menuEntries?.filter(entry => entry.date === day.toString()) || [];
+    const existingEntries = menuEntries?.filter(entry => entry.date === day) || [];
     const recipesByMealType: Record<string, string[]> = {
       Breakfast: [],
       Lunch: [],
@@ -156,13 +156,12 @@ const DefaultSchedule = () => {
       return;
     }
 
-    const entries: { date: string; profile_id: string; meal_type: string; recipe_id: string }[] = [];
-    const dayStr = selectedDay.toString();
+    const entries: { date: number; profile_id: string; meal_type: string; recipe_id: string }[] = [];
 
     MEAL_TYPES.forEach(mealType => {
       selectedRecipes[mealType].forEach(recipeId => {
         entries.push({
-          date: dayStr,
+          date: selectedDay,
           profile_id: selectedProfile,
           meal_type: mealType,
           recipe_id: recipeId,
@@ -180,14 +179,14 @@ const DefaultSchedule = () => {
       .from('default_menu')
       .delete()
       .eq('profile_id', selectedProfile)
-      .eq('date', dayStr)
+      .eq('date', selectedDay)
       .then(() => {
         addMenuMutation.mutate(entries);
       });
   };
 
   const getMenuForDay = (day: number) => {
-    return menuEntries?.filter(entry => entry.date === day.toString()) || [];
+    return menuEntries?.filter(entry => entry.date === day) || [];
   };
 
   const getTotalCalories = (day: number) => {

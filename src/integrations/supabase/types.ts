@@ -211,7 +211,7 @@ export type Database = {
       default_menu: {
         Row: {
           created_at: string
-          date: string
+          date: number
           id: string
           meal_type: string
           profile_id: string
@@ -220,7 +220,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          date: string
+          date: number
           id?: string
           meal_type: string
           profile_id: string
@@ -229,7 +229,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          date?: string
+          date?: number
           id?: string
           meal_type?: string
           profile_id?: string
