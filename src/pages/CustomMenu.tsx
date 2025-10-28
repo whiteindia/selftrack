@@ -90,7 +90,7 @@ const CustomMenu = () => {
         .lte('date', format(end, 'yyyy-MM-dd'));
       
       if (error) throw error;
-      return data as MenuEntry[];
+      return (data as any) as MenuEntry[];
     },
     enabled: !!selectedProfile,
   });
