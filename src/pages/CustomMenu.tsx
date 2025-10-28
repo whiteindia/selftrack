@@ -75,7 +75,7 @@ const CustomMenu = () => {
   });
 
   const { data: menuEntries } = useQuery({
-    queryKey: ['default-menu', selectedProfile, currentDate],
+    queryKey: ['custom-menu', selectedProfile, currentDate],
     queryFn: async () => {
       if (!selectedProfile) return [];
       
@@ -83,7 +83,7 @@ const CustomMenu = () => {
       const end = endOfMonth(currentDate);
       
       const { data, error } = await supabase
-        .from('default_menu')
+        .from('custom_menu')
         .select('*, recipes(*)')
         .eq('profile_id', selectedProfile)
         .gte('date', format(start, 'yyyy-MM-dd'))
@@ -98,13 +98,13 @@ const CustomMenu = () => {
   const addMenuMutation = useMutation({
     mutationFn: async (entries: { date: string; profile_id: string; meal_type: string; recipe_id: string }[]) => {
       const { error } = await supabase
-        .from('default_menu')
+        .from('custom_menu')
         .insert(entries);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['default-menu'] });
+      queryClient.invalidateQueries({ queryKey: ['custom-menu'] });
       toast.success('Recipes added to menu');
       setIsDialogOpen(false);
       setSelectedRecipes({ Breakfast: [], Lunch: [], Dinner: [], Snacks: [] });
@@ -118,14 +118,14 @@ const CustomMenu = () => {
   const deleteMenuMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('default_menu')
+        .from('custom_menu')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['default-menu'] });
+      queryClient.invalidateQueries({ queryKey: ['custom-menu'] });
       toast.success('Recipe removed from menu');
     },
     onError: (error) => {
@@ -184,7 +184,7 @@ const CustomMenu = () => {
 
     // First, delete existing entries for this date
     supabase
-      .from('default_menu')
+      .from('custom_menu')
       .delete()
       .eq('profile_id', selectedProfile)
       .eq('date', dateStr)

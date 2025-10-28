@@ -208,6 +208,36 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_menu: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          meal_type: string
+          profile_id: string
+          recipe_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          meal_type: string
+          profile_id: string
+          recipe_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          meal_type?: string
+          profile_id?: string
+          recipe_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       default_menu: {
         Row: {
           created_at: string
