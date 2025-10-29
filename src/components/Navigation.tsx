@@ -144,6 +144,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   ];
 
   const dietItems = [
+    { path: '/work-profile', label: 'Work Profile', icon: User, pageName: 'nutrients' },
     { path: '/nutrients', label: 'Nutrients', icon: Apple, pageName: 'nutrients' },
     { path: '/foods', label: 'Foods', icon: Apple, pageName: 'foods' },
     { path: '/recipes', label: 'Recipes', icon: FileText, pageName: 'recipes' },
