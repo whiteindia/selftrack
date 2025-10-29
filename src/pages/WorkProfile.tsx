@@ -13,7 +13,12 @@ import { toast } from 'sonner';
 interface WorkProfile {
   id: string;
   profile_name: string;
+  person_name: string | null;
+  profile_type: string | null;
   calories_required: number;
+  age: number | null;
+  weight: number | null;
+  bmi: number | null;
 }
 
 const WorkProfile = () => {
@@ -22,7 +27,12 @@ const WorkProfile = () => {
   const [editingProfile, setEditingProfile] = useState<WorkProfile | null>(null);
   const [formData, setFormData] = useState({
     profile_name: '',
+    person_name: '',
+    profile_type: 'Standard',
     calories_required: 0,
+    age: 0,
+    weight: 0,
+    bmi: 0,
   });
 
   const { data: profiles, isLoading } = useQuery({
@@ -39,7 +49,7 @@ const WorkProfile = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { profile_name: string; calories_required: number }) => {
+    mutationFn: async (data: typeof formData) => {
       const { error } = await supabase
         .from('work_profiles')
         .insert([data]);
@@ -50,7 +60,7 @@ const WorkProfile = () => {
       queryClient.invalidateQueries({ queryKey: ['work-profiles'] });
       toast.success('Work profile created successfully');
       setIsDialogOpen(false);
-      setFormData({ profile_name: '', calories_required: 0 });
+      setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
     },
     onError: (error) => {
       toast.error('Failed to create work profile');
@@ -59,7 +69,7 @@ const WorkProfile = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { profile_name: string; calories_required: number } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
       const { error } = await supabase
         .from('work_profiles')
         .update(data)
@@ -72,7 +82,7 @@ const WorkProfile = () => {
       toast.success('Work profile updated successfully');
       setIsDialogOpen(false);
       setEditingProfile(null);
-      setFormData({ profile_name: '', calories_required: 0 });
+      setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
     },
     onError: (error) => {
       toast.error('Failed to update work profile');
@@ -118,7 +128,12 @@ const WorkProfile = () => {
     setEditingProfile(profile);
     setFormData({
       profile_name: profile.profile_name,
+      person_name: profile.person_name || '',
+      profile_type: profile.profile_type || 'Standard',
       calories_required: profile.calories_required,
+      age: profile.age || 0,
+      weight: profile.weight || 0,
+      bmi: profile.bmi || 0,
     });
     setIsDialogOpen(true);
   };
@@ -132,7 +147,7 @@ const WorkProfile = () => {
   const handleDialogClose = () => {
     setIsDialogOpen(false);
     setEditingProfile(null);
-    setFormData({ profile_name: '', calories_required: 0 });
+    setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
   };
 
   return (
@@ -152,27 +167,91 @@ const WorkProfile = () => {
                 <DialogTitle>{editingProfile ? 'Edit' : 'Add'} Work Profile</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="profile_name">Profile Name</Label>
-                  <Input
-                    id="profile_name"
-                    value={formData.profile_name}
-                    onChange={(e) => setFormData({ ...formData, profile_name: e.target.value })}
-                    placeholder="e.g., Software Engineer"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="person_name">Person Name</Label>
+                    <Input
+                      id="person_name"
+                      value={formData.person_name}
+                      onChange={(e) => setFormData({ ...formData, person_name: e.target.value })}
+                      placeholder="e.g., John Smith"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="profile_name">Profile Name</Label>
+                    <Input
+                      id="profile_name"
+                      value={formData.profile_name}
+                      onChange={(e) => setFormData({ ...formData, profile_name: e.target.value })}
+                      placeholder="e.g., Active Professional"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="calories_required">Calories Required</Label>
-                  <Input
-                    id="calories_required"
-                    type="number"
-                    value={formData.calories_required}
-                    onChange={(e) => setFormData({ ...formData, calories_required: Number(e.target.value) })}
-                    placeholder="e.g., 2000"
-                    required
-                    min="0"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="profile_type">Type of Profile</Label>
+                    <Input
+                      id="profile_type"
+                      value={formData.profile_type}
+                      onChange={(e) => setFormData({ ...formData, profile_type: e.target.value })}
+                      placeholder="e.g., Active, Sedentary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="calories_required">Calories Required</Label>
+                    <Input
+                      id="calories_required"
+                      type="number"
+                      value={formData.calories_required}
+                      onChange={(e) => setFormData({ ...formData, calories_required: Number(e.target.value) })}
+                      placeholder="e.g., 2000"
+                      required
+                      min="0"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="age">Age</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      value={formData.age}
+                      onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                      placeholder="e.g., 30"
+                      required
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="weight">Weight (kg)</Label>
+                    <Input
+                      id="weight"
+                      type="number"
+                      step="0.1"
+                      value={formData.weight}
+                      onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })}
+                      placeholder="e.g., 70"
+                      required
+                      min="0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bmi">BMI</Label>
+                    <Input
+                      id="bmi"
+                      type="number"
+                      step="0.1"
+                      value={formData.bmi}
+                      onChange={(e) => setFormData({ ...formData, bmi: Number(e.target.value) })}
+                      placeholder="e.g., 22.5"
+                      required
+                      min="0"
+                    />
+                  </div>
                 </div>
                 <Button type="submit" className="w-full">
                   {editingProfile ? 'Update' : 'Create'} Profile
@@ -189,8 +268,13 @@ const WorkProfile = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Profile</TableHead>
+                  <TableHead>Person Name</TableHead>
+                  <TableHead>Profile Name</TableHead>
+                  <TableHead>Type of Profile</TableHead>
                   <TableHead>Calories Required</TableHead>
+                  <TableHead>Age</TableHead>
+                  <TableHead>Weight (kg)</TableHead>
+                  <TableHead>BMI</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -198,8 +282,13 @@ const WorkProfile = () => {
                 {profiles && profiles.length > 0 ? (
                   profiles.map((profile) => (
                     <TableRow key={profile.id}>
-                      <TableCell className="font-medium">{profile.profile_name}</TableCell>
+                      <TableCell className="font-medium">{profile.person_name || '-'}</TableCell>
+                      <TableCell>{profile.profile_name}</TableCell>
+                      <TableCell>{profile.profile_type || '-'}</TableCell>
                       <TableCell>{profile.calories_required} kcal</TableCell>
+                      <TableCell>{profile.age || '-'}</TableCell>
+                      <TableCell>{profile.weight || '-'}</TableCell>
+                      <TableCell>{profile.bmi || '-'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -222,7 +311,7 @@ const WorkProfile = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No work profiles found. Add your first profile to get started.
                     </TableCell>
                   </TableRow>
