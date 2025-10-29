@@ -2035,25 +2035,40 @@ export type Database = {
       }
       work_profiles: {
         Row: {
+          age: number | null
+          bmi: number | null
           calories_required: number
           created_at: string
           id: string
+          person_name: string | null
           profile_name: string
+          profile_type: string | null
           updated_at: string
+          weight: number | null
         }
         Insert: {
+          age?: number | null
+          bmi?: number | null
           calories_required?: number
           created_at?: string
           id?: string
+          person_name?: string | null
           profile_name: string
+          profile_type?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Update: {
+          age?: number | null
+          bmi?: number | null
           calories_required?: number
           created_at?: string
           id?: string
+          person_name?: string | null
           profile_name?: string
+          profile_type?: string | null
           updated_at?: string
+          weight?: number | null
         }
         Relationships: []
       }
