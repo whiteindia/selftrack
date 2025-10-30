@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
@@ -60,6 +60,19 @@ const DefaultSchedule = () => {
       return data as WorkProfile[];
     },
   });
+
+  // Auto-select yugandhar (software engineer) profile
+  useEffect(() => {
+    if (profiles && !selectedProfile) {
+      const defaultProfile = profiles.find(
+        p => p.profile_name.toLowerCase().includes('yugandhar') && 
+             p.profile_name.toLowerCase().includes('software')
+      );
+      if (defaultProfile) {
+        setSelectedProfile(defaultProfile.id);
+      }
+    }
+  }, [profiles, selectedProfile]);
 
   const { data: recipes } = useQuery({
     queryKey: ['recipes'],
