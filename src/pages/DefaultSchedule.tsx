@@ -19,6 +19,7 @@ interface Recipe {
   name: string;
   calories_value: number;
   calories_unit: string;
+  recipe_type: string | null;
 }
 
 interface MenuEntry {
@@ -398,11 +399,13 @@ const DefaultSchedule = () => {
                       <SelectValue placeholder={`Add ${mealType.toLowerCase()} recipe...`} />
                     </SelectTrigger>
                     <SelectContent>
-                      {recipes?.map(recipe => (
-                        <SelectItem key={recipe.id} value={recipe.id}>
-                          {recipe.name} ({recipe.calories_value} kcal)
-                        </SelectItem>
-                      ))}
+                      {recipes
+                        ?.filter(recipe => recipe.recipe_type?.toLowerCase() === mealType.toLowerCase())
+                        .map(recipe => (
+                          <SelectItem key={recipe.id} value={recipe.id}>
+                            {recipe.name} ({recipe.calories_value} kcal)
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <div className="flex flex-wrap gap-2">
