@@ -385,7 +385,7 @@ const DefaultSchedule = () => {
                 <div key={mealType} className="space-y-2">
                   <Label className="text-base font-semibold">{mealType}</Label>
                   <Select
-                    value={selectedRecipes[mealType][0] || ''}
+                    value=""
                     onValueChange={(value) => {
                       if (value && !selectedRecipes[mealType].includes(value)) {
                         setSelectedRecipes(prev => ({
@@ -400,7 +400,7 @@ const DefaultSchedule = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {recipes
-                        ?.filter(recipe => recipe.recipe_type?.toLowerCase() === mealType.toLowerCase())
+                        ?.filter(recipe => !recipe.recipe_type || recipe.recipe_type?.toLowerCase() === mealType.toLowerCase() || recipe.recipe_type === '')
                         .map(recipe => (
                           <SelectItem key={recipe.id} value={recipe.id}>
                             {recipe.name} ({recipe.calories_value} kcal)
