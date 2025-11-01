@@ -20,7 +20,9 @@ interface Food {
   id: string;
   name: string;
   category: string;
-  nutrients: Array<{ category: string; subtype: string }>;
+  nutrients: any;
+  calories_value: number;
+  calories_unit: string;
   created_at: string;
   updated_at: string;
 }
@@ -39,7 +41,7 @@ export default function Foods() {
         .order('name');
       
       if (error) throw error;
-      return data as Food[];
+      return data;
     },
   });
 
@@ -105,6 +107,7 @@ export default function Foods() {
               <TableRow>
                 <TableHead className="text-white font-bold text-base">Food</TableHead>
                 <TableHead className="text-white font-bold text-base">Category</TableHead>
+                <TableHead className="text-white font-bold text-base">Calories</TableHead>
                 <TableHead className="text-white font-bold text-base">Nutrients</TableHead>
                 <TableHead className="text-white font-bold text-base text-right">Actions</TableHead>
               </TableRow>
@@ -112,7 +115,7 @@ export default function Foods() {
             <TableBody>
               {foods.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No foods found. Add your first food item.
                   </TableCell>
                 </TableRow>
@@ -122,8 +125,11 @@ export default function Foods() {
                     <TableCell className="font-medium">{food.name}</TableCell>
                     <TableCell>{food.category}</TableCell>
                     <TableCell>
+                      {food.calories_value} kcal {food.calories_unit}
+                    </TableCell>
+                    <TableCell>
                       <div className="flex flex-wrap gap-2">
-                        {food.nutrients?.map((nutrient, index) => (
+                        {Array.isArray(food.nutrients) && food.nutrients?.map((nutrient: any, index: number) => (
                           <Badge
                             key={index}
                             variant="secondary"

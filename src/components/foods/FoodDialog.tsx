@@ -18,7 +18,9 @@ interface Food {
   id: string;
   name: string;
   category: string;
-  nutrients: Array<{ category: string; subtype: string }>;
+  nutrients: any;
+  calories_value?: number;
+  calories_unit?: string;
 }
 
 interface FoodDialogProps {
@@ -31,17 +33,23 @@ export function FoodDialog({ open, onOpenChange, food }: FoodDialogProps) {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [nutrients, setNutrients] = useState<Array<{ category: string; subtype: string }>>([]);
+  const [caloriesValue, setCaloriesValue] = useState('0');
+  const [caloriesUnit, setCaloriesUnit] = useState('Per 100G');
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (food) {
       setName(food.name);
       setCategory(food.category);
-      setNutrients(food.nutrients || []);
+      setNutrients(Array.isArray(food.nutrients) ? food.nutrients : []);
+      setCaloriesValue(food.calories_value?.toString() || '0');
+      setCaloriesUnit(food.calories_unit || 'Per 100G');
     } else {
       setName('');
       setCategory('');
       setNutrients([]);
+      setCaloriesValue('0');
+      setCaloriesUnit('Per 100G');
     }
   }, [food, open]);
 
@@ -51,6 +59,8 @@ export function FoodDialog({ open, onOpenChange, food }: FoodDialogProps) {
         name,
         category,
         nutrients,
+        calories_value: parseFloat(caloriesValue) || 0,
+        calories_unit: caloriesUnit,
       };
 
       if (food) {
@@ -123,6 +133,30 @@ export function FoodDialog({ open, onOpenChange, food }: FoodDialogProps) {
               nutrients={nutrients}
               onChange={setNutrients}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Calories</Label>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  value={caloriesValue}
+                  onChange={(e) => setCaloriesValue(e.target.value)}
+                  placeholder="e.g., 52"
+                  min="0"
+                  step="0.1"
+                />
+              </div>
+              <select
+                value={caloriesUnit}
+                onChange={(e) => setCaloriesUnit(e.target.value)}
+                className="w-[180px] rounded-md border border-input bg-background px-3 py-2"
+              >
+                <option value="Per 100G">Per 100G</option>
+                <option value="Per Piece">Per Piece</option>
+              </select>
+            </div>
           </div>
 
           <DialogFooter>

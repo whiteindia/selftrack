@@ -20,12 +20,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { SubtypesInput } from '@/components/nutrients/SubtypesInput';
+import { FoodItemsSelect } from './FoodItemsSelect';
+
+interface FoodItem {
+  food_id: string;
+  food_name: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+}
 
 interface Recipe {
   id: string;
   name: string;
   foods: string[];
+  food_items?: FoodItem[];
   calories_value: number;
   calories_unit: string;
   recipe_type: string;
@@ -39,35 +48,32 @@ interface RecipeDialogProps {
 
 export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) {
   const [name, setName] = useState('');
-  const [foods, setFoods] = useState<string[]>([]);
-  const [caloriesValue, setCaloriesValue] = useState<string>('0');
-  const [caloriesUnit, setCaloriesUnit] = useState<string>('Per 100G');
+  const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
   const [recipeType, setRecipeType] = useState<string>('Breakfast');
   const queryClient = useQueryClient();
 
   useEffect(() => {
     if (recipe) {
       setName(recipe.name);
-      setFoods(recipe.foods || []);
-      setCaloriesValue(recipe.calories_value.toString());
-      setCaloriesUnit(recipe.calories_unit);
+      setFoodItems(recipe.food_items || []);
       setRecipeType(recipe.recipe_type || 'Breakfast');
     } else {
       setName('');
-      setFoods([]);
-      setCaloriesValue('0');
-      setCaloriesUnit('Per 100G');
+      setFoodItems([]);
       setRecipeType('Breakfast');
     }
   }, [recipe]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const totalCalories = foodItems.reduce((sum, item) => sum + item.calories, 0);
+      
       const data = {
         name,
-        foods,
-        calories_value: parseFloat(caloriesValue) || 0,
-        calories_unit: caloriesUnit,
+        foods: foodItems.map(item => item.food_name),
+        food_items: foodItems as any,
+        calories_value: Math.round(totalCalories * 10) / 10,
+        calories_unit: 'Per Serving',
         recipe_type: recipeType,
       };
 
@@ -99,9 +105,7 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
 
   const handleClose = () => {
     setName('');
-    setFoods([]);
-    setCaloriesValue('0');
-    setCaloriesUnit('Per 100G');
+    setFoodItems([]);
     setRecipeType('Breakfast');
     onOpenChange(false);
   };
@@ -111,7 +115,7 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
       toast.error('Please enter a recipe name');
       return;
     }
-    if (foods.length === 0) {
+    if (foodItems.length === 0) {
       toast.error('Please add at least one food item');
       return;
     }
@@ -125,8 +129,8 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
           <DialogTitle>{recipe ? 'Edit Recipe' : 'Add Recipe'}</DialogTitle>
           <DialogDescription>
             {recipe 
-              ? 'Update the recipe details, foods, and calorie information'
-              : 'Add a new recipe with foods and calorie information. Press Tab after each food to add multiple items.'
+              ? 'Update the recipe details and food items. Calories are calculated automatically.'
+              : 'Add a new recipe with food items from the database. Calories are calculated automatically based on quantities.'
             }
           </DialogDescription>
         </DialogHeader>
@@ -159,41 +163,13 @@ export function RecipeDialog({ open, onOpenChange, recipe }: RecipeDialogProps) 
           </div>
 
           <div className="space-y-2">
-            <Label>Foods</Label>
-            <SubtypesInput
-              subtypes={foods}
-              onChange={setFoods}
+            <Label>Food Items</Label>
+            <FoodItemsSelect
+              foodItems={foodItems}
+              onChange={setFoodItems}
             />
             <p className="text-sm text-muted-foreground">
-              Type a food item and press Tab to add it. Press Backspace to remove the last item.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Calories</Label>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  value={caloriesValue}
-                  onChange={(e) => setCaloriesValue(e.target.value)}
-                  placeholder="e.g., 100"
-                  min="0"
-                  step="0.1"
-                />
-              </div>
-              <Select value={caloriesUnit} onValueChange={setCaloriesUnit}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Per 100G">Per 100G</SelectItem>
-                  <SelectItem value="Per Serving">Per Serving</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Enter the calorie value and select the unit (Per 100G or Per Serving)
+              Select foods from the database and specify quantities. Calories will be calculated automatically.
             </p>
           </div>
         </div>

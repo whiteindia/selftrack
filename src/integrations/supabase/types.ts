@@ -389,6 +389,8 @@ export type Database = {
       }
       foods: {
         Row: {
+          calories_unit: string
+          calories_value: number
           category: string
           created_at: string
           id: string
@@ -397,6 +399,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          calories_unit?: string
+          calories_value?: number
           category: string
           created_at?: string
           id?: string
@@ -405,6 +409,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          calories_unit?: string
+          calories_value?: number
           category?: string
           created_at?: string
           id?: string
@@ -845,6 +851,7 @@ export type Database = {
           calories_unit: string
           calories_value: number
           created_at: string
+          food_items: Json | null
           foods: string[] | null
           id: string
           name: string
@@ -855,6 +862,7 @@ export type Database = {
           calories_unit?: string
           calories_value?: number
           created_at?: string
+          food_items?: Json | null
           foods?: string[] | null
           id?: string
           name: string
@@ -865,6 +873,7 @@ export type Database = {
           calories_unit?: string
           calories_value?: number
           created_at?: string
+          food_items?: Json | null
           foods?: string[] | null
           id?: string
           name?: string
