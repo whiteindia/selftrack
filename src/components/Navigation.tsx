@@ -456,7 +456,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
           {shouldShowDietMenu && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Diet-Health</h3>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Diet-Fit-Health</h3>
               <div className="space-y-1">
                 {visibleDietItems.map((item) => {
                   const Icon = item.icon;
@@ -802,7 +802,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
                     <Apple className="h-4 w-4" />
-                    <span>Diet-Health</span>
+                    <span>Diet-Fit-Health</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
