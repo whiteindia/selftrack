@@ -62,12 +62,12 @@ const DefaultSchedule = () => {
     },
   });
 
-  // Auto-select yugandhar (software engineer) profile
+  // Auto-select software engineer profile
   useEffect(() => {
     if (profiles && !selectedProfile) {
       const defaultProfile = profiles.find(
-        p => p.profile_name.toLowerCase().includes('yugandhar') && 
-             p.profile_name.toLowerCase().includes('software')
+        p => p.profile_name.toLowerCase().includes('software') && 
+             p.profile_name.toLowerCase().includes('engineer')
       );
       if (defaultProfile) {
         setSelectedProfile(defaultProfile.id);

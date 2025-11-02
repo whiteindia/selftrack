@@ -59,8 +59,7 @@ const WorkProfile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-profiles'] });
       toast.success('Work profile created successfully');
-      setIsDialogOpen(false);
-      setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
+      handleDialogClose(false);
     },
     onError: (error) => {
       toast.error('Failed to create work profile');
@@ -80,9 +79,7 @@ const WorkProfile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-profiles'] });
       toast.success('Work profile updated successfully');
-      setIsDialogOpen(false);
-      setEditingProfile(null);
-      setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
+      handleDialogClose(false);
     },
     onError: (error) => {
       toast.error('Failed to update work profile');
@@ -144,10 +141,12 @@ const WorkProfile = () => {
     }
   };
 
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setEditingProfile(null);
-    setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingProfile(null);
+      setFormData({ profile_name: '', person_name: '', profile_type: 'Standard', calories_required: 0, age: 0, weight: 0, bmi: 0 });
+    }
   };
 
   return (
@@ -155,9 +154,9 @@ const WorkProfile = () => {
       <div className="container mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Work Profiles</h1>
-          <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setIsDialogOpen(true)}>
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Profile
               </Button>

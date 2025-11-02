@@ -114,8 +114,22 @@ export const useDashboardData = () => {
 
       // Filter out any null entries (failed fetches)
       const validEntries = enrichedEntries.filter(entry => entry !== null);
-      console.log('Enriched running tasks:', validEntries);
-      return validEntries;
+      
+      // Sort: Running tasks (no pause info) first, then paused tasks
+      const sortedEntries = validEntries.sort((a, b) => {
+        const aPaused = a.timer_metadata?.includes('Timer paused');
+        const bPaused = b.timer_metadata?.includes('Timer paused');
+        
+        // Running tasks (no pause) come first
+        if (!aPaused && bPaused) return -1;
+        if (aPaused && !bPaused) return 1;
+        
+        // If both have same pause status, sort by start_time (most recent first)
+        return new Date(b.start_time).getTime() - new Date(a.start_time).getTime();
+      });
+      
+      console.log('Enriched running tasks:', sortedEntries);
+      return sortedEntries;
     },
     refetchInterval: 2000 // More frequent updates
   });
