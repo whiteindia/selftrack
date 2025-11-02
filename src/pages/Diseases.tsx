@@ -85,7 +85,7 @@ export default function Diseases() {
           <div>
             <h1 className="text-3xl font-bold">Diseases</h1>
             <p className="text-muted-foreground mt-2">
-              Manage disease information with reasons and symptoms
+              Manage disease information with causes and effects
             </p>
           </div>
           <Button onClick={() => setIsDialogOpen(true)}>
@@ -102,8 +102,8 @@ export default function Diseases() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Disease Name</TableHead>
-                  <TableHead>Reasons</TableHead>
-                  <TableHead>Symptoms</TableHead>
+                  <TableHead>Causes</TableHead>
+                  <TableHead>Effects</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -131,7 +131,7 @@ export default function Diseases() {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-muted-foreground text-sm">No reasons</span>
+                            <span className="text-muted-foreground text-sm">No causes</span>
                           )}
                         </div>
                       </TableCell>
@@ -148,7 +148,7 @@ export default function Diseases() {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-muted-foreground text-sm">No symptoms</span>
+                            <span className="text-muted-foreground text-sm">No effects</span>
                           )}
                         </div>
                       </TableCell>

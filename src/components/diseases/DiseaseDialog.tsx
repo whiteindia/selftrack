@@ -109,17 +109,17 @@ export function DiseaseDialog({ open, onOpenChange, disease }: DiseaseDialogProp
           </div>
 
           <ArrayInput
-            label="Reasons"
+            label="Causes"
             items={reasons}
             onChange={setReasons}
-            placeholder="Add reason and press Enter"
+            placeholder="Add cause and press Enter"
           />
 
           <ArrayInput
-            label="Symptoms"
+            label="Effects"
             items={symptoms}
             onChange={setSymptoms}
-            placeholder="Add symptom and press Enter"
+            placeholder="Add effect and press Enter"
           />
 
           <div className="flex justify-end gap-2 pt-4">
