@@ -92,11 +92,24 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
 
   // Final filtered tasks based on all selections
   const filteredTasks = useMemo(() => {
-    if (selectedProjects.length === 0) return tasksForSelectedClients;
+    let tasks = selectedProjects.length === 0 
+      ? tasksForSelectedClients 
+      : tasksForSelectedClients.filter((entry: any) =>
+          selectedProjects.includes(entry.tasks.projects?.id)
+        );
     
-    return tasksForSelectedClients.filter((entry: any) =>
-      selectedProjects.includes(entry.tasks.projects?.id)
-    );
+    // Sort tasks: Running timers first, then paused timers
+    return tasks.sort((a: any, b: any) => {
+      const aPaused = parsePauseInfo(a.timer_metadata).isPaused;
+      const bPaused = parsePauseInfo(b.timer_metadata).isPaused;
+      
+      // Running (not paused) tasks come first
+      if (!aPaused && bPaused) return -1;
+      if (aPaused && !bPaused) return 1;
+      
+      // If both have same pause status, maintain original order
+      return 0;
+    });
   }, [tasksForSelectedClients, selectedProjects]);
 
   const toggleService = (serviceName: string) => {
