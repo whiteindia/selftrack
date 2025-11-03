@@ -90,6 +90,33 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     return Array.from(projectMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [tasksForSelectedClients]);
 
+  // Helper function to parse pause information from timer_metadata
+  const parsePauseInfo = (timerMetadata: string | null) => {
+    if (!timerMetadata) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
+    
+    const pauseMatches = [...timerMetadata.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...timerMetadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
+    
+    let totalPausedMs = 0;
+    let isPaused = false;
+    let lastPauseTime: Date | undefined;
+    
+    // Calculate total paused time from completed pause/resume cycles
+    for (let i = 0; i < Math.min(pauseMatches.length, resumeMatches.length); i++) {
+      const pauseTime = new Date(pauseMatches[i][1]);
+      const resumeTime = new Date(resumeMatches[i][1]);
+      totalPausedMs += resumeTime.getTime() - pauseTime.getTime();
+    }
+    
+    // Check if currently paused (more pauses than resumes)
+    if (pauseMatches.length > resumeMatches.length) {
+      isPaused = true;
+      lastPauseTime = new Date(pauseMatches[pauseMatches.length - 1][1]);
+    }
+    
+    return { isPaused, totalPausedMs, lastPauseTime };
+  };
+
   // Final filtered tasks based on all selections
   const filteredTasks = useMemo(() => {
     let tasks = selectedProjects.length === 0 
@@ -145,32 +172,6 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
         ? prev.filter(p => p !== projectId)
         : [...prev, projectId]
     );
-  };
-  // Helper function to parse pause information from timer_metadata
-  const parsePauseInfo = (timerMetadata: string | null) => {
-    if (!timerMetadata) return { isPaused: false, totalPausedMs: 0, lastPauseTime: undefined };
-    
-    const pauseMatches = [...timerMetadata.matchAll(/Timer paused at ([^,\n]+)/g)];
-    const resumeMatches = [...timerMetadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
-    
-    let totalPausedMs = 0;
-    let isPaused = false;
-    let lastPauseTime: Date | undefined;
-    
-    // Calculate total paused time from completed pause/resume cycles
-    for (let i = 0; i < Math.min(pauseMatches.length, resumeMatches.length); i++) {
-      const pauseTime = new Date(pauseMatches[i][1]);
-      const resumeTime = new Date(resumeMatches[i][1]);
-      totalPausedMs += resumeTime.getTime() - pauseTime.getTime();
-    }
-    
-    // Check if currently paused (more pauses than resumes)
-    if (pauseMatches.length > resumeMatches.length) {
-      isPaused = true;
-      lastPauseTime = new Date(pauseMatches[pauseMatches.length - 1][1]);
-    }
-    
-    return { isPaused, totalPausedMs, lastPauseTime };
   };
 
   const isPaused = (entry: any) => {
