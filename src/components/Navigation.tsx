@@ -152,6 +152,9 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/default-schedule', label: 'Default Schedule', icon: ClipboardList, pageName: 'default-schedule' },
     { path: '/diseases', label: 'Diseases', icon: AlertTriangle, pageName: 'diseases' },
     { path: '/treatment', label: 'Treatment', icon: CheckCircle, pageName: 'treatment' },
+    { path: '/kids-parenting', label: 'Kids-Parenting', icon: Users2, pageName: 'kids-parenting' },
+    { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
+    { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
   ];
 
   const trakTeamItems = [
