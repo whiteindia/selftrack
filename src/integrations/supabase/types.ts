@@ -610,6 +610,48 @@ export type Database = {
           },
         ]
       }
+      kids_activities: {
+        Row: {
+          activity_name: string
+          category: string
+          created_at: string
+          description: string
+          duration: string
+          frequency: string
+          goal: string
+          id: string
+          progress_notes: string | null
+          tools_needed: string
+          updated_at: string
+        }
+        Insert: {
+          activity_name: string
+          category: string
+          created_at?: string
+          description: string
+          duration: string
+          frequency: string
+          goal: string
+          id?: string
+          progress_notes?: string | null
+          tools_needed: string
+          updated_at?: string
+        }
+        Update: {
+          activity_name?: string
+          category?: string
+          created_at?: string
+          description?: string
+          duration?: string
+          frequency?: string
+          goal?: string
+          id?: string
+          progress_notes?: string | null
+          tools_needed?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_reads: {
         Row: {
           created_at: string

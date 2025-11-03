@@ -1,226 +1,88 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Baby } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Baby, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { ActivityDialog } from "@/components/kids/ActivityDialog";
 
-const activitiesData = [
-  {
-    category: "IQ / Brain Development",
-    activityName: "Flashcards / Picture Cards",
-    description: "Show basic objects, animals, shapes & ask names",
-    frequency: "Daily",
-    duration: "10 mins",
-    toolsNeeded: "Flashcards / mobile app",
-    goal: "Improve vocabulary & memory",
-    progressNotes: ""
-  },
-  {
-    category: "IQ / Brain Development",
-    activityName: "Puzzle Solving",
-    description: "Age-appropriate puzzles (3–200 pieces)",
-    frequency: "3–4 times/week",
-    duration: "20 mins",
-    toolsNeeded: "Puzzle sets",
-    goal: "Enhances logical reasoning & focus",
-    progressNotes: ""
-  },
-  {
-    category: "IQ / Brain Development",
-    activityName: "Story Reading & Retelling",
-    description: "Read story → ask child to explain",
-    frequency: "Daily",
-    duration: "15 mins",
-    toolsNeeded: "Story books",
-    goal: "Builds comprehension & speaking skills",
-    progressNotes: ""
-  },
-  {
-    category: "IQ / Brain Development",
-    activityName: "Math Games",
-    description: "Count apples, toys, etc. in real life",
-    frequency: "Daily",
-    duration: "10 mins",
-    toolsNeeded: "Household items",
-    goal: "Builds number sense and IQ",
-    progressNotes: ""
-  },
-  {
-    category: "Emotional & Moral Values",
-    activityName: "Gratitude Talks",
-    description: "Ask: \"What made you happy today?\"",
-    frequency: "Daily",
-    duration: "5 mins",
-    toolsNeeded: "None",
-    goal: "Builds positivity & awareness",
-    progressNotes: ""
-  },
-  {
-    category: "Emotional & Moral Values",
-    activityName: "Helping at Home",
-    description: "Assign tiny tasks (fold napkin, bring water)",
-    frequency: "Daily",
-    duration: "5–10 mins",
-    toolsNeeded: "Household",
-    goal: "Responsibility & discipline",
-    progressNotes: ""
-  },
-  {
-    category: "Emotional & Moral Values",
-    activityName: "Sharing Games",
-    description: "Play with other kids & practice sharing",
-    frequency: "Weekly",
-    duration: "20 mins",
-    toolsNeeded: "Toys",
-    goal: "Improves social bonding & empathy",
-    progressNotes: ""
-  },
-  {
-    category: "Emotional & Moral Values",
-    activityName: "Prayer / Silence Time",
-    description: "Sit silent / positive affirmations",
-    frequency: "Daily",
-    duration: "2–5 mins",
-    toolsNeeded: "Calm music optional",
-    goal: "Emotional regulation",
-    progressNotes: ""
-  },
-  {
-    category: "Sports & Physical Activities",
-    activityName: "Running / Skipping",
-    description: "Open space running/sprint",
-    frequency: "Daily",
-    duration: "15 mins",
-    toolsNeeded: "Ground, skipping rope",
-    goal: "Stamina & coordination",
-    progressNotes: ""
-  },
-  {
-    category: "Sports & Physical Activities",
-    activityName: "Ball Games",
-    description: "Throw, catch, kick, dribble",
-    frequency: "Daily",
-    duration: "10 mins",
-    toolsNeeded: "Soft ball",
-    goal: "Hand-eye coordination",
-    progressNotes: ""
-  },
-  {
-    category: "Sports & Physical Activities",
-    activityName: "Swimming / Cycling",
-    description: "Outdoor skill activity",
-    frequency: "2–3 times/week",
-    duration: "30 mins",
-    toolsNeeded: "Cycle/pool",
-    goal: "Confidence + body strength",
-    progressNotes: ""
-  },
-  {
-    category: "Sports & Physical Activities",
-    activityName: "Yoga for Kids",
-    description: "Fun poses (cat, tree, butterfly)",
-    frequency: "Daily",
-    duration: "5–10 mins",
-    toolsNeeded: "Mat",
-    goal: "Flexibility & calm mind",
-    progressNotes: ""
-  },
-  {
-    category: "Creativity & Skills",
-    activityName: "Drawing & Coloring",
-    description: "Free drawing + object drawing",
-    frequency: "3–4 times/week",
-    duration: "20 mins",
-    toolsNeeded: "Colors & sheets",
-    goal: "Improves attention & imagination",
-    progressNotes: ""
-  },
-  {
-    category: "Creativity & Skills",
-    activityName: "Music / Dance Time",
-    description: "Play songs & dance together",
-    frequency: "Daily",
-    duration: "10 mins",
-    toolsNeeded: "Music system",
-    goal: "Happiness + rhythm coordination",
-    progressNotes: ""
-  },
-  {
-    category: "Creativity & Skills",
-    activityName: "Lego / Block Building",
-    description: "Build towers, animals, houses",
-    frequency: "Weekly",
-    duration: "30 mins",
-    toolsNeeded: "Lego blocks",
-    goal: "Enhances problem solving & engineering thinking",
-    progressNotes: ""
-  },
-  {
-    category: "Communication & Social Skills",
-    activityName: "Talk Time (Parent-Child)",
-    description: "Ask open questions & listen",
-    frequency: "Daily",
-    duration: "10 mins",
-    toolsNeeded: "None",
-    goal: "Builds trust & emotional secure bonding",
-    progressNotes: ""
-  },
-  {
-    category: "Communication & Social Skills",
-    activityName: "Play Dates",
-    description: "Interaction with kids same age",
-    frequency: "Weekly",
-    duration: "1 hour",
-    toolsNeeded: "Park / home",
-    goal: "Teamwork & sharing skills",
-    progressNotes: ""
-  },
-  {
-    category: "Communication & Social Skills",
-    activityName: "Public Speaking Fun",
-    description: "Recite poem / story in front of family",
-    frequency: "Weekly",
-    duration: "10 mins",
-    toolsNeeded: "None",
-    goal: "Confidence & stage habit",
-    progressNotes: ""
-  },
-  {
-    category: "Healthy Habits",
-    activityName: "Eating Fruits",
-    description: "Introduce one fruit per day",
-    frequency: "Daily",
-    duration: "Routine time",
-    toolsNeeded: "Fruits",
-    goal: "Nutrition awareness",
-    progressNotes: ""
-  },
-  {
-    category: "Healthy Habits",
-    activityName: "Water Drinking Tracker",
-    description: "Remind to drink water often",
-    frequency: "Daily",
-    duration: "Whole day",
-    toolsNeeded: "Bottle",
-    goal: "Health & hydration",
-    progressNotes: ""
-  },
-  {
-    category: "Healthy Habits",
-    activityName: "Sleep Routine",
-    description: "Fix bedtime & no screens before sleeping",
-    frequency: "Daily",
-    duration: "Night",
-    toolsNeeded: "Calm environment",
-    goal: "Improves behavior & memory",
-    progressNotes: ""
-  }
-];
+interface Activity {
+  id: string;
+  category: string;
+  activity_name: string;
+  description: string;
+  frequency: string;
+  duration: string;
+  tools_needed: string;
+  goal: string;
+  progress_notes: string | null;
+}
 
 const KidsParenting = () => {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchActivities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("kids_activities")
+        .select("*")
+        .order("category", { ascending: true })
+        .order("activity_name", { ascending: true });
+
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load activities",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivities();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this activity?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("kids_activities")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Activity deleted successfully",
+      });
+
+      fetchActivities();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete activity",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <Baby className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold">Kids & Parenting</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Baby className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold">Kids & Parenting</h1>
+        </div>
+        <ActivityDialog onActivityAdded={fetchActivities} />
       </div>
 
       <Card>
@@ -228,36 +90,54 @@ const KidsParenting = () => {
           <CardTitle>Child Development Activities</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Activity Name</TableHead>
-                  <TableHead>Description / How to Do</TableHead>
-                  <TableHead>Frequency</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Tools Needed</TableHead>
-                  <TableHead>Goal / Expected Outcome</TableHead>
-                  <TableHead>Progress Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activitiesData.map((activity, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{activity.category}</TableCell>
-                    <TableCell>{activity.activityName}</TableCell>
-                    <TableCell>{activity.description}</TableCell>
-                    <TableCell>{activity.frequency}</TableCell>
-                    <TableCell>{activity.duration}</TableCell>
-                    <TableCell>{activity.toolsNeeded}</TableCell>
-                    <TableCell>{activity.goal}</TableCell>
-                    <TableCell>{activity.progressNotes}</TableCell>
+          {loading ? (
+            <p className="text-center py-4">Loading activities...</p>
+          ) : activities.length === 0 ? (
+            <p className="text-center py-4 text-muted-foreground">
+              No activities yet. Click "Add Activity" to create one.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Activity Name</TableHead>
+                    <TableHead>Description / How to Do</TableHead>
+                    <TableHead>Frequency</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Tools Needed</TableHead>
+                    <TableHead>Goal / Expected Outcome</TableHead>
+                    <TableHead>Progress Notes</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {activities.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell className="font-medium">{activity.category}</TableCell>
+                      <TableCell>{activity.activity_name}</TableCell>
+                      <TableCell>{activity.description}</TableCell>
+                      <TableCell>{activity.frequency}</TableCell>
+                      <TableCell>{activity.duration}</TableCell>
+                      <TableCell>{activity.tools_needed}</TableCell>
+                      <TableCell>{activity.goal}</TableCell>
+                      <TableCell>{activity.progress_notes || "-"}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(activity.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
