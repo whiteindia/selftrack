@@ -1131,6 +1131,42 @@ export type Database = {
         }
         Relationships: []
       }
+      social_activities: {
+        Row: {
+          activity_practice: string
+          category: string
+          created_at: string
+          expected_impact: string
+          frequency: string
+          how_to_do: string
+          id: string
+          purpose_goal: string
+          updated_at: string
+        }
+        Insert: {
+          activity_practice: string
+          category: string
+          created_at?: string
+          expected_impact: string
+          frequency: string
+          how_to_do: string
+          id?: string
+          purpose_goal: string
+          updated_at?: string
+        }
+        Update: {
+          activity_practice?: string
+          category?: string
+          created_at?: string
+          expected_impact?: string
+          frequency?: string
+          how_to_do?: string
+          id?: string
+          purpose_goal?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sprint_tasks: {
         Row: {
           created_at: string
