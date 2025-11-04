@@ -153,6 +153,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/diseases', label: 'Diseases', icon: AlertTriangle, pageName: 'diseases' },
     { path: '/treatment', label: 'Treatment', icon: CheckCircle, pageName: 'treatment' },
     { path: '/kids-parenting', label: 'Kids-Parenting', icon: Users2, pageName: 'kids-parenting' },
+    { path: '/kids-cal', label: 'Kids-Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
   ];

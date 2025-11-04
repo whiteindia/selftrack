@@ -49,6 +49,7 @@ import CustomMenu from "./pages/CustomMenu";
 import DefaultSchedule from "./pages/DefaultSchedule";
 import WorkProfile from "./pages/WorkProfile";
 import KidsParenting from "./pages/KidsParenting";
+import KidsCal from "./pages/KidsCal";
 import Sports from "./pages/Sports";
 import TheatricalArts from "./pages/TheatricalArts";
 
@@ -130,6 +131,7 @@ function App() {
                 <Route path="/diseases" element={<ProtectedRoute><Diseases /></ProtectedRoute>} />
                 <Route path="/treatment" element={<ProtectedRoute><Treatment /></ProtectedRoute>} />
                 <Route path="/kids-parenting" element={<ProtectedRoute><KidsParenting /></ProtectedRoute>} />
+                <Route path="/kids-cal" element={<ProtectedRoute><KidsCal /></ProtectedRoute>} />
                 <Route path="/sports" element={<ProtectedRoute><Sports /></ProtectedRoute>} />
                 <Route path="/theatrical-arts" element={<ProtectedRoute><TheatricalArts /></ProtectedRoute>} />
                 <Route path="/work-profile" element={<ProtectedRoute><WorkProfile /></ProtectedRoute>} />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,14 +30,32 @@ const categories = [
   "Healthy Habits",
 ];
 
-interface ActivityDialogProps {
-  onActivityAdded: () => void;
+interface Activity {
+  id: string;
+  category: string;
+  activity_name: string;
+  description: string;
+  frequency: string;
+  duration: string;
+  tools_needed: string;
+  goal: string;
+  progress_notes: string | null;
 }
 
-export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
-  const [open, setOpen] = useState(false);
+interface ActivityDialogProps {
+  onActivityAdded: () => void;
+  editActivity?: Activity | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChange }: ActivityDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const isControlled = open !== undefined && onOpenChange !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
 
   const [formData, setFormData] = useState({
     category: "",
@@ -50,16 +68,48 @@ export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
     progressNotes: "",
   });
 
+  useEffect(() => {
+    if (editActivity) {
+      setFormData({
+        category: editActivity.category,
+        activityName: editActivity.activity_name,
+        description: editActivity.description,
+        frequency: editActivity.frequency,
+        duration: editActivity.duration,
+        toolsNeeded: editActivity.tools_needed,
+        goal: editActivity.goal,
+        progressNotes: editActivity.progress_notes || "",
+      });
+    } else {
+      setFormData({
+        category: "",
+        activityName: "",
+        description: "",
+        frequency: "",
+        duration: "",
+        toolsNeeded: "",
+        goal: "",
+        progressNotes: "",
+      });
+    }
+  }, [editActivity]);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      // Validate input
       const validatedData = activitySchema.parse(formData);
-      
       setLoading(true);
 
-      const { error } = await supabase.from("kids_activities").insert({
+      const dbData = {
         category: validatedData.category,
         activity_name: validatedData.activityName,
         description: validatedData.description,
@@ -68,14 +118,32 @@ export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
         tools_needed: validatedData.toolsNeeded,
         goal: validatedData.goal,
         progress_notes: validatedData.progressNotes || "",
-      });
+      };
 
-      if (error) throw error;
+      if (editActivity) {
+        const { error } = await supabase
+          .from("kids_activities")
+          .update(dbData)
+          .eq("id", editActivity.id);
 
-      toast({
-        title: "Success",
-        description: "Activity added successfully",
-      });
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Activity updated successfully",
+        });
+      } else {
+        const { error } = await supabase
+          .from("kids_activities")
+          .insert(dbData);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Activity added successfully",
+        });
+      }
 
       setFormData({
         category: "",
@@ -88,7 +156,7 @@ export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
         progressNotes: "",
       });
       
-      setOpen(false);
+      handleOpenChange(false);
       onActivityAdded();
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -100,7 +168,7 @@ export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
       } else {
         toast({
           title: "Error",
-          description: "Failed to add activity",
+          description: editActivity ? "Failed to update activity" : "Failed to add activity",
           variant: "destructive",
         });
       }
@@ -110,16 +178,18 @@ export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Activity
-        </Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      {!editActivity && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Activity
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Activity</DialogTitle>
+          <DialogTitle>{editActivity ? "Edit Activity" : "Add New Activity"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -222,11 +292,11 @@ export const ActivityDialog = ({ onActivityAdded }: ActivityDialogProps) => {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Activity"}
+              {loading ? (editActivity ? "Updating..." : "Adding...") : (editActivity ? "Update Activity" : "Add Activity")}
             </Button>
           </div>
         </form>

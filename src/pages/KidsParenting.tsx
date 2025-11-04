@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Baby, Trash2 } from "lucide-react";
+import { Baby, Trash2, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ActivityDialog } from "@/components/kids/ActivityDialog";
+import Navigation from "@/components/Navigation";
 
 interface Activity {
   id: string;
@@ -22,6 +23,8 @@ interface Activity {
 const KidsParenting = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchActivities = async () => {
@@ -48,6 +51,16 @@ const KidsParenting = () => {
   useEffect(() => {
     fetchActivities();
   }, []);
+
+  const handleEdit = (activity: Activity) => {
+    setEditingActivity(activity);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingActivity(null);
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this activity?")) return;
@@ -76,14 +89,23 @@ const KidsParenting = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Baby className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Kids & Parenting</h1>
+    <Navigation>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Baby className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">Kids & Parenting</h1>
+          </div>
+          <ActivityDialog 
+            onActivityAdded={() => {
+              fetchActivities();
+              handleDialogClose();
+            }}
+            editActivity={editingActivity}
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+          />
         </div>
-        <ActivityDialog onActivityAdded={fetchActivities} />
-      </div>
 
       <Card>
         <CardHeader>
@@ -124,13 +146,22 @@ const KidsParenting = () => {
                       <TableCell>{activity.goal}</TableCell>
                       <TableCell>{activity.progress_notes || "-"}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(activity.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(activity)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(activity.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -140,7 +171,8 @@ const KidsParenting = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Navigation>
   );
 };
 

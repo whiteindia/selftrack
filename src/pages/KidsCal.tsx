@@ -1,0 +1,301 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Baby, CalendarIcon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import Navigation from "@/components/Navigation";
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, startOfMonth, endOfMonth } from "date-fns";
+import { cn } from "@/lib/utils";
+
+interface Activity {
+  id: string;
+  category: string;
+  activity_name: string;
+  description: string;
+  frequency: string;
+  duration: string;
+  tools_needed: string;
+  goal: string;
+  progress_notes: string | null;
+}
+
+const KidsCal = () => {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [viewMode, setViewMode] = useState<"monthly" | "weekly">("monthly");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const { toast } = useToast();
+
+  const fetchActivities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("kids_activities")
+        .select("*")
+        .order("category", { ascending: true });
+
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load activities",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActivities();
+  }, []);
+
+  const categories = Array.from(new Set(activities.map(a => a.category)));
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const filteredActivities = selectedCategories.length > 0
+    ? activities.filter(a => selectedCategories.includes(a.category))
+    : activities;
+
+  const shouldShowActivity = (activity: Activity, date: Date) => {
+    const dayName = format(date, 'EEEE');
+    const freq = activity.frequency.toLowerCase();
+    
+    if (freq === 'daily') return true;
+    if (freq.includes('weekly') || freq.includes('week')) {
+      return freq.includes(dayName.toLowerCase());
+    }
+    if (freq.includes(dayName.toLowerCase())) return true;
+    
+    return false;
+  };
+
+  const getActivitiesForDate = (date: Date) => {
+    return filteredActivities.filter(activity => shouldShowActivity(activity, date));
+  };
+
+  const getDaysToShow = () => {
+    if (viewMode === "weekly") {
+      return eachDayOfInterval({
+        start: startOfWeek(selectedDate),
+        end: endOfWeek(selectedDate)
+      });
+    } else {
+      return eachDayOfInterval({
+        start: startOfMonth(selectedDate),
+        end: endOfMonth(selectedDate)
+      });
+    }
+  };
+
+  const days = getDaysToShow();
+
+  return (
+    <Navigation>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <Baby className="h-8 w-8 text-primary" />
+            <h1 className="text-3xl font-bold">Kids Calendar</h1>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === "monthly" ? "default" : "outline"}
+              onClick={() => setViewMode("monthly")}
+            >
+              Monthly
+            </Button>
+            <Button
+              variant={viewMode === "weekly" ? "default" : "outline"}
+              onClick={() => setViewMode("weekly")}
+            >
+              Weekly
+            </Button>
+          </div>
+        </div>
+
+        {/* Category Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Filter by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <Button
+                  key={category}
+                  variant={selectedCategories.includes(category) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleCategory(category)}
+                >
+                  {category}
+                </Button>
+              ))}
+              {selectedCategories.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedCategories([])}
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Date Picker */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Date</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                />
+              </PopoverContent>
+            </Popover>
+          </CardContent>
+        </Card>
+
+        {/* Calendar Grid */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {viewMode === "weekly" ? "Week" : "Month"} View - {format(selectedDate, 'MMMM yyyy')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-center py-4">Loading activities...</p>
+            ) : (
+              <div className={cn(
+                "grid gap-2",
+                viewMode === "weekly" ? "grid-cols-7" : "grid-cols-7"
+              )}>
+                {/* Day headers */}
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                  <div key={day} className="text-center font-semibold text-sm p-2 border-b">
+                    {day}
+                  </div>
+                ))}
+                
+                {/* Calendar cells */}
+                {days.map((day, index) => {
+                  const dayActivities = getActivitiesForDate(day);
+                  const isToday = isSameDay(day, new Date());
+                  const isSelected = isSameDay(day, selectedDate);
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={cn(
+                        "min-h-32 border p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors",
+                        isToday && "bg-blue-50 border-blue-300",
+                        isSelected && "ring-2 ring-primary"
+                      )}
+                      onClick={() => setSelectedDate(day)}
+                    >
+                      <div className={cn(
+                        "text-sm font-medium mb-2",
+                        isToday && "text-blue-600"
+                      )}>
+                        {format(day, 'd')}
+                      </div>
+                      <div className="space-y-1">
+                        {dayActivities.slice(0, 3).map((activity) => (
+                          <Badge
+                            key={activity.id}
+                            variant="secondary"
+                            className="text-xs block truncate"
+                          >
+                            {activity.activity_name}
+                          </Badge>
+                        ))}
+                        {dayActivities.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{dayActivities.length - 3} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Selected Day Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Activities for {format(selectedDate, 'EEEE, MMMM d, yyyy')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {getActivitiesForDate(selectedDate).length === 0 ? (
+              <p className="text-center py-4 text-muted-foreground">
+                No activities scheduled for this day
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {getActivitiesForDate(selectedDate).map((activity) => (
+                  <div key={activity.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <h3 className="font-semibold">{activity.activity_name}</h3>
+                        <Badge variant="outline">{activity.category}</Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{activity.description}</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="font-medium">Frequency:</span> {activity.frequency}
+                      </div>
+                      <div>
+                        <span className="font-medium">Duration:</span> {activity.duration}
+                      </div>
+                      <div>
+                        <span className="font-medium">Tools:</span> {activity.tools_needed}
+                      </div>
+                      <div>
+                        <span className="font-medium">Goal:</span> {activity.goal}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </Navigation>
+  );
+};
+
+export default KidsCal;
