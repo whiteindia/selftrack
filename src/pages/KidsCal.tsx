@@ -21,6 +21,7 @@ interface Activity {
   tools_needed: string;
   goal: string;
   progress_notes: string | null;
+  start_date: string;
 }
 
 const KidsCal = () => {
@@ -69,16 +70,42 @@ const KidsCal = () => {
     ? activities.filter(a => selectedCategories.includes(a.category))
     : activities;
 
-  const shouldShowActivity = (activity: Activity, date: Date) => {
-    const dayName = format(date, 'EEEE');
-    const freq = activity.frequency.toLowerCase();
+  const shouldShowActivity = (activity: Activity, date: Date): boolean => {
+    const activityStartDate = new Date(activity.start_date);
+    activityStartDate.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
     
-    if (freq === 'daily') return true;
-    if (freq.includes('weekly') || freq.includes('week')) {
-      return freq.includes(dayName.toLowerCase());
+    // Don't show activity before its start date
+    if (checkDate < activityStartDate) return false;
+    
+    const frequency = activity.frequency.toLowerCase();
+    const dayOfWeek = date.getDay();
+    const daysDiff = Math.floor((checkDate.getTime() - activityStartDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (frequency.includes("daily")) return true;
+    
+    if (frequency.includes("weekly")) {
+      // Show on same day of week as start date
+      return dayOfWeek === activityStartDate.getDay();
     }
-    if (freq.includes(dayName.toLowerCase())) return true;
     
+    if (frequency.includes("bi-weekly") || frequency.includes("biweekly")) {
+      // Show every 2 weeks on the same day
+      return dayOfWeek === activityStartDate.getDay() && Math.floor(daysDiff / 7) % 2 === 0;
+    }
+    
+    if (frequency.includes("monthly")) {
+      // Show on same date each month
+      return date.getDate() === activityStartDate.getDate();
+    }
+    
+    if (frequency.includes("weekday") && dayOfWeek >= 1 && dayOfWeek <= 5)
+      return true;
+      
+    if (frequency.includes("weekend") && (dayOfWeek === 0 || dayOfWeek === 6))
+      return true;
+
     return false;
   };
 

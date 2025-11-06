@@ -18,6 +18,7 @@ interface Activity {
   tools_needed: string;
   goal: string;
   progress_notes: string | null;
+  start_date: string;
 }
 
 const KidsParenting = () => {

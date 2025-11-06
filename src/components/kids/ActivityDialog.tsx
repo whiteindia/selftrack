@@ -19,6 +19,7 @@ const activitySchema = z.object({
   toolsNeeded: z.string().min(1, "Tools needed is required").max(200),
   goal: z.string().min(1, "Goal is required").max(300),
   progressNotes: z.string().max(500).optional(),
+  startDate: z.string().min(1, "Start date is required"),
 });
 
 const categories = [
@@ -40,6 +41,7 @@ interface Activity {
   tools_needed: string;
   goal: string;
   progress_notes: string | null;
+  start_date: string;
 }
 
 interface ActivityDialogProps {
@@ -66,6 +68,7 @@ export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChan
     toolsNeeded: "",
     goal: "",
     progressNotes: "",
+    startDate: new Date().toISOString().split('T')[0],
   });
 
   useEffect(() => {
@@ -79,6 +82,7 @@ export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChan
         toolsNeeded: editActivity.tools_needed,
         goal: editActivity.goal,
         progressNotes: editActivity.progress_notes || "",
+        startDate: editActivity.start_date || new Date().toISOString().split('T')[0],
       });
     } else {
       setFormData({
@@ -90,6 +94,7 @@ export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChan
         toolsNeeded: "",
         goal: "",
         progressNotes: "",
+        startDate: new Date().toISOString().split('T')[0],
       });
     }
   }, [editActivity]);
@@ -118,6 +123,7 @@ export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChan
         tools_needed: validatedData.toolsNeeded,
         goal: validatedData.goal,
         progress_notes: validatedData.progressNotes || "",
+        start_date: validatedData.startDate,
       };
 
       if (editActivity) {
@@ -154,6 +160,7 @@ export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChan
         toolsNeeded: "",
         goal: "",
         progressNotes: "",
+        startDate: new Date().toISOString().split('T')[0],
       });
       
       handleOpenChange(false);
@@ -288,6 +295,17 @@ export const ActivityDialog = ({ onActivityAdded, editActivity, open, onOpenChan
               value={formData.progressNotes}
               onChange={(e) => setFormData({ ...formData, progressNotes: e.target.value })}
               maxLength={500}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Start Date *</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+              required
             />
           </div>
 

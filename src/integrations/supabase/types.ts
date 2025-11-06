@@ -621,6 +621,7 @@ export type Database = {
           goal: string
           id: string
           progress_notes: string | null
+          start_date: string | null
           tools_needed: string
           updated_at: string
         }
@@ -634,6 +635,7 @@ export type Database = {
           goal: string
           id?: string
           progress_notes?: string | null
+          start_date?: string | null
           tools_needed: string
           updated_at?: string
         }
@@ -647,6 +649,7 @@ export type Database = {
           goal?: string
           id?: string
           progress_notes?: string | null
+          start_date?: string | null
           tools_needed?: string
           updated_at?: string
         }
