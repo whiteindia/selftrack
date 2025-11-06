@@ -16,6 +16,7 @@ interface SocialActivity {
   frequency: string;
   how_to_do: string;
   expected_impact: string;
+  start_date: string;
 }
 
 const SocialBeingTracker = () => {
@@ -127,6 +128,7 @@ const SocialBeingTracker = () => {
                       <TableHead>Frequency</TableHead>
                       <TableHead>How to Do It Effectively</TableHead>
                       <TableHead>Expected Impact</TableHead>
+                      <TableHead>Start Date</TableHead>
                       <TableHead className="w-[100px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -139,6 +141,7 @@ const SocialBeingTracker = () => {
                         <TableCell>{activity.frequency}</TableCell>
                         <TableCell>{activity.how_to_do}</TableCell>
                         <TableCell>{activity.expected_impact}</TableCell>
+                        <TableCell>{new Date(activity.start_date).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button

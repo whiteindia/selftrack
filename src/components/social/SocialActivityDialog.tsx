@@ -18,6 +18,7 @@ const activitySchema = z.object({
   frequency: z.string().min(1, "Frequency is required"),
   how_to_do: z.string().min(1, "How to do is required"),
   expected_impact: z.string().min(1, "Expected impact is required"),
+  start_date: z.string().min(1, "Start date is required"),
 });
 
 type ActivityFormData = z.infer<typeof activitySchema>;
@@ -30,6 +31,7 @@ interface SocialActivity {
   frequency: string;
   how_to_do: string;
   expected_impact: string;
+  start_date: string;
 }
 
 interface SocialActivityDialogProps {
@@ -61,6 +63,7 @@ export const SocialActivityDialog = ({ onActivityAdded, editActivity, open, onOp
         frequency: editActivity.frequency,
         how_to_do: editActivity.how_to_do,
         expected_impact: editActivity.expected_impact,
+        start_date: editActivity.start_date || new Date().toISOString().split('T')[0],
       });
     } else {
       reset({
@@ -70,6 +73,7 @@ export const SocialActivityDialog = ({ onActivityAdded, editActivity, open, onOp
         frequency: "",
         how_to_do: "",
         expected_impact: "",
+        start_date: new Date().toISOString().split('T')[0],
       });
     }
   }, [editActivity, reset]);
@@ -181,6 +185,12 @@ export const SocialActivityDialog = ({ onActivityAdded, editActivity, open, onOp
             <Label htmlFor="expected_impact">Expected Impact</Label>
             <Textarea id="expected_impact" {...register("expected_impact")} />
             {errors.expected_impact && <p className="text-sm text-destructive mt-1">{errors.expected_impact.message}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="start_date">Start Date</Label>
+            <Input id="start_date" type="date" {...register("start_date")} />
+            {errors.start_date && <p className="text-sm text-destructive mt-1">{errors.start_date.message}</p>}
           </div>
 
           <Button type="submit" className="w-full">

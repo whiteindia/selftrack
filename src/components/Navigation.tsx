@@ -155,6 +155,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/kids-parenting', label: 'Kids-Parenting', icon: Users2, pageName: 'kids-parenting' },
     { path: '/kids-cal', label: 'Kids-Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/social-being-tracker', label: 'Social Being Tracker', icon: Users, pageName: 'kids-parenting' },
+    { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
   ];

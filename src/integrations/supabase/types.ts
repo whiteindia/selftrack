@@ -1144,6 +1144,7 @@ export type Database = {
           how_to_do: string
           id: string
           purpose_goal: string
+          start_date: string | null
           updated_at: string
         }
         Insert: {
@@ -1155,6 +1156,7 @@ export type Database = {
           how_to_do: string
           id?: string
           purpose_goal: string
+          start_date?: string | null
           updated_at?: string
         }
         Update: {
@@ -1166,6 +1168,7 @@ export type Database = {
           how_to_do?: string
           id?: string
           purpose_goal?: string
+          start_date?: string | null
           updated_at?: string
         }
         Relationships: []
