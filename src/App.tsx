@@ -54,6 +54,7 @@ import SocialBeingTracker from "./pages/SocialBeingTracker";
 import SocialBeingCal from "./pages/SocialBeingCal";
 import Sports from "./pages/Sports";
 import TheatricalArts from "./pages/TheatricalArts";
+import TheatricalArtsCal from "./pages/TheatricalArtsCal";
 
 const queryClient = new QueryClient();
 
@@ -138,6 +139,7 @@ function App() {
           <Route path="/social-being-cal" element={<ProtectedRoute><SocialBeingCal /></ProtectedRoute>} />
                 <Route path="/sports" element={<ProtectedRoute><Sports /></ProtectedRoute>} />
                 <Route path="/theatrical-arts" element={<ProtectedRoute><TheatricalArts /></ProtectedRoute>} />
+                <Route path="/theatrical-arts-cal" element={<ProtectedRoute><TheatricalArtsCal /></ProtectedRoute>} />
                 <Route path="/work-profile" element={<ProtectedRoute><WorkProfile /></ProtectedRoute>} />
                 <Route path="/default-schedule" element={<ProtectedRoute><DefaultSchedule /></ProtectedRoute>} />
                 <Route path="/custom-menu" element={<ProtectedRoute><CustomMenu /></ProtectedRoute>} />

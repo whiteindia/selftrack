@@ -158,6 +158,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
+    { path: '/theatrical-arts-cal', label: 'Theatrical Arts Cal', icon: CalendarDays, pageName: 'theatrical-arts' },
   ];
 
   const trakTeamItems = [

@@ -1815,6 +1815,39 @@ export type Database = {
         }
         Relationships: []
       }
+      theatrical_arts_skills: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          practice_frequency: string
+          skill_category: string
+          specific_skill: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          practice_frequency: string
+          skill_category: string
+          specific_skill: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          practice_frequency?: string
+          skill_category?: string
+          specific_skill?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       time_entries: {
         Row: {
           comment: string | null
