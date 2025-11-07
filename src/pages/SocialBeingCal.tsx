@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SocialActivityDialog } from "@/components/social/SocialActivityDialog";
 
 interface Activity {
   id: string;
@@ -28,6 +30,9 @@ const SocialBeingCal = () => {
     return new Date(today.setDate(diff));
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isDetailsPanelOpen, setIsDetailsPanelOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchActivities();
@@ -105,13 +110,23 @@ const SocialBeingCal = () => {
     setCurrentWeekStart(newDate);
   };
 
+  const handleDayClick = (date: Date) => {
+    setSelectedDate(date);
+    setIsDetailsPanelOpen(true);
+  };
+
+  const handleAddActivity = () => {
+    setIsAddDialogOpen(true);
+  };
+
   const weekDays = getWeekDays();
   const uniqueCategories = Array.from(new Set(activities.map(a => a.category)));
+  const selectedDayActivities = selectedDate ? getActivitiesForDay(selectedDate) : [];
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto px-6 py-4">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Social Being Calendar</h1>
@@ -162,7 +177,8 @@ const SocialBeingCal = () => {
                   return (
                     <div
                       key={index}
-                      className={`border rounded-lg p-3 min-h-[200px] ${
+                      onClick={() => handleDayClick(day)}
+                      className={`border rounded-lg p-3 min-h-[200px] cursor-pointer hover:bg-accent/50 transition-colors ${
                         isToday ? "bg-primary/5 border-primary" : ""
                       }`}
                     >
@@ -175,7 +191,7 @@ const SocialBeingCal = () => {
                         {dayActivities.map(activity => (
                           <div
                             key={activity.id}
-                            className="text-xs p-2 rounded bg-secondary hover:bg-secondary/80 cursor-pointer transition-colors"
+                            className="text-xs p-2 rounded bg-secondary hover:bg-secondary/80 transition-colors"
                             title={`${activity.activity_practice}\n${activity.purpose_goal}`}
                           >
                             <div className="font-medium truncate">{activity.activity_practice}</div>
@@ -190,6 +206,64 @@ const SocialBeingCal = () => {
             )}
           </CardContent>
         </Card>
+
+        <Sheet open={isDetailsPanelOpen} onOpenChange={setIsDetailsPanelOpen}>
+          <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>
+                {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="mt-6 space-y-4">
+              <Button onClick={handleAddActivity} className="w-full">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Activity for This Day
+              </Button>
+              
+              {selectedDayActivities.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No activities scheduled for this day</p>
+              ) : (
+                <div className="space-y-4">
+                  {selectedDayActivities.map(activity => (
+                    <Card key={activity.id}>
+                      <CardHeader>
+                        <CardTitle className="text-lg">{activity.activity_practice}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div>
+                          <span className="font-semibold">Category:</span>
+                          <p className="text-muted-foreground">{activity.category}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Purpose/Goal:</span>
+                          <p className="text-muted-foreground">{activity.purpose_goal}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Frequency:</span>
+                          <p className="text-muted-foreground">{activity.frequency}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold">How to Do:</span>
+                          <p className="text-muted-foreground">{activity.how_to_do}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Expected Impact:</span>
+                          <p className="text-muted-foreground">{activity.expected_impact}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <SocialActivityDialog
+          open={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onActivityAdded={fetchActivities}
+        />
       </div>
     </div>
   );
