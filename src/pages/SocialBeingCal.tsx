@@ -126,8 +126,8 @@ const SocialBeingCal = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex justify-between items-center mb-6">
+      <div className="container mx-auto px-6 pt-4 pb-6">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold">Social Being Calendar</h1>
             <p className="text-muted-foreground mt-1">
