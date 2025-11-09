@@ -143,6 +143,16 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/reminders', label: 'Reminders-DLs', icon: Bell, pageName: 'reminders' },
   ];
 
+  const socialHealthItems = [
+    { path: '/kids-parenting', label: 'Kids-Parenting', icon: Users2, pageName: 'kids-parenting' },
+    { path: '/kids-cal', label: 'Kids-Cal', icon: CalendarDays, pageName: 'kids-parenting' },
+    { path: '/social-being-tracker', label: 'Social Being Tracker', icon: Users, pageName: 'kids-parenting' },
+    { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
+    { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
+    { path: '/sports-cal', label: 'Sports Cal', icon: CalendarDays, pageName: 'sports' },
+    { path: '/theatrical-arts-cal', label: 'Theatrical Arts Cal', icon: CalendarDays, pageName: 'theatrical-arts' },
+  ];
+
   const dietItems = [
     { path: '/work-profile', label: 'Work Profile', icon: User, pageName: 'nutrients' },
     { path: '/nutrients', label: 'Nutrients', icon: Apple, pageName: 'nutrients' },
@@ -152,13 +162,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/default-schedule', label: 'Default Schedule', icon: ClipboardList, pageName: 'default-schedule' },
     { path: '/diseases', label: 'Diseases', icon: AlertTriangle, pageName: 'diseases' },
     { path: '/treatment', label: 'Treatment', icon: CheckCircle, pageName: 'treatment' },
-    { path: '/kids-parenting', label: 'Kids-Parenting', icon: Users2, pageName: 'kids-parenting' },
-    { path: '/kids-cal', label: 'Kids-Cal', icon: CalendarDays, pageName: 'kids-parenting' },
-    { path: '/social-being-tracker', label: 'Social Being Tracker', icon: Users, pageName: 'kids-parenting' },
-    { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
-    { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
-    { path: '/theatrical-arts-cal', label: 'Theatrical Arts Cal', icon: CalendarDays, pageName: 'theatrical-arts' },
   ];
 
   const trakTeamItems = [
@@ -216,6 +220,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     return access;
   });
 
+  const visibleSocialHealthItems = socialHealthItems.filter(item => {
+    const access = hasPageAccess(item.pageName);
+    console.log(`SocialHealth filtering ${item.label} (${item.pageName}):`, access);
+    return access;
+  });
+
   const visibleDietItems = dietItems.filter(item => {
     const access = hasPageAccess(item.pageName);
     console.log(`Diet filtering ${item.label} (${item.pageName}):`, access);
@@ -248,6 +258,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   const shouldShowTaskforceMenu = visibleTaskforceItems.length > 0;
   const shouldShowGoalTrackMenu = visibleGoalTrackItems.length > 0;
   const shouldShowPlannerMenu = visiblePlannerItems.length > 0;
+  const shouldShowSocialHealthMenu = visibleSocialHealthItems.length > 0;
   const shouldShowDietMenu = visibleDietItems.length > 0;
   const shouldShowTrakTeamMenu = visibleTrakTeamItems.length > 0;
   const shouldShowAdminMenu = visibleAccItems.length > 0 || visibleConfigItems.length > 0;
@@ -441,6 +452,31 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               <h3 className="text-sm font-medium text-gray-500 mb-2">Planner</h3>
               <div className="space-y-1">
                 {visiblePlannerItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => handleMobileNavigation(item.path)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-left ${
+                        isActive(item.path)
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {shouldShowSocialHealthMenu && (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Social Health</h3>
+              <div className="space-y-1">
+                {visibleSocialHealthItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
@@ -804,6 +840,38 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               </DropdownMenu>
             )}
 
+            {shouldShowSocialHealthMenu && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                    <Users className="h-4 w-4" />
+                    <span>Social Health</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9996 }}>
+                  {visibleSocialHealthItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.path} asChild>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
+                            isActive(item.path)
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {shouldShowDietMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -813,7 +881,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9996 }}>
+                <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9995 }}>
                   {visibleDietItems.map((item) => {
                     const Icon = item.icon;
                     return (
