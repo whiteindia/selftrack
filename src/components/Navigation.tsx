@@ -150,6 +150,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/sports-cal', label: 'Sports Cal', icon: CalendarDays, pageName: 'sports' },
+    { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
     { path: '/theatrical-arts-cal', label: 'Theatrical Arts Cal', icon: CalendarDays, pageName: 'theatrical-arts' },
   ];
 
@@ -162,7 +163,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/default-schedule', label: 'Default Schedule', icon: ClipboardList, pageName: 'default-schedule' },
     { path: '/diseases', label: 'Diseases', icon: AlertTriangle, pageName: 'diseases' },
     { path: '/treatment', label: 'Treatment', icon: CheckCircle, pageName: 'treatment' },
-    { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },
   ];
 
   const trakTeamItems = [
