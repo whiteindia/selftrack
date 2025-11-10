@@ -1173,6 +1173,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sports_skills: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          practice_frequency: string
+          skill_category: string
+          specific_skill: string
+          start_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          practice_frequency: string
+          skill_category: string
+          specific_skill: string
+          start_date: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          practice_frequency?: string
+          skill_category?: string
+          specific_skill?: string
+          start_date?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sprint_tasks: {
         Row: {
           created_at: string
