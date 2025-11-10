@@ -83,6 +83,39 @@ export type Database = {
         }
         Relationships: []
       }
+      club_care: {
+        Row: {
+          created_at: string
+          description: string
+          frequency: string
+          id: string
+          person_contact: string
+          relation_type: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          frequency: string
+          id?: string
+          person_contact: string
+          relation_type: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          frequency?: string
+          id?: string
+          person_contact?: string
+          relation_type?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       codi_note_tags: {
         Row: {
           codi_note_id: string
