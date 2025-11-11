@@ -8,6 +8,7 @@ import StatsCards from '@/components/dashboard/StatsCards';
 import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
+import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { Button } from '@/components/ui/button';
@@ -380,6 +381,11 @@ const Index = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Quick Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection />
         </div>
 
         {/* Active Time Tracking Section */}
