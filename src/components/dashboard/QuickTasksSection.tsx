@@ -9,11 +9,11 @@ import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
 
-type TimeFilter = "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
+type TimeFilter = "all" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 
 export const QuickTasksSection = () => {
   const navigate = useNavigate();
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
 
   // Fetch the project
   const { data: project } = useQuery({
@@ -73,6 +73,8 @@ export const QuickTasksSection = () => {
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
 
+    if (timeFilter === "all") return tasks;
+
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
@@ -127,7 +129,14 @@ export const QuickTasksSection = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Quick Tasks</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={timeFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setTimeFilter("all")}
+            >
+              All
+            </Button>
             <Button
               variant={timeFilter === "today" ? "default" : "outline"}
               size="sm"
