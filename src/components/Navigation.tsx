@@ -657,24 +657,24 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
 
     return (
     <header className="bg-white shadow-sm border-b sticky top-0 w-full overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-w-0">
+      <div className="mx-auto px-2 sm:px-4 lg:px-6 min-w-0">
         <div className="flex justify-between items-center h-16 min-w-0">
-          <div className="hidden md:flex items-center space-x-2 flex-1 justify-center min-w-0 overflow-hidden">
-            {/* Main navigation: Home */}
+          <div className="hidden md:flex items-center space-x-1 flex-1 justify-center min-w-0 overflow-x-auto">
+            {/* Main navigation: Home (icon only) */}
             {visibleMainNavItems.map((item) => {
               const Icon = item.icon;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
+                  className={`flex items-center justify-center p-2 rounded-md transition-colors flex-shrink-0 ${
                     isActive(item.path)
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
+                  title="Home"
                 >
                   <Icon className="h-4 w-4" />
-                  <span>{item.label}</span>
                 </Link>
               );
             })}
@@ -683,10 +683,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {hasPageAccess('tasks') && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <StickyNote className="h-4 w-4" />
-                    <span>Notes</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">Notes</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9999 }}>
@@ -717,24 +717,24 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               <Link
                 key="/projects"
                 to="/projects"
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs font-medium transition-colors flex-shrink-0 ${
                   isActive('/projects')
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
                 <FolderOpen className="h-4 w-4" />
-                <span>Projects</span>
+                <span className="hidden lg:inline">Projects</span>
               </Link>
             )}
             
             {shouldShowTaskforceMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <Users2 className="h-4 w-4" />
-                    <span>Taskforce</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">Taskforce</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9999 }}>
@@ -765,14 +765,14 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
               <Link
                 key={sprintsNavItem.path}
                 to={sprintsNavItem.path}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors flex-shrink-0 ${
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs font-medium transition-colors flex-shrink-0 ${
                   isActive(sprintsNavItem.path)
                     ? 'bg-blue-100 text-blue-700'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
                 <Calendar className="h-4 w-4" />
-                <span>{sprintsNavItem.label}</span>
+                <span className="hidden lg:inline">{sprintsNavItem.label}</span>
               </Link>
             )}
 
@@ -780,10 +780,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowGoalTrackMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <Target className="h-4 w-4" />
-                    <span>GoalTrack</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">GoalTrack</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9998 }}>
@@ -812,10 +812,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowPlannerMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <ClipboardList className="h-4 w-4" />
-                    <span>Planner</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">Planner</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9997 }}>
@@ -844,10 +844,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowSocialHealthMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <Users className="h-4 w-4" />
-                    <span>Social Health</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">Social Health</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9996 }}>
@@ -876,10 +876,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowDietMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <Apple className="h-4 w-4" />
-                    <span>Diet-Fit-Health</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">Diet-Fit-Health</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9995 }}>
@@ -908,10 +908,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowTrakTeamMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <Calendar className="h-4 w-4" />
-                    <span>TrakTeam</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">TrakTeam</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9996 }}>
@@ -940,10 +940,10 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
             {shouldShowAdminMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2 py-1.5 flex-shrink-0">
+                  <Button variant="ghost" className="flex items-center gap-1 px-1.5 py-1 text-xs flex-shrink-0">
                     <Shield className="h-4 w-4" />
-                    <span>Admin</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="hidden lg:inline">Admin</span>
+                    <ChevronDown className="h-3 w-3" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="bg-white border shadow-lg" style={{ zIndex: 9995 }}>
