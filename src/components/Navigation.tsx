@@ -150,6 +150,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/club-care', label: 'ClubCare', icon: Users, pageName: 'kids-parenting' },
     { path: '/club-care-cal', label: 'ClubCare Cal', icon: CalendarDays, pageName: 'kids-parenting' },
+    { path: '/network-people', label: 'Network People', icon: Users2, pageName: 'kids-parenting' },
     { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/sports-cal', label: 'Sports Cal', icon: CalendarDays, pageName: 'sports' },
     { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },

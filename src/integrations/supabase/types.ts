@@ -688,6 +688,51 @@ export type Database = {
         }
         Relationships: []
       }
+      network_people: {
+        Row: {
+          created_at: string
+          follow_up_plan: string | null
+          id: string
+          industry_domain: string
+          influence_level: string
+          last_conversation_date: string | null
+          last_conversation_summary: string | null
+          name: string
+          relationship_type: string
+          role_position: string
+          updated_at: string
+          work_type: string
+        }
+        Insert: {
+          created_at?: string
+          follow_up_plan?: string | null
+          id?: string
+          industry_domain: string
+          influence_level?: string
+          last_conversation_date?: string | null
+          last_conversation_summary?: string | null
+          name: string
+          relationship_type: string
+          role_position: string
+          updated_at?: string
+          work_type: string
+        }
+        Update: {
+          created_at?: string
+          follow_up_plan?: string | null
+          id?: string
+          industry_domain?: string
+          influence_level?: string
+          last_conversation_date?: string | null
+          last_conversation_summary?: string | null
+          name?: string
+          relationship_type?: string
+          role_position?: string
+          updated_at?: string
+          work_type?: string
+        }
+        Relationships: []
+      }
       notification_reads: {
         Row: {
           created_at: string
