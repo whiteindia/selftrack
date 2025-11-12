@@ -1,19 +1,25 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Play, Eye } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Play, Eye, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
+import TaskEditDialog from "@/components/TaskEditDialog";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
 
 type TimeFilter = "all" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 
 export const QuickTasksSection = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [newTaskName, setNewTaskName] = useState("");
+  const [editingTask, setEditingTask] = useState<any>(null);
 
   // Fetch the project
   const { data: project } = useQuery({
@@ -103,6 +109,62 @@ export const QuickTasksSection = () => {
     });
   }, [tasks, timeFilter]);
 
+  // Create task mutation
+  const createTaskMutation = useMutation({
+    mutationFn: async (taskName: string) => {
+      if (!project?.id) throw new Error("Project not found");
+      
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("email", (await supabase.auth.getUser()).data.user?.email)
+        .single();
+
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          name: taskName,
+          project_id: project.id,
+          status: "Not Started",
+          assigner_id: employee?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Task created successfully");
+      setNewTaskName("");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to create task");
+      console.error(error);
+    },
+  });
+
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", taskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Task deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to delete task");
+      console.error(error);
+    },
+  });
+
   const handleStartTask = async (taskId: string) => {
     const { data: employee } = await supabase
       .from("employees")
@@ -122,14 +184,22 @@ export const QuickTasksSection = () => {
     refetch();
   };
 
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newTaskName.trim()) {
+      createTaskMutation.mutate(newTaskName.trim());
+    }
+  };
+
   if (!project || !tasks || tasks.length === 0) return null;
 
   return (
-    <Card className="p-6">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Quick Tasks</h2>
-          <div className="flex gap-2 flex-wrap">
+    <>
+      <Card className="p-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Quick Tasks</h2>
+            <div className="flex gap-2 flex-wrap">
             <Button
               variant={timeFilter === "all" ? "default" : "outline"}
               size="sm"
@@ -168,6 +238,19 @@ export const QuickTasksSection = () => {
           </div>
         </div>
 
+        {/* Quick add task input */}
+        <form onSubmit={handleCreateTask} className="flex gap-2">
+          <Input
+            placeholder="Add a quick task..."
+            value={newTaskName}
+            onChange={(e) => setNewTaskName(e.target.value)}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={!newTaskName.trim() || createTaskMutation.isPending}>
+            Add
+          </Button>
+        </form>
+
         {filteredTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tasks for this time period</p>
         ) : (
@@ -186,7 +269,7 @@ export const QuickTasksSection = () => {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {activeEntry ? (
                         <>
                           <div className="flex flex-col items-end gap-1">
@@ -219,9 +302,27 @@ export const QuickTasksSection = () => {
                       <Button
                         size="sm"
                         variant="ghost"
+                        onClick={() => setEditingTask(task)}
+                        title="Edit task"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         onClick={() => navigate(`/tasks?task=${task.id}`)}
+                        title="View task details"
                       >
                         <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteTaskMutation.mutate(task.id)}
+                        disabled={deleteTaskMutation.isPending}
+                        title="Delete task"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -232,5 +333,18 @@ export const QuickTasksSection = () => {
         )}
       </div>
     </Card>
+
+    {editingTask && (
+      <TaskEditDialog
+        isOpen={!!editingTask}
+        onClose={() => {
+          setEditingTask(null);
+          queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+        }}
+        task={editingTask}
+        mode="full"
+      />
+    )}
+  </>
   );
 };
