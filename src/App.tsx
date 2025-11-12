@@ -53,6 +53,7 @@ import KidsCal from "./pages/KidsCal";
 import SocialBeingTracker from "./pages/SocialBeingTracker";
 import SocialBeingCal from "./pages/SocialBeingCal";
 import ClubCare from "./pages/ClubCare";
+import ClubCareCal from "./pages/ClubCareCal";
 import Sports from "./pages/Sports";
 import SportsCal from "./pages/SportsCal";
 import TheatricalArts from "./pages/TheatricalArts";
@@ -140,6 +141,7 @@ function App() {
           <Route path="/social-being-tracker" element={<ProtectedRoute><SocialBeingTracker /></ProtectedRoute>} />
           <Route path="/social-being-cal" element={<ProtectedRoute><SocialBeingCal /></ProtectedRoute>} />
           <Route path="/club-care" element={<ProtectedRoute><ClubCare /></ProtectedRoute>} />
+          <Route path="/club-care-cal" element={<ProtectedRoute><ClubCareCal /></ProtectedRoute>} />
                 <Route path="/sports" element={<ProtectedRoute><Sports /></ProtectedRoute>} />
                 <Route path="/sports-cal" element={<ProtectedRoute><SportsCal /></ProtectedRoute>} />
                 <Route path="/theatrical-arts" element={<ProtectedRoute><TheatricalArts /></ProtectedRoute>} />
