@@ -460,7 +460,11 @@ export const QuickTasksSection = () => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => navigate(`/tasks?task=${task.id}`)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.location.href = `/alltasks?highlight=${task.id}`;
+                        }}
                         title="View task details"
                       >
                         <Eye className="h-4 w-4" />
