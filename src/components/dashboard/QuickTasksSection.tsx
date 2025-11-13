@@ -56,7 +56,7 @@ export const QuickTasksSection = () => {
         `)
         .eq("project_id", project.id)
         .neq("status", "Completed")
-        .order("sort_order", { ascending: true, nullsLast: true })
+        .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true });
 
       if (error) throw error;

@@ -1736,6 +1736,7 @@ export type Database = {
           slot_end_time: string | null
           slot_start_datetime: string | null
           slot_start_time: string | null
+          sort_order: number | null
           status: Database["public"]["Enums"]["task_status"]
           updated_at: string
           wage_status: string | null
@@ -1761,6 +1762,7 @@ export type Database = {
           slot_end_time?: string | null
           slot_start_datetime?: string | null
           slot_start_time?: string | null
+          sort_order?: number | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
           wage_status?: string | null
@@ -1786,6 +1788,7 @@ export type Database = {
           slot_end_time?: string | null
           slot_start_datetime?: string | null
           slot_start_time?: string | null
+          sort_order?: number | null
           status?: Database["public"]["Enums"]["task_status"]
           updated_at?: string
           wage_status?: string | null
