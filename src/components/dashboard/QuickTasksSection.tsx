@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2 } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
@@ -49,10 +49,14 @@ export const QuickTasksSection = () => {
           name,
           deadline,
           status,
-          project_id
+          project_id,
+          reminder_datetime,
+          slot_start_time,
+          sort_order
         `)
         .eq("project_id", project.id)
         .neq("status", "Completed")
+        .order("sort_order", { ascending: true, nullsLast: true })
         .order("deadline", { ascending: true });
 
       if (error) throw error;
@@ -79,8 +83,6 @@ export const QuickTasksSection = () => {
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
 
-    if (timeFilter === "all") return tasks;
-
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
@@ -90,23 +92,74 @@ export const QuickTasksSection = () => {
     const nextWeekStart = startOfWeek(addDays(now, 7));
     const nextWeekEnd = endOfWeek(addDays(now, 7));
 
-    return tasks.filter((task) => {
-      if (!task.deadline) return false;
-      const deadline = new Date(task.deadline);
+    let filtered = tasks;
 
-      switch (timeFilter) {
-        case "today":
-          return deadline >= todayStart && deadline <= todayEnd;
-        case "tomorrow":
-          return deadline >= tomorrowStart && deadline <= tomorrowEnd;
-        case "laterThisWeek":
-          return deadline > tomorrowEnd && deadline <= thisWeekEnd;
-        case "nextWeek":
-          return deadline >= nextWeekStart && deadline <= nextWeekEnd;
-        default:
-          return true;
+    if (timeFilter !== "all") {
+      filtered = tasks.filter((task) => {
+        if (!task.deadline) return false;
+        const deadline = new Date(task.deadline);
+
+        switch (timeFilter) {
+          case "today":
+            return deadline >= todayStart && deadline <= todayEnd;
+          case "tomorrow":
+            return deadline >= tomorrowStart && deadline <= tomorrowEnd;
+          case "laterThisWeek":
+            return deadline > tomorrowEnd && deadline <= thisWeekEnd;
+          case "nextWeek":
+            return deadline >= nextWeekStart && deadline <= nextWeekEnd;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Sort logic
+    // 1. Custom sort_order takes priority
+    // 2. For "all" filter: sort by date (most recent first), then by nearest reminder/slot time
+    const sorted = [...filtered].sort((a, b) => {
+      // Priority 1: Custom sort order (lower numbers first, nulls last)
+      if (a.sort_order !== null && b.sort_order !== null) {
+        return a.sort_order - b.sort_order;
       }
+      if (a.sort_order !== null) return -1;
+      if (b.sort_order !== null) return 1;
+
+      // Priority 2: For "all" filter, sort by date and time
+      if (timeFilter === "all") {
+        // Sort by deadline date (most recent first)
+        const dateA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+        const dateB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+        
+        if (dateA !== dateB) {
+          return dateA - dateB; // Ascending (earliest first)
+        }
+
+        // If dates are same or both null, sort by nearest reminder/slot time
+        const getNearestTime = (task: any) => {
+          const times = [];
+          if (task.reminder_datetime) {
+            times.push(new Date(task.reminder_datetime).getTime());
+          }
+          if (task.slot_start_time) {
+            times.push(new Date(task.slot_start_time).getTime());
+          }
+          return times.length > 0 ? Math.min(...times) : Infinity;
+        };
+
+        const timeA = getNearestTime(a);
+        const timeB = getNearestTime(b);
+        
+        return timeA - timeB; // Nearest time first
+      }
+
+      // For other filters, just use deadline
+      const dateA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+      const dateB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+      return dateA - dateB;
     });
+
+    return sorted;
   }, [tasks, timeFilter]);
 
   // Create task mutation
@@ -165,6 +218,49 @@ export const QuickTasksSection = () => {
     },
   });
 
+  // Move task up/down mutations
+  const moveTaskMutation = useMutation({
+    mutationFn: async ({ taskId, direction }: { taskId: string; direction: "up" | "down" }) => {
+      const currentTask = filteredTasks.find((t) => t.id === taskId);
+      if (!currentTask) return;
+
+      const currentIndex = filteredTasks.findIndex((t) => t.id === taskId);
+      if (
+        (direction === "up" && currentIndex === 0) ||
+        (direction === "down" && currentIndex === filteredTasks.length - 1)
+      ) {
+        return; // Can't move further
+      }
+
+      const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      const swapTask = filteredTasks[swapIndex];
+
+      // Assign sort_order values
+      const currentOrder = currentTask.sort_order ?? currentIndex;
+      const swapOrder = swapTask.sort_order ?? swapIndex;
+
+      // Update both tasks
+      const { error: error1 } = await supabase
+        .from("tasks")
+        .update({ sort_order: swapOrder })
+        .eq("id", taskId);
+
+      const { error: error2 } = await supabase
+        .from("tasks")
+        .update({ sort_order: currentOrder })
+        .eq("id", swapTask.id);
+
+      if (error1 || error2) throw error1 || error2;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to reorder task");
+      console.error(error);
+    },
+  });
+
   const handleStartTask = async (taskId: string) => {
     const { data: employee } = await supabase
       .from("employees")
@@ -189,6 +285,30 @@ export const QuickTasksSection = () => {
     if (newTaskName.trim()) {
       createTaskMutation.mutate(newTaskName.trim());
     }
+  };
+
+  // Function to render task name with clickable links
+  const renderTaskName = (name: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = name.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
   };
 
   if (!project || !tasks || tasks.length === 0) return null;
@@ -262,11 +382,41 @@ export const QuickTasksSection = () => {
               return (
                 <Card key={task.id} className="p-4">
                   <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => moveTaskMutation.mutate({ taskId: task.id, direction: "up" })}
+                          disabled={filteredTasks.indexOf(task) === 0 || moveTaskMutation.isPending}
+                          title="Move up"
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => moveTaskMutation.mutate({ taskId: task.id, direction: "down" })}
+                          disabled={filteredTasks.indexOf(task) === filteredTasks.length - 1 || moveTaskMutation.isPending}
+                          title="Move down"
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{task.name}</h3>
+                      <h3 className="font-medium">{renderTaskName(task.name)}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Due: {new Date(task.deadline).toLocaleDateString()}
+                        Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
                       </p>
+                      {(task.reminder_datetime || task.slot_start_time) && (
+                        <p className="text-xs text-muted-foreground">
+                          {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
+                          {task.reminder_datetime && task.slot_start_time && " | "}
+                          {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
