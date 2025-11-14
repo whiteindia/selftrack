@@ -262,7 +262,10 @@ const CustomMenu = () => {
                 !isCurrentMonth ? 'opacity-50' : ''
               }`}
             >
-              <div className="font-semibold text-xs sm:text-sm mb-1">{format(day, 'd')}</div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-semibold text-xs sm:text-sm">{format(day, 'd')}</span>
+                <span className="text-xs text-muted-foreground">{format(day, 'EEE')}</span>
+              </div>
               {totalCalories > 0 && (
                 <div className="text-xs font-medium text-primary mb-1">
                   {totalCalories} kcal
