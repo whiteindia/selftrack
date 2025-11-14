@@ -225,22 +225,6 @@ export const KidsCalContent = () => {
                 "grid gap-2",
                 viewMode === "weekly" ? "grid-cols-2 sm:grid-cols-7" : "grid-cols-2 sm:grid-cols-7"
               )}>
-                {/* Day headers */}
-                {[
-                  { full: 'Sun', short: 'Su' },
-                  { full: 'Mon', short: 'M' },
-                  { full: 'Tue', short: 'Tu' },
-                  { full: 'Wed', short: 'W' },
-                  { full: 'Thu', short: 'Th' },
-                  { full: 'Fri', short: 'F' },
-                  { full: 'Sat', short: 'Sa' }
-                ].map((day) => (
-                  <div key={day.full} className="text-center font-semibold text-sm p-2 border-b">
-                    <span className="hidden sm:inline">{day.full}</span>
-                    <span className="sm:hidden">{day.short}</span>
-                  </div>
-                ))}
-                
                 {/* Calendar cells */}
                 {days.map((day, index) => {
                   const dayActivities = getActivitiesForDate(day);
@@ -258,10 +242,17 @@ export const KidsCalContent = () => {
                       onClick={() => setSelectedDate(day)}
                     >
                       <div className={cn(
-                        "text-xs sm:text-sm font-medium mb-1 sm:mb-2",
-                        isToday && "text-blue-600"
+                        "flex items-center justify-between mb-1 sm:mb-2"
                       )}>
-                        {format(day, 'd')}
+                        <span className={cn(
+                          "text-xs sm:text-sm font-medium",
+                          isToday && "text-blue-600"
+                        )}>
+                          {format(day, 'd')}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(day, 'EEE')}
+                        </span>
                       </div>
                       <div className="space-y-1">
                         {dayActivities.slice(0, 2).map((activity) => (
