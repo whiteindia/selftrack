@@ -6,7 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 
-const SportsCal = () => {
+export const SportsCalContent = () => {
   // Placeholder events - will be populated when sport_activities table is created
   const events = [
     {
@@ -19,7 +19,6 @@ const SportsCal = () => {
   ];
 
   return (
-    <Navigation>
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center gap-3 mb-6">
           <Trophy className="h-8 w-8 text-primary" />
@@ -46,8 +45,13 @@ const SportsCal = () => {
           </CardContent>
         </Card>
       </div>
-    </Navigation>
   );
 };
+
+const SportsCal = () => (
+  <Navigation>
+    <SportsCalContent />
+  </Navigation>
+);
 
 export default SportsCal;

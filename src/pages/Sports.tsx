@@ -70,9 +70,8 @@ const Sports = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <div className="container mx-auto px-6 pt-4 pb-6">
+    <Navigation>
+      <div className="container mx-auto px-6 pt-0 pb-6">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
             <Trophy className="h-8 w-8 text-primary" />
@@ -158,7 +157,7 @@ const Sports = () => {
           onSkillAdded={fetchSkills}
         />
       </div>
-    </div>
+    </Navigation>
   );
 };
 

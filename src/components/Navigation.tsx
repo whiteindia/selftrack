@@ -144,6 +144,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
   ];
 
   const socialHealthItems = [
+    { path: '/globalcal', label: 'Global Calendar', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/kids-parenting', label: 'Kids-Parenting', icon: Users2, pageName: 'kids-parenting' },
     { path: '/kids-cal', label: 'Kids-Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/social-being-tracker', label: 'Social Being Tracker', icon: Users, pageName: 'kids-parenting' },
@@ -151,6 +152,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/club-care', label: 'ClubCare', icon: Users, pageName: 'kids-parenting' },
     { path: '/club-care-cal', label: 'ClubCare Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/network-people', label: 'Network People', icon: Users2, pageName: 'kids-parenting' },
+    { path: '/network-touch-cal', label: 'Network Touch Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/sports', label: 'Sports', icon: TrendingUp, pageName: 'sports' },
     { path: '/sports-cal', label: 'Sports Cal', icon: CalendarDays, pageName: 'sports' },
     { path: '/theatrical-arts', label: 'Theatrical Arts', icon: MessageCircle, pageName: 'theatrical-arts' },

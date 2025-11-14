@@ -20,7 +20,7 @@ interface Activity {
   start_date: string;
 }
 
-const SocialBeingCal = () => {
+export const SocialBeingCalContent = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -124,9 +124,7 @@ const SocialBeingCal = () => {
   const selectedDayActivities = selectedDate ? getActivitiesForDay(selectedDate) : [];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <div className="container mx-auto px-6 pt-4 pb-6">
+      <div className="container mx-auto px-6 pt-0 pb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold">Social Being Calendar</h1>
@@ -265,8 +263,13 @@ const SocialBeingCal = () => {
           onActivityAdded={fetchActivities}
         />
       </div>
-    </div>
   );
 };
+
+const SocialBeingCal = () => (
+  <Navigation>
+    <SocialBeingCalContent />
+  </Navigation>
+);
 
 export default SocialBeingCal;

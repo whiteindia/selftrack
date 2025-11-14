@@ -14,6 +14,7 @@ interface WorkProfile {
   id: string;
   profile_name: string;
   calories_required: number;
+  person_name?: string | null;
 }
 
 interface Recipe {
@@ -62,16 +63,24 @@ const CustomMenu = () => {
     },
   });
 
-  // Auto-select software engineer profile
+  // Auto-select Yugandhar (Software Engineer) profile
   useEffect(() => {
     if (profiles && !selectedProfile) {
-      const defaultProfile = profiles.find(
-        p => p.profile_name.toLowerCase().includes('software') && 
-             p.profile_name.toLowerCase().includes('engineer')
-      );
-      if (defaultProfile) {
-        setSelectedProfile(defaultProfile.id);
-      }
+      const findMatch = () => {
+        const targetPerson = 'yugandhar';
+        const nameMatches = (p: WorkProfile) => (p.person_name || '').toLowerCase().includes(targetPerson);
+        const roleMatches = (p: WorkProfile) => {
+          const n = p.profile_name.toLowerCase();
+          return n.includes('software enginer') || n.includes('software engineer');
+        };
+        const byPersonAndRole = profiles.find(p => nameMatches(p) && roleMatches(p));
+        if (byPersonAndRole) return byPersonAndRole;
+        const byRoleOnly = profiles.find(p => roleMatches(p));
+        if (byRoleOnly) return byRoleOnly;
+        return undefined;
+      };
+      const match = findMatch();
+      if (match) setSelectedProfile(match.id);
     }
   }, [profiles, selectedProfile]);
 

@@ -8,6 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatUTCToISTInput, convertISTToUTC } from "@/utils/timezoneUtils";
 
 interface NetworkPerson {
   id?: string;
@@ -20,6 +21,7 @@ interface NetworkPerson {
   last_conversation_summary?: string;
   last_conversation_date?: string;
   follow_up_plan?: string;
+  follow_up_date?: string;
 }
 
 interface NetworkPersonDialogProps {
@@ -71,13 +73,17 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
       influence_level: "Medium",
       last_conversation_summary: "",
       last_conversation_date: "",
-      follow_up_plan: ""
+      follow_up_plan: "",
+      follow_up_date: ""
     }
   });
 
   useEffect(() => {
     if (person) {
-      form.reset(person);
+      form.reset({
+        ...person,
+        follow_up_date: person.follow_up_date ? formatUTCToISTInput(person.follow_up_date as string) : ""
+      });
     } else {
       form.reset({
         name: "",
@@ -88,17 +94,22 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
         influence_level: "Medium",
         last_conversation_summary: "",
         last_conversation_date: "",
-        follow_up_plan: ""
+        follow_up_plan: "",
+        follow_up_date: ""
       });
     }
   }, [person, form]);
 
   const onSubmit = async (data: NetworkPerson) => {
     try {
+      const payload = {
+        ...data,
+        follow_up_date: data.follow_up_date ? convertISTToUTC(data.follow_up_date) : null
+      };
       if (person?.id) {
         const { error } = await supabase
           .from("network_people")
-          .update(data)
+          .update(payload)
           .eq("id", person.id);
 
         if (error) throw error;
@@ -106,7 +117,7 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
       } else {
         const { error } = await supabase
           .from("network_people")
-          .insert([data]);
+          .insert([payload]);
 
         if (error) throw error;
         toast.success("Contact added successfully");
@@ -273,6 +284,24 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
                   <FormLabel>Last Conversation Date</FormLabel>
                   <FormControl>
                     <Input {...field} type="date" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="follow_up_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Follow-up Date & Time (IST)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="datetime-local"
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

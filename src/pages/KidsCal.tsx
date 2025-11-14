@@ -24,7 +24,7 @@ interface Activity {
   start_date: string;
 }
 
-const KidsCal = () => {
+export const KidsCalContent = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -130,7 +130,6 @@ const KidsCal = () => {
   const days = getDaysToShow();
 
   return (
-    <Navigation>
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -321,8 +320,13 @@ const KidsCal = () => {
           </CardContent>
         </Card>
       </div>
-    </Navigation>
   );
 };
+
+const KidsCal = () => (
+  <Navigation>
+    <KidsCalContent />
+  </Navigation>
+);
 
 export default KidsCal;

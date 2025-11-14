@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { formatToIST } from "@/utils/timezoneUtils";
 
 interface NetworkPerson {
   id: string;
@@ -35,6 +36,7 @@ interface NetworkPerson {
   last_conversation_summary?: string;
   last_conversation_date?: string;
   follow_up_plan?: string;
+  follow_up_date?: string | null;
 }
 
 export default function NetworkPeople() {
@@ -103,16 +105,17 @@ export default function NetworkPeople() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
+      <Navigation>
+        <div className="container mx-auto py-0">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Navigation>
     );
   }
 
   return (
-    <>
-      <Navigation />
-      <div className="container mx-auto py-8">
+    <Navigation>
+      <div className="container mx-auto py-0">
         <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Network People Profiles Tracker</h1>
@@ -139,6 +142,7 @@ export default function NetworkPeople() {
               <TableHead>Influence Level</TableHead>
               <TableHead>Last Conversation Summary</TableHead>
               <TableHead>Last Conversation Date</TableHead>
+              <TableHead>Follow-up Date & Time</TableHead>
               <TableHead>Follow-up Plan</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
@@ -178,6 +182,11 @@ export default function NetworkPeople() {
                   <TableCell>
                     {person.last_conversation_date
                       ? new Date(person.last_conversation_date).toLocaleDateString()
+                      : "-"}
+                  </TableCell>
+                  <TableCell>
+                    {person.follow_up_date
+                      ? formatToIST(person.follow_up_date as string, "dd/MM/yyyy HH:mm")
                       : "-"}
                   </TableCell>
                   <TableCell className="max-w-xs truncate">
@@ -229,7 +238,8 @@ export default function NetworkPeople() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       </div>
-    </>
+    </Navigation>
   );
 }

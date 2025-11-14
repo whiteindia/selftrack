@@ -18,7 +18,7 @@ interface TheatricalSkill {
   start_date: string;
 }
 
-const TheatricalArtsCal = () => {
+export const TheatricalArtsCalContent = () => {
   const [skills, setSkills] = useState<TheatricalSkill[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
@@ -119,9 +119,7 @@ const TheatricalArtsCal = () => {
   const selectedDaySkills = selectedDate ? getSkillsForDay(selectedDate) : [];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
-      <div className="container mx-auto px-6 pt-4 pb-6">
+      <div className="container mx-auto px-6 pt-0 pb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold">Theatrical Arts Calendar</h1>
@@ -252,8 +250,13 @@ const TheatricalArtsCal = () => {
           onSkillAdded={fetchSkills}
         />
       </div>
-    </div>
   );
 };
+
+const TheatricalArtsCal = () => (
+  <Navigation>
+    <TheatricalArtsCalContent />
+  </Navigation>
+);
 
 export default TheatricalArtsCal;

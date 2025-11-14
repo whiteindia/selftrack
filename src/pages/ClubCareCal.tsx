@@ -20,7 +20,7 @@ interface ClubCareConnection {
   start_date: string;
 }
 
-const ClubCareCal = () => {
+export const ClubCareCalContent = () => {
   const [connections, setConnections] = useState<ClubCareConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -126,7 +126,6 @@ const ClubCareCal = () => {
   const days = getDaysToShow();
 
   return (
-    <Navigation>
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -312,8 +311,13 @@ const ClubCareCal = () => {
           </CardContent>
         </Card>
       </div>
-    </Navigation>
   );
 };
+
+const ClubCareCal = () => (
+  <Navigation>
+    <ClubCareCalContent />
+  </Navigation>
+);
 
 export default ClubCareCal;
