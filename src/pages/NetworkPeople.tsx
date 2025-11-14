@@ -33,6 +33,7 @@ interface NetworkPerson {
   industry_domain: string;
   work_type: string;
   influence_level: string;
+  acts_to_engage?: string;
   last_conversation_summary?: string;
   last_conversation_date?: string;
   follow_up_plan?: string;
@@ -140,6 +141,7 @@ export default function NetworkPeople() {
               <TableHead>Industry / Domain</TableHead>
               <TableHead>Work Type</TableHead>
               <TableHead>Influence Level</TableHead>
+              <TableHead>Acts2Engage</TableHead>
               <TableHead>Last Conversation Summary</TableHead>
               <TableHead>Last Conversation Date</TableHead>
               <TableHead>Follow-up Date & Time</TableHead>
@@ -150,7 +152,7 @@ export default function NetworkPeople() {
           <TableBody>
             {people.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                   No contacts found. Add your first contact to get started.
                 </TableCell>
               </TableRow>
@@ -176,6 +178,7 @@ export default function NetworkPeople() {
                       {person.influence_level}
                     </span>
                   </TableCell>
+                  <TableCell>{person.acts_to_engage || "-"}</TableCell>
                   <TableCell className="max-w-xs truncate">
                     {person.last_conversation_summary || "-"}
                   </TableCell>

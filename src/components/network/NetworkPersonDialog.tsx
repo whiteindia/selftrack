@@ -18,6 +18,7 @@ interface NetworkPerson {
   industry_domain: string;
   work_type: string;
   influence_level: string;
+  acts_to_engage?: string;
   last_conversation_summary?: string;
   last_conversation_date?: string;
   follow_up_plan?: string;
@@ -62,6 +63,27 @@ const WORK_TYPES = [
 
 const INFLUENCE_LEVELS = ["Low", "Medium", "High"];
 
+const ACTS_TO_ENGAGE = [
+  "Birthday Call",
+  "Anniversary Call",
+  "Festival Wishes",
+  "Congratulate on Achievement",
+  "Attend Event",
+  "Invite for Coffee",
+  "Take to New Restaurant",
+  "Help in Job Search",
+  "Connect to HR/Recruiter",
+  "Help for Loan",
+  "Connect to Bank Manager",
+  "Help with Business/GST",
+  "Introduce to Contact",
+  "Send Useful Info",
+  "Periodic Check-In",
+  "Help with Car Interiors",
+  "Help with Personal Task",
+  "Mentorship / Guidance"
+];
+
 export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPersonDialogProps) {
   const form = useForm<NetworkPerson>({
     defaultValues: {
@@ -71,6 +93,7 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
       industry_domain: "",
       work_type: "",
       influence_level: "Medium",
+      acts_to_engage: "",
       last_conversation_summary: "",
       last_conversation_date: "",
       follow_up_plan: "",
@@ -92,6 +115,7 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
         industry_domain: "",
         work_type: "",
         influence_level: "Medium",
+        acts_to_engage: "",
         last_conversation_summary: "",
         last_conversation_date: "",
         follow_up_plan: "",
@@ -253,6 +277,31 @@ export function NetworkPersonDialog({ open, onOpenChange, person }: NetworkPerso
                       {INFLUENCE_LEVELS.map((level) => (
                         <SelectItem key={level} value={level}>
                           {level}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="acts_to_engage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Acts2Engage (To Keep In Touch / Build Rapport)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select engagement action" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ACTS_TO_ENGAGE.map((act) => (
+                        <SelectItem key={act} value={act}>
+                          {act}
                         </SelectItem>
                       ))}
                     </SelectContent>
