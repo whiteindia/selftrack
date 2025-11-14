@@ -252,11 +252,11 @@ const DefaultSchedule = () => {
               )}
               <div className="text-xs space-y-1">
                 {dayMenu.length > 0 ? (
-                  <div className="text-muted-foreground">
+                  <div className="text-muted-foreground text-xs">
                     {dayMenu.length} item{dayMenu.length > 1 ? 's' : ''}
                   </div>
                 ) : (
-                  <div className="text-muted-foreground">No meals</div>
+                  <div className="text-muted-foreground text-xs">No meals</div>
                 )}
               </div>
             </div>

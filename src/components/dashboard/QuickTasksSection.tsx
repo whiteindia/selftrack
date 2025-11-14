@@ -173,6 +173,30 @@ export const QuickTasksSection = () => {
         .eq("email", (await supabase.auth.getUser()).data.user?.email)
         .single();
 
+      // Calculate deadline based on time filter
+      let deadline = null;
+      const now = new Date();
+      
+      switch (timeFilter) {
+        case "today":
+          deadline = endOfDay(now).toISOString();
+          break;
+        case "tomorrow":
+          deadline = endOfDay(addDays(now, 1)).toISOString();
+          break;
+        case "laterThisWeek":
+          // Set deadline for end of this week
+          deadline = endOfWeek(now).toISOString();
+          break;
+        case "nextWeek":
+          // Set deadline for end of next week
+          deadline = endOfWeek(addDays(now, 7)).toISOString();
+          break;
+        default:
+          // For "all" filter, set no deadline
+          deadline = null;
+      }
+
       const { data, error } = await supabase
         .from("tasks")
         .insert({
@@ -180,6 +204,7 @@ export const QuickTasksSection = () => {
           project_id: project.id,
           status: "Not Started",
           assigner_id: employee?.id,
+          deadline: deadline,
         })
         .select()
         .single();
@@ -300,10 +325,10 @@ export const QuickTasksSection = () => {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary underline hover:text-primary/80"
+            className="text-primary underline hover:text-primary/80 break-all"
             onClick={(e) => e.stopPropagation()}
           >
-            {part}
+            {part.length > 30 ? part.substring(0, 30) + '...' : part}
           </a>
         );
       }
