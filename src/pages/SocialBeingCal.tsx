@@ -124,10 +124,10 @@ export const SocialBeingCalContent = () => {
   const selectedDayActivities = selectedDate ? getActivitiesForDay(selectedDate) : [];
 
   return (
-      <div className="container mx-auto px-3 pt-0 pb-4 sm:px-6 sm:pb-6">
-        <div className="flex justify-between items-center mb-3 sm:mb-4">
+      <div className="container mx-auto px-6 pt-0 pb-6">
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Social Being Calendar</h1>
+            <h1 className="text-3xl font-bold">Social Being Calendar</h1>
             <p className="text-muted-foreground mt-1">
               View your social activities schedule
             </p>
@@ -167,7 +167,7 @@ export const SocialBeingCalContent = () => {
             {loading ? (
               <p className="text-center py-8">Loading activities...</p>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
                 {weekDays.map((day, index) => {
                   const dayActivities = getActivitiesForDay(day);
                   const isToday = new Date().toDateString() === day.toDateString();
@@ -176,26 +176,32 @@ export const SocialBeingCalContent = () => {
                     <div
                       key={index}
                       onClick={() => handleDayClick(day)}
-                      className={`border rounded-lg p-3 min-h-[200px] cursor-pointer hover:bg-accent/50 transition-colors ${
+                      className={`border rounded-lg p-1 sm:p-3 min-h-[100px] sm:min-h-[200px] cursor-pointer hover:bg-accent/50 transition-colors ${
                         isToday ? "bg-primary/5 border-primary" : ""
                       }`}
                     >
-                      <div className="font-semibold text-sm mb-2">
-                        {day.toLocaleDateString('en-US', { weekday: 'short' })}
-                        <br />
+                      <div className="font-semibold text-xs sm:text-sm mb-1 sm:mb-2">
+                        <span className="sm:hidden">{day.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+                        <span className="hidden sm:inline">{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                        <br className="hidden sm:block" />
                         {day.getDate()}
                       </div>
-                      <div className="space-y-2">
-                        {dayActivities.map(activity => (
+                      <div className="space-y-1 sm:space-y-2">
+                        {dayActivities.slice(0, 2).map(activity => (
                           <div
                             key={activity.id}
-                            className="text-xs p-2 rounded bg-secondary hover:bg-secondary/80 transition-colors"
+                            className="text-xs p-1 sm:p-2 rounded bg-secondary hover:bg-secondary/80 transition-colors"
                             title={`${activity.activity_practice}\n${activity.purpose_goal}`}
                           >
                             <div className="font-medium truncate">{activity.activity_practice}</div>
-                            <div className="text-muted-foreground truncate">{activity.category}</div>
+                            <div className="text-muted-foreground truncate hidden sm:block">{activity.category}</div>
                           </div>
                         ))}
+                        {dayActivities.length > 2 && (
+                          <div className="text-xs text-muted-foreground text-center">
+                            +{dayActivities.length - 2} more
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

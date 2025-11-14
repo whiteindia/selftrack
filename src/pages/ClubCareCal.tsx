@@ -126,11 +126,11 @@ export const ClubCareCalContent = () => {
   const days = getDaysToShow();
 
   return (
-      <div className="container mx-auto px-3 py-4 sm:p-6 space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Users className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl sm:text-3xl font-bold">ClubCare Calendar</h1>
+            <h1 className="text-3xl font-bold">ClubCare Calendar</h1>
           </div>
           
           <div className="flex gap-2">
@@ -219,12 +219,21 @@ export const ClubCareCalContent = () => {
             ) : (
               <div className={cn(
                 "grid gap-2",
-                viewMode === "weekly" ? "grid-cols-3 sm:grid-cols-7" : "grid-cols-3 sm:grid-cols-7"
+                viewMode === "weekly" ? "grid-cols-2 sm:grid-cols-7" : "grid-cols-2 sm:grid-cols-7"
               )}>
                 {/* Day headers */}
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                  <div key={day} className="text-center font-semibold text-sm p-2 border-b">
-                    {day}
+                {[
+                  { full: 'Sun', short: 'Su' },
+                  { full: 'Mon', short: 'M' },
+                  { full: 'Tue', short: 'Tu' },
+                  { full: 'Wed', short: 'W' },
+                  { full: 'Thu', short: 'Th' },
+                  { full: 'Fri', short: 'F' },
+                  { full: 'Sat', short: 'Sa' }
+                ].map((day) => (
+                  <div key={day.full} className="text-center font-semibold text-sm p-2 border-b">
+                    <span className="hidden sm:inline">{day.full}</span>
+                    <span className="sm:hidden">{day.short}</span>
                   </div>
                 ))}
                 
@@ -238,20 +247,20 @@ export const ClubCareCalContent = () => {
                     <div
                       key={index}
                       className={cn(
-                        "min-h-32 border p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors",
+                        "min-h-20 sm:min-h-32 border p-1 sm:p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors",
                         isToday && "bg-blue-50 border-blue-300",
                         isSelected && "ring-2 ring-primary"
                       )}
                       onClick={() => setSelectedDate(day)}
                     >
                       <div className={cn(
-                        "text-sm font-medium mb-2",
+                        "text-xs sm:text-sm font-medium mb-1 sm:mb-2",
                         isToday && "text-blue-600"
                       )}>
                         {format(day, 'd')}
                       </div>
                       <div className="space-y-1">
-                        {dayConnections.slice(0, 3).map((connection) => (
+                        {dayConnections.slice(0, 2).map((connection) => (
                           <Badge
                             key={connection.id}
                             variant="secondary"
@@ -260,9 +269,9 @@ export const ClubCareCalContent = () => {
                             {connection.person_contact}
                           </Badge>
                         ))}
-                        {dayConnections.length > 3 && (
+                        {dayConnections.length > 2 && (
                           <Badge variant="outline" className="text-xs">
-                            +{dayConnections.length - 3} more
+                            +{dayConnections.length - 2}
                           </Badge>
                         )}
                       </div>

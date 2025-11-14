@@ -234,9 +234,20 @@ const CustomMenu = () => {
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
-      <div className="grid grid-cols-7 gap-2">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day} className="text-center font-semibold p-2">{day}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
+        {[
+          { full: 'Sun', short: 'Su' },
+          { full: 'Mon', short: 'M' },
+          { full: 'Tue', short: 'Tu' },
+          { full: 'Wed', short: 'W' },
+          { full: 'Thu', short: 'Th' },
+          { full: 'Fri', short: 'F' },
+          { full: 'Sat', short: 'Sa' }
+        ].map(day => (
+          <div key={day.full} className="text-center font-semibold p-2">
+            <span className="hidden sm:inline">{day.full}</span>
+            <span className="sm:hidden">{day.short}</span>
+          </div>
         ))}
         {days.map(day => {
           const dayMenu = getMenuForDate(day);
@@ -247,11 +258,11 @@ const CustomMenu = () => {
             <div
               key={day.toString()}
               onClick={() => handleDateClick(day)}
-              className={`min-h-24 p-2 border rounded cursor-pointer hover:bg-accent transition-colors ${
+              className={`min-h-20 sm:min-h-24 p-1 sm:p-2 border rounded cursor-pointer hover:bg-accent transition-colors ${
                 !isCurrentMonth ? 'opacity-50' : ''
               }`}
             >
-              <div className="font-semibold text-sm mb-1">{format(day, 'd')}</div>
+              <div className="font-semibold text-xs sm:text-sm mb-1">{format(day, 'd')}</div>
               {totalCalories > 0 && (
                 <div className="text-xs font-medium text-primary mb-1">
                   {totalCalories} kcal
