@@ -429,13 +429,13 @@ export const QuickTasksSection = () => {
                         </Button>
                       </div>
                     
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium">{renderTaskName(task.name)}</h3>
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                         <p className="text-sm text-muted-foreground">
                           Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
                         </p>
                         {(task.reminder_datetime || task.slot_start_time) && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground break-words">
                             {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
                             {task.reminder_datetime && task.slot_start_time && " | "}
                             {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
@@ -444,7 +444,7 @@ export const QuickTasksSection = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 ml-10 md:ml-0">
+                    <div className="flex items-center gap-1 sm:gap-2 ml-10 md:ml-0 flex-wrap">
                       {activeEntry ? (
                         <>
                           <div className="flex flex-col items-end gap-1">
