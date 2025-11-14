@@ -124,10 +124,10 @@ export const SocialBeingCalContent = () => {
   const selectedDayActivities = selectedDate ? getActivitiesForDay(selectedDate) : [];
 
   return (
-      <div className="container mx-auto px-6 pt-0 pb-6">
-        <div className="flex justify-between items-center mb-4">
+      <div className="container mx-auto px-3 pt-0 pb-4 sm:px-6 sm:pb-6">
+        <div className="flex justify-between items-center mb-3 sm:mb-4">
           <div>
-            <h1 className="text-3xl font-bold">Social Being Calendar</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Social Being Calendar</h1>
             <p className="text-muted-foreground mt-1">
               View your social activities schedule
             </p>
@@ -167,7 +167,7 @@ export const SocialBeingCalContent = () => {
             {loading ? (
               <p className="text-center py-8">Loading activities...</p>
             ) : (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
                 {weekDays.map((day, index) => {
                   const dayActivities = getActivitiesForDay(day);
                   const isToday = new Date().toDateString() === day.toDateString();

@@ -119,7 +119,7 @@ export const TheatricalArtsCalContent = () => {
   const selectedDaySkills = selectedDate ? getSkillsForDay(selectedDate) : [];
 
   return (
-      <div className="container mx-auto px-6 pt-0 pb-6">
+      <div className="container mx-auto px-3 pt-0 pb-4 sm:px-6 sm:pb-6">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h1 className="text-3xl font-bold">Theatrical Arts Calendar</h1>
@@ -162,7 +162,7 @@ export const TheatricalArtsCalContent = () => {
             {loading ? (
               <p className="text-center py-8">Loading skills...</p>
             ) : (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
                 {weekDays.map((day, index) => {
                   const daySkills = getSkillsForDay(day);
                   const isToday = new Date().toDateString() === day.toDateString();

@@ -126,11 +126,11 @@ export const ClubCareCalContent = () => {
   const days = getDaysToShow();
 
   return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="container mx-auto px-3 py-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
             <Users className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold">ClubCare Calendar</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">ClubCare Calendar</h1>
           </div>
           
           <div className="flex gap-2">
@@ -219,7 +219,7 @@ export const ClubCareCalContent = () => {
             ) : (
               <div className={cn(
                 "grid gap-2",
-                viewMode === "weekly" ? "grid-cols-7" : "grid-cols-7"
+                viewMode === "weekly" ? "grid-cols-3 sm:grid-cols-7" : "grid-cols-3 sm:grid-cols-7"
               )}>
                 {/* Day headers */}
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (

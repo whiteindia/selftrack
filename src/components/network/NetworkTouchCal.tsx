@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,13 @@ const typeStyles: Record<string, { bg: string; border: string }> = {
 
 export function NetworkTouchCal() {
   const [activeView, setActiveView] = useState<string>("month");
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["network-touch-cal"],
@@ -65,7 +72,7 @@ export function NetworkTouchCal() {
   };
 
   return (
-    <Card className="mt-8">
+    <Card className="mt-4 sm:mt-8">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Network Touch Calendar</CardTitle>
@@ -95,7 +102,10 @@ export function NetworkTouchCal() {
           <TabsContent value="week" className="mt-4">
             <FullCalendar
               plugins={[timeGridPlugin]}
-              initialView="timeGridWeek"
+              initialView={isMobile ? 'timeGridThreeDay' : 'timeGridWeek'}
+              views={{
+                timeGridThreeDay: { type: 'timeGrid', duration: { days: 3 } }
+              }}
               events={events}
               eventContent={renderEventContent}
               height={600}
