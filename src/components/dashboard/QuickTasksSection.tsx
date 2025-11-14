@@ -381,8 +381,8 @@ export const QuickTasksSection = () => {
 
               return (
                 <Card key={task.id} className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
                       <div className="flex flex-col gap-1">
                         <Button
                           size="sm"
@@ -403,23 +403,23 @@ export const QuickTasksSection = () => {
                           <ArrowDown className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
                     
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium">{renderTaskName(task.name)}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
-                      </p>
-                      {(task.reminder_datetime || task.slot_start_time) && (
-                        <p className="text-xs text-muted-foreground">
-                          {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
-                          {task.reminder_datetime && task.slot_start_time && " | "}
-                          {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium">{renderTaskName(task.name)}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
                         </p>
-                      )}
+                        {(task.reminder_datetime || task.slot_start_time) && (
+                          <p className="text-xs text-muted-foreground">
+                            {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
+                            {task.reminder_datetime && task.slot_start_time && " | "}
+                            {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 ml-10 md:ml-0">
                       {activeEntry ? (
                         <>
                           <div className="flex flex-col items-end gap-1">
