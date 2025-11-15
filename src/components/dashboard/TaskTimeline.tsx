@@ -113,59 +113,13 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
   const tasksByTimeSlot = useMemo(() => {
     const slots: { [key: string]: Task[] } = {};
     
-    console.log('=== TASKTIMELINE DEBUG ===');
-    console.log('TaskTimeline - tasks received:', tasks);
-    console.log('TaskTimeline - tasks length:', tasks?.length);
+    console.log('TaskTimeline - tasks received:', tasks?.length || 0);
     
-    if (tasks && tasks.length > 0) {
-      console.log('TaskTimeline - first task details:', {
-        name: tasks[0].name,
-        deadline: tasks[0].deadline,
-        reminder_datetime: tasks[0].reminder_datetime,
-        slot_start_time: tasks[0].slot_start_time,
-        status: tasks[0].status
-      });
-    } else {
-      console.log('TaskTimeline - NO TASKS FOUND');
+    if (!tasks || tasks.length === 0) {
+      return slots;
     }
     
-    // Add test data if no tasks have specific times
-    const testTasks = tasks.length === 0 ? [
-      {
-        id: 'test-1',
-        name: 'Test Task 1 - 9 AM',
-        deadline: null,
-        status: 'pending',
-        project_id: 'test',
-        reminder_datetime: null,
-        slot_start_time: new Date().toISOString().split('T')[0] + 'T09:00:00',
-        sort_order: 1
-      },
-      {
-        id: 'test-2', 
-        name: 'Test Task 2 - 2 PM',
-        deadline: null,
-        status: 'pending',
-        project_id: 'test',
-        reminder_datetime: new Date().toISOString().split('T')[0] + 'T14:00:00',
-        slot_start_time: null,
-        sort_order: 2
-      },
-      {
-        id: 'test-3',
-        name: 'Test Task 3 - 5 PM', 
-        deadline: new Date().toISOString().split('T')[0] + 'T17:00:00',
-        status: 'pending',
-        project_id: 'test',
-        reminder_datetime: null,
-        slot_start_time: null,
-        sort_order: 3
-      }
-    ] : [];
-    
-    const allTasks = [...tasks, ...testTasks];
-    
-    allTasks.forEach(task => {
+    tasks.forEach(task => {
       const taskTime = getEffectiveTaskTime(task);
       console.log(`TaskTimeline - processing task: "${task.name}"`, {
         slot_start_time: task.slot_start_time,
@@ -191,13 +145,9 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
   const getOccupiedSlots = useMemo(() => {
     const occupiedSlots: { [dayKey: string]: number[] } = {};
     
-    console.log('TaskTimeline - tasksByTimeSlot for occupied slots:', tasksByTimeSlot);
-    
     Object.keys(tasksByTimeSlot).forEach(slotKey => {
       const [dayKey, hourStr] = slotKey.split('-');
       const hour = parseInt(hourStr);
-      
-      console.log(`TaskTimeline - processing slotKey: ${slotKey}, dayKey: ${dayKey}, hour: ${hour}`);
       
       if (!occupiedSlots[dayKey]) {
         occupiedSlots[dayKey] = [];
@@ -210,17 +160,8 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
       occupiedSlots[dayKey].sort((a, b) => a - b);
     });
     
-    console.log('TaskTimeline - occupiedSlots result:', occupiedSlots);
-    
-    // Create fallback for today if no tasks have times and there are tasks
-    const todayKey = format(new Date(), 'yyyy-MM-dd');
-    if (!occupiedSlots[todayKey] && tasks.length > 0) {
-      console.log('TaskTimeline - no occupied slots for today, creating fallback');
-      occupiedSlots[todayKey] = [9]; // Default to 9 AM
-    }
-    
     return occupiedSlots;
-  }, [tasksByTimeSlot, tasks]);
+  }, [tasksByTimeSlot]);
 
   const getDisplayDate = (date: Date) => {
     if (isToday(date)) return 'Today';
@@ -231,9 +172,6 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
   const getDisplayDates = () => {
     const today = new Date();
     const dates = [today];
-    
-    console.log('TaskTimeline - timeFilter:', timeFilter);
-    console.log('TaskTimeline - today:', today);
     
     if (timeFilter === 'all') {
       // Show today and next 6 days for "all" filter
@@ -254,7 +192,6 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
       }
     }
     
-    console.log('TaskTimeline - displayDates:', dates);
     return dates;
   };
 
@@ -318,7 +255,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
               
               {!activeEntry && (
                 <Button
-                  size="xs"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     onStartTask(task.id);
@@ -330,7 +267,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
               )}
               
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -342,7 +279,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
               </Button>
               
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -354,7 +291,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
               </Button>
               
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -453,21 +390,9 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-6">
-        {console.log('TaskTimeline - rendering with displayDates:', displayDates)}
-        {console.log('TaskTimeline - getOccupiedSlots:', getOccupiedSlots)}
-        
-        {/* Fallback for testing - show all tasks in a simple list if timeline fails */}
-        {Object.keys(getOccupiedSlots).length === 0 && tasks.length > 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-            <p className="text-yellow-800 text-sm mb-2">Timeline fallback - tasks without specific times:</p>
-            {tasks.map(task => (
-              <div key={task.id} className="mb-2 p-2 bg-white rounded border">
-                <div className="font-medium text-sm">{task.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  Deadline: {task.deadline ? new Date(task.deadline).toLocaleString() : 'None'}
-                </div>
-              </div>
-            ))}
+        {Object.keys(getOccupiedSlots).length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p className="text-sm">No scheduled tasks. Add times to your tasks to see them on the timeline.</p>
           </div>
         )}
         
@@ -475,10 +400,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
           const dayKey = format(date, 'yyyy-MM-dd');
           const occupiedHours = getOccupiedSlots[dayKey] || [];
           
-          console.log(`TaskTimeline - processing day: ${dayKey}, occupiedHours:`, occupiedHours);
-          
           if (occupiedHours.length === 0) {
-            console.log(`TaskTimeline - skipping day ${dayKey} - no occupied hours`);
             return null;
           }
           
@@ -503,8 +425,6 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
                     {occupiedHours.map((hour) => {
                       const slotKey = `${dayKey}-${hour}`;
                       const slotTasks = tasksByTimeSlot[slotKey] || [];
-                      
-                      console.log(`TaskTimeline - rendering hour: ${hour}, slotKey: ${slotKey}, tasks:`, slotTasks);
                       
                       return (
                         <div key={hour} className="flex gap-4 min-h-[40px]">
