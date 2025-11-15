@@ -386,7 +386,7 @@ export const QuickTasksSection = () => {
     return (
       <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
         <Card className="p-4 max-w-2xl mx-auto">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
               <div className="flex-1 min-w-0 overflow-hidden">
@@ -404,7 +404,7 @@ export const QuickTasksSection = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
               {activeEntry ? (
                 <>
                   <div className="flex flex-col items-end gap-1">
@@ -644,7 +644,7 @@ export const QuickTasksSection = () => {
                   
                   return (
                     <Card key={task.id} className="p-3 max-w-2xl">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm break-words">{renderTaskName(task.name)}</h3>
                           <p className="text-xs text-muted-foreground">
@@ -657,7 +657,7 @@ export const QuickTasksSection = () => {
                           )}
                         </div>
                         
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 justify-end">
                           {activeEntry ? (
                             <>
                               <div className="flex flex-col items-end gap-1">
