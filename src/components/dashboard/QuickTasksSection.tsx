@@ -46,7 +46,7 @@ export const QuickTasksSection = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10,
+        distance: 8,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -357,26 +357,25 @@ export const QuickTasksSection = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {/* Dedicated drag handle for better mobile touch support */}
-              <button
+              <div
+                key={`drag-handle-${task.id}`}
                 {...attributes}
                 {...listeners}
                 className="drag-handle cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-200 select-none"
-                type="button"
+                role="button"
                 aria-label="Drag task"
+                style={{ touchAction: 'none' }}
+                onMouseDown={(e) => e.preventDefault()}
                 onTouchStart={(e) => {
-                  // Only prevent default on the drag handle, not the whole card
                   e.preventDefault();
                   e.stopPropagation();
-                  document.body.style.userSelect = 'none';
                 }}
                 onTouchEnd={(e) => {
-                  // Re-enable text selection after drag
-                  document.body.style.userSelect = '';
+                  e.stopPropagation();
                 }}
-                style={{ touchAction: 'manipulation' }}
               >
                 <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
-              </button>
+              </div>
               <div className="flex-1 min-w-0 overflow-hidden task-content-area">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <p className="text-sm text-muted-foreground">
@@ -892,7 +891,8 @@ export const QuickTasksSection = () => {
           user-select: none;
         }
         .drag-active .drag-handle {
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+          background-color: rgba(59, 130, 246, 0.15);
           transform: scale(1.05);
           transition: all 0.2s ease;
         }
@@ -910,24 +910,27 @@ export const QuickTasksSection = () => {
           position: relative;
           user-select: none;
           -webkit-user-select: none;
+          cursor: grab;
+          z-index: 10;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .drag-handle:active {
+          cursor: grabbing;
           background-color: rgba(0, 0, 0, 0.1);
           transform: scale(0.95);
         }
-        .drag-handle::after {
+        .drag-handle::before {
           content: '';
           position: absolute;
-          inset: -8px;
-          border-radius: 50%;
-          background-color: rgba(59, 130, 246, 0.1);
-          opacity: 0;
-          transform: scale(0.8);
-          transition: all 0.2s ease;
+          inset: -12px;
+          border-radius: 8px;
+          background-color: transparent;
+          z-index: -1;
         }
-        .drag-handle:active::after {
-          opacity: 1;
-          transform: scale(1);
+        .drag-handle:active::before {
+          background-color: rgba(59, 130, 246, 0.1);
         }
         @media (max-width: 640px) {
           .drag-handle {
@@ -1023,6 +1026,7 @@ export const QuickTasksSection = () => {
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
             onTouchStart={handleTouchStart}
+            measuring={{ droppable: { strategy: 'whileDragging' } }}
           >
             <SortableContext
               items={filteredTasks.map(task => task.id)}
