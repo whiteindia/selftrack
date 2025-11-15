@@ -301,7 +301,6 @@ export const QuickTasksSection = () => {
     // Reset touch styles after drag ends
     document.body.style.userSelect = '';
     document.body.style.webkitUserSelect = '';
-    document.body.style.touchAction = '';
     
     if (!over || active.id === over.id) return;
     
@@ -328,11 +327,10 @@ export const QuickTasksSection = () => {
 
   // Prevent default touch behaviors that interfere with dragging
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
-    // Prevent text selection and context menu on mobile during drag operations
-    document.body.style.userSelect = 'none';
-    document.body.style.webkitUserSelect = 'none';
-    document.body.style.touchAction = 'none';
+    // Only prevent default on the drag container, allow scrolling elsewhere
+    if (e.target instanceof Element && e.target.closest('.drag-handle')) {
+      e.preventDefault();
+    }
   };
 
   // Sortable Task Component
@@ -354,39 +352,32 @@ export const QuickTasksSection = () => {
     };
 
     return (
-      <div ref={setNodeRef} style={style} className={`select-none touch-none ${active?.id === task.id ? 'drag-active' : ''}`}>
-        <Card className="p-4 max-w-2xl mx-auto touch-none">
+      <div ref={setNodeRef} style={style} className={`select-none ${active?.id === task.id ? 'drag-active' : ''}`}>
+        <Card className="p-4 max-w-2xl mx-auto">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {/* Dedicated drag handle for better mobile touch support */}
               <button
                 {...attributes}
                 {...listeners}
-                className="drag-handle touch-none cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-200 select-none"
+                className="drag-handle cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-200 select-none"
                 type="button"
                 aria-label="Drag task"
                 onTouchStart={(e) => {
-                  // Prevent text selection on mobile during drag
+                  // Only prevent default on the drag handle, not the whole card
                   e.preventDefault();
                   e.stopPropagation();
                   document.body.style.userSelect = 'none';
-                  document.body.style.touchAction = 'none';
                 }}
                 onTouchEnd={(e) => {
                   // Re-enable text selection after drag
-                  e.preventDefault();
                   document.body.style.userSelect = '';
-                  document.body.style.touchAction = '';
                 }}
-                onTouchMove={(e) => {
-                  // Prevent scrolling during drag
-                  e.preventDefault();
-                }}
-                style={{ touchAction: 'none' }}
+                style={{ touchAction: 'manipulation' }}
               >
                 <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
               </button>
-              <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex-1 min-w-0 overflow-hidden task-content-area">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <p className="text-sm text-muted-foreground">
                   Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
@@ -401,7 +392,7 @@ export const QuickTasksSection = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end task-content-area">
               {activeEntry ? (
                 <>
                   <div className="flex flex-col items-end gap-1">
@@ -899,17 +890,26 @@ export const QuickTasksSection = () => {
           -moz-user-select: none;
           -ms-user-select: none;
           user-select: none;
-          touch-action: none;
         }
-        .drag-active {
+        .drag-active .drag-handle {
           box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-          transform: scale(1.01);
+          transform: scale(1.05);
           transition: all 0.2s ease;
+        }
+        /* Ensure smooth scrolling for the rest of the card content */
+        .task-content-area {
+          touch-action: manipulation;
+          -webkit-user-select: text;
+          -moz-user-select: text;
+          -ms-user-select: text;
+          user-select: text;
         }
         .drag-handle {
           touch-action: none;
           -webkit-tap-highlight-color: transparent;
           position: relative;
+          user-select: none;
+          -webkit-user-select: none;
         }
         .drag-handle:active {
           background-color: rgba(0, 0, 0, 0.1);
@@ -1028,7 +1028,7 @@ export const QuickTasksSection = () => {
               items={filteredTasks.map(task => task.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-3 drag-container">
+              <div className="space-y-3">
                 {filteredTasks.map((task) => {
                   const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
                   const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
