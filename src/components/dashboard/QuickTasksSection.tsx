@@ -55,7 +55,7 @@ export const QuickTasksSection = () => {
     useSensor(TouchSensor, {
       activationConstraint: {
         distance: 8,
-        delay: 0,
+        delay: 200, // 200ms delay to distinguish between scroll and drag
         tolerance: 5,
       },
     })
@@ -344,6 +344,7 @@ export const QuickTasksSection = () => {
       transform,
       transition,
       isDragging,
+      active,
     } = useSortable({ id: task.id });
 
     const style = {
@@ -353,7 +354,7 @@ export const QuickTasksSection = () => {
     };
 
     return (
-      <div ref={setNodeRef} style={style} className="select-none touch-none">
+      <div ref={setNodeRef} style={style} className={`select-none touch-none ${active?.id === task.id ? 'drag-active' : ''}`}>
         <Card className="p-4 max-w-2xl mx-auto touch-none">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -361,7 +362,7 @@ export const QuickTasksSection = () => {
               <button
                 {...attributes}
                 {...listeners}
-                className="drag-handle touch-none cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-150 select-none"
+                className="drag-handle touch-none cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-200 select-none"
                 type="button"
                 aria-label="Drag task"
                 onTouchStart={(e) => {
@@ -381,8 +382,9 @@ export const QuickTasksSection = () => {
                   // Prevent scrolling during drag
                   e.preventDefault();
                 }}
+                style={{ touchAction: 'none' }}
               >
-                <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none" />
+                <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
               </button>
               <div className="flex-1 min-w-0 overflow-hidden">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
@@ -899,13 +901,33 @@ export const QuickTasksSection = () => {
           user-select: none;
           touch-action: none;
         }
+        .drag-active {
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+          transform: scale(1.01);
+          transition: all 0.2s ease;
+        }
         .drag-handle {
           touch-action: none;
           -webkit-tap-highlight-color: transparent;
+          position: relative;
         }
         .drag-handle:active {
           background-color: rgba(0, 0, 0, 0.1);
           transform: scale(0.95);
+        }
+        .drag-handle::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: 50%;
+          background-color: rgba(59, 130, 246, 0.1);
+          opacity: 0;
+          transform: scale(0.8);
+          transition: all 0.2s ease;
+        }
+        .drag-handle:active::after {
+          opacity: 1;
+          transform: scale(1);
         }
         @media (max-width: 640px) {
           .drag-handle {
