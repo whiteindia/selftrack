@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -41,11 +41,6 @@ export const QuickTasksSection = () => {
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
-  const [testTaskCreated, setTestTaskCreated] = useState(false);
-  const [testTaskDeleted, setTestTaskDeleted] = useState(() => {
-    // Initialize from localStorage to persist across refreshes
-    return localStorage.getItem('testTaskDeleted') === 'true';
-  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -103,80 +98,6 @@ export const QuickTasksSection = () => {
     },
     enabled: !!project?.id,
   });
-
-  // Create a simple test task with slot_start_datetime and slot_end_datetime
-  // This runs once when project is available and no existing test task is found
-  const createTestTask = async () => {
-    try {
-      if (!project?.id || testTaskCreated || testTaskDeleted) {
-        console.log("Skipping test task creation:", { testTaskCreated, testTaskDeleted });
-        return;
-      }
-      
-      const testName = "Test Slot Task (2–4 PM)";
-      
-      // First check if task already exists in the database
-      const { data: existingTasks } = await supabase
-        .from("tasks")
-        .select("id, name")
-        .eq("project_id", project.id)
-        .eq("name", testName);
-      
-      if (existingTasks && existingTasks.length > 0) {
-        console.log("Test task already exists in database");
-        setTestTaskCreated(true);
-        return;
-      }
-
-      const today = new Date();
-      const istDateStr = format(today, "yyyy-MM-dd");
-      const startIst = `${istDateStr}T14:00`;
-      const endIst = `${istDateStr}T16:00`;
-      const startUtc = convertISTToUTC(startIst);
-      const endUtc = convertISTToUTC(endIst);
-
-      console.log("Creating test task...");
-      const { error } = await supabase
-        .from("tasks")
-        .insert({
-          name: testName,
-          status: "Not Started",
-          project_id: project.id,
-          deadline: istDateStr, // date-only for visibility
-          slot_start_datetime: startUtc,
-          slot_end_datetime: endUtc,
-        });
-
-      if (error) {
-        console.error("Failed to create test task:", error);
-        toast.error("Failed to create test task");
-        return;
-      }
-
-      setTestTaskCreated(true);
-      toast.success("Test task created (2–4 PM)");
-      // Refresh tasks
-      refetch();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Auto-create test task in development to validate slot handling
-  if (import.meta.env.DEV) {
-    useEffect(() => {
-      void createTestTask();
-    }, [project?.id, testTaskCreated, testTaskDeleted]);
-    
-    // Reset flags when project changes or component unmounts
-    useEffect(() => {
-      return () => {
-        setTestTaskCreated(false);
-        setTestTaskDeleted(false);
-        localStorage.removeItem('testTaskDeleted');
-      };
-    }, [project?.id]);
-  }
 
   // Fetch active time entries for these tasks
   const { data: timeEntries } = useQuery({
@@ -352,17 +273,8 @@ export const QuickTasksSection = () => {
 
       if (error) throw error;
     },
-    onSuccess: (data, taskId) => {
+    onSuccess: () => {
       toast.success("Task deleted successfully");
-      
-      // Check if this was the test task and mark it as deleted
-      const deletedTask = filteredTasks.find(t => t.id === taskId);
-      if (deletedTask?.name === "Test Slot Task (2–4 PM)") {
-        setTestTaskDeleted(true);
-        setTestTaskCreated(false);
-        localStorage.setItem('testTaskDeleted', 'true');
-        console.log("Test task marked as deleted in localStorage");
-      }
       
       // Only invalidate the specific query, not all queries
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
@@ -581,6 +493,111 @@ export const QuickTasksSection = () => {
     }
   };
 
+  // Helper function to format date as DD/MM/YYYY
+  const formatDateDDMMYYYY = (date: Date) => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Countdown Timer Component
+  const CountdownTimer: React.FC<{ targetTime: Date; taskName: string }> = ({ targetTime, taskName }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+    const [isStarted, setIsStarted] = useState(false);
+    const [isVerySoon, setIsVerySoon] = useState(false);
+    const [isOverdue, setIsOverdue] = useState(false);
+
+    const updateCountdown = useCallback(() => {
+      const now = new Date();
+      const diff = targetTime.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        // Check if it's overdue (more than 5 minutes past)
+        if (diff < -5 * 60 * 1000) {
+          setIsOverdue(true);
+          setIsStarted(false);
+          setIsVerySoon(false);
+          
+          const overdueDiff = Math.abs(diff);
+          const hours = Math.floor(overdueDiff / (1000 * 60 * 60));
+          const minutes = Math.floor((overdueDiff % (1000 * 60 * 60)) / (1000 * 60));
+          
+          if (hours > 0) {
+            setTimeLeft(`${hours}h ${minutes}m`);
+          } else {
+            setTimeLeft(`${minutes}m`);
+          }
+        } else {
+          // Within 5 minutes of start time
+          setTimeLeft('Started');
+          setIsStarted(true);
+          setIsOverdue(false);
+          setIsVerySoon(false);
+        }
+        return;
+      }
+      
+      setIsStarted(false);
+      setIsOverdue(false);
+      
+      // Check if very soon (less than 5 minutes)
+      setIsVerySoon(diff < 5 * 60 * 1000);
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      if (hours > 0) {
+        setTimeLeft(`${hours}h ${minutes}m`);
+      } else if (minutes > 0) {
+        setTimeLeft(`${minutes}m ${seconds}s`);
+      } else {
+        setTimeLeft(`${seconds}s`);
+      }
+    }, [targetTime]);
+
+    useEffect(() => {
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    }, [updateCountdown]);
+
+    if (isOverdue) {
+      return (
+        <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+          <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span>
+          Overdue by {timeLeft}
+        </span>
+      );
+    }
+
+    if (isStarted) {
+      return (
+        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+          <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+          Started
+        </span>
+      );
+    }
+
+    if (isVerySoon) {
+      return (
+        <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200 animate-pulse">
+          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
+          Starts in {timeLeft}
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+        Starts in {timeLeft}
+      </span>
+    );
+  };
+
   // Timeline view component - shows tasks grouped by time (slots or deadlines)
   const TimelineView = () => {
     // Check if any tasks have slot_start_datetime (priority) or slot_start_time
@@ -598,19 +615,19 @@ export const QuickTasksSection = () => {
       if (task.slot_start_datetime) {
         // Priority: Use slot_start_datetime if available (from TaskEditDialog)
         timeValue = new Date(task.slot_start_datetime);
-        const date = timeValue.toLocaleDateString();
+        const date = formatDateDDMMYYYY(timeValue);
         const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         dateTimeKey = `${date} ${time}`;
       } else if (task.slot_start_time) {
         // Fallback: Use slot_start_time if available
         timeValue = new Date(task.slot_start_time);
-        const date = timeValue.toLocaleDateString();
+        const date = formatDateDDMMYYYY(timeValue);
         const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         dateTimeKey = `${date} ${time}`;
       } else if (task.deadline) {
         // Fallback: Use deadline time
         timeValue = new Date(task.deadline);
-        const date = timeValue.toLocaleDateString();
+        const date = formatDateDDMMYYYY(timeValue);
         const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         dateTimeKey = `${date} ${time}`;
       } else {
@@ -630,12 +647,20 @@ export const QuickTasksSection = () => {
       if (a === "No Time Set") return 1;
       if (b === "No Time Set") return -1;
       
-      // Extract date and time from the key "MM/DD/YYYY HH:MM AM/PM"
+      // Extract date and time from the key "DD/MM/YYYY HH:MM AM/PM"
       const [dateA, timeA] = a.split(' ');
       const [dateB, timeB] = b.split(' ');
       
+      // Parse DD/MM/YYYY format
+      const [dayA, monthA, yearA] = dateA.split('/').map(Number);
+      const [dayB, monthB, yearB] = dateB.split('/').map(Number);
+      
+      // Create comparable date objects
+      const dateObjA = new Date(yearA, monthA - 1, dayA);
+      const dateObjB = new Date(yearB, monthB - 1, dayB);
+      
       // Compare dates first
-      const dateCompare = new Date(dateA).getTime() - new Date(dateB).getTime();
+      const dateCompare = dateObjA.getTime() - dateObjB.getTime();
       if (dateCompare !== 0) return dateCompare;
       
       // If same date, compare times
@@ -683,12 +708,20 @@ export const QuickTasksSection = () => {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium text-sm break-words">{renderTaskName(task.name)}</h3>
                           <p className="text-xs text-muted-foreground">
-                            Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
+                            Due: {task.deadline ? formatDateDDMMYYYY(new Date(task.deadline)) : "No deadline"}
                           </p>
                           {(task.slot_start_datetime || task.slot_start_time) && (
                             <p className="text-xs text-muted-foreground">
-                              Slot: {new Date(task.slot_start_datetime || task.slot_start_time).toLocaleString()}
+                              Slot: {formatDateDDMMYYYY(new Date(task.slot_start_datetime || task.slot_start_time))} {new Date(task.slot_start_datetime || task.slot_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
+                          )}
+                          {(task.slot_start_datetime || task.slot_start_time) && !activeEntry && (
+                            <div className="mt-1">
+                              <CountdownTimer 
+                                targetTime={new Date(task.slot_start_datetime || task.slot_start_time)} 
+                                taskName={task.name}
+                              />
+                            </div>
                           )}
                         </div>
                         
