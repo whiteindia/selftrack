@@ -36,6 +36,8 @@ interface Task {
   project_id: string;
   reminder_datetime: string | null;
   slot_start_time: string | null;
+  slot_start_datetime?: string | null;
+  slot_end_datetime?: string | null;
   sort_order: number | null;
 }
 
@@ -93,21 +95,25 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
 
   const getEffectiveTaskTime = (task: Task): Date | null => {
     let taskTime: Date | null = null;
-    if (task.slot_start_time) {
-      taskTime = new Date(task.slot_start_time);
+    if (task.slot_start_datetime) {
+      const dt = new Date(task.slot_start_datetime);
+      if (!isNaN(dt.getTime())) taskTime = dt;
+    } else if (task.slot_start_time) {
+      const dt = new Date(task.slot_start_time);
+      if (!isNaN(dt.getTime())) taskTime = dt;
     } else if (task.reminder_datetime) {
-      taskTime = new Date(task.reminder_datetime);
+      const dt = new Date(task.reminder_datetime);
+      if (!isNaN(dt.getTime())) taskTime = dt;
     } else if (task.deadline) {
-      taskTime = new Date(task.deadline);
-      if (
-        taskTime.getHours() === 0 &&
-        taskTime.getMinutes() === 0 &&
-        taskTime.getSeconds() === 0
-      ) {
-        taskTime.setHours(9, 0, 0, 0);
+      const dt = new Date(task.deadline);
+      if (!isNaN(dt.getTime())) {
+        if (dt.getHours() === 0 && dt.getMinutes() === 0 && dt.getSeconds() === 0) {
+          dt.setHours(9, 0, 0, 0);
+        }
+        taskTime = dt;
       }
     }
-    return taskTime && !isNaN(taskTime.getTime()) ? taskTime : null;
+    return taskTime;
   };
 
   const tasksByTimeSlot = useMemo(() => {
@@ -230,9 +236,10 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
               <GripVertical className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium text-sm break-words leading-tight">{task.name}</h4>
-                {(task.reminder_datetime || task.slot_start_time) && (
+                {(task.reminder_datetime || task.slot_start_time || task.slot_start_datetime) && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {task.slot_start_time && `🕐 ${format(new Date(task.slot_start_time), 'HH:mm')}`}
+                    {task.slot_start_datetime && `🕐 ${format(new Date(task.slot_start_datetime), 'HH:mm')}`}
+                    {!task.slot_start_datetime && task.slot_start_time && `🕐 ${format(new Date(task.slot_start_time), 'HH:mm')}`}
                     {task.reminder_datetime && `⏰ ${format(new Date(task.reminder_datetime), 'HH:mm')}`}
                   </p>
                 )}
@@ -323,8 +330,8 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({
   // Function to update task time in the database
   const updateTaskTime = async (taskId: string, newTime: Date) => {
     try {
-      const updateData: any = { slot_start_time: newTime.toISOString() };
-      console.log('Updating task time with data:', { taskId, slot_start_time: updateData.slot_start_time });
+      const updateData: any = { slot_start_datetime: newTime.toISOString() };
+      console.log('Updating task time with data:', { taskId, slot_start_datetime: updateData.slot_start_datetime });
       
       const { error } = await supabase
         .from('tasks')

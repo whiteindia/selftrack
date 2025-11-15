@@ -1,16 +1,17 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2, GripVertical } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
-import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
+import { convertISTToUTC } from "@/utils/timezoneUtils";
 import {
   DndContext,
   closestCenter,
@@ -37,8 +38,11 @@ export const QuickTasksSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [testTaskCreated, setTestTaskCreated] = useState(false);
+  const [testTaskDeleted, setTestTaskDeleted] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -82,6 +86,8 @@ export const QuickTasksSection = () => {
           project_id,
           reminder_datetime,
           slot_start_time,
+          slot_start_datetime,
+          slot_end_datetime,
           sort_order
         `)
         .eq("project_id", project.id)
@@ -94,6 +100,58 @@ export const QuickTasksSection = () => {
     },
     enabled: !!project?.id,
   });
+
+  // Create a simple test task with slot_start_datetime and slot_end_datetime
+  // This runs once when project is available and no existing test task is found
+  const createTestTask = async () => {
+    try {
+      if (!project?.id || testTaskCreated || testTaskDeleted) return; // Don't create if deleted or already created
+      const testName = "Test Slot Task (2–4 PM)";
+      const existing = (tasks || []).find(t => t.name === testName);
+      if (existing) {
+        setTestTaskCreated(true); // Mark as created if it exists
+        return;
+      }
+
+      const today = new Date();
+      const istDateStr = format(today, "yyyy-MM-dd");
+      const startIst = `${istDateStr}T14:00`;
+      const endIst = `${istDateStr}T16:00`;
+      const startUtc = convertISTToUTC(startIst);
+      const endUtc = convertISTToUTC(endIst);
+
+      const { error } = await supabase
+        .from("tasks")
+        .insert({
+          name: testName,
+          status: "Not Started",
+          project_id: project.id,
+          deadline: istDateStr, // date-only for visibility
+          slot_start_datetime: startUtc,
+          slot_end_datetime: endUtc,
+        });
+
+      if (error) {
+        console.error("Failed to create test task:", error);
+        toast.error("Failed to create test task");
+        return;
+      }
+
+      setTestTaskCreated(true); // Mark as created
+      toast.success("Test task created (2–4 PM)");
+      // Refresh tasks
+      refetch();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Auto-create test task in development to validate slot handling
+  if (import.meta.env.DEV) {
+    useEffect(() => {
+      void createTestTask();
+    }, [project?.id, tasks, testTaskCreated]);
+  }
 
   // Fetch active time entries for these tasks
   const { data: timeEntries } = useQuery({
@@ -111,19 +169,6 @@ export const QuickTasksSection = () => {
   });
 
   const filteredTasks = useMemo(() => {
-    console.log('QuickTasksSection - raw tasks data:', tasks);
-    console.log('QuickTasksSection - timeFilter:', timeFilter);
-    if (tasks && tasks.length) {
-      const log = tasks.map(t => ({
-        id: t.id,
-        name: t.name,
-        deadline: t.deadline,
-        reminder_datetime: t.reminder_datetime,
-        slot_start_time: t.slot_start_time,
-        hasDateOnlyDeadline: t.deadline ? (new Date(t.deadline).getHours() === 0 && new Date(t.deadline).getMinutes() === 0) : false
-      }));
-      console.log('QuickTasksSection - tasks time fields:', log);
-    }
     if (!tasks) return [];
 
     const now = new Date();
@@ -180,12 +225,18 @@ export const QuickTasksSection = () => {
 
         // If dates are same or both null, sort by nearest reminder/slot time
         const getNearestTime = (task: any) => {
-          const times = [];
-          if (task.reminder_datetime) {
-            times.push(new Date(task.reminder_datetime).getTime());
+          const times = [] as number[];
+          if (task.slot_start_datetime) {
+            const t = new Date(task.slot_start_datetime).getTime();
+            if (!isNaN(t)) times.push(t);
           }
           if (task.slot_start_time) {
-            times.push(new Date(task.slot_start_time).getTime());
+            const t = new Date(task.slot_start_time).getTime();
+            if (!isNaN(t)) times.push(t);
+          }
+          if (task.reminder_datetime) {
+            const t = new Date(task.reminder_datetime).getTime();
+            if (!isNaN(t)) times.push(t);
           }
           return times.length > 0 ? Math.min(...times) : Infinity;
         };
@@ -278,7 +329,9 @@ export const QuickTasksSection = () => {
     },
     onSuccess: () => {
       toast.success("Task deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+      // Only invalidate the specific query, not all queries
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      queryClient.invalidateQueries({ queryKey: ["quick-task-time-entries"] });
     },
     onError: (error) => {
       toast.error("Failed to delete task");
@@ -493,6 +546,205 @@ export const QuickTasksSection = () => {
     }
   };
 
+  // Timeline view component - shows tasks grouped by time (slots or deadlines)
+  const TimelineView = () => {
+    // Check if any tasks have slot_start_datetime (priority) or slot_start_time
+    const tasksWithSlots = filteredTasks.filter(task => task.slot_start_datetime || task.slot_start_time);
+    const hasSlotTasks = tasksWithSlots.length > 0;
+    
+    // Use slot times if available, otherwise group by deadline time
+    const tasksToDisplay = hasSlotTasks ? tasksWithSlots : filteredTasks;
+    
+    // Group tasks by date and time (slot start datetime/time or deadline time)
+    const tasksByDateTime = tasksToDisplay.reduce((acc, task) => {
+      let dateTimeKey: string;
+      let timeValue: Date;
+      
+      if (task.slot_start_datetime) {
+        // Priority: Use slot_start_datetime if available (from TaskEditDialog)
+        timeValue = new Date(task.slot_start_datetime);
+        const date = timeValue.toLocaleDateString();
+        const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        dateTimeKey = `${date} ${time}`;
+      } else if (task.slot_start_time) {
+        // Fallback: Use slot_start_time if available
+        timeValue = new Date(task.slot_start_time);
+        const date = timeValue.toLocaleDateString();
+        const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        dateTimeKey = `${date} ${time}`;
+      } else if (task.deadline) {
+        // Fallback: Use deadline time
+        timeValue = new Date(task.deadline);
+        const date = timeValue.toLocaleDateString();
+        const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        dateTimeKey = `${date} ${time}`;
+      } else {
+        // For tasks without any time, group as "No Time Set"
+        dateTimeKey = "No Time Set";
+      }
+      
+      if (!acc[dateTimeKey]) {
+        acc[dateTimeKey] = [];
+      }
+      acc[dateTimeKey].push(task);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Sort date-time slots chronologically, with "No Time Set" at the end
+    const sortedDateTimeSlots = Object.keys(tasksByDateTime).sort((a, b) => {
+      if (a === "No Time Set") return 1;
+      if (b === "No Time Set") return -1;
+      
+      // Extract date and time from the key "MM/DD/YYYY HH:MM AM/PM"
+      const [dateA, timeA] = a.split(' ');
+      const [dateB, timeB] = b.split(' ');
+      
+      // Compare dates first
+      const dateCompare = new Date(dateA).getTime() - new Date(dateB).getTime();
+      if (dateCompare !== 0) return dateCompare;
+      
+      // If same date, compare times
+      const timeA_24h = new Date(`2000-01-01 ${timeA}`).getTime();
+      const timeB_24h = new Date(`2000-01-01 ${timeB}`).getTime();
+      return timeA_24h - timeB_24h;
+    });
+
+    return (
+      <div className="relative">
+        {/* Timeline mode indicator */}
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4" />
+          <span>{hasSlotTasks ? "Time Slots" : "Deadline Times"}</span>
+          {hasSlotTasks && (
+            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+              {tasksWithSlots.some(t => t.slot_start_datetime) ? "Using slot datetime" : 
+               tasksWithSlots.some(t => t.slot_start_time) ? "Using slot times" : "Using deadline times"}
+            </span>
+          )}
+        </div>
+        
+        {/* Vertical thread line */}
+        <div className="absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
+        
+        <div className="space-y-6">
+          {sortedDateTimeSlots.map((dateTimeSlot, index) => (
+            <div key={dateTimeSlot} className="relative flex items-start gap-4">
+              {/* Time node on the vertical thread */}
+              <div className={`relative z-10 flex items-center justify-center w-16 h-8 bg-background border border-border rounded-md text-sm font-medium ${
+                dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
+              }`}>
+                {dateTimeSlot}
+              </div>
+              
+              {/* Tasks at this time slot */}
+              <div className="flex-1 space-y-2">
+                {tasksByDateTime[dateTimeSlot].map((task) => {
+                  const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
+                  const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+                  
+                  return (
+                    <Card key={task.id} className="p-3 max-w-2xl">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm break-words">{renderTaskName(task.name)}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
+                          </p>
+                          {(task.slot_start_datetime || task.slot_start_time) && (
+                            <p className="text-xs text-muted-foreground">
+                              Slot: {new Date(task.slot_start_datetime || task.slot_start_time).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {activeEntry ? (
+                            <>
+                              <div className="flex flex-col items-end gap-1">
+                                <LiveTimer
+                                  startTime={activeEntry.start_time}
+                                  isPaused={isPaused}
+                                  timerMetadata={activeEntry.timer_metadata}
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {isPaused ? "Paused" : "Running"}
+                                </span>
+                              </div>
+                              <CompactTimerControls
+                                taskId={task.id}
+                                taskName={task.name}
+                                entryId={activeEntry.id}
+                                timerMetadata={activeEntry.timer_metadata}
+                                onTimerUpdate={() => {}}
+                              />
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleStartTask(task.id)}
+                              className="h-7 px-2"
+                            >
+                              <Play className="h-3 w-3" />
+                            </Button>
+                          )}
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTask(task);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/alltasks?highlight=${task.id}`);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (confirm('Are you sure you want to delete this task?')) {
+                                deleteTaskMutation.mutate(task.id);
+                              }
+                            }}
+                            className="h-7 px-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          
+          {sortedDateTimeSlots.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No tasks for this period</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Function to render task name with clickable links
   const renderTaskName = (name: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -525,42 +777,60 @@ export const QuickTasksSection = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Quick Tasks</h2>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                variant={timeFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeFilter("all")}
-              >
-                All
-              </Button>
-              <Button
-                variant={timeFilter === "today" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeFilter("today")}
-              >
-                Today
-              </Button>
-              <Button
-                variant={timeFilter === "tomorrow" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeFilter("tomorrow")}
-              >
-                Tomorrow
-              </Button>
-              <Button
-                variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeFilter("laterThisWeek")}
-              >
-                Later This Week
-              </Button>
-              <Button
-                variant={timeFilter === "nextWeek" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setTimeFilter("nextWeek")}
-              >
-                Next Week
-              </Button>
+            <div className="flex gap-2 items-center">
+              <div className="flex gap-1">
+                <Button
+                  variant={viewMode === "list" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "timeline" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("timeline")}
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant={timeFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={timeFilter === "today" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("today")}
+                >
+                  Today
+                </Button>
+                <Button
+                  variant={timeFilter === "tomorrow" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("tomorrow")}
+                >
+                  Tomorrow
+                </Button>
+                <Button
+                  variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("laterThisWeek")}
+                >
+                  Later This Week
+                </Button>
+                <Button
+                  variant={timeFilter === "nextWeek" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("nextWeek")}
+                >
+                  Next Week
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -579,6 +849,8 @@ export const QuickTasksSection = () => {
 
         {filteredTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tasks for this time period</p>
+        ) : viewMode === "timeline" ? (
+          <TimelineView />
         ) : (
           <DndContext
             sensors={sensors}
