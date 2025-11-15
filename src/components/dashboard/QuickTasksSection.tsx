@@ -17,6 +17,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -45,11 +46,18 @@ export const QuickTasksSection = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        distance: 8,
+        delay: 0,
+        tolerance: 5,
+      },
     })
   );
 
@@ -290,6 +298,11 @@ export const QuickTasksSection = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
+    // Reset touch styles after drag ends
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+    document.body.style.touchAction = '';
+    
     if (!over || active.id === over.id) return;
     
     const oldIndex = filteredTasks.findIndex((task) => task.id === active.id);
@@ -313,6 +326,15 @@ export const QuickTasksSection = () => {
     });
   };
 
+  // Prevent default touch behaviors that interfere with dragging
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    // Prevent text selection and context menu on mobile during drag operations
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+    document.body.style.touchAction = 'none';
+  };
+
   // Sortable Task Component
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
     const {
@@ -331,11 +353,37 @@ export const QuickTasksSection = () => {
     };
 
     return (
-      <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-        <Card className="p-4 max-w-2xl mx-auto">
+      <div ref={setNodeRef} style={style} className="select-none touch-none">
+        <Card className="p-4 max-w-2xl mx-auto touch-none">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              {/* Dedicated drag handle for better mobile touch support */}
+              <button
+                {...attributes}
+                {...listeners}
+                className="drag-handle touch-none cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-150 select-none"
+                type="button"
+                aria-label="Drag task"
+                onTouchStart={(e) => {
+                  // Prevent text selection on mobile during drag
+                  e.preventDefault();
+                  e.stopPropagation();
+                  document.body.style.userSelect = 'none';
+                  document.body.style.touchAction = 'none';
+                }}
+                onTouchEnd={(e) => {
+                  // Re-enable text selection after drag
+                  e.preventDefault();
+                  document.body.style.userSelect = '';
+                  document.body.style.touchAction = '';
+                }}
+                onTouchMove={(e) => {
+                  // Prevent scrolling during drag
+                  e.preventDefault();
+                }}
+              >
+                <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none" />
+              </button>
               <div className="flex-1 min-w-0 overflow-hidden">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <p className="text-sm text-muted-foreground">
@@ -841,6 +889,34 @@ export const QuickTasksSection = () => {
 
   return (
     <>
+      <style jsx>{`
+        .drag-container {
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          -khtml-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          touch-action: none;
+        }
+        .drag-handle {
+          touch-action: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .drag-handle:active {
+          background-color: rgba(0, 0, 0, 0.1);
+          transform: scale(0.95);
+        }
+        @media (max-width: 640px) {
+          .drag-handle {
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+        }
+      `}</style>
       <Card className="p-6">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -924,12 +1000,13 @@ export const QuickTasksSection = () => {
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
+            onTouchStart={handleTouchStart}
           >
             <SortableContext
               items={filteredTasks.map(task => task.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-3">
+              <div className="space-y-3 drag-container">
                 {filteredTasks.map((task) => {
                   const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
                   const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
