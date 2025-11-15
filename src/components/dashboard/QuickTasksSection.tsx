@@ -42,7 +42,10 @@ export const QuickTasksSection = () => {
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [testTaskCreated, setTestTaskCreated] = useState(false);
-  const [testTaskDeleted, setTestTaskDeleted] = useState(false);
+  const [testTaskDeleted, setTestTaskDeleted] = useState(() => {
+    // Initialize from localStorage to persist across refreshes
+    return localStorage.getItem('testTaskDeleted') === 'true';
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -105,11 +108,23 @@ export const QuickTasksSection = () => {
   // This runs once when project is available and no existing test task is found
   const createTestTask = async () => {
     try {
-      if (!project?.id || testTaskCreated || testTaskDeleted) return; // Don't create if deleted or already created
+      if (!project?.id || testTaskCreated || testTaskDeleted) {
+        console.log("Skipping test task creation:", { testTaskCreated, testTaskDeleted });
+        return;
+      }
+      
       const testName = "Test Slot Task (2–4 PM)";
-      const existing = (tasks || []).find(t => t.name === testName);
-      if (existing) {
-        setTestTaskCreated(true); // Mark as created if it exists
+      
+      // First check if task already exists in the database
+      const { data: existingTasks } = await supabase
+        .from("tasks")
+        .select("id, name")
+        .eq("project_id", project.id)
+        .eq("name", testName);
+      
+      if (existingTasks && existingTasks.length > 0) {
+        console.log("Test task already exists in database");
+        setTestTaskCreated(true);
         return;
       }
 
@@ -120,6 +135,7 @@ export const QuickTasksSection = () => {
       const startUtc = convertISTToUTC(startIst);
       const endUtc = convertISTToUTC(endIst);
 
+      console.log("Creating test task...");
       const { error } = await supabase
         .from("tasks")
         .insert({
@@ -137,7 +153,7 @@ export const QuickTasksSection = () => {
         return;
       }
 
-      setTestTaskCreated(true); // Mark as created
+      setTestTaskCreated(true);
       toast.success("Test task created (2–4 PM)");
       // Refresh tasks
       refetch();
@@ -150,7 +166,16 @@ export const QuickTasksSection = () => {
   if (import.meta.env.DEV) {
     useEffect(() => {
       void createTestTask();
-    }, [project?.id, tasks, testTaskCreated]);
+    }, [project?.id, testTaskCreated, testTaskDeleted]);
+    
+    // Reset flags when project changes or component unmounts
+    useEffect(() => {
+      return () => {
+        setTestTaskCreated(false);
+        setTestTaskDeleted(false);
+        localStorage.removeItem('testTaskDeleted');
+      };
+    }, [project?.id]);
   }
 
   // Fetch active time entries for these tasks
@@ -327,8 +352,18 @@ export const QuickTasksSection = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (data, taskId) => {
       toast.success("Task deleted successfully");
+      
+      // Check if this was the test task and mark it as deleted
+      const deletedTask = filteredTasks.find(t => t.id === taskId);
+      if (deletedTask?.name === "Test Slot Task (2–4 PM)") {
+        setTestTaskDeleted(true);
+        setTestTaskCreated(false);
+        localStorage.setItem('testTaskDeleted', 'true');
+        console.log("Test task marked as deleted in localStorage");
+      }
+      
       // Only invalidate the specific query, not all queries
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
       queryClient.invalidateQueries({ queryKey: ["quick-task-time-entries"] });
