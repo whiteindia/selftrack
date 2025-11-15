@@ -690,7 +690,9 @@ export type Database = {
       }
       network_people: {
         Row: {
+          acts_to_engage: string | null
           created_at: string
+          follow_up_date: string | null
           follow_up_plan: string | null
           id: string
           industry_domain: string
@@ -704,7 +706,9 @@ export type Database = {
           work_type: string
         }
         Insert: {
+          acts_to_engage?: string | null
           created_at?: string
+          follow_up_date?: string | null
           follow_up_plan?: string | null
           id?: string
           industry_domain: string
@@ -718,7 +722,9 @@ export type Database = {
           work_type: string
         }
         Update: {
+          acts_to_engage?: string | null
           created_at?: string
+          follow_up_date?: string | null
           follow_up_plan?: string | null
           id?: string
           industry_domain?: string
@@ -2314,6 +2320,18 @@ export type Database = {
       }
     }
     Views: {
+      network_touch_cal: {
+        Row: {
+          all_day: boolean | null
+          end_at: string | null
+          event_type: string | null
+          person_id: string | null
+          person_name: string | null
+          start_at: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       task_project_info: {
         Row: {
           client_name: string | null

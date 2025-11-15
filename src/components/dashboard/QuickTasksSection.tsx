@@ -449,16 +449,10 @@ export const QuickTasksSection = () => {
           </Button>
         </form>
 
-        {console.log('QuickTasksSection - filteredTasks:', filteredTasks)}
-        {console.log('QuickTasksSection - timeEntries:', timeEntries)}
-        {console.log('QuickTasksSection - viewMode:', viewMode)}
-        {console.log('QuickTasksSection - about to render timeline or list')}
         {filteredTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tasks for this time period</p>
         ) : viewMode === "timeline" ? (
-          <div>
-            {console.log('QuickTasksSection - rendering TaskTimeline')}
-            <TaskTimeline
+          <TaskTimeline
               tasks={filteredTasks}
               timeEntries={timeEntries || []}
               onStartTask={handleStartTask}
@@ -473,7 +467,6 @@ export const QuickTasksSection = () => {
                 queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
               }}
             />
-          </div>
         ) : (
           <div className="space-y-3">
             {filteredTasks.map((task) => {
