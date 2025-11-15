@@ -647,40 +647,76 @@ export const QuickTasksSection = () => {
     // Use slot times if available, otherwise group by deadline time
     const tasksToDisplay = hasSlotTasks ? tasksWithSlots : filteredTasks;
     
+    // Helper function to format time for display (HH:MM AM/PM)
+    const formatTimeDisplay = (date: Date): string => {
+      return date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    };
+    
+    // Helper function to convert time string to minutes since midnight
+    const timeToMinutes = (timeStr: string): number => {
+      // Handle various time formats (12-hour, 24-hour, locale-specific)
+      const cleanTime = timeStr.replace(/[AP]M/i, '').trim();
+      const [hours, minutes] = cleanTime.split(':').map(Number);
+      
+      // Check if it's 12-hour format with AM/PM
+      const isPM = /PM/i.test(timeStr);
+      const isAM = /AM/i.test(timeStr);
+      
+      let totalMinutes = hours * 60 + (minutes || 0);
+      
+      // Convert 12-hour to 24-hour format
+      if (isPM && hours !== 12) {
+        totalMinutes += 12 * 60;
+      } else if (isAM && hours === 12) {
+        totalMinutes = 0 + (minutes || 0); // Midnight
+      }
+      
+      return totalMinutes;
+    };
+    
     // Group tasks by date and time (slot start datetime/time or deadline time)
     const tasksByDateTime = tasksToDisplay.reduce((acc, task) => {
       let dateTimeKey: string;
       let timeValue: Date;
+      let sortableTime: number; // Minutes since midnight for proper sorting
       
       if (task.slot_start_datetime) {
         // Priority: Use slot_start_datetime if available (from TaskEditDialog)
         timeValue = new Date(task.slot_start_datetime);
         const date = formatDateDDMMYYYY(timeValue);
-        const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = formatTimeDisplay(timeValue);
         dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
       } else if (task.slot_start_time) {
         // Fallback: Use slot_start_time if available
         timeValue = new Date(task.slot_start_time);
         const date = formatDateDDMMYYYY(timeValue);
-        const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = formatTimeDisplay(timeValue);
         dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
       } else if (task.deadline) {
         // Fallback: Use deadline time
         timeValue = new Date(task.deadline);
         const date = formatDateDDMMYYYY(timeValue);
-        const time = timeValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = formatTimeDisplay(timeValue);
         dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
       } else {
         // For tasks without any time, group as "No Time Set"
         dateTimeKey = "No Time Set";
+        sortableTime = 24 * 60; // Put at the end (midnight next day)
       }
       
       if (!acc[dateTimeKey]) {
-        acc[dateTimeKey] = [];
+        acc[dateTimeKey] = { tasks: [], sortableTime };
       }
-      acc[dateTimeKey].push(task);
+      acc[dateTimeKey].tasks.push(task);
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, { tasks: any[], sortableTime: number }>);
 
     // Sort date-time slots chronologically, with "No Time Set" at the end
     const sortedDateTimeSlots = Object.keys(tasksByDateTime).sort((a, b) => {
@@ -703,11 +739,12 @@ export const QuickTasksSection = () => {
       const dateCompare = dateObjA.getTime() - dateObjB.getTime();
       if (dateCompare !== 0) return dateCompare;
       
-      // If same date, compare times
-      const timeA_24h = new Date(`2000-01-01 ${timeA}`).getTime();
-      const timeB_24h = new Date(`2000-01-01 ${timeB}`).getTime();
-      return timeA_24h - timeB_24h;
+      // If same date, compare times using the sortableTime (minutes since midnight)
+      return tasksByDateTime[a].sortableTime - tasksByDateTime[b].sortableTime;
     });
+
+    // Debug: Log the sorted time slots to verify correct ordering
+    console.log('Timeline time slots sorted:', sortedDateTimeSlots);
 
     return (
       <div className="relative">
@@ -738,7 +775,7 @@ export const QuickTasksSection = () => {
               
               {/* Tasks at this time slot */}
               <div className="flex-1 space-y-2">
-                {tasksByDateTime[dateTimeSlot].map((task) => {
+                {tasksByDateTime[dateTimeSlot].tasks.map((task) => {
                   const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
                   const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
                   
