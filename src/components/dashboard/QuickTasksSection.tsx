@@ -4,13 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2, ArrowUp, ArrowDown, GripVertical, List, Clock } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
-import TaskTimeline from "./TaskTimeline";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
 import {
   DndContext,
@@ -37,10 +36,20 @@ type TimeFilter = "all" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 export const QuickTasksSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<"list" | "timeline">("timeline");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Fetch the project
   const { data: project } = useQuery({
@@ -277,6 +286,144 @@ export const QuickTasksSection = () => {
     },
   });
 
+  // Drag and drop handler
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+    
+    const oldIndex = filteredTasks.findIndex((task) => task.id === active.id);
+    const newIndex = filteredTasks.findIndex((task) => task.id === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
+    
+    // Update sort_order for the moved task and adjacent tasks
+    const reorderedTasks = arrayMove(filteredTasks, oldIndex, newIndex);
+    
+    // Update sort_order in database
+    const updatePromises = reorderedTasks.map((task, index) => 
+      supabase
+        .from("tasks")
+        .update({ sort_order: index })
+        .eq("id", task.id)
+    );
+    
+    Promise.all(updatePromises).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+    });
+  };
+
+  // Sortable Task Component
+  const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: task.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+        <Card className="p-4 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
+                <p className="text-sm text-muted-foreground">
+                  Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
+                </p>
+                {(task.reminder_datetime || task.slot_start_time) && (
+                  <p className="text-xs text-muted-foreground break-words">
+                    {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
+                    {task.reminder_datetime && task.slot_start_time && " | "}
+                    {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+              {activeEntry ? (
+                <>
+                  <div className="flex flex-col items-end gap-1">
+                    <LiveTimer
+                      startTime={activeEntry.start_time}
+                      isPaused={isPaused}
+                      timerMetadata={activeEntry.timer_metadata}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {isPaused ? "Paused" : "Running"}
+                    </span>
+                  </div>
+                  <CompactTimerControls
+                    taskId={task.id}
+                    taskName={task.name}
+                    entryId={activeEntry.id}
+                    timerMetadata={activeEntry.timer_metadata}
+                    onTimerUpdate={() => {}}
+                  />
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => handleStartTask(task.id)}
+                  className="h-8 px-3"
+                >
+                  <Play className="h-4 w-4" />
+                </Button>
+              )}
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingTask(task);
+                }}
+                className="h-8 px-3"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/alltasks?highlight=${task.id}`);
+                }}
+                className="h-8 px-3"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteTaskMutation.mutate(task.id);
+                }}
+                className="h-8 px-3 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
   // Move task up/down mutations
   const moveTaskMutation = useMutation({
     mutationFn: async ({ taskId, direction }: { taskId: string; direction: "up" | "down" }) => {
@@ -379,25 +526,6 @@ export const QuickTasksSection = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Quick Tasks</h2>
             <div className="flex gap-2 flex-wrap">
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant={viewMode === "list" ? "default" : "outline"}
-                  onClick={() => setViewMode("list")}
-                  title="List View"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant={viewMode === "timeline" ? "default" : "outline"}
-                  onClick={() => setViewMode("timeline")}
-                  title="Timeline View"
-                >
-                  <Clock className="h-4 w-4" />
-                </Button>
-              </div>
-              
               <Button
                 variant={timeFilter === "all" ? "default" : "outline"}
                 size="sm"
@@ -451,133 +579,33 @@ export const QuickTasksSection = () => {
 
         {filteredTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tasks for this time period</p>
-        ) : viewMode === "timeline" ? (
-          <TaskTimeline
-              tasks={filteredTasks}
-              timeEntries={timeEntries || []}
-              onStartTask={handleStartTask}
-              onEditTask={setEditingTask}
-              onDeleteTask={(taskId) => deleteTaskMutation.mutate(taskId)}
-              onViewTask={(taskId) => {
-                window.location.href = `/alltasks?highlight=${taskId}`;
-              }}
-              timeFilter={timeFilter}
-              onTaskUpdate={() => {
-                // Refresh the tasks query after timeline update
-                queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
-              }}
-            />
         ) : (
-          <div className="space-y-3">
-            {filteredTasks.map((task) => {
-              const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
-              const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredTasks.map(task => task.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {filteredTasks.map((task) => {
+                  const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
+                  const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
 
-              return (
-                <Card key={task.id} className="p-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <div className="flex flex-col gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => moveTaskMutation.mutate({ taskId: task.id, direction: "up" })}
-                          disabled={filteredTasks.indexOf(task) === 0 || moveTaskMutation.isPending}
-                          title="Move up"
-                        >
-                          <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => moveTaskMutation.mutate({ taskId: task.id, direction: "down" })}
-                          disabled={filteredTasks.indexOf(task) === filteredTasks.length - 1 || moveTaskMutation.isPending}
-                          title="Move down"
-                        >
-                          <ArrowDown className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    
-                      <div className="flex-1 min-w-0 overflow-hidden">
-                        <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
-                        </p>
-                        {(task.reminder_datetime || task.slot_start_time) && (
-                          <p className="text-xs text-muted-foreground break-words">
-                            {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
-                            {task.reminder_datetime && task.slot_start_time && " | "}
-                            {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 sm:gap-2 ml-10 md:ml-0 flex-wrap">
-                      {activeEntry ? (
-                        <>
-                          <div className="flex flex-col items-end gap-1">
-                            <LiveTimer
-                              startTime={activeEntry.start_time}
-                              isPaused={isPaused}
-                              timerMetadata={activeEntry.timer_metadata}
-                            />
-                            <span className="text-xs text-muted-foreground">
-                              {isPaused ? "Paused" : "Running"}
-                            </span>
-                          </div>
-                          <CompactTimerControls
-                            taskId={task.id}
-                            taskName={task.name}
-                            entryId={activeEntry.id}
-                            timerMetadata={activeEntry.timer_metadata}
-                            onTimerUpdate={refetch}
-                          />
-                        </>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handleStartTask(task.id)}
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          Start
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditingTask(task)}
-                        title="Edit task"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          window.location.href = `/alltasks?highlight=${task.id}`;
-                        }}
-                        title="View task details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteTaskMutation.mutate(task.id)}
-                        disabled={deleteTaskMutation.isPending}
-                        title="Delete task"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+                  return (
+                    <SortableTask
+                      key={task.id}
+                      task={task}
+                      activeEntry={activeEntry}
+                      isPaused={isPaused}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </Card>
