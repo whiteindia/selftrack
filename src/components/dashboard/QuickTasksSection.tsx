@@ -4,13 +4,33 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, ArrowUp, ArrowDown, GripVertical, List, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
+import TaskTimeline from "./TaskTimeline";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type TimeFilter = "all" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 
@@ -20,6 +40,7 @@ export const QuickTasksSection = () => {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("timeline");
 
   // Fetch the project
   const { data: project } = useQuery({
@@ -81,6 +102,19 @@ export const QuickTasksSection = () => {
   });
 
   const filteredTasks = useMemo(() => {
+    console.log('QuickTasksSection - raw tasks data:', tasks);
+    console.log('QuickTasksSection - timeFilter:', timeFilter);
+    if (tasks && tasks.length) {
+      const log = tasks.map(t => ({
+        id: t.id,
+        name: t.name,
+        deadline: t.deadline,
+        reminder_datetime: t.reminder_datetime,
+        slot_start_time: t.slot_start_time,
+        hasDateOnlyDeadline: t.deadline ? (new Date(t.deadline).getHours() === 0 && new Date(t.deadline).getMinutes() === 0) : false
+      }));
+      console.log('QuickTasksSection - tasks time fields:', log);
+    }
     if (!tasks) return [];
 
     const now = new Date();
@@ -193,8 +227,8 @@ export const QuickTasksSection = () => {
           deadline = endOfWeek(addDays(now, 7)).toISOString();
           break;
         default:
-          // For "all" filter, set no deadline
-          deadline = null;
+          // For "all" filter, set deadline to today by default
+          deadline = endOfDay(now).toISOString();
       }
 
       const { data, error } = await supabase
@@ -345,43 +379,62 @@ export const QuickTasksSection = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Quick Tasks</h2>
             <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={timeFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeFilter("all")}
-            >
-              All
-            </Button>
-            <Button
-              variant={timeFilter === "today" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeFilter("today")}
-            >
-              Today
-            </Button>
-            <Button
-              variant={timeFilter === "tomorrow" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeFilter("tomorrow")}
-            >
-              Tomorrow
-            </Button>
-            <Button
-              variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeFilter("laterThisWeek")}
-            >
-              Later This Week
-            </Button>
-            <Button
-              variant={timeFilter === "nextWeek" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeFilter("nextWeek")}
-            >
-              Next Week
-            </Button>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant={viewMode === "list" ? "default" : "outline"}
+                  onClick={() => setViewMode("list")}
+                  title="List View"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant={viewMode === "timeline" ? "default" : "outline"}
+                  onClick={() => setViewMode("timeline")}
+                  title="Timeline View"
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <Button
+                variant={timeFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("all")}
+              >
+                All
+              </Button>
+              <Button
+                variant={timeFilter === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("today")}
+              >
+                Today
+              </Button>
+              <Button
+                variant={timeFilter === "tomorrow" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("tomorrow")}
+              >
+                Tomorrow
+              </Button>
+              <Button
+                variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("laterThisWeek")}
+              >
+                Later This Week
+              </Button>
+              <Button
+                variant={timeFilter === "nextWeek" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("nextWeek")}
+              >
+                Next Week
+              </Button>
+            </div>
           </div>
-        </div>
 
         {/* Quick add task input */}
         <form onSubmit={handleCreateTask} className="flex gap-2">
@@ -396,8 +449,31 @@ export const QuickTasksSection = () => {
           </Button>
         </form>
 
+        {console.log('QuickTasksSection - filteredTasks:', filteredTasks)}
+        {console.log('QuickTasksSection - timeEntries:', timeEntries)}
+        {console.log('QuickTasksSection - viewMode:', viewMode)}
+        {console.log('QuickTasksSection - about to render timeline or list')}
         {filteredTasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tasks for this time period</p>
+        ) : viewMode === "timeline" ? (
+          <div>
+            {console.log('QuickTasksSection - rendering TaskTimeline')}
+            <TaskTimeline
+              tasks={filteredTasks}
+              timeEntries={timeEntries || []}
+              onStartTask={handleStartTask}
+              onEditTask={setEditingTask}
+              onDeleteTask={(taskId) => deleteTaskMutation.mutate(taskId)}
+              onViewTask={(taskId) => {
+                window.location.href = `/alltasks?highlight=${taskId}`;
+              }}
+              timeFilter={timeFilter}
+              onTaskUpdate={() => {
+                // Refresh the tasks query after timeline update
+                queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+              }}
+            />
+          </div>
         ) : (
           <div className="space-y-3">
             {filteredTasks.map((task) => {
