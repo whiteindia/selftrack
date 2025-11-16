@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, TrendingUp, Award, Eye, Heart, Users, Leaf, BookOpen } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Award, Eye, Heart, Users, Leaf, BookOpen } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek } from "date-fns";
+import Navigation from "@/components/Navigation";
 
 interface MPPFActivity {
   id: string;
@@ -85,19 +86,7 @@ export const MPPFCalContent = () => {
   const selectedActivities = selectedDate ? activitiesByDate?.[format(selectedDate, 'yyyy-MM-dd')] || [] : [];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">🌍 MPPF Calendar</h1>
-          <p className="text-muted-foreground">Media & Public Focus Activities Calendar</p>
-        </div>
-        <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-          <TrendingUp className="h-4 w-4 mr-2" />
-          Add Activity
-        </Button>
-      </div>
-
+    <div className="space-y-6">
       {/* Calendar Navigation */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
@@ -229,14 +218,16 @@ export const MPPFCalContent = () => {
 
 export default function MPPFCal() {
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">🌍 MPPF Calendar</h1>
-          <p className="text-muted-foreground">Media & Public Focus Activities Calendar</p>
+    <Navigation>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">🌍 MPPF Calendar</h1>
+            <p className="text-muted-foreground">Media & Public Focus Activities Calendar</p>
+          </div>
         </div>
+        <MPPFCalContent />
       </div>
-      <MPPFCalContent />
-    </div>
+    </Navigation>
   );
 }
