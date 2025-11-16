@@ -149,6 +149,8 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
     { path: '/kids-cal', label: 'Kids-Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/social-being-tracker', label: 'Social Being Tracker', icon: Users, pageName: 'kids-parenting' },
     { path: '/social-being-cal', label: 'Social Being Cal', icon: CalendarDays, pageName: 'kids-parenting' },
+    { path: '/mppf-tracker', label: 'MPPF Tracker', icon: Users, pageName: 'kids-parenting' },
+    { path: '/mppf-cal', label: 'MPPF Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/club-care', label: 'ClubCare', icon: Users, pageName: 'kids-parenting' },
     { path: '/club-care-cal', label: 'ClubCare Cal', icon: CalendarDays, pageName: 'kids-parenting' },
     { path: '/network-people', label: 'Network People', icon: Users2, pageName: 'kids-parenting' },

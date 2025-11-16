@@ -61,6 +61,8 @@ import SportsCal from "./pages/SportsCal";
 import TheatricalArts from "./pages/TheatricalArts";
 import TheatricalArtsCal from "./pages/TheatricalArtsCal";
 import GlobalCalendar from "./pages/GlobalCalendar";
+import MPPFTracker from "./pages/MPPFTracker";
+import MPPFCal from "./pages/MPPFCal";
 
 const queryClient = new QueryClient();
 
@@ -142,13 +144,15 @@ function App() {
           <Route path="/kids-parenting" element={<ProtectedRoute><KidsParenting /></ProtectedRoute>} />
           <Route path="/kids-cal" element={<ProtectedRoute><KidsCal /></ProtectedRoute>} />
           <Route path="/social-being-tracker" element={<ProtectedRoute><SocialBeingTracker /></ProtectedRoute>} />
-          <Route path="/social-being-cal" element={<ProtectedRoute><SocialBeingCal /></ProtectedRoute>} />
-          <Route path="/club-care" element={<ProtectedRoute><ClubCare /></ProtectedRoute>} />
-          <Route path="/club-care-cal" element={<ProtectedRoute><ClubCareCal /></ProtectedRoute>} />
-          <Route path="/globalcal" element={<ProtectedRoute><GlobalCalendar /></ProtectedRoute>} />
-          <Route path="/network-people" element={<ProtectedRoute><NetworkPeople /></ProtectedRoute>} />
-          <Route path="/network-touch-cal" element={<ProtectedRoute><NetworkTouchCalPage /></ProtectedRoute>} />
-          <Route path="/sports" element={<ProtectedRoute><Sports /></ProtectedRoute>} />
+                <Route path="/social-being-cal" element={<ProtectedRoute><SocialBeingCal /></ProtectedRoute>} />
+                <Route path="/mppf-tracker" element={<ProtectedRoute><MPPFTracker /></ProtectedRoute>} />
+                <Route path="/mppf-cal" element={<ProtectedRoute><MPPFCal /></ProtectedRoute>} />
+                <Route path="/club-care" element={<ProtectedRoute><ClubCare /></ProtectedRoute>} />
+                <Route path="/club-care-cal" element={<ProtectedRoute><ClubCareCal /></ProtectedRoute>} />
+                <Route path="/globalcal" element={<ProtectedRoute><GlobalCalendar /></ProtectedRoute>} />
+                <Route path="/network-people" element={<ProtectedRoute><NetworkPeople /></ProtectedRoute>} />
+                <Route path="/network-touch-cal" element={<ProtectedRoute><NetworkTouchCalPage /></ProtectedRoute>} />
+                <Route path="/sports" element={<ProtectedRoute><Sports /></ProtectedRoute>} />
                 <Route path="/sports-cal" element={<ProtectedRoute><SportsCal /></ProtectedRoute>} />
                 <Route path="/theatrical-arts" element={<ProtectedRoute><TheatricalArts /></ProtectedRoute>} />
                 <Route path="/theatrical-arts-cal" element={<ProtectedRoute><TheatricalArtsCal /></ProtectedRoute>} />

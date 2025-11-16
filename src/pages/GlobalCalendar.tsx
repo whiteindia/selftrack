@@ -7,10 +7,12 @@ import { ClubCareCalContent } from "@/pages/ClubCareCal";
 import { SportsCalContent } from "@/pages/SportsCal";
 import { TheatricalArtsCalContent } from "@/pages/TheatricalArtsCal";
 import { NetworkTouchCalContent } from "@/pages/NetworkTouchCal";
+import { MPPFCalContent } from "@/pages/MPPFCal";
 
 type CalendarKey =
   | "Kids Cal"
   | "Social Being Cal"
+  | "MPPF Cal"
   | "ClubCare Cal"
   | "Sports Cal"
   | "Theatrical Arts Cal"
@@ -19,6 +21,7 @@ type CalendarKey =
 const CALENDARS: { label: CalendarKey; render: () => JSX.Element }[] = [
   { label: "Kids Cal", render: () => <KidsCalContent /> },
   { label: "Social Being Cal", render: () => <SocialBeingCalContent /> },
+  { label: "MPPF Cal", render: () => <MPPFCalContent /> },
   { label: "ClubCare Cal", render: () => <ClubCareCalContent /> },
   { label: "Sports Cal", render: () => <SportsCalContent /> },
   { label: "Theatrical Arts Cal", render: () => <TheatricalArtsCalContent /> },
