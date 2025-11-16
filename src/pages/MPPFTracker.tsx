@@ -184,3 +184,5 @@ export const MPPFTracker = () => {
     </div>
   );
 };
+
+export default MPPFTracker;
