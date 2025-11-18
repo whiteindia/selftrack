@@ -73,11 +73,17 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
         // Calculate initial elapsed time
         if (!pauseInfo.isPaused) {
           const now = new Date();
-          const elapsed = Math.floor((now.getTime() - new Date(entry.start_time).getTime()) / 1000) - (pauseInfo.totalPausedMs / 1000);
+          const totalElapsedMs = now.getTime() - new Date(entry.start_time).getTime();
+          const totalElapsedSeconds = Math.floor(totalElapsedMs / 1000);
+          const pausedSeconds = Math.floor(pauseInfo.totalPausedMs / 1000); // Convert ms to seconds
+          const elapsed = totalElapsedSeconds - pausedSeconds;
           setElapsedTime(Math.max(0, elapsed));
         } else {
           // If paused, calculate elapsed time up to pause point
-          const elapsed = Math.floor((pauseInfo.lastPauseTime!.getTime() - new Date(entry.start_time).getTime()) / 1000) - (pauseInfo.totalPausedMs / 1000);
+          const totalElapsedMs = pauseInfo.lastPauseTime!.getTime() - new Date(entry.start_time).getTime();
+          const totalElapsedSeconds = Math.floor(totalElapsedMs / 1000);
+          const pausedSeconds = Math.floor(pauseInfo.totalPausedMs / 1000); // Convert ms to seconds
+          const elapsed = totalElapsedSeconds - pausedSeconds;
           setElapsedTime(Math.max(0, elapsed));
         }
       }
@@ -126,7 +132,9 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     if (activeTimer && !activeTimer.isPaused) {
       interval = setInterval(() => {
         const now = new Date();
-        const elapsed = Math.floor((now.getTime() - activeTimer.startTime.getTime()) / 1000) - activeTimer.pausedDuration;
+        const totalElapsedMs = now.getTime() - activeTimer.startTime.getTime();
+        const totalElapsedSeconds = Math.floor(totalElapsedMs / 1000);
+        const elapsed = totalElapsedSeconds - activeTimer.pausedDuration; // pausedDuration is already in seconds
         setElapsedTime(Math.max(0, elapsed));
       }, 1000);
     }
@@ -429,10 +437,13 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
   };
 
   // Format time in HH:MM:SS format
-  const formatTime = (seconds: number) => {
+  const formatTime = (totalSeconds: number) => {
+    // Ensure we're working with an integer number of seconds
+    const seconds = Math.floor(Math.abs(totalSeconds || 0));
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 

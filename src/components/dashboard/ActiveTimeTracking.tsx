@@ -183,8 +183,15 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   };
 
   const handleViewTask = (taskId: string) => {
-    // Navigate to alltasks page with the specific task highlighted
-    window.location.href = `/alltasks?highlight=${taskId}`;
+    // Open task details dialog instead of redirecting
+    console.log('Opening task details for taskId:', taskId);
+    setSelectedTaskId(taskId);
+    setIsTaskDetailsOpen(true);
+  };
+
+  const handleCloseTaskDetails = () => {
+    setIsTaskDetailsOpen(false);
+    setSelectedTaskId(null);
   };
 
   return (
@@ -358,7 +365,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
       <TaskDetailsDialog
         isOpen={isTaskDetailsOpen}
         onClose={handleCloseTaskDetails}
-        taskId={selectedTaskId || ''}
+        taskId={selectedTaskId}
         onTimeUpdate={onRunningTaskClick}
       />
     </Card>

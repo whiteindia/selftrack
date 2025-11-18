@@ -98,8 +98,8 @@ export const useDashboardData = () => {
               .eq('id', entry.task_id)
               .single();
 
-            if (taskError) {
-              console.error('Task fetch error:', taskError);
+            if (taskError || !taskData) {
+              console.warn(`Task not found for entry ${entry.id} with task_id ${entry.task_id}:`, taskError);
               return null;
             }
 

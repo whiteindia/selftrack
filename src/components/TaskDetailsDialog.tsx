@@ -33,7 +33,6 @@ import { usePrivileges } from '@/hooks/usePrivileges';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
 import TaskTimer from '@/components/TaskTimer';
-import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import ManualTimeLog from '@/components/ManualTimeLog';
 import TaskHistory from '@/components/TaskHistory';
 import SubtaskCard from '@/components/SubtaskCard';
@@ -98,9 +97,13 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
   const [showTimeEntries, setShowTimeEntries] = useState(false);
 
   // Fetch task details
-  const { data: task, isLoading: taskLoading } = useQuery({
+  const { data: task, isLoading: taskLoading, error: taskQueryError } = useQuery({
     queryKey: ['task-details', taskId],
     queryFn: async () => {
+      if (!taskId) return null;
+      
+      console.log('Fetching task details for taskId:', taskId);
+      
       const { data: taskData, error: taskError } = await supabase
         .from('tasks')
         .select(`
@@ -116,14 +119,33 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
         .single();
 
       if (taskError) {
+        console.error('Task fetch error:', taskError);
         throw taskError;
       }
 
-      // Get project information
-      const { data: projectData } = await supabase
-        .rpc('get_project_info_for_task', { 
-          project_uuid: taskData.project_id 
-        });
+      if (!taskData) {
+        console.error('No task data found for taskId:', taskId);
+        throw new Error('Task not found');
+      }
+
+      console.log('Task data fetched successfully:', taskData);
+
+      // Get project information - handle potential RPC error
+      let projectInfo = null;
+      try {
+        const { data: projectData, error: projectError } = await supabase
+          .rpc('get_project_info_for_task', { 
+            project_uuid: taskData.project_id 
+          });
+        
+        if (projectError) {
+          console.warn('RPC error fetching project info:', projectError);
+        } else {
+          projectInfo = projectData?.[0];
+        }
+      } catch (rpcError) {
+        console.warn('RPC call failed:', rpcError);
+      }
 
       // Calculate total logged hours
       const { data: timeEntries, error: timeError } = await supabase
@@ -139,8 +161,6 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
       const totalMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
       const totalHours = Math.round((totalMinutes / 60) * 100) / 100;
 
-      const projectInfo = projectData?.[0];
-
       return {
         ...taskData,
         project_name: projectInfo?.name || null,
@@ -149,7 +169,9 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
         total_logged_hours: totalHours
       } as Task;
     },
-    enabled: !!taskId && isOpen
+    enabled: !!taskId && isOpen,
+    retry: 1,
+    staleTime: 0
   });
 
   // Fetch employees
@@ -170,6 +192,8 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
   const { data: timeEntries = [] } = useQuery({
     queryKey: ['task-time-entries', taskId],
     queryFn: async () => {
+      if (!taskId) return [];
+      
       const { data, error } = await supabase
         .from('time_entries')
         .select(`
@@ -282,10 +306,17 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
     }
   };
 
-  if (taskLoading || !task) {
+  if (!isOpen) {
+    return null;
+  }
+
+  if (taskLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Loading Task</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center py-8">
             <div className="text-lg">Loading task details...</div>
           </div>
@@ -294,8 +325,59 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
     );
   }
 
-  const isOverdue = isTaskOverdue(task.deadline);
-  const slotDuration = calculateSlotDuration(task.slot_start_datetime, task.slot_end_datetime);
+  if (taskQueryError) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Error Loading Task</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="text-lg text-red-600 mb-2">Failed to load task details</div>
+            <div className="text-sm text-muted-foreground">
+              {taskQueryError.message || 'An error occurred while fetching the task.'}
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              Task ID: {taskId}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!taskId) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>No Task Selected</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-8">
+            <div className="text-lg">No task selected</div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const isOverdue = task ? isTaskOverdue(task.deadline) : false;
+  const slotDuration = task ? calculateSlotDuration(task.slot_start_datetime, task.slot_end_datetime) : null;
+
+  if (!task) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Not Found</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-8">
+            <div className="text-lg">Task not found</div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <>
@@ -434,13 +516,9 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
                     taskName={task.name}
                     onTimeUpdate={handleTimeUpdate}
                   />
-                  <TimeTrackerWithComment 
-                    taskId={task.id} 
-                    onTimeUpdate={handleTimeUpdate}
-                  />
                   <ManualTimeLog 
                     taskId={task.id} 
-                    onTimeUpdate={handleTimeUpdate}
+                    onSuccess={handleTimeUpdate}
                   />
                 </div>
 
