@@ -7,6 +7,7 @@ import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -22,6 +23,8 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
 
   // Get unique services from running/paused tasks
   const availableServices = useMemo(() => {
@@ -350,6 +353,14 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
         )}
         {isError && <p className="text-xs text-red-500 mt-1">Error loading running tasks</p>}
       </CardContent>
+
+      {/* Task Details Dialog */}
+      <TaskDetailsDialog
+        isOpen={isTaskDetailsOpen}
+        onClose={handleCloseTaskDetails}
+        taskId={selectedTaskId || ''}
+        onTimeUpdate={onRunningTaskClick}
+      />
     </Card>
   );
 };

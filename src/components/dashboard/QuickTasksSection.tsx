@@ -117,24 +117,45 @@ export const QuickTasksSection = () => {
             .eq('task_id', task.id)
             .order('created_at', { ascending: true });
 
-          // Fetch logged time for subtasks
+          // Fetch logged time for subtasks with details
           const subtaskIds = subtasks?.map(st => st.id) || [];
           let subtaskTimeEntries: any[] = [];
+          let subtaskTimeMap: Record<string, number> = {};
+          let subtaskDetailedEntries: Record<string, any[]> = {};
+          
           if (subtaskIds.length > 0) {
             const { data: subtaskEntries } = await supabase
               .from('time_entries')
-              .select('duration_minutes, task_id')
+              .select('id, duration_minutes, start_time, end_time, comment, entry_type, task_id')
               .in('task_id', subtaskIds)
-              .not('end_time', 'is', null);
+              .not('end_time', 'is', null)
+              .order('start_time', { ascending: false });
+            
             subtaskTimeEntries = subtaskEntries || [];
+            
+            // Create a map of subtask ID to total logged minutes
+            subtaskTimeMap = subtaskTimeEntries.reduce((acc, entry) => {
+              acc[entry.task_id] = (acc[entry.task_id] || 0) + (entry.duration_minutes || 0);
+              return acc;
+            }, {} as Record<string, number>);
+            
+            // Group detailed entries by subtask ID
+            subtaskDetailedEntries = subtaskTimeEntries.reduce((acc, entry) => {
+              if (!acc[entry.task_id]) {
+                acc[entry.task_id] = [];
+              }
+              acc[entry.task_id].push(entry);
+              return acc;
+            }, {} as Record<string, any[]>);
           }
 
-          // Fetch logged time entries for this task
+          // Fetch logged time entries for this task with details
           const { data: timeEntries } = await supabase
             .from('time_entries')
-            .select('duration_minutes')
+            .select('id, duration_minutes, start_time, end_time, comment, entry_type')
             .eq('task_id', task.id)
-            .not('end_time', 'is', null);
+            .not('end_time', 'is', null)
+            .order('start_time', { ascending: false });
 
           const totalLoggedMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
           const subtaskLoggedMinutes = subtaskTimeEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
@@ -142,7 +163,13 @@ export const QuickTasksSection = () => {
 
           return {
             ...task,
-            subtasks: subtasks || [],
+            time_entries: timeEntries || [],
+            subtasks: (subtasks || []).map(subtask => ({
+              ...subtask,
+              logged_minutes: subtaskTimeMap[subtask.id] || 0,
+              logged_hours: Math.round(((subtaskTimeMap[subtask.id] || 0) / 60) * 100) / 100,
+              time_entries: subtaskDetailedEntries[subtask.id] || []
+            })),
             total_logged_hours: totalLoggedHours,
             subtask_count: subtasks?.length || 0
           };
@@ -341,6 +368,26 @@ export const QuickTasksSection = () => {
     },
   });
 
+  // Update task status mutation
+  const updateTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status })
+        .eq("id", taskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Task status updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update task status");
+      console.error(error);
+    },
+  });
+
   // Drag and drop handler
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -438,8 +485,40 @@ export const QuickTasksSection = () => {
     };
 
     const handleToggleSubtaskStatus = (subtaskId: string, currentStatus: string) => {
-      const newStatus = currentStatus === "Completed" ? "Not Started" : "Completed";
+      let newStatus;
+      switch (currentStatus) {
+        case "Not Started":
+          newStatus = "In Progress";
+          break;
+        case "In Progress":
+          newStatus = "Completed";
+          break;
+        case "Completed":
+          newStatus = "Not Started";
+          break;
+        default:
+          newStatus = "Not Started";
+      }
       updateSubtaskMutation.mutate({ subtaskId, status: newStatus });
+    };
+
+    const handleToggleTaskStatus = (taskId: string, currentStatus: string) => {
+      let newStatus;
+      switch (currentStatus) {
+        case "Not Started":
+          newStatus = "In Progress";
+          break;
+        case "In Progress":
+          newStatus = "Completed";
+          break;
+        case "Completed":
+          newStatus = "Not Started";
+          break;
+        default:
+          newStatus = "Not Started";
+      }
+      
+      updateTaskStatusMutation.mutate({ taskId, status: newStatus });
     };
 
     return (
@@ -470,6 +549,16 @@ export const QuickTasksSection = () => {
               <div className="flex-1 min-w-0 overflow-hidden task-content-area">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <span 
+                    className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                      task.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                      task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}
+                    onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                  >
+                    {task.status}
+                  </span>
                   <span>Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}</span>
                   {task.total_logged_hours > 0 && (
                     <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
@@ -606,30 +695,12 @@ export const QuickTasksSection = () => {
                 />
               </div>
               
-              {/* Time History Toggle */}
-              {task.total_logged_hours > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowTimeHistory(!showTimeHistory)}
-                  className="w-full"
-                >
-                  <Clock className="h-4 w-4 mr-2" />
-                  {showTimeHistory ? "Hide" : "Show"} Time History ({task.total_logged_hours}h)
-                </Button>
-              )}
-              
-              {/* Time History Display */}
-              {showTimeHistory && task.total_logged_hours > 0 && (
-                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                  <h5 className="text-sm font-medium">Recent Time Entries</h5>
-                  <div className="text-xs text-muted-foreground">
-                    Total logged time: <span className="font-medium">{task.total_logged_hours} hours</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Click on task details to view complete time history
-                  </div>
-                </div>
+              {/* Time Entries Display */}
+              {task.time_entries && task.time_entries.length > 0 && (
+                <TimeEntriesDisplay 
+                  entries={task.time_entries} 
+                  title="Task Time Entries" 
+                />
               )}
             </div>
           )}
@@ -667,7 +738,7 @@ export const QuickTasksSection = () => {
 
               {/* Subtasks List */}
               {task.subtasks && task.subtasks.length > 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {task.subtasks.map((subtask: any) => (
                     <Card key={subtask.id} className="p-3 bg-muted/30">
                       <div className="flex items-center justify-between">
@@ -710,6 +781,11 @@ export const QuickTasksSection = () => {
                                 >
                                   {subtask.status}
                                 </span>
+                                {subtask.logged_hours > 0 && (
+                                  <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
+                                    {subtask.logged_hours}h logged
+                                  </span>
+                                )}
                                 {subtask.deadline && (
                                   <span>Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
                                 )}
@@ -758,6 +834,16 @@ export const QuickTasksSection = () => {
                           </Button>
                         </div>
                       </div>
+                      
+                      {/* Subtask Time Entries */}
+                      {subtask.time_entries && subtask.time_entries.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-dashed">
+                          <TimeEntriesDisplay 
+                            entries={subtask.time_entries} 
+                            title={`${subtask.name} Time Entries`} 
+                          />
+                        </div>
+                      )}
                     </Card>
                   ))}
                 </div>
@@ -940,6 +1026,63 @@ export const QuickTasksSection = () => {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  // Helper function to format time entries
+  const formatTimeEntry = (entry: any) => {
+    const startTime = new Date(entry.start_time);
+    const endTime = new Date(entry.end_time);
+    const duration = entry.duration_minutes || 0;
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
+    
+    const durationStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+    const timeRange = `${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    
+    return {
+      duration: durationStr,
+      timeRange,
+      date: startTime.toLocaleDateString(),
+      comment: entry.comment || 'No comment'
+    };
+  };
+
+  // Time Entries Display Component
+  const TimeEntriesDisplay: React.FC<{ entries: any[]; title: string }> = ({ entries, title }) => {
+    if (!entries || entries.length === 0) return null;
+
+    return (
+      <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+        <h5 className="text-sm font-medium text-muted-foreground">{title}</h5>
+        <div className="space-y-2 max-h-40 overflow-y-auto">
+          {entries.slice(0, 5).map((entry) => {
+            const formatted = formatTimeEntry(entry);
+            return (
+              <div key={entry.id} className="bg-background rounded p-2 text-xs">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex-1">
+                    <div className="font-medium text-foreground">
+                      {formatted.duration} • {formatted.timeRange}
+                    </div>
+                    <div className="text-muted-foreground mt-1">
+                      {formatted.comment}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {formatted.date}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {entries.length > 5 && (
+            <div className="text-xs text-muted-foreground text-center py-2">
+              +{entries.length - 5} more entries
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // Countdown Timer Component
