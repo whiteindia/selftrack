@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, Award, Eye, Heart, Users, Leaf, BookOpen } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Award, Eye, Heart, Users, Leaf, BookOpen, TrendingUp } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek } from "date-fns";
 import Navigation from "@/components/Navigation";
 

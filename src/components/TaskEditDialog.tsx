@@ -13,8 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Calendar, Clock, User, Building, Edit } from 'lucide-react';
+import { Calendar, Clock, User, Building, Edit, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { convertISTToUTC, formatUTCToISTInput } from '@/utils/timezoneUtils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface TaskEditDialogProps {
   isOpen: boolean;
@@ -45,6 +46,8 @@ const statusOptions = [
 ];
 
 const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = false }: TaskEditDialogProps) => {
+
+  
   const [formData, setFormData] = useState({
     name: task.name || '',
     status: task.status || 'Not Started',
@@ -55,7 +58,12 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
     reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
     slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
     slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
+    service: '',
+    client_id: '',
   });
+  
+  // Cascade filter states
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -78,6 +86,88 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
     enabled: !isSubtask,
   });
 
+  // Fetch services for cascade filtering
+  const { data: services = [] } = useQuery({
+    queryKey: ['services'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('services')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch clients based on selected service
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-for-service', formData.service],
+    queryFn: async () => {
+      if (!formData.service) return [];
+      
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          clients!inner(id, name)
+        `)
+        .eq('service', formData.service);
+
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+
+      // Extract unique clients properly
+      const uniqueClientsMap = new Map();
+      data?.forEach((project: any) => {
+        const client = project.clients;
+        if (client && !uniqueClientsMap.has(client.id)) {
+          uniqueClientsMap.set(client.id, client);
+        }
+      });
+
+      const uniqueClients = Array.from(uniqueClientsMap.values());
+      return uniqueClients;
+    },
+    enabled: !!formData.service,
+  });
+
+  
+
+  // Fetch projects based on selected service and client
+  const { data: filteredProjects = [] } = useQuery({
+    queryKey: ['projects-for-service-client', formData.service, formData.client_id],
+    queryFn: async () => {
+      if (!formData.service || !formData.client_id) return [];
+      
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          id,
+          name,
+          clients!inner(name)
+        `)
+        .eq('service', formData.service)
+        .eq('client_id', formData.client_id)
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching projects:', error);
+        throw error;
+      }
+      return data || [];
+    },
+    enabled: !!formData.service && !!formData.client_id,
+  });
+
+  // Debug log to check projects query status
+
+
+  
+
   // Fetch employees
   const { data: employees = [] } = useQuery({
     queryKey: ['employees'],
@@ -93,7 +183,6 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
   });
 
   useEffect(() => {
-    console.log('TaskEditDialog - Task data updated:', task);
     setFormData({
       name: task.name || '',
       status: task.status || 'Not Started',
@@ -105,12 +194,25 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
       slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
       slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
     });
-    console.log('TaskEditDialog - Form data after conversion:', {
-      reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
-      slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
-      slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
-    });
   }, [task]);
+
+  // Handle service selection
+  const handleServiceChange = (service: string) => {
+    setFormData({ ...formData, service: service, client_id: '', project_id: '' });
+  };
+
+  // Handle client selection
+  const handleClientChange = (client: string) => {
+    setFormData({ ...formData, client_id: client, project_id: '' });
+  };
+
+  // Reset filters when collapsible is closed
+  const handleFiltersToggle = (open: boolean) => {
+    setFiltersExpanded(open);
+    if (!open) {
+      setFormData({ ...formData, service: '', client_id: '' });
+    }
+  };
 
   const updateTaskMutation = useMutation({
     mutationFn: async (updates: any) => {
@@ -128,7 +230,7 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
         processedUpdates.slot_end_datetime = updates.slot_end_datetime ? convertISTToUTC(updates.slot_end_datetime) : null;
       }
 
-      console.log('Updating task with processed data (UTC):', processedUpdates);
+
 
       const { error } = await supabase
         .from(tableName)
@@ -149,7 +251,6 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
     },
     onError: (error) => {
       toast.error(`Failed to update ${isSubtask ? 'subtask' : 'task'}`);
-      console.error('Error updating task:', error);
     },
   });
 
@@ -270,27 +371,106 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
 
               {/* Project - Only for main tasks */}
               {!isSubtask && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <Building className="h-4 w-4" />
-                    Project
-                  </Label>
-                  <Select 
-                    value={formData.project_id} 
-                    onValueChange={(value) => setFormData({ ...formData, project_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name} - {project.clients?.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <>
+                  {/* Collapsible Filter Section */}
+                  <Collapsible open={filtersExpanded} onOpenChange={handleFiltersToggle}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full justify-between">
+                        <div className="flex items-center gap-2">
+                          <Filter className="h-4 w-4" />
+                          <span>Advanced Filters</span>
+                        </div>
+                        {filtersExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-4 pt-4">
+                      {/* Service Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Service</Label>
+                        <Select 
+                          value={formData.service} 
+                          onValueChange={handleServiceChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select service" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {services.map((service) => (
+                            <SelectItem key={service.id} value={service.name}>
+                              {service.name}
+                            </SelectItem>
+                          ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Client Selection - enabled after service selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Client</Label>
+                        <Select 
+                          value={formData.client_id} 
+                          onValueChange={handleClientChange}
+                          disabled={!formData.service}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={formData.service ? "Select client" : "Choose service first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Project Selection - enabled after client selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Project</Label>
+                        <Select 
+                          value={formData.project_id} 
+                          onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+                          disabled={!formData.service || !formData.client_id}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={formData.service && formData.client_id ? "Select project" : "Choose service & client first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredProjects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name} - {project.clients?.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Direct Project Selection (Alternative to filters) */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Building className="h-4 w-4" />
+                      Project (Direct Selection)
+                    </Label>
+                    <Select 
+                      value={formData.project_id} 
+                      onValueChange={(value) => setFormData({ ...formData, project_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name} - {project.clients?.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
               )}
 
               {/* Assignee */}
