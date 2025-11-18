@@ -4,12 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
+import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
+import ManualTimeLog from "@/components/ManualTimeLog";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
 import { convertISTToUTC } from "@/utils/timezoneUtils";
 import {
@@ -42,6 +44,8 @@ export const QuickTasksSection = () => {
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [showingSubtasksFor, setShowingSubtasksFor] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -76,7 +80,7 @@ export const QuickTasksSection = () => {
     },
   });
 
-  // Fetch tasks from the project
+  // Fetch tasks from the project with subtasks and logged time
   const { data: tasks, refetch } = useQuery({
     queryKey: ["quick-tasks", project?.id],
     queryFn: async () => {
@@ -102,7 +106,50 @@ export const QuickTasksSection = () => {
         .order("deadline", { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      
+      // Enhance tasks with subtasks and logged time data
+      const enhancedTasks = await Promise.all(
+        (data || []).map(async (task) => {
+          // Fetch subtasks for this task
+          const { data: subtasks } = await supabase
+            .from('subtasks')
+            .select('id, name, status, deadline, estimated_duration')
+            .eq('task_id', task.id)
+            .order('created_at', { ascending: true });
+
+          // Fetch logged time for subtasks
+          const subtaskIds = subtasks?.map(st => st.id) || [];
+          let subtaskTimeEntries: any[] = [];
+          if (subtaskIds.length > 0) {
+            const { data: subtaskEntries } = await supabase
+              .from('time_entries')
+              .select('duration_minutes, task_id')
+              .in('task_id', subtaskIds)
+              .not('end_time', 'is', null);
+            subtaskTimeEntries = subtaskEntries || [];
+          }
+
+          // Fetch logged time entries for this task
+          const { data: timeEntries } = await supabase
+            .from('time_entries')
+            .select('duration_minutes')
+            .eq('task_id', task.id)
+            .not('end_time', 'is', null);
+
+          const totalLoggedMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
+          const subtaskLoggedMinutes = subtaskTimeEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+          const totalLoggedHours = Math.round(((totalLoggedMinutes + subtaskLoggedMinutes) / 60) * 100) / 100;
+
+          return {
+            ...task,
+            subtasks: subtasks || [],
+            total_logged_hours: totalLoggedHours,
+            subtask_count: subtasks?.length || 0
+          };
+        })
+      );
+
+      return enhancedTasks;
     },
     enabled: !!project?.id,
   });
@@ -333,7 +380,7 @@ export const QuickTasksSection = () => {
     }
   };
 
-  // Sortable Task Component
+  // Sortable Task Component with subtasks and time logging
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
     const {
       attributes,
@@ -345,10 +392,54 @@ export const QuickTasksSection = () => {
       active,
     } = useSortable({ id: task.id });
 
+    const [showSubtasks, setShowSubtasks] = useState(false);
+    const [newSubtaskName, setNewSubtaskName] = useState("");
+    const [showTimeControls, setShowTimeControls] = useState(false);
+    const [showTimeHistory, setShowTimeHistory] = useState(false);
+    const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
+    const [editSubtaskName, setEditSubtaskName] = useState("");
+
     const style = {
       transform: CSS.Transform.toString(transform),
       transition,
       opacity: isDragging ? 0.5 : 1,
+    };
+
+    const handleAddSubtask = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newSubtaskName.trim()) {
+        createSubtaskMutation.mutate({ taskId: task.id, name: newSubtaskName.trim() });
+        setNewSubtaskName("");
+      }
+    };
+
+    const handleEditSubtask = (subtaskId: string, currentName: string) => {
+      setEditingSubtask(subtaskId);
+      setEditSubtaskName(currentName);
+    };
+
+    const handleSaveSubtask = (subtaskId: string) => {
+      if (editSubtaskName.trim()) {
+        updateSubtaskMutation.mutate({ subtaskId, name: editSubtaskName.trim() });
+        setEditingSubtask(null);
+        setEditSubtaskName("");
+      }
+    };
+
+    const handleCancelEdit = () => {
+      setEditingSubtask(null);
+      setEditSubtaskName("");
+    };
+
+    const handleDeleteSubtask = (subtaskId: string) => {
+      if (confirm("Are you sure you want to delete this subtask?")) {
+        deleteSubtaskMutation.mutate(subtaskId);
+      }
+    };
+
+    const handleToggleSubtaskStatus = (subtaskId: string, currentStatus: string) => {
+      const newStatus = currentStatus === "Completed" ? "Not Started" : "Completed";
+      updateSubtaskMutation.mutate({ subtaskId, status: newStatus });
     };
 
     return (
@@ -378,11 +469,21 @@ export const QuickTasksSection = () => {
               </div>
               <div className="flex-1 min-w-0 overflow-hidden task-content-area">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}
-                </p>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <span>Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}</span>
+                  {task.total_logged_hours > 0 && (
+                    <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                      {task.total_logged_hours}h logged
+                    </span>
+                  )}
+                  {task.subtask_count > 0 && (
+                    <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                      {task.subtask_count} subtasks
+                    </span>
+                  )}
+                </div>
                 {(task.reminder_datetime || task.slot_start_time) && (
-                  <p className="text-xs text-muted-foreground break-words">
+                  <p className="text-xs text-muted-foreground break-words mt-1">
                     {task.reminder_datetime && `Reminder: ${new Date(task.reminder_datetime).toLocaleString()}`}
                     {task.reminder_datetime && task.slot_start_time && " | "}
                     {task.slot_start_time && `Slot: ${new Date(task.slot_start_time).toLocaleString()}`}
@@ -392,6 +493,35 @@ export const QuickTasksSection = () => {
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end task-content-area">
+              {/* Time Controls Toggle */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTimeControls(!showTimeControls);
+                }}
+                className="h-8 px-3"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+
+              {/* Subtasks Toggle */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSubtasks(!showSubtasks);
+                }}
+                className="h-8 px-3"
+              >
+                <List className="h-4 w-4" />
+                {task.subtask_count > 0 && (
+                  <span className="ml-1 text-xs">{task.subtask_count}</span>
+                )}
+              </Button>
+
               {activeEntry ? (
                 <>
                   <div className="flex flex-col items-end gap-1">
@@ -459,6 +589,183 @@ export const QuickTasksSection = () => {
               </Button>
             </div>
           </div>
+
+          {/* Time Controls Section */}
+          {showTimeControls && (
+            <div className="mt-4 pt-4 border-t space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <TimeTrackerWithComment 
+                  task={{ id: task.id, name: task.name }}
+                  onSuccess={() => refetch()}
+                  isSubtask={false}
+                />
+                <ManualTimeLog 
+                  taskId={task.id}
+                  onSuccess={() => refetch()}
+                  isSubtask={false}
+                />
+              </div>
+              
+              {/* Time History Toggle */}
+              {task.total_logged_hours > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowTimeHistory(!showTimeHistory)}
+                  className="w-full"
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  {showTimeHistory ? "Hide" : "Show"} Time History ({task.total_logged_hours}h)
+                </Button>
+              )}
+              
+              {/* Time History Display */}
+              {showTimeHistory && task.total_logged_hours > 0 && (
+                <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                  <h5 className="text-sm font-medium">Recent Time Entries</h5>
+                  <div className="text-xs text-muted-foreground">
+                    Total logged time: <span className="font-medium">{task.total_logged_hours} hours</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Click on task details to view complete time history
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtasks Section */}
+          {showSubtasks && (
+            <div className="mt-4 pt-4 border-t space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium text-muted-foreground">Subtasks</h4>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSubtasks(false);
+                  }}
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Add Subtask Form */}
+              <form onSubmit={handleAddSubtask} className="flex gap-2">
+                <Input
+                  placeholder="Add subtask..."
+                  value={newSubtaskName}
+                  onChange={(e) => setNewSubtaskName(e.target.value)}
+                  className="flex-1 text-sm"
+                  size="sm"
+                />
+                <Button type="submit" size="sm" disabled={!newSubtaskName.trim()}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </form>
+
+              {/* Subtasks List */}
+              {task.subtasks && task.subtasks.length > 0 ? (
+                <div className="space-y-2">
+                  {task.subtasks.map((subtask: any) => (
+                    <Card key={subtask.id} className="p-3 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          {editingSubtask === subtask.id ? (
+                            <div className="flex gap-2">
+                              <Input
+                                value={editSubtaskName}
+                                onChange={(e) => setEditSubtaskName(e.target.value)}
+                                className="flex-1 text-sm"
+                                size="sm"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveSubtask(subtask.id)}
+                                disabled={!editSubtaskName.trim()}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium break-words">{subtask.name}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <span 
+                                  className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                                    subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                    subtask.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}
+                                  onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
+                                >
+                                  {subtask.status}
+                                </span>
+                                {subtask.deadline && (
+                                  <span>Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <TimeTrackerWithComment 
+                            task={{ id: subtask.id, name: subtask.name }}
+                            onSuccess={() => refetch()}
+                            isSubtask={true}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditSubtask(subtask.id, subtask.name);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/alltasks?highlight=${subtask.id}&subtask=true`);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSubtask(subtask.id);
+                            }}
+                            className="h-7 px-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-2">No subtasks yet</p>
+              )}
+            </div>
+          )}
         </Card>
       </div>
     );
@@ -525,6 +832,100 @@ export const QuickTasksSection = () => {
 
     refetch();
   };
+
+  // Task expansion handlers
+  const toggleTaskExpansion = (taskId: string) => {
+    const newExpanded = new Set(expandedTasks);
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId);
+    } else {
+      newExpanded.add(taskId);
+    }
+    setExpandedTasks(newExpanded);
+  };
+
+  const toggleSubtasks = (taskId: string) => {
+    setShowingSubtasksFor(showingSubtasksFor === taskId ? null : taskId);
+  };
+
+  // Subtask creation mutation
+  const createSubtaskMutation = useMutation({
+    mutationFn: async ({ taskId, name }: { taskId: string; name: string }) => {
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("email", (await supabase.auth.getUser()).data.user?.email)
+        .single();
+
+      if (!employee) throw new Error("Employee not found");
+
+      const { data, error } = await supabase
+        .from("subtasks")
+        .insert({
+          name,
+          task_id: taskId,
+          status: "Not Started",
+          assigner_id: employee.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Subtask created successfully");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+    },
+    onError: (error) => {
+      toast.error("Failed to create subtask");
+      console.error(error);
+    },
+  });
+
+  // Subtask update mutation
+  const updateSubtaskMutation = useMutation({
+    mutationFn: async ({ subtaskId, name, status }: { subtaskId: string; name?: string; status?: string }) => {
+      const updates: any = {};
+      if (name) updates.name = name;
+      if (status) updates.status = status;
+
+      const { error } = await supabase
+        .from("subtasks")
+        .update(updates)
+        .eq("id", subtaskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Subtask updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update subtask");
+      console.error(error);
+    },
+  });
+
+  // Subtask delete mutation
+  const deleteSubtaskMutation = useMutation({
+    mutationFn: async (subtaskId: string) => {
+      const { error } = await supabase
+        .from("subtasks")
+        .delete()
+        .eq("id", subtaskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Subtask deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+    },
+    onError: (error) => {
+      toast.error("Failed to delete subtask");
+      console.error(error);
+    },
+  });
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
