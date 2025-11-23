@@ -33,7 +33,7 @@ interface NetworkPerson {
   follow_up_date?: string | null;
 }
 
-const relationshipIcons: Record<string, any> = {
+const relationshipIcons: Record<string, React.ComponentType> = {
   'Professional': Briefcase,
   'Mentor': Award,
   'Friend': Heart,
@@ -156,9 +156,9 @@ export default function NetworkPeople() {
     setDeleteDialogOpen(true);
   };
 
-  // Get unique categories for filter
-  const relationships = ["All", ...Object.keys(relationshipIcons)];
-  const influenceLevels = ["All", "High", "Medium", "Low"];
+  // Get unique categories for filter from actual data
+  const relationships = people ? ["All", ...Array.from(new Set(people.map(person => person.relationship_type)))] : ["All"];
+  const influenceLevels = people ? ["All", ...Array.from(new Set(people.map(person => person.influence_level)))] : ["All"];
   
   // Filter people based on search and filters
   const filteredPeople = people?.filter(person => {
@@ -345,8 +345,8 @@ export default function NetworkPeople() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <Pencil className="h-4 w-4" />
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => {/* TODO: Implement edit functionality */}}>
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 

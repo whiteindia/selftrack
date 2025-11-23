@@ -18,7 +18,7 @@ interface ClubCareConnection {
   start_date: string;
 }
 
-const relationTypeIcons: Record<string, any> = {
+const relationTypeIcons: Record<string, React.ComponentType> = {
   'Professional': Handshake,
   'Mentor': Award,
   'Friend': Heart,
@@ -122,8 +122,8 @@ const ClubCare = () => {
     }
   };
 
-  // Get unique relation types for filter
-  const relationTypes = ["All", ...Object.keys(relationTypeIcons)];
+  // Get unique relation types for filter from actual data
+  const relationTypes = connections ? ["All", ...Array.from(new Set(connections.map(connection => connection.relation_type)))] : ["All"];
   
   // Filter connections based on search and relation type
   const filteredConnections = connections?.filter(connection => {
@@ -296,7 +296,7 @@ const ClubCare = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => {/* TODO: Implement edit functionality */}}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 

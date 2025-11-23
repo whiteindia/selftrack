@@ -20,7 +20,7 @@ interface SocialActivity {
   start_date: string;
 }
 
-const categoryIcons: Record<string, any> = {
+const categoryIcons: Record<string, React.ComponentType> = {
   'Community Building': Users,
   'Social Skills': Heart,
   'Networking': Users,
@@ -135,8 +135,8 @@ const SocialBeingTracker = () => {
     }
   };
 
-  // Get unique categories for filter
-  const categories = ["All", ...Object.keys(categoryIcons)];
+  // Get unique categories for filter from actual data
+  const categories = activities ? ["All", ...Array.from(new Set(activities.map(activity => activity.category)))] : ["All"];
   
   // Filter activities based on search and category
   const filteredActivities = activities?.filter(activity => {
@@ -315,7 +315,7 @@ const SocialBeingTracker = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => {/* TODO: Implement edit functionality */}}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 
