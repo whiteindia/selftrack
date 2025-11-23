@@ -63,6 +63,7 @@ import TheatricalArtsCal from "./pages/TheatricalArtsCal";
 import GlobalCalendar from "./pages/GlobalCalendar";
 import MPPFTracker from "./pages/MPPFTracker";
 import MPPFCal from "./pages/MPPFCal";
+import DebatePlanning from "./pages/DebatePlanning";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,7 @@ function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/debate-planning" element={<DebatePlanning />} />
                 <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                 <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
