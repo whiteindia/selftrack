@@ -73,8 +73,12 @@ const Sports = () => {
   };
 
   // Get unique categories and frequencies for filters
-  const categories = ["All", ...Array.from(new Set(skills.map(skill => skill.skill_category)))];
-  const frequencies = ["All", ...Array.from(new Set(skills.map(skill => skill.practice_frequency)))];
+  const categories = skills && skills.length > 0
+    ? ["All", ...Array.from(new Set(skills.map(skill => skill.skill_category)))]
+    : ["All"];
+  const frequencies = skills && skills.length > 0
+    ? ["All", ...Array.from(new Set(skills.map(skill => skill.practice_frequency)))]
+    : ["All"];
   
   // Filter skills based on search and filters
   const filteredSkills = skills?.filter(skill => {
@@ -84,7 +88,7 @@ const Sports = () => {
     const matchesCategory = selectedCategory === "All" || skill.skill_category === selectedCategory;
     const matchesFrequency = selectedFrequency === "All" || skill.practice_frequency === selectedFrequency;
     return matchesSearch && matchesCategory && matchesFrequency;
-  });
+  }) || [];
 
   return (
     <Navigation>

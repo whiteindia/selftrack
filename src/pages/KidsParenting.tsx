@@ -141,8 +141,10 @@ const KidsParenting = () => {
     }
   };
 
-  // Get unique categories for filter from actual data
-  const categories = activities ? ["All", ...Array.from(new Set(activities.map(activity => activity.category)))] : ["All"];
+  // Get unique categories for filter from actual data, fallback to hardcoded if no data
+  const categories = activities && activities.length > 0 
+    ? ["All", ...Array.from(new Set(activities.map(activity => activity.category)))]
+    : ["All", ...Object.keys(categoryIcons)];
   
   // Filter activities based on search and category
   const filteredActivities = activities?.filter(activity => {
@@ -150,7 +152,7 @@ const KidsParenting = () => {
                          activity.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "All" || activity.category === selectedCategory;
     return matchesSearch && matchesCategory;
-  });
+  }) || [];
 
   if (isLoading) {
     return (

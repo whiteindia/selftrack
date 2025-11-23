@@ -122,8 +122,10 @@ const ClubCare = () => {
     }
   };
 
-  // Get unique relation types for filter from actual data
-  const relationTypes = connections ? ["All", ...Array.from(new Set(connections.map(connection => connection.relation_type)))] : ["All"];
+  // Get unique relation types for filter from actual data, fallback to hardcoded if no data
+  const relationTypes = connections && connections.length > 0
+    ? ["All", ...Array.from(new Set(connections.map(connection => connection.relation_type)))]
+    : ["All", ...Object.keys(relationTypeIcons)];
   
   // Filter connections based on search and relation type
   const filteredConnections = connections?.filter(connection => {

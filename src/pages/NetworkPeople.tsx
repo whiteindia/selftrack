@@ -156,9 +156,13 @@ export default function NetworkPeople() {
     setDeleteDialogOpen(true);
   };
 
-  // Get unique categories for filter from actual data
-  const relationships = people ? ["All", ...Array.from(new Set(people.map(person => person.relationship_type)))] : ["All"];
-  const influenceLevels = people ? ["All", ...Array.from(new Set(people.map(person => person.influence_level)))] : ["All"];
+  // Get unique categories for filter from actual data, fallback to hardcoded if no data
+  const relationships = people && people.length > 0
+    ? ["All", ...Array.from(new Set(people.map(person => person.relationship_type)))]
+    : ["All", ...Object.keys(relationshipIcons)];
+  const influenceLevels = people && people.length > 0
+    ? ["All", ...Array.from(new Set(people.map(person => person.influence_level)))]
+    : ["All", "High", "Medium", "Low"];
   
   // Filter people based on search and filters
   const filteredPeople = people?.filter(person => {
