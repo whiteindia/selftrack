@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Users, Award, Calendar, Heart, BookOpen, Filter, Search, X, Target, TrendingUp, Briefcase, Network } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Award, Calendar, Heart, BookOpen, Filter, Search, X, Target, TrendingUp, Briefcase, Network, Edit } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -59,6 +59,8 @@ export default function NetworkPeople() {
   const [selectedRelationship, setSelectedRelationship] = useState("All");
   const [selectedInfluence, setSelectedInfluence] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [personToEdit, setPersonToEdit] = useState<NetworkPerson | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personToDelete, setPersonToDelete] = useState<string | null>(null);
 
@@ -77,7 +79,7 @@ export default function NetworkPeople() {
     follow_up_date: ''
   });
 
-  const { data: people, isLoading } = useQuery({
+  const { data: people, isLoading, error } = useQuery({
     queryKey: ['network-people'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -86,6 +88,7 @@ export default function NetworkPeople() {
         .order("name");
 
       if (error) throw error;
+      console.log('Network people data:', data); // Debug log
       return data as NetworkPerson[];
     }
   });
@@ -126,9 +129,59 @@ export default function NetworkPeople() {
     }
   });
 
+  // Mutation for editing person
+  const editPersonMutation = useMutation({
+    mutationFn: async (updatedPerson: NetworkPerson) => {
+      const { data, error } = await supabase
+        .from("network_people")
+        .update(updatedPerson)
+        .eq('id', updatedPerson.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['network-people'] });
+      setShowEditModal(false);
+      setPersonToEdit(null);
+      toast.success('Contact updated successfully');
+    },
+    onError: (error) => {
+      console.error('Error updating person:', error);
+      toast.error('Failed to update contact. Please try again.');
+    }
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addPersonMutation.mutate(formData);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (personToEdit) {
+      editPersonMutation.mutate({ ...personToEdit, ...formData });
+    }
+  };
+
+  const openEditModal = (person: NetworkPerson) => {
+    setPersonToEdit(person);
+    setFormData({
+      name: person.name,
+      relationship_type: person.relationship_type,
+      role_position: person.role_position,
+      industry_domain: person.industry_domain,
+      work_type: person.work_type,
+      influence_level: person.influence_level,
+      acts_to_engage: person.acts_to_engage || '',
+      last_conversation_summary: person.last_conversation_summary || '',
+      last_conversation_date: person.last_conversation_date || '',
+      follow_up_plan: person.follow_up_plan || '',
+      follow_up_date: person.follow_up_date || ''
+    });
+    setShowEditModal(true);
   };
 
   const handleDelete = async () => {
@@ -166,13 +219,14 @@ export default function NetworkPeople() {
   
   // Filter people based on search and filters
   const filteredPeople = people?.filter(person => {
-    const matchesSearch = person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = searchTerm === "" || 
+                         person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          person.role_position.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          person.industry_domain.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRelationship = selectedRelationship === "All" || person.relationship_type === selectedRelationship;
     const matchesInfluence = selectedInfluence === "All" || person.influence_level === selectedInfluence;
     return matchesSearch && matchesRelationship && matchesInfluence;
-  });
+  }) || [];
 
   if (isLoading) {
     return (
@@ -181,6 +235,23 @@ export default function NetworkPeople() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Navigation>
+        <div className="container mx-auto p-6">
+          <div className="text-center py-12">
+            <Network className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2 text-red-600">Error Loading Network People</h3>
+            <p className="text-muted-foreground mb-4">{error.message}</p>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </Navigation>
     );
   }
 
@@ -219,7 +290,7 @@ export default function NetworkPeople() {
               <div>
                 <p className="text-sm font-medium text-red-600">High Influence</p>
                 <p className="text-2xl font-bold text-red-900">
-                  {filteredPeople?.filter(p => p.influence_level.includes('High')).length || 0}
+                  {filteredPeople?.filter(p => p.influence_level?.includes('High')).length || 0}
                 </p>
               </div>
               <Award className="h-8 w-8 text-red-600" />
@@ -231,7 +302,7 @@ export default function NetworkPeople() {
               <div>
                 <p className="text-sm font-medium text-yellow-600">Medium Influence</p>
                 <p className="text-2xl font-bold text-yellow-900">
-                  {filteredPeople?.filter(p => p.influence_level.includes('Medium')).length || 0}
+                  {filteredPeople?.filter(p => p.influence_level?.includes('Medium')).length || 0}
                 </p>
               </div>
               <Target className="h-8 w-8 text-yellow-600" />
@@ -243,7 +314,7 @@ export default function NetworkPeople() {
               <div>
                 <p className="text-sm font-medium text-green-600">Professional</p>
                 <p className="text-2xl font-bold text-green-900">
-                  {filteredPeople?.filter(p => p.relationship_type.includes('Professional')).length || 0}
+                  {filteredPeople?.filter(p => p.relationship_type?.includes('Professional')).length || 0}
                 </p>
               </div>
               <Briefcase className="h-8 w-8 text-green-600" />
@@ -349,7 +420,7 @@ export default function NetworkPeople() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => {/* TODO: Implement edit functionality */}}>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditModal(person)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 
@@ -496,6 +567,129 @@ export default function NetworkPeople() {
                       className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                     >
                       {addPersonMutation.isPending ? 'Adding...' : 'Add Contact'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Edit Contact Modal */}
+        {showEditModal && personToEdit && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Edit Network Contact</h2>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setPersonToEdit(null);
+                    }}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <form onSubmit={handleEditSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., John Smith"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Relationship Type</label>
+                    <select
+                      value={formData.relationship_type}
+                      onChange={(e) => setFormData({...formData, relationship_type: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      required
+                    >
+                      {Object.keys(relationshipIcons).map(relationship => (
+                        <option key={relationship} value={relationship}>{relationship}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Role / Position</label>
+                    <input
+                      type="text"
+                      value={formData.role_position}
+                      onChange={(e) => setFormData({...formData, role_position: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., CEO, Manager"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Industry / Domain</label>
+                    <input
+                      type="text"
+                      value={formData.industry_domain}
+                      onChange={(e) => setFormData({...formData, industry_domain: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., Technology, Healthcare"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Work Type</label>
+                    <input
+                      type="text"
+                      value={formData.work_type}
+                      onChange={(e) => setFormData({...formData, work_type: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., Full-time, Consultant"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Influence Level</label>
+                    <select
+                      value={formData.influence_level}
+                      onChange={(e) => setFormData({...formData, influence_level: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      required
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex gap-3 pt-4">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => {
+                        setShowEditModal(false);
+                        setPersonToEdit(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit"
+                      disabled={editPersonMutation.isPending}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
+                      {editPersonMutation.isPending ? 'Updating...' : 'Update Contact'}
                     </Button>
                   </div>
                 </form>
