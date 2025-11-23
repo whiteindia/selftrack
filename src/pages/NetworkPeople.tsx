@@ -1,18 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Award, Calendar, Heart, BookOpen, Filter, Search, X, Target, TrendingUp, Briefcase, Network } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { NetworkPersonDialog } from "@/components/network/NetworkPersonDialog";
+import { format } from "date-fns";
 import Navigation from "@/components/Navigation";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { formatToIST } from "@/utils/timezoneUtils";
 
 interface NetworkPerson {
   id: string;
@@ -40,37 +33,102 @@ interface NetworkPerson {
   follow_up_date?: string | null;
 }
 
+const relationshipIcons: Record<string, any> = {
+  'Professional': Briefcase,
+  'Mentor': Award,
+  'Friend': Heart,
+  'Family': Users,
+  'Colleague': Target,
+  'Business Partner': TrendingUp,
+  'Industry Expert': BookOpen,
+  'Advisor': Award,
+  'Peer': Users,
+  'Influencer': Network
+};
+
+const getInfluenceColor = (influence: string) => {
+  if (influence.includes('High')) return 'bg-red-100 text-red-800 border-red-200';
+  if (influence.includes('Medium')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  if (influence.includes('Low')) return 'bg-green-100 text-green-800 border-green-200';
+  return 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
 export default function NetworkPeople() {
-  const [people, setPeople] = useState<NetworkPerson[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState<NetworkPerson | null>(null);
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRelationship, setSelectedRelationship] = useState("All");
+  const [selectedInfluence, setSelectedInfluence] = useState("All");
+  const [showAddModal, setShowAddModal] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [personToDelete, setPersonToDelete] = useState<string | null>(null);
 
-  const fetchPeople = async () => {
-    try {
+  // Form state for adding new person
+  const [formData, setFormData] = useState({
+    name: '',
+    relationship_type: 'Professional',
+    role_position: '',
+    industry_domain: '',
+    work_type: '',
+    influence_level: 'Medium',
+    acts_to_engage: '',
+    last_conversation_summary: '',
+    last_conversation_date: '',
+    follow_up_plan: '',
+    follow_up_date: ''
+  });
+
+  const { data: people, isLoading } = useQuery({
+    queryKey: ['network-people'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from("network_people")
         .select("*")
         .order("name");
 
       if (error) throw error;
-      setPeople(data || []);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load contacts");
-    } finally {
-      setLoading(false);
+      return data as NetworkPerson[];
     }
-  };
+  });
 
-  useEffect(() => {
-    fetchPeople();
-  }, []);
+  // Mutation for adding new person
+  const addPersonMutation = useMutation({
+    mutationFn: async (newPerson: Omit<NetworkPerson, 'id'>) => {
+      const { data, error } = await supabase
+        .from("network_people")
+        .insert([newPerson])
+        .select()
+        .single();
 
-  const handleEdit = (person: NetworkPerson) => {
-    setSelectedPerson(person);
-    setDialogOpen(true);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['network-people'] });
+      setShowAddModal(false);
+      // Reset form
+      setFormData({
+        name: '',
+        relationship_type: 'Professional',
+        role_position: '',
+        industry_domain: '',
+        work_type: '',
+        influence_level: 'Medium',
+        acts_to_engage: '',
+        last_conversation_summary: '',
+        last_conversation_date: '',
+        follow_up_plan: '',
+        follow_up_date: ''
+      });
+    },
+    onError: (error) => {
+      console.error('Error adding person:', error);
+      toast.error('Failed to add contact. Please try again.');
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addPersonMutation.mutate(formData);
   };
 
   const handleDelete = async () => {
@@ -84,7 +142,7 @@ export default function NetworkPeople() {
 
       if (error) throw error;
       toast.success("Contact deleted successfully");
-      fetchPeople();
+      queryClient.invalidateQueries({ queryKey: ['network-people'] });
     } catch (error: any) {
       toast.error(error.message || "Failed to delete contact");
     } finally {
@@ -93,155 +151,370 @@ export default function NetworkPeople() {
     }
   };
 
-  const handleDialogClose = () => {
-    setDialogOpen(false);
-    setSelectedPerson(null);
-    fetchPeople();
-  };
-
   const confirmDelete = (id: string) => {
     setPersonToDelete(id);
     setDeleteDialogOpen(true);
   };
 
-  if (loading) {
+  // Get unique categories for filter
+  const relationships = ["All", ...Object.keys(relationshipIcons)];
+  const influenceLevels = ["All", "High", "Medium", "Low"];
+  
+  // Filter people based on search and filters
+  const filteredPeople = people?.filter(person => {
+    const matchesSearch = person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         person.role_position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         person.industry_domain.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRelationship = selectedRelationship === "All" || person.relationship_type === selectedRelationship;
+    const matchesInfluence = selectedInfluence === "All" || person.influence_level === selectedInfluence;
+    return matchesSearch && matchesRelationship && matchesInfluence;
+  });
+
+  if (isLoading) {
     return (
-      <Navigation>
-        <div className="container mx-auto py-0">
-          <p className="text-muted-foreground">Loading...</p>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-      </Navigation>
+      </div>
     );
   }
 
   return (
     <Navigation>
-      <div className="container mx-auto py-0">
-        <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Network People Profiles Tracker</h1>
-          <p className="text-muted-foreground mt-2">
-            Track and manage your professional network and relationships
-          </p>
+      <div className="container mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">🌐 Network People Tracker</h1>
+            <p className="text-muted-foreground">Professional Network & Relationship Management</p>
+          </div>
+          <Button 
+            onClick={() => setShowAddModal(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Contact
-        </Button>
-      </div>
 
-      <div className="border rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px]">S.No</TableHead>
-              <TableHead>Name / Profile</TableHead>
-              <TableHead>Relationship Type</TableHead>
-              <TableHead>Role / Position</TableHead>
-              <TableHead>Industry / Domain</TableHead>
-              <TableHead>Work Type</TableHead>
-              <TableHead>Influence Level</TableHead>
-              <TableHead>Acts2Engage</TableHead>
-              <TableHead>Last Conversation Summary</TableHead>
-              <TableHead>Last Conversation Date</TableHead>
-              <TableHead>Follow-up Date & Time</TableHead>
-              <TableHead>Follow-up Plan</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {people.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
-                  No contacts found. Add your first contact to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              people.map((person, index) => (
-                <TableRow key={person.id}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell className="font-medium">{person.name}</TableCell>
-                  <TableCell>{person.relationship_type}</TableCell>
-                  <TableCell>{person.role_position}</TableCell>
-                  <TableCell>{person.industry_domain}</TableCell>
-                  <TableCell>{person.work_type}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        person.influence_level === "High"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                          : person.influence_level === "Medium"
-                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                          : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      }`}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Total Contacts</p>
+                <p className="text-2xl font-bold text-blue-900">{filteredPeople?.length || 0}</p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </Card>
+          
+          <Card className="p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-600">High Influence</p>
+                <p className="text-2xl font-bold text-red-900">
+                  {filteredPeople?.filter(p => p.influence_level.includes('High')).length || 0}
+                </p>
+              </div>
+              <Award className="h-8 w-8 text-red-600" />
+            </div>
+          </Card>
+          
+          <Card className="p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-600">Medium Influence</p>
+                <p className="text-2xl font-bold text-yellow-900">
+                  {filteredPeople?.filter(p => p.influence_level.includes('Medium')).length || 0}
+                </p>
+              </div>
+              <Target className="h-8 w-8 text-yellow-600" />
+            </div>
+          </Card>
+          
+          <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Professional</p>
+                <p className="text-2xl font-bold text-green-900">
+                  {filteredPeople?.filter(p => p.relationship_type.includes('Professional')).length || 0}
+                </p>
+              </div>
+              <Briefcase className="h-8 w-8 text-green-600" />
+            </div>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search contacts..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full border border-input rounded-md bg-background text-sm"
+              />
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <select
+                value={selectedRelationship}
+                onChange={(e) => setSelectedRelationship(e.target.value)}
+                className="pl-10 pr-8 py-2 border border-input rounded-md bg-background text-sm appearance-none"
+              >
+                {relationships.map(relationship => (
+                  <option key={relationship} value={relationship}>{relationship}</option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <select
+                value={selectedInfluence}
+                onChange={(e) => setSelectedInfluence(e.target.value)}
+                className="pl-3 pr-8 py-2 border border-input rounded-md bg-background text-sm appearance-none"
+              >
+                {influenceLevels.map(level => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* People Table */}
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Contact</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Relationship</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Role / Position</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Industry</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Influence</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Last Conversation</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPeople?.map((person) => {
+                  const IconComponent = relationshipIcons[person.relationship_type] || Users;
+                  
+                  return (
+                    <tr key={person.id} className="border-b hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg">
+                            <IconComponent className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{person.name}</div>
+                            <div className="text-xs text-muted-foreground">{person.work_type}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          {person.relationship_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-muted-foreground max-w-xs truncate">
+                          {person.role_position}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-muted-foreground">
+                          {person.industry_domain}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getInfluenceColor(person.influence_level)}`}>
+                          {person.influence_level}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-muted-foreground">
+                          {person.last_conversation_date ? format(new Date(person.last_conversation_date), 'dd MMM yyyy') : "-"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                            onClick={() => confirmDelete(person.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredPeople?.length === 0 && (
+            <div className="text-center py-12">
+              <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Network Contacts Found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || selectedRelationship !== "All" || selectedInfluence !== "All"
+                  ? "Try adjusting your search or filter criteria"
+                  : "Start building your professional network and track your relationships!"
+                }
+              </p>
+              <Button onClick={() => setShowAddModal(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                <Plus className="h-4 w-4 mr-2" />
+                Add First Contact
+              </Button>
+            </div>
+          )}
+        </Card>
+
+        {/* Add Contact Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Add New Network Contact</h2>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setShowAddModal(false)}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., John Smith"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Relationship Type</label>
+                    <select
+                      value={formData.relationship_type}
+                      onChange={(e) => setFormData({...formData, relationship_type: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      required
                     >
-                      {person.influence_level}
-                    </span>
-                  </TableCell>
-                  <TableCell>{person.acts_to_engage || "-"}</TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {person.last_conversation_summary || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {person.last_conversation_date
-                      ? new Date(person.last_conversation_date).toLocaleDateString()
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {person.follow_up_date
-                      ? formatToIST(person.follow_up_date as string, "dd/MM/yyyy HH:mm")
-                      : "-"}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {person.follow_up_plan || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(person)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => confirmDelete(person.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                      {Object.keys(relationshipIcons).map(relationship => (
+                        <option key={relationship} value={relationship}>{relationship}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Role / Position</label>
+                    <input
+                      type="text"
+                      value={formData.role_position}
+                      onChange={(e) => setFormData({...formData, role_position: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., CEO, Manager"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Industry / Domain</label>
+                    <input
+                      type="text"
+                      value={formData.industry_domain}
+                      onChange={(e) => setFormData({...formData, industry_domain: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., Technology, Healthcare"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Work Type</label>
+                    <input
+                      type="text"
+                      value={formData.work_type}
+                      onChange={(e) => setFormData({...formData, work_type: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      placeholder="e.g., Full-time, Consultant"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Influence Level</label>
+                    <select
+                      value={formData.influence_level}
+                      onChange={(e) => setFormData({...formData, influence_level: e.target.value})}
+                      className="w-full p-2 border border-input rounded-md bg-background"
+                      required
+                    >
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex gap-3 pt-4">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => setShowAddModal(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit"
+                      disabled={addPersonMutation.isPending}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
+                      {addPersonMutation.isPending ? 'Adding...' : 'Add Contact'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </Card>
+          </div>
+        )}
 
-      <NetworkPersonDialog
-        open={dialogOpen}
-        onOpenChange={handleDialogClose}
-        person={selectedPerson}
-      />
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the contact
-              from your network.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the contact
+                from your network.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Navigation>
   );
