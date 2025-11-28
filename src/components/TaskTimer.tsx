@@ -307,19 +307,20 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
     if (!currentTimeEntryId || !timerState.startTime) return;
 
     try {
-      const endTime = new Date();
-      const totalDurationMs = endTime.getTime() - timerState.startTime.getTime() - timerState.pausedDuration;
+      const now = new Date();
+      const currentMetadata = await getCurrentTimerMetadata(currentTimeEntryId);
+      const pauseInfo = parsePauseInfo(currentMetadata);
+      const effectiveEnd = pauseInfo.isPaused && pauseInfo.lastPauseTime ? pauseInfo.lastPauseTime : now;
+      const totalDurationMs = effectiveEnd.getTime() - timerState.startTime.getTime() - (pauseInfo.isPaused && pauseInfo.lastPauseTime ? (timerState.pausedDuration - (now.getTime() - pauseInfo.lastPauseTime.getTime())) : timerState.pausedDuration);
       const durationMinutes = Math.floor(totalDurationMs / (1000 * 60));
 
-      // Get current timer metadata and add stop time
-      const currentMetadata = await getCurrentTimerMetadata(currentTimeEntryId);
-      const stopMetadata = currentMetadata ? `${currentMetadata}\nTimer stopped at ${endTime.toISOString()}` : `Timer stopped at ${endTime.toISOString()}`;
+      const stopMetadata = currentMetadata ? `${currentMetadata}\nTimer stopped at ${effectiveEnd.toISOString()}` : `Timer stopped at ${effectiveEnd.toISOString()}`;
 
       // Update time entry with end time, user comment, and timer metadata
       const { error } = await supabase
         .from('time_entries')
         .update({
-          end_time: endTime.toISOString(),
+          end_time: effectiveEnd.toISOString(),
           duration_minutes: durationMinutes,
           comment: workComment.trim() || null, // Only save user's comment - no timer metadata here
           timer_metadata: stopMetadata // Save timer info separately

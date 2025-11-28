@@ -17,6 +17,7 @@ interface TimeEntry {
   duration_minutes: number | null;
   comment: string | null;
   entry_type: string;
+  timer_metadata?: string | null;
   task_name: string;
   project_name: string;
   project_service: string;
@@ -109,13 +110,13 @@ const LogCal = () => {
           duration_minutes,
           comment,
           entry_type,
+          timer_metadata,
           employees!employee_id (
             name
           )
         `)
         .gte('start_time', dayStart.toISOString())
         .lte('start_time', dayEnd.toISOString())
-        .not('end_time', 'is', null)
         .order('start_time', { ascending: true });
 
       if (entriesError) throw entriesError;
@@ -241,6 +242,7 @@ const LogCal = () => {
             duration_minutes: entry.duration_minutes,
             comment: entry.comment,
             entry_type: entry.entry_type,
+            timer_metadata: entry.timer_metadata,
             task_name: taskDetails.name,
             project_name: taskDetails.projects?.name || 'Unknown Project',
             project_service: taskDetails.projects?.service || 'Unknown Service',
@@ -275,6 +277,19 @@ const LogCal = () => {
     });
   }, [timeEntries, serviceFilter, clientFilter, projectFilter]);
 
+  // Helper to compute effective end time for display when entry is paused
+  const getEffectiveEndTime = (entry: TimeEntry): Date | null => {
+    if (entry.end_time) return parseISO(entry.end_time);
+    const metadata = entry.timer_metadata || '';
+    const pauseMatches = [...metadata.matchAll(/Timer paused at ([^,\n]+)/g)];
+    const resumeMatches = [...metadata.matchAll(/Timer resumed at ([^,\n]+)/g)];
+    if (pauseMatches.length > resumeMatches.length && pauseMatches.length > 0) {
+      const lastPauseStr = pauseMatches[pauseMatches.length - 1][1];
+      return parseISO(lastPauseStr);
+    }
+    return null;
+  };
+
   // Generate 24-hour calendar slots with spanning entries
   const calendarSlots = useMemo(() => {
     const slots: CalendarSlot[] = [];
@@ -290,13 +305,12 @@ const LogCal = () => {
 
     // Process each time entry to handle spanning
     filteredTimeEntries.forEach(entry => {
-      if (!entry.end_time) return;
-
       const entryStart = parseISO(entry.start_time);
-      const entryEnd = parseISO(entry.end_time);
+      const effectiveEnd = getEffectiveEndTime(entry);
+      if (!effectiveEnd) return;
       const startHour = entryStart.getHours();
-      const endHour = entryEnd.getHours();
-      const durationHours = Math.ceil((entryEnd.getTime() - entryStart.getTime()) / (1000 * 60 * 60));
+      const endHour = effectiveEnd.getHours();
+      const durationHours = Math.ceil((effectiveEnd.getTime() - entryStart.getTime()) / (1000 * 60 * 60));
 
       // If the task spans multiple hours
       if (durationHours > 1 || startHour !== endHour) {
@@ -306,15 +320,18 @@ const LogCal = () => {
           if (hour === startHour) position = 'start';
           else if (hour === endHour) position = 'end';
 
+          // Use a cloned entry with effective end time for display
+          const displayEntry = { ...entry, end_time: effectiveEnd.toISOString() };
           slots[hour].spanningEntries.push({
-            entry,
+            entry: displayEntry,
             position,
             totalHours: durationHours
           });
         }
       } else {
         // Single hour entry - add to regular entries
-        slots[startHour].entries.push(entry);
+        const displayEntry = { ...entry, end_time: effectiveEnd.toISOString() };
+        slots[startHour].entries.push(displayEntry);
       }
     });
     
@@ -329,9 +346,16 @@ const LogCal = () => {
     return `${hour.toString().padStart(2, '0')}:00`;
   };
 
-  const formatTimeRange = (startTime: string, endTime: string | null) => {
-    if (!endTime) return format(parseISO(startTime), 'HH:mm') + ' - Running';
-    return `${format(parseISO(startTime), 'HH:mm')} - ${format(parseISO(endTime), 'HH:mm')}`;
+  const formatTimeRange = (entry: TimeEntry) => {
+    const start = parseISO(entry.start_time);
+    if (entry.end_time) {
+      return `${format(start, 'HH:mm')} - ${format(parseISO(entry.end_time), 'HH:mm')}`;
+    }
+    const effectiveEnd = getEffectiveEndTime(entry);
+    if (effectiveEnd) {
+      return `${format(start, 'HH:mm')} - ${format(effectiveEnd, 'HH:mm')}`;
+    }
+    return format(start, 'HH:mm') + ' - Running';
   };
 
   const renderTimeEntry = (entry: TimeEntry, isSpanning = false, position?: 'start' | 'middle' | 'end', totalHours?: number) => {
@@ -358,7 +382,7 @@ const LogCal = () => {
               <>
                 <div className="text-xs text-gray-600 flex items-center gap-2">
                   <Clock className="h-3 w-3" />
-                  {formatTimeRange(entry.start_time, entry.end_time)}
+                  {formatTimeRange(entry)}
                 </div>
                 <div className="text-xs text-gray-500 break-words">
                   {entry.project_name} • {entry.client_name} • Logged by: {entry.employee_name}

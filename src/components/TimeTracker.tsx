@@ -234,22 +234,17 @@ const TimeTracker = ({ taskId, taskName, projectName, employeeId, initialTimeEnt
     mutationFn: async (commentText: string) => {
       if (!activeTimer) throw new Error('No active timer');
       
-      const endTime = new Date();
-      const totalElapsedMs = endTime.getTime() - activeTimer.startTime.getTime();
-      
-      // Calculate final paused duration
+      const now = new Date();
+      const effectiveEnd = activeTimer.isPaused && activeTimer.pauseStartTime ? activeTimer.pauseStartTime : now;
+      const totalElapsedMs = effectiveEnd.getTime() - activeTimer.startTime.getTime();
       let finalPausedMs = activeTimer.pausedDuration * 1000;
-      if (activeTimer.isPaused && activeTimer.pauseStartTime) {
-        finalPausedMs += endTime.getTime() - activeTimer.pauseStartTime.getTime();
-      }
-      
       const actualWorkingMs = totalElapsedMs - finalPausedMs;
       const durationMinutes = Math.floor(actualWorkingMs / 60000);
       
       const { data, error } = await supabase
         .from('time_entries')
         .update({
-          end_time: endTime.toISOString(),
+          end_time: effectiveEnd.toISOString(),
           duration_minutes: durationMinutes,
           comment: commentText || null
         })

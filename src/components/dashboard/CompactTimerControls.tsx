@@ -129,7 +129,7 @@ const CompactTimerControls: React.FC<CompactTimerControlsProps> = ({
   const stopTimerMutation = useMutation({
     mutationFn: async (workComment: string) => {
       const currentMetadata = await getCurrentTimerMetadata(entryId);
-      const endTime = new Date();
+      const now = new Date();
       
       // Get the entry details to calculate duration
       const { data: entryData, error: entryError } = await supabase
@@ -141,14 +141,15 @@ const CompactTimerControls: React.FC<CompactTimerControlsProps> = ({
       if (entryError) throw entryError;
 
       const startTime = new Date(entryData.start_time);
-      const totalElapsedMs = endTime.getTime() - startTime.getTime();
+      const pauseInfo = parsePauseInfo(entryData.timer_metadata);
+      const effectiveEnd = pauseInfo.isPaused && pauseInfo.lastPauseTime ? pauseInfo.lastPauseTime : now;
+      const totalElapsedMs = effectiveEnd.getTime() - startTime.getTime();
       
       // Parse pause info to get total paused time
-      const pauseInfo = parsePauseInfo(entryData.timer_metadata);
       const actualWorkingMs = totalElapsedMs - pauseInfo.totalPausedMs;
       const actualWorkingMinutes = Math.max(1, Math.round(actualWorkingMs / (1000 * 60)));
 
-      const stopTimestamp = endTime.toISOString();
+      const stopTimestamp = effectiveEnd.toISOString();
       const finalMetadata = currentMetadata 
         ? `${currentMetadata}\nTimer stopped at ${stopTimestamp}` 
         : `Timer stopped at ${stopTimestamp}`;
