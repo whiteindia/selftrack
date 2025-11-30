@@ -127,12 +127,12 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
           
           console.log('Creating subtask with scheduled time:', scheduledDateTime.toISOString());
           
-          // Check if we should insert into tasks table instead for certain types
-          if (item.type === 'reminder' || item.type === 'task-deadline') {
-            // For reminders and task deadlines, update the existing task's scheduled_time
+          // If item represents a task, update the task's scheduled_time/date
+          if (item.itemType === 'task' || item.type === 'task' || item.type === 'reminder' || item.type === 'task-deadline') {
             const { data: taskData, error: taskError } = await supabase
               .from('tasks')
               .update({
+                date: format(date, 'yyyy-MM-dd'),
                 scheduled_time: `${format(date, 'yyyy-MM-dd')} ${slot}:00`
               })
               .eq('id', item.originalId)
@@ -141,13 +141,32 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
 
             if (taskError) {
               console.error('Task update error:', taskError);
-              // Fall back to creating subtask
             } else {
               console.log('Successfully updated task:', taskData);
               return taskData;
             }
           }
-          
+
+          // If item represents a subtask, update the subtask's scheduled_time/date
+          if (item.itemType === 'subtask' || item.type === 'subtask') {
+            const { data: subtaskUpdate, error: subtaskUpdateError } = await supabase
+              .from('subtasks')
+              .update({
+                date: format(date, 'yyyy-MM-dd'),
+                scheduled_time: scheduledDateTime.toISOString()
+              })
+              .eq('id', item.id)
+              .select()
+              .single();
+
+            if (subtaskUpdateError) {
+              console.error('Subtask update error:', subtaskUpdateError);
+            } else {
+              console.log('Successfully updated subtask:', subtaskUpdate);
+              return subtaskUpdate;
+            }
+          }
+
           // Insert into subtasks table with proper datetime format
           const { data, error } = await supabase
             .from('subtasks')

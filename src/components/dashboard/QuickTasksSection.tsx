@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
@@ -12,6 +12,7 @@ import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
 import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
 import ManualTimeLog from "@/components/ManualTimeLog";
+import AssignToSlotDialog from "@/components/AssignToSlotDialog";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
 import { convertISTToUTC } from "@/utils/timezoneUtils";
 import {
@@ -46,6 +47,12 @@ export const QuickTasksSection = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showingSubtasksFor, setShowingSubtasksFor] = useState<string | null>(null);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+
+  
+
+  
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -521,6 +528,23 @@ export const QuickTasksSection = () => {
       updateTaskStatusMutation.mutate({ taskId, status: newStatus });
     };
 
+    const openAssignForTask = (task: any) => {
+      const item = {
+        id: task.id,
+        originalId: task.id,
+        type: 'task',
+        itemType: 'task',
+        title: task.name,
+        date: new Date().toISOString().slice(0, 10),
+        client: '',
+        project: '',
+        assigneeId: null,
+        projectId: task.project_id,
+      };
+      setSelectedItemsForWorkload([item]);
+      setIsAssignDialogOpen(true);
+    };
+
     return (
       <div ref={setNodeRef} style={style} className={`select-none ${active?.id === task.id ? 'drag-active' : ''}`}>
         <Card className="p-4 max-w-2xl mx-auto">
@@ -640,6 +664,19 @@ export const QuickTasksSection = () => {
                   <Play className="h-4 w-4" />
                 </Button>
               )}
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAssignForTask(task);
+                }}
+                className="h-8 px-3"
+                title="Add to Workload"
+              >
+                <CalendarPlus className="h-4 w-4 text-blue-600" />
+              </Button>
 
               <Button
                 size="sm"
@@ -799,6 +836,27 @@ export const QuickTasksSection = () => {
                             onSuccess={() => refetch()}
                             isSubtask={true}
                           />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const item = {
+                                id: subtask.id,
+                                originalId: task.id,
+                                type: 'subtask',
+                                itemType: 'subtask',
+                                title: subtask.name,
+                                date: new Date().toISOString().slice(0, 10),
+                              };
+                              setSelectedItemsForWorkload([item]);
+                              setIsAssignDialogOpen(true);
+                            }}
+                            className="h-7 px-2"
+                            title="Add subtask to Workload"
+                          >
+                            <CalendarPlus className="h-3 w-3 text-blue-600" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1536,13 +1594,14 @@ export const QuickTasksSection = () => {
                 >
                   <List className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant={viewMode === "timeline" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setViewMode("timeline")}
-                >
-                  <Clock className="h-4 w-4" />
-                </Button>
+              <Button
+                variant={viewMode === "timeline" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("timeline")}
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+              
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button
@@ -1583,6 +1642,8 @@ export const QuickTasksSection = () => {
               </div>
             </div>
           </div>
+
+        
 
         {/* Quick add task input */}
         <form onSubmit={handleCreateTask} className="flex gap-2">
@@ -1645,6 +1706,18 @@ export const QuickTasksSection = () => {
         mode="full"
       />
     )}
+    <AssignToSlotDialog
+      open={isAssignDialogOpen}
+      onOpenChange={setIsAssignDialogOpen}
+      selectedItems={selectedItemsForWorkload}
+      onAssigned={() => {
+        setIsAssignDialogOpen(false);
+        setSelectedItemsForWorkload([]);
+        toast.success('Added to workload');
+        queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
+      }}
+    />
+    
   </>
   );
 };
