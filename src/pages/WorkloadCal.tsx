@@ -134,6 +134,32 @@ const WorkloadCal = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Load persisted workload context (date and slot)
+  useEffect(() => {
+    try {
+      const storedDate = localStorage.getItem('workload.selectedDate');
+      const storedSlot = localStorage.getItem('workload.selectedTimeSlot');
+      if (storedDate) {
+        const parsed = new Date(storedDate);
+        if (!isNaN(parsed.getTime())) setSelectedDate(parsed);
+      }
+      if (storedSlot) setSelectedTimeSlot(storedSlot);
+    } catch {}
+  }, []);
+
+  // Persist context when user changes date or slot
+  useEffect(() => {
+    try {
+      localStorage.setItem('workload.selectedDate', selectedDate.toISOString());
+    } catch {}
+  }, [selectedDate]);
+
+  useEffect(() => {
+    try {
+      if (selectedTimeSlot) localStorage.setItem('workload.selectedTimeSlot', selectedTimeSlot);
+    } catch {}
+  }, [selectedTimeSlot]);
+
   // Auto-scroll to current slot
   useEffect(() => {
     const scrollToCurrentSlot = () => {

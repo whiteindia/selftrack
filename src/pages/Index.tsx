@@ -14,7 +14,7 @@ import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users } from 'lucide-react';
+import { Plus, Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users, CalendarPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -31,6 +31,37 @@ const Index = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+
+  const addToWorkloadMutation = useMutation({
+    mutationFn: async (task: any) => {
+      const storedDateIso = localStorage.getItem('workload.selectedDate');
+      const storedSlot = localStorage.getItem('workload.selectedTimeSlot');
+      const dateObj = storedDateIso ? new Date(storedDateIso) : new Date();
+      const dateStr = dateObj.toISOString().split('T')[0];
+      const timeSlot = storedSlot || `${new Date().getHours().toString().padStart(2, '0')}:00`;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          date: dateStr,
+          scheduled_time: timeSlot
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+      return { dateStr, timeSlot };
+    },
+    onSuccess: ({ dateStr, timeSlot }) => {
+      toast.success(`Added to workload: ${dateStr} @ ${timeSlot}`);
+      navigate('/workload-cal');
+    },
+    onError: (error) => {
+      console.error('Error adding to workload:', error);
+      toast.error('Failed to add to workload');
+    }
+  });
 
   const {
     statsQuery,
@@ -219,6 +250,28 @@ const Index = () => {
     }
   };
 
+  const handleAddToWorkload = (task: any) => {
+    const storedSlot = localStorage.getItem('workload.selectedTimeSlot');
+    if (!storedSlot) {
+      const item = {
+        id: task.id,
+        originalId: task.id,
+        type: 'task',
+        title: task.name,
+        date: new Date().toISOString().slice(0, 10),
+        client: task.client_name || '',
+        project: task.project_name || '',
+        assigneeId: task.assignee_id || null,
+        projectId: task.project_id,
+        itemType: 'task'
+      };
+      setSelectedItemsForWorkload([item]);
+      setIsAssignDialogOpen(true);
+    } else {
+      addToWorkloadMutation.mutate(task);
+    }
+  };
+
   return (
     <Navigation>
       <div className="max-w-7xl mx-auto px-1 sm:px-6 lg:px-8 py-8">
@@ -370,6 +423,15 @@ const Index = () => {
                               <Play className="h-3 w-3 mr-1" />
                               Start
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleAddToWorkload(task)}
+                              title="Add to Workload"
+                              className="ml-1"
+                            >
+                              <CalendarPlus className="h-4 w-4 text-blue-600" />
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -448,8 +510,37 @@ const Index = () => {
         }}
         defaultProjectName="Miscellanious-Quick-Temp-Orglater"
       />
+
+      {/* Assign to Workload Dialog */}
+      <AssignToSlotDialog
+        open={isAssignDialogOpen}
+        onOpenChange={setIsAssignDialogOpen}
+        selectedItems={selectedItemsForWorkload}
+        onAssigned={() => {
+          setIsAssignDialogOpen(false);
+          setSelectedItemsForWorkload([]);
+          toast.success('Item added to workload calendar');
+        }}
+      />
     </Navigation>
   );
 };
 
 export default Index;
+import AssignToSlotDialog from '@/components/AssignToSlotDialog';
+  const handleAddToWorkload = (task: any) => {
+    const item = {
+      id: task.id,
+      originalId: task.id,
+      type: 'task',
+      title: task.name,
+      date: new Date().toISOString().slice(0, 10),
+      client: task.client_name || '',
+      project: task.project_name || '',
+      assigneeId: task.assignee_id || null,
+      projectId: task.project_id,
+      itemType: 'task'
+    };
+    setSelectedItemsForWorkload([item]);
+    setIsAssignDialogOpen(true);
+  };
