@@ -291,6 +291,34 @@ export const QuickTasksSection = () => {
     return sorted;
   }, [tasks, timeFilter]);
 
+  const filterCounts = useMemo(() => {
+    if (!tasks) return { all: 0, yesterday: 0, today: 0, tomorrow: 0, laterThisWeek: 0, nextWeek: 0 };
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const yesterdayStart = startOfDay(addDays(now, -1));
+    const yesterdayEnd = endOfDay(addDays(now, -1));
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const tomorrowEnd = endOfDay(addDays(now, 1));
+    const thisWeekEnd = endOfWeek(now);
+    const nextWeekStart = startOfWeek(addDays(now, 7));
+    const nextWeekEnd = endOfWeek(addDays(now, 7));
+
+    const withDeadline = tasks.filter(t => !!t.deadline);
+    const inRange = (d: Date, start: Date, end: Date) => d >= start && d <= end;
+    const all = tasks.length;
+    const yesterday = withDeadline.filter(t => inRange(new Date(t.deadline), yesterdayStart, yesterdayEnd)).length;
+    const today = withDeadline.filter(t => inRange(new Date(t.deadline), todayStart, todayEnd)).length;
+    const tomorrow = withDeadline.filter(t => inRange(new Date(t.deadline), tomorrowStart, tomorrowEnd)).length;
+    const laterThisWeek = withDeadline.filter(t => {
+      const d = new Date(t.deadline);
+      return d > tomorrowEnd && d <= thisWeekEnd;
+    }).length;
+    const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
+
+    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek };
+  }, [tasks]);
+
   // Create task mutation
   const createTaskMutation = useMutation({
     mutationFn: async (taskName: string) => {
@@ -307,6 +335,9 @@ export const QuickTasksSection = () => {
       const now = new Date();
       
       switch (timeFilter) {
+        case "yesterday":
+          deadline = endOfDay(addDays(now, -1)).toISOString();
+          break;
         case "today":
           deadline = endOfDay(now).toISOString();
           break;
@@ -1610,6 +1641,15 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("all")}
                 >
                   All
+                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.all}</span>
+                </Button>
+                <Button
+                  variant={timeFilter === "yesterday" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("yesterday")}
+                >
+                  Yesterday
+                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.yesterday}</span>
                 </Button>
                 <Button
                   variant={timeFilter === "today" ? "default" : "outline"}
@@ -1617,6 +1657,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("today")}
                 >
                   Today
+                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.today}</span>
                 </Button>
                 <Button
                   variant={timeFilter === "tomorrow" ? "default" : "outline"}
@@ -1624,6 +1665,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("tomorrow")}
                 >
                   Tomorrow
+                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.tomorrow}</span>
                 </Button>
                 <Button
                   variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
@@ -1631,6 +1673,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("laterThisWeek")}
                 >
                   Later This Week
+                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.laterThisWeek}</span>
                 </Button>
                 <Button
                   variant={timeFilter === "nextWeek" ? "default" : "outline"}
@@ -1638,6 +1681,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("nextWeek")}
                 >
                   Next Week
+                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.nextWeek}</span>
                 </Button>
               </div>
             </div>
