@@ -14,6 +14,7 @@ import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
 import ManualTimeLog from "@/components/ManualTimeLog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 import { convertISTToUTC } from "@/utils/timezoneUtils";
 import {
   DndContext,
@@ -36,7 +37,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-type TimeFilter = "all" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
+type TimeFilter = "all" | "yesterday" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 
 export const QuickTasksSection = () => {
   const navigate = useNavigate();
@@ -209,6 +210,8 @@ export const QuickTasksSection = () => {
     const now = new Date();
     const todayStart = startOfDay(now);
     const todayEnd = endOfDay(now);
+    const yesterdayStart = startOfDay(addDays(now, -1));
+    const yesterdayEnd = endOfDay(addDays(now, -1));
     const tomorrowStart = startOfDay(addDays(now, 1));
     const tomorrowEnd = endOfDay(addDays(now, 1));
     const thisWeekEnd = endOfWeek(now);
@@ -223,6 +226,8 @@ export const QuickTasksSection = () => {
         const deadline = new Date(task.deadline);
 
         switch (timeFilter) {
+          case "yesterday":
+            return deadline >= yesterdayStart && deadline <= yesterdayEnd;
           case "today":
             return deadline >= todayStart && deadline <= todayEnd;
           case "tomorrow":
@@ -1641,7 +1646,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("all")}
                 >
                   All
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.all}</span>
+                  <Badge variant="secondary" className="ml-2">{filterCounts.all}</Badge>
                 </Button>
                 <Button
                   variant={timeFilter === "yesterday" ? "default" : "outline"}
@@ -1649,7 +1654,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("yesterday")}
                 >
                   Yesterday
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.yesterday}</span>
+                  <Badge variant="secondary" className="ml-2">{filterCounts.yesterday}</Badge>
                 </Button>
                 <Button
                   variant={timeFilter === "today" ? "default" : "outline"}
@@ -1657,7 +1662,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("today")}
                 >
                   Today
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.today}</span>
+                  <Badge variant="secondary" className="ml-2">{filterCounts.today}</Badge>
                 </Button>
                 <Button
                   variant={timeFilter === "tomorrow" ? "default" : "outline"}
@@ -1665,7 +1670,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("tomorrow")}
                 >
                   Tomorrow
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.tomorrow}</span>
+                  <Badge variant="secondary" className="ml-2">{filterCounts.tomorrow}</Badge>
                 </Button>
                 <Button
                   variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
@@ -1673,7 +1678,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("laterThisWeek")}
                 >
                   Later This Week
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.laterThisWeek}</span>
+                  <Badge variant="secondary" className="ml-2">{filterCounts.laterThisWeek}</Badge>
                 </Button>
                 <Button
                   variant={timeFilter === "nextWeek" ? "default" : "outline"}
@@ -1681,7 +1686,7 @@ export const QuickTasksSection = () => {
                   onClick={() => setTimeFilter("nextWeek")}
                 >
                   Next Week
-                  <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">{filterCounts.nextWeek}</span>
+                  <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
                 </Button>
               </div>
             </div>
