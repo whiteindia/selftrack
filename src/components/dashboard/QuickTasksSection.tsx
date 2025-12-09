@@ -813,8 +813,8 @@ export const QuickTasksSection = () => {
               {task.subtasks && task.subtasks.length > 0 ? (
                 <div className="space-y-3">
                   {task.subtasks.map((subtask: any) => (
-                    <Card key={subtask.id} className="p-3 bg-muted/30">
-                      <div className="flex items-center justify-between">
+                    <Card key={subtask.id} className="p-4 bg-muted/30">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           {editingSubtask === subtask.id ? (
                             <div className="flex gap-2">
@@ -866,7 +866,7 @@ export const QuickTasksSection = () => {
                             </>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="mt-2 sm:mt-0 flex flex-wrap gap-2 justify-start sm:justify-end">
                           <TimeTrackerWithComment 
                             task={{ id: subtask.id, name: subtask.name }}
                             onSuccess={() => refetch()}
@@ -888,7 +888,7 @@ export const QuickTasksSection = () => {
                               setSelectedItemsForWorkload([item]);
                               setIsAssignDialogOpen(true);
                             }}
-                            className="h-7 px-2"
+                            className="h-8 px-3"
                             title="Add subtask to Workload"
                           >
                             <CalendarPlus className="h-3 w-3 text-blue-600" />
@@ -900,7 +900,7 @@ export const QuickTasksSection = () => {
                               e.stopPropagation();
                               handleEditSubtask(subtask.id, subtask.name);
                             }}
-                            className="h-7 px-2"
+                            className="h-8 px-3"
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -911,7 +911,7 @@ export const QuickTasksSection = () => {
                               e.stopPropagation();
                               navigate(`/alltasks?highlight=${subtask.id}&subtask=true`);
                             }}
-                            className="h-7 px-2"
+                            className="h-8 px-3"
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
@@ -922,7 +922,7 @@ export const QuickTasksSection = () => {
                               e.stopPropagation();
                               handleDeleteSubtask(subtask.id);
                             }}
-                            className="h-7 px-2 text-destructive hover:text-destructive"
+                            className="h-8 px-3 text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
