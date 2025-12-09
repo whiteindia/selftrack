@@ -583,9 +583,9 @@ export const QuickTasksSection = () => {
 
     return (
       <div ref={setNodeRef} style={style} className={`select-none ${active?.id === task.id ? 'drag-active' : ''}`}>
-        <Card className="p-4 max-w-2xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+        <Card className="p-4 w-full">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
               {/* Dedicated drag handle for better mobile touch support */}
               <div
                 key={`drag-handle-${task.id}`}
@@ -606,7 +606,7 @@ export const QuickTasksSection = () => {
               >
                 <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
               </div>
-              <div className="flex-1 min-w-0 overflow-hidden task-content-area">
+              <div className="flex-1 task-content-area">
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
                   <span 
@@ -641,7 +641,7 @@ export const QuickTasksSection = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end task-content-area">
+            <div className="mt-2 flex flex-wrap gap-2 justify-start task-content-area">
               {/* Time Controls Toggle */}
               <Button
                 size="sm"
@@ -673,7 +673,7 @@ export const QuickTasksSection = () => {
 
               {activeEntry ? (
                 <>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-start gap-1">
                     <LiveTimer
                       startTime={activeEntry.start_time}
                       isPaused={isPaused}
