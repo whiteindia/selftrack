@@ -50,6 +50,8 @@ export const QuickTasksSection = () => {
   const [showingSubtasksFor, setShowingSubtasksFor] = useState<string | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+  const [lastScrollY, setLastScrollY] = useState<number | null>(null);
+  const [lastFocusTaskId, setLastFocusTaskId] = useState<string | null>(null);
 
   
 
@@ -296,6 +298,13 @@ export const QuickTasksSection = () => {
     return sorted;
   }, [tasks, timeFilter]);
 
+  useEffect(() => {
+    if (lastScrollY !== null) {
+      window.scrollTo({ top: lastScrollY });
+      setLastScrollY(null);
+    }
+  }, [tasks]);
+
   const filterCounts = useMemo(() => {
     if (!tasks) return { all: 0, yesterday: 0, today: 0, tomorrow: 0, laterThisWeek: 0, nextWeek: 0 };
     const now = new Date();
@@ -482,7 +491,15 @@ export const QuickTasksSection = () => {
       active,
     } = useSortable({ id: task.id });
 
-    const [showSubtasks, setShowSubtasks] = useState(false);
+    const [showSubtasks, setShowSubtasks] = useState<boolean>(() => {
+      try {
+        const raw = sessionStorage.getItem('quick.expandedSubtasks') || '[]';
+        const arr = JSON.parse(raw);
+        return arr.includes(task.id);
+      } catch {
+        return false;
+      }
+    });
     const [newSubtaskName, setNewSubtaskName] = useState("");
     const [showTimeControls, setShowTimeControls] = useState(false);
     const [showTimeHistory, setShowTimeHistory] = useState(false);
@@ -499,6 +516,15 @@ export const QuickTasksSection = () => {
       e.preventDefault();
       if (newSubtaskName.trim()) {
         createSubtaskMutation.mutate({ taskId: task.id, name: newSubtaskName.trim() });
+        // Persist expansion state
+        try {
+          const raw = sessionStorage.getItem('quick.expandedSubtasks') || '[]';
+          const arr = JSON.parse(raw);
+          if (!arr.includes(task.id)) {
+            arr.push(task.id);
+            sessionStorage.setItem('quick.expandedSubtasks', JSON.stringify(arr));
+          }
+        } catch {}
         setNewSubtaskName("");
       }
     };
@@ -542,7 +568,16 @@ export const QuickTasksSection = () => {
         default:
           newStatus = "Not Started";
       }
-      updateSubtaskMutation.mutate({ subtaskId, status: newStatus });
+      updateSubtaskMutation.mutate({ subtaskId, status: newStatus, parentTaskId: task.id });
+      // Persist expansion state
+      try {
+        const raw = sessionStorage.getItem('quick.expandedSubtasks') || '[]';
+        const arr = JSON.parse(raw);
+        if (!arr.includes(task.id)) {
+          arr.push(task.id);
+          sessionStorage.setItem('quick.expandedSubtasks', JSON.stringify(arr));
+        }
+      } catch {}
     };
 
     const handleToggleTaskStatus = (taskId: string, currentStatus: string) => {
@@ -661,7 +696,18 @@ export const QuickTasksSection = () => {
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowSubtasks(!showSubtasks);
+                  const next = !showSubtasks;
+                  setShowSubtasks(next);
+                  try {
+                    const raw = sessionStorage.getItem('quick.expandedSubtasks') || '[]';
+                    let arr = JSON.parse(raw);
+                    if (next) {
+                      if (!arr.includes(task.id)) arr.push(task.id);
+                    } else {
+                      arr = arr.filter((id: string) => id !== task.id);
+                    }
+                    sessionStorage.setItem('quick.expandedSubtasks', JSON.stringify(arr));
+                  } catch {}
                 }}
                 className="h-8 px-3"
               >
@@ -1053,7 +1099,9 @@ export const QuickTasksSection = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      setLastScrollY(window.scrollY);
+      setLastFocusTaskId(variables.taskId);
       toast.success("Subtask created successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
     },
@@ -1065,7 +1113,7 @@ export const QuickTasksSection = () => {
 
   // Subtask update mutation
   const updateSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId, name, status }: { subtaskId: string; name?: string; status?: string }) => {
+    mutationFn: async ({ subtaskId, name, status, parentTaskId }: { subtaskId: string; name?: string; status?: string; parentTaskId?: string }) => {
       const updates: any = {};
       if (name) updates.name = name;
       if (status) updates.status = status;
@@ -1077,7 +1125,9 @@ export const QuickTasksSection = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      setLastScrollY(window.scrollY);
+      if (variables.parentTaskId) setLastFocusTaskId(variables.parentTaskId);
       toast.success("Subtask updated successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
     },
