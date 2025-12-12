@@ -193,6 +193,8 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
       reminder_datetime: formatUTCToISTInput(task.reminder_datetime),
       slot_start_datetime: formatUTCToISTInput(task.slot_start_datetime),
       slot_end_datetime: formatUTCToISTInput(task.slot_end_datetime),
+      service: '',
+      client_id: '',
     });
   }, [task]);
 

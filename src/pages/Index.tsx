@@ -12,6 +12,7 @@ import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
+import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -533,20 +534,3 @@ const Index = () => {
 };
 
 export default Index;
-import AssignToSlotDialog from '@/components/AssignToSlotDialog';
-  const handleAddToWorkload = (task: any) => {
-    const item = {
-      id: task.id,
-      originalId: task.id,
-      type: 'task',
-      title: task.name,
-      date: new Date().toISOString().slice(0, 10),
-      client: task.client_name || '',
-      project: task.project_name || '',
-      assigneeId: task.assignee_id || null,
-      projectId: task.project_id,
-      itemType: 'task'
-    };
-    setSelectedItemsForWorkload([item]);
-    setIsAssignDialogOpen(true);
-  };
