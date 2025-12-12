@@ -488,6 +488,12 @@ export const HostlistSection = () => {
                     {task.status}
                   </span>
                   <span>Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}</span>
+                  {(task.slot_start_datetime || task.slot_start_time) && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(task.slot_start_datetime || task.slot_start_time).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  )}
                   {task.total_logged_hours > 0 && (
                     <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                       {task.total_logged_hours}h logged
