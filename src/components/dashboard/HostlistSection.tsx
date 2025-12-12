@@ -25,8 +25,8 @@ type TimeFilter = "all" | "yesterday" | "today" | "tomorrow" | "laterThisWeek" |
 export const HostlistSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
-  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("timeline");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
@@ -644,18 +644,6 @@ export const HostlistSection = () => {
     refetchInterval: 5000,
   });
 
-  if (!tasks || tasks.length === 0) {
-    return (
-      <Card className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Hostlist</h2>
-          </div>
-          <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
-        </div>
-      </Card>
-    );
-  }
 
   return (
     <>
@@ -688,7 +676,9 @@ export const HostlistSection = () => {
             <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
           </form>
 
-          {viewMode === "timeline" ? (
+          {filteredTasks.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
+          ) : viewMode === "timeline" ? (
             <div className="text-sm text-muted-foreground">Timeline view coming soon</div>
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
