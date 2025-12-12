@@ -439,16 +439,6 @@ export const HostlistSection = () => {
       updateSubtaskMutation.mutate({ subtaskId, status: newStatus });
     };
 
-    const handleStartTask = async (taskId: string) => {
-      const { data: employee } = await supabase
-        .from("employees")
-        .select("id")
-        .eq("email", (await supabase.auth.getUser()).data.user?.email)
-        .single();
-      if (!employee) return;
-      await supabase.from("time_entries").insert({ task_id: taskId, employee_id: employee.id, entry_type: "task", start_time: new Date().toISOString() });
-      queryClient.invalidateQueries({ queryKey: ["hostlist-task-time-entries"] });
-    };
 
     // Function to render task name with clickable links
     const renderTaskName = (name: string) => {
@@ -664,6 +654,25 @@ export const HostlistSection = () => {
     refetchInterval: 5000,
   });
 
+  const handleStartTask = async (taskId: string) => {
+    const { data: employee } = await supabase
+      .from("employees")
+      .select("id")
+      .eq("email", (await supabase.auth.getUser()).data.user?.email)
+      .single();
+
+    if (!employee) return;
+
+    await supabase.from("time_entries").insert({
+      task_id: taskId,
+      employee_id: employee.id,
+      entry_type: "task",
+      start_time: new Date().toISOString(),
+    });
+
+    queryClient.invalidateQueries({ queryKey: ["hostlist-task-time-entries"] });
+  };
+
   // Timeline view component - shows tasks grouped by time (slots or deadlines)
   const TimelineView = () => {
     // Check if any tasks have slot_start_datetime (priority) or slot_start_time
@@ -786,21 +795,23 @@ export const HostlistSection = () => {
           )}
         </div>
 
-        {/* Vertical thread line */}
-        <div className="absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
+        {/* Vertical thread line - hidden on mobile, visible on desktop */}
+        <div className="hidden sm:block absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
 
         <div className="space-y-6">
           {sortedDateTimeSlots.map((dateTimeSlot, index) => (
-            <div key={dateTimeSlot} className="relative flex items-start gap-4">
-              {/* Time node on the vertical thread */}
-              <div className={`relative z-10 flex items-center justify-center w-16 h-8 bg-background border border-border rounded-md text-sm font-medium ${
-                dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
-              }`}>
-                {dateTimeSlot}
-              </div>
+            <div key={dateTimeSlot} className="relative">
+              {/* Mobile: Stack time node above content, Desktop: Side by side */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+                {/* Time node on the vertical thread */}
+                <div className={`relative z-10 flex items-center justify-center w-full sm:w-16 h-8 bg-background border border-border rounded-md text-sm font-medium mb-3 sm:mb-0 ${
+                  dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
+                }`}>
+                  {dateTimeSlot}
+                </div>
 
-              {/* Tasks at this time slot */}
-              <div className="flex-1 space-y-2">
+                {/* Tasks at this time slot */}
+                <div className="flex-1 space-y-2 pl-0 sm:pl-4">
                 {tasksByDateTime[dateTimeSlot].tasks.map((task) => {
                   const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
                   const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
@@ -900,6 +911,7 @@ export const HostlistSection = () => {
                     </Card>
                   );
                 })}
+              </div>
               </div>
             </div>
           ))}
@@ -1045,28 +1057,7 @@ export const HostlistSection = () => {
           {filteredTasks.length === 0 ? (
             <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
           ) : viewMode === "timeline" ? (
-            <TimelineView
-              tasks={filteredTasks}
-              timeEntries={activeEntries || []}
-              onStartTask={async (taskId: string) => {
-                const { data: employee } = await supabase
-                  .from("employees")
-                  .select("id")
-                  .eq("email", (await supabase.auth.getUser()).data.user?.email)
-                  .single();
-                if (!employee) return;
-                await supabase.from("time_entries").insert({ task_id: taskId, employee_id: employee.id, entry_type: "task", start_time: new Date().toISOString() });
-                queryClient.invalidateQueries({ queryKey: ["hostlist-task-time-entries"] });
-              }}
-              onEditTask={(task: any) => setEditingTask(task)}
-              onDeleteTask={(taskId: string) => {
-                if (confirm("Are you sure you want to delete this task?")) {
-                  deleteTaskMutation.mutate(taskId);
-                }
-              }}
-              onViewTask={(taskId: string) => navigate(`/alltasks?highlight=${taskId}`)}
-              timeFilter={timeFilter}
-            />
+            <TimelineView />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>

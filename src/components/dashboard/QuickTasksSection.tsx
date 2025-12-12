@@ -1449,21 +1449,23 @@ export const QuickTasksSection = () => {
           )}
         </div>
         
-        {/* Vertical thread line */}
-        <div className="absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
-        
+        {/* Vertical thread line - hidden on mobile, visible on desktop */}
+        <div className="hidden sm:block absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
+
         <div className="space-y-6">
           {sortedDateTimeSlots.map((dateTimeSlot, index) => (
-            <div key={dateTimeSlot} className="relative flex items-start gap-4">
-              {/* Time node on the vertical thread */}
-              <div className={`relative z-10 flex items-center justify-center w-16 h-8 bg-background border border-border rounded-md text-sm font-medium ${
-                dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
-              }`}>
-                {dateTimeSlot}
-              </div>
-              
-              {/* Tasks at this time slot */}
-              <div className="flex-1 space-y-2">
+            <div key={dateTimeSlot} className="relative">
+              {/* Mobile: Stack time node above content, Desktop: Side by side */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+                {/* Time node on the vertical thread */}
+                <div className={`relative z-10 flex items-center justify-center w-full sm:w-16 h-8 bg-background border border-border rounded-md text-sm font-medium mb-3 sm:mb-0 ${
+                  dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
+                }`}>
+                  {dateTimeSlot}
+                </div>
+
+                {/* Tasks at this time slot */}
+                <div className="flex-1 space-y-2 pl-0 sm:pl-4">
                 {tasksByDateTime[dateTimeSlot].tasks.map((task) => {
                   const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
                   const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
@@ -1566,9 +1568,10 @@ export const QuickTasksSection = () => {
                   );
                 })}
               </div>
+              </div>
             </div>
           ))}
-          
+
           {sortedDateTimeSlots.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <p>No tasks for this period</p>
