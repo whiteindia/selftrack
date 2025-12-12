@@ -65,7 +65,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useReminderNotifications } from '@/hooks/useReminderNotifications';
-import NotificationBadge from '@/components/NotificationBadge';
 import { useNavigate } from 'react-router-dom';
 import { formatToIST } from '@/utils/timezoneUtils';
 
@@ -617,7 +616,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                 {user?.email ? getInitials(user.email) : 'U'}
               </AvatarFallback>
             </Avatar>
-            <NotificationBadge count={mobileNotificationCount} />
           </div>
           <div className="text-sm text-gray-600 truncate">
             {user?.email}
@@ -1015,7 +1013,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                       {user?.email ? getInitials(user.email) : 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <NotificationBadge count={totalNotificationCount} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80" style={{ zIndex: 9993 }}>
@@ -1425,7 +1422,6 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                         {user?.email ? getInitials(user.email) : 'U'}
                       </AvatarFallback>
                     </Avatar>
-                    <NotificationBadge count={mobileNotificationCount} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-white border shadow-lg w-80" style={{ zIndex: 9993 }}>
