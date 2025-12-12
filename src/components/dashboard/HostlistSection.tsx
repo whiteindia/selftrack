@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -210,6 +211,34 @@ export const HostlistSection = () => {
 
     return sorted;
   }, [tasks, timeFilter]);
+
+  const filterCounts = useMemo(() => {
+    if (!tasks) return { all: 0, yesterday: 0, today: 0, tomorrow: 0, laterThisWeek: 0, nextWeek: 0 };
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const yesterdayStart = startOfDay(addDays(now, -1));
+    const yesterdayEnd = endOfDay(addDays(now, -1));
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const tomorrowEnd = endOfDay(addDays(now, 1));
+    const thisWeekEnd = endOfWeek(now);
+    const nextWeekStart = startOfWeek(addDays(now, 7));
+    const nextWeekEnd = endOfWeek(addDays(now, 7));
+
+    const withDeadline = tasks.filter(t => !!t.deadline);
+    const inRange = (d: Date, start: Date, end: Date) => d >= start && d <= end;
+    const all = tasks.length;
+    const yesterday = withDeadline.filter(t => inRange(new Date(t.deadline), yesterdayStart, yesterdayEnd)).length;
+    const today = withDeadline.filter(t => inRange(new Date(t.deadline), todayStart, todayEnd)).length;
+    const tomorrow = withDeadline.filter(t => inRange(new Date(t.deadline), tomorrowStart, tomorrowEnd)).length;
+    const laterThisWeek = withDeadline.filter(t => {
+      const d = new Date(t.deadline);
+      return d > tomorrowEnd && d <= thisWeekEnd;
+    }).length;
+    const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
+
+    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek };
+  }, [tasks]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (taskName: string) => {
@@ -648,12 +677,12 @@ export const HostlistSection = () => {
               </div>
               {!collapsed && (
               <div className="flex gap-2 flex-wrap">
-                <Button variant={timeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("all")}>All</Button>
-                <Button variant={timeFilter === "yesterday" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("yesterday")}>Yesterday</Button>
-                <Button variant={timeFilter === "today" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("today")}>Today</Button>
-                <Button variant={timeFilter === "tomorrow" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("tomorrow")}>Tomorrow</Button>
-                <Button variant={timeFilter === "laterThisWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("laterThisWeek")}>Later This Week</Button>
-                <Button variant={timeFilter === "nextWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("nextWeek")}>Next Week</Button>
+                <Button variant={timeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("all")}>All<Badge variant="secondary" className="ml-2">{filterCounts.all}</Badge></Button>
+                <Button variant={timeFilter === "yesterday" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("yesterday")}>Yesterday<Badge variant="secondary" className="ml-2">{filterCounts.yesterday}</Badge></Button>
+                <Button variant={timeFilter === "today" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("today")}>Today<Badge variant="secondary" className="ml-2">{filterCounts.today}</Badge></Button>
+                <Button variant={timeFilter === "tomorrow" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("tomorrow")}>Tomorrow<Badge variant="secondary" className="ml-2">{filterCounts.tomorrow}</Badge></Button>
+                <Button variant={timeFilter === "laterThisWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("laterThisWeek")}>Later This Week<Badge variant="secondary" className="ml-2">{filterCounts.laterThisWeek}</Badge></Button>
+                <Button variant={timeFilter === "nextWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("nextWeek")}>Next Week<Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge></Button>
               </div>
               )}
             </div>
