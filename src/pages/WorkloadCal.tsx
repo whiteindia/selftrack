@@ -166,17 +166,34 @@ const WorkloadCal = () => {
       if (currentSlotRef.current) {
         const element = currentSlotRef.current;
         const elementRect = element.getBoundingClientRect();
-        const absoluteElementTop = elementRect.top + window.pageYOffset;
-        const middle = absoluteElementTop - 80;
-        
-        window.scrollTo({
-          top: middle,
-          behavior: 'smooth'
-        });
+
+        // Check if element is actually visible in the viewport
+        const isVisible = elementRect.width > 0 && elementRect.height > 0;
+
+        if (isVisible) {
+          console.log('Auto-scrolling to current slot:', {
+            elementTop: elementRect.top,
+            elementHeight: elementRect.height,
+            currentHour,
+            selectedDate
+          });
+
+          // Use scrollIntoView for better reliability
+          element.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          });
+        } else {
+          console.log('Current slot element not visible, skipping scroll');
+        }
+      } else {
+        console.log('No current slot ref found for auto-scroll');
       }
     };
 
-    const timer = setTimeout(scrollToCurrentSlot, 800);
+    // Delay scroll to ensure component is fully rendered
+    const timer = setTimeout(scrollToCurrentSlot, 1200);
     return () => clearTimeout(timer);
   }, [selectedDate, currentHour]);
 

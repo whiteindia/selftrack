@@ -9,6 +9,7 @@ import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
+import { CurrentShiftSection } from '@/components/dashboard/CurrentShiftSection';
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
@@ -445,6 +446,11 @@ const Index = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Current Shift Section */}
+        <div className="mb-8">
+          <CurrentShiftSection />
         </div>
 
         {/* Quick Tasks Section */}
