@@ -67,23 +67,13 @@ export const HostlistSection = () => {
           slot_start_time,
           slot_start_datetime,
           slot_end_datetime,
-          sort_order
+          sort_order,
+          projects!inner(name)
         `)
-        .or(
-          [
-            "status.eq.On-Head",
-            "status.eq.Targeted",
-            "status.eq.Imp",
-            "status.eq.on-head",
-            "status.eq.targeted",
-            "status.eq.imp",
-            "status.eq.On Head",
-            "status.eq.Important"
-          ].join(",")
-        )
+        .in("status", ["On-Head", "Targeted", "Imp"])
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true })
-        .limit(100);
+        .limit(200);
 
       if (error) throw error;
       const tasks = baseTasks || [];
