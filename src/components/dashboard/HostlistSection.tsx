@@ -67,7 +67,18 @@ export const HostlistSection = () => {
           slot_end_datetime,
           sort_order
         `)
-        .in("status", ["On-Head", "Targeted", "Imp"]) 
+        .or(
+          [
+            "status.eq.On-Head",
+            "status.eq.Targeted",
+            "status.eq.Imp",
+            "status.eq.on-head",
+            "status.eq.targeted",
+            "status.eq.imp",
+            "status.eq.On Head",
+            "status.eq.Important"
+          ].join(",")
+        )
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true })
         .limit(100);
@@ -603,7 +614,18 @@ export const HostlistSection = () => {
     refetchInterval: 5000,
   });
 
-  if (!tasks || tasks.length === 0) return null;
+  if (!tasks || tasks.length === 0) {
+    return (
+      <Card className="p-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Hostlist</h2>
+          </div>
+          <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <>
