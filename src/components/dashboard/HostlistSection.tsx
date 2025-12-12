@@ -31,6 +31,7 @@ export const HostlistSection = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+  const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   
 
   const sensors = useSensors(
@@ -489,7 +490,10 @@ export const HostlistSection = () => {
               >
                 <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
               </div>
-              <div className="flex-1 task-content-area">
+              <div
+                className="flex-1 task-content-area cursor-pointer"
+                onClick={() => setShowingActionsFor(showingActionsFor === task.id ? null : task.id)}
+              >
                 <h3 className="font-medium text-sm sm:text-base break-words">{task.name}</h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
                   <span 
@@ -522,6 +526,7 @@ export const HostlistSection = () => {
               </div>
             </div>
 
+            {(showingActionsFor === task.id || activeEntry) && (
             <div className="mt-2 flex flex-wrap gap-2 justify-start task-content-area">
               <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowTimeControls(!showTimeControls); }} className="h-8 px-3">
                 <Clock className="h-4 w-4" />
@@ -556,6 +561,7 @@ export const HostlistSection = () => {
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
+            )}
 
             {showTimeControls && (
               <div className="mt-4 pt-4 border-t space-y-3">
@@ -795,8 +801,17 @@ export const HostlistSection = () => {
           )}
         </div>
 
-        {/* Vertical thread line - hidden on mobile, visible on desktop */}
-        <div className="hidden sm:block absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
+        {/* Vertical timeline thread with knots */}
+        <div className="absolute left-8 top-12 bottom-0 w-0.5 bg-blue-200"></div>
+        {sortedDateTimeSlots.map((dateTimeSlot, index) => (
+          <div
+            key={`knot-${dateTimeSlot}`}
+            className="absolute left-7 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow-sm"
+            style={{
+              top: `${12 + index * (sortedDateTimeSlots.length > 1 ? 96 / (sortedDateTimeSlots.length - 1) : 0)}px`
+            }}
+          ></div>
+        ))}
 
         <div className="space-y-6">
           {sortedDateTimeSlots.map((dateTimeSlot, index) => (
@@ -819,7 +834,10 @@ export const HostlistSection = () => {
                   return (
                     <Card key={task.id} className="p-3 max-w-2xl">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex-1 min-w-0">
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => setShowingActionsFor(showingActionsFor === task.id ? null : task.id)}
+                        >
                           <h3 className="font-medium text-sm break-words">{task.name}</h3>
                           <p className="text-xs text-muted-foreground">
                             Due: {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "No deadline"}
@@ -839,6 +857,7 @@ export const HostlistSection = () => {
                           )}
                         </div>
 
+                        {(showingActionsFor === task.id || activeEntry) && (
                         <div className="flex items-center gap-1 justify-end">
                           {activeEntry ? (
                             <>
@@ -907,6 +926,7 @@ export const HostlistSection = () => {
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
+                        )}
                       </div>
                     </Card>
                   );
