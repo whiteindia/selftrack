@@ -9,6 +9,7 @@ import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
+import { HostlistSection } from '@/components/dashboard/HostlistSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import { Button } from '@/components/ui/button';
@@ -448,6 +449,11 @@ const Index = () => {
         {/* Quick Tasks Section */}
         <div className="mb-8">
           <QuickTasksSection />
+        </div>
+
+        {/* Hostlist Section */}
+        <div className="mb-8">
+          <HostlistSection />
         </div>
 
         {/* Active Time Tracking Section */}
