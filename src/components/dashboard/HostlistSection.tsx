@@ -675,7 +675,7 @@ export const HostlistSection = () => {
           {filteredTasks.length === 0 ? (
             <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
           ) : viewMode === "timeline" ? (
-            <div className="text-sm text-muted-foreground">Timeline view coming soon</div>
+            <TimelineView />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
