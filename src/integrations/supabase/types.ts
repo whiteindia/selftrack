@@ -279,6 +279,39 @@ export type Database = {
           },
         ]
       }
+      debate_topics: {
+        Row: {
+          created_at: string
+          id: string
+          person: string
+          point: string
+          position: number | null
+          section: string
+          topic_tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          person?: string
+          point: string
+          position?: number | null
+          section: string
+          topic_tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          person?: string
+          point?: string
+          position?: number | null
+          section?: string
+          topic_tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       default_menu: {
         Row: {
           created_at: string
@@ -685,6 +718,39 @@ export type Database = {
           start_date?: string | null
           tools_needed?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      mppf_activities: {
+        Row: {
+          activity_category: string
+          created_at: string | null
+          description: string | null
+          id: string
+          public_impact_visibility: string | null
+          specific_action: string
+          start_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          activity_category: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          public_impact_visibility?: string | null
+          specific_action: string
+          start_date: string
+          updated_at?: string | null
+        }
+        Update: {
+          activity_category?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          public_impact_visibility?: string | null
+          specific_action?: string
+          start_date?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

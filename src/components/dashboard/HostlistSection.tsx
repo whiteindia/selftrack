@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import LiveTimer from "./LiveTimer";
@@ -30,6 +31,7 @@ export const HostlistSection = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+  const [isOpen, setIsOpen] = useState(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -529,7 +531,7 @@ export const HostlistSection = () => {
             {showSubtasks && (
               <div className="mt-4 pt-4 border-t space-y-3">
                 <form onSubmit={handleAddSubtask} className="flex gap-2">
-                  <Input placeholder="Add subtask..." value={newSubtaskName} onChange={(e) => setNewSubtaskName(e.target.value)} className="flex-1 text-sm" size="sm" />
+                  <Input placeholder="Add subtask..." value={newSubtaskName} onChange={(e) => setNewSubtaskName(e.target.value)} className="flex-1 text-sm h-8" />
                   <Button type="submit" size="sm" disabled={!newSubtaskName.trim()}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -543,7 +545,7 @@ export const HostlistSection = () => {
                           <div className="flex-1 min-w-0">
                             {editingSubtask === subtask.id ? (
                               <div className="flex gap-2">
-                                <Input value={editSubtaskName} onChange={(e) => setEditSubtaskName(e.target.value)} className="flex-1 text-sm" size="sm" autoFocus />
+                                <Input value={editSubtaskName} onChange={(e) => setEditSubtaskName(e.target.value)} className="flex-1 text-sm h-8" autoFocus />
                                 <Button size="sm" onClick={() => handleSaveSubtask(subtask.id)} disabled={!editSubtaskName.trim()}>Save</Button>
                                 <Button size="sm" variant="outline" onClick={handleCancelEdit}>Cancel</Button>
                               </div>
@@ -617,12 +619,19 @@ export const HostlistSection = () => {
   if (!tasks || tasks.length === 0) {
     return (
       <Card className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Hostlist</h2>
-          </div>
-          <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
-        </div>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <h2 className="text-lg font-semibold">Hostlist</h2>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-4 text-sm text-muted-foreground">No hostlist tasks found</div>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
     );
   }
@@ -630,52 +639,60 @@ export const HostlistSection = () => {
   return (
     <>
       <Card className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Hostlist</h2>
-            <div className="flex gap-2 items-center">
-              <div className="flex gap-1">
-                <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-                  <List className="h-4 w-4" />
-                </Button>
-                <Button variant={viewMode === "timeline" ? "default" : "outline"} size="sm" onClick={() => setViewMode("timeline")}>
-                  <Clock className="h-4 w-4" />
-                </Button>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <h2 className="text-lg font-semibold">Hostlist</h2>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button variant={timeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("all")}>All</Button>
-                <Button variant={timeFilter === "yesterday" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("yesterday")}>Yesterday</Button>
-                <Button variant={timeFilter === "today" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("today")}>Today</Button>
-                <Button variant={timeFilter === "tomorrow" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("tomorrow")}>Tomorrow</Button>
-                <Button variant={timeFilter === "laterThisWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("laterThisWeek")}>Later This Week</Button>
-                <Button variant={timeFilter === "nextWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("nextWeek")}>Next Week</Button>
+              <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                <div className="flex gap-1">
+                  <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button variant={viewMode === "timeline" ? "default" : "outline"} size="sm" onClick={() => setViewMode("timeline")}>
+                    <Clock className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button variant={timeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("all")}>All</Button>
+                  <Button variant={timeFilter === "yesterday" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("yesterday")}>Yesterday</Button>
+                  <Button variant={timeFilter === "today" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("today")}>Today</Button>
+                  <Button variant={timeFilter === "tomorrow" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("tomorrow")}>Tomorrow</Button>
+                  <Button variant={timeFilter === "laterThisWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("laterThisWeek")}>Later This Week</Button>
+                  <Button variant={timeFilter === "nextWeek" ? "default" : "outline"} size="sm" onClick={() => setTimeFilter("nextWeek")}>Next Week</Button>
+                </div>
               </div>
             </div>
-          </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="space-y-4 mt-4">
+              <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
+                <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
+                <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
+              </form>
 
-          <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
-            <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
-            <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
-          </form>
-
-          {viewMode === "timeline" ? (
-            <div className="text-sm text-muted-foreground">Timeline view coming soon</div>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} onTouchStart={handleTouchStart}>
-              <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-3">
-                  {filteredTasks.map((task) => {
-                    const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
-                    const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
-                    return (
-                      <SortableTask key={task.id} task={task} activeEntry={activeEntry} isPaused={isPaused} />
-                    );
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
-          )}
-        </div>
+              {viewMode === "timeline" ? (
+                <div className="text-sm text-muted-foreground">Timeline view coming soon</div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {filteredTasks.map((task) => {
+                        const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
+                        const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+                        return (
+                          <SortableTask key={task.id} task={task} activeEntry={activeEntry} isPaused={isPaused} />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       {editingTask && (
