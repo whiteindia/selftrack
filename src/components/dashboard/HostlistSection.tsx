@@ -14,6 +14,7 @@ import TaskEditDialog from "@/components/TaskEditDialog";
 import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
 import ManualTimeLog from "@/components/ManualTimeLog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
+import TaskTimeline from "./TaskTimeline";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -675,7 +676,29 @@ export const HostlistSection = () => {
           {filteredTasks.length === 0 ? (
             <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
           ) : viewMode === "timeline" ? (
-            <TimelineView />
+            <TaskTimeline
+              tasks={filteredTasks}
+              timeEntries={activeEntries || []}
+              onStartTask={async (taskId: string) => {
+                const { data: employee } = await supabase
+                  .from("employees")
+                  .select("id")
+                  .eq("email", (await supabase.auth.getUser()).data.user?.email)
+                  .single();
+                if (!employee) return;
+                await supabase.from("time_entries").insert({ task_id: taskId, employee_id: employee.id, entry_type: "task", start_time: new Date().toISOString() });
+                queryClient.invalidateQueries({ queryKey: ["hostlist-task-time-entries"] });
+              }}
+              onEditTask={(task: any) => setEditingTask(task)}
+              onDeleteTask={(taskId: string) => {
+                if (confirm("Are you sure you want to delete this task?")) {
+                  deleteTaskMutation.mutate(taskId);
+                }
+              }}
+              onViewTask={(taskId: string) => navigate(`/tasks/${taskId}`)}
+              timeFilter={timeFilter}
+              onTaskUpdate={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })}
+            />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
