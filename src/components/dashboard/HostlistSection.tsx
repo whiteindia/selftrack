@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -14,8 +14,7 @@ import TaskEditDialog from "@/components/TaskEditDialog";
 import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
 import ManualTimeLog from "@/components/ManualTimeLog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
-import TaskTimeline from "./TaskTimeline";
-import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from "date-fns";
+import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -451,6 +450,30 @@ export const HostlistSection = () => {
       queryClient.invalidateQueries({ queryKey: ["hostlist-task-time-entries"] });
     };
 
+    // Function to render task name with clickable links
+    const renderTaskName = (name: string) => {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const parts = name.split(urlRegex);
+
+      return parts.map((part, index) => {
+        if (urlRegex.test(part)) {
+          return (
+            <a
+              key={index}
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline hover:text-primary/80 break-all"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {part.length > 30 ? part.substring(0, 30) + '...' : part}
+            </a>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      });
+    };
+
     const openAssignForTask = (task: any) => {
       const item = { id: task.id, originalId: task.id, type: 'task', itemType: 'task', title: task.name, date: new Date().toISOString().slice(0, 10), client: '', project: '', assigneeId: null, projectId: task.project_id };
       setSelectedItemsForWorkload([item]);
@@ -641,6 +664,352 @@ export const HostlistSection = () => {
     refetchInterval: 5000,
   });
 
+  // Timeline view component - shows tasks grouped by time (slots or deadlines)
+  const TimelineView = () => {
+    // Check if any tasks have slot_start_datetime (priority) or slot_start_time
+    const tasksWithSlots = filteredTasks.filter(task => task.slot_start_datetime || task.slot_start_time);
+    const hasSlotTasks = tasksWithSlots.length > 0;
+
+    // Use slot times if available, otherwise group by deadline time
+    const tasksToDisplay = hasSlotTasks ? tasksWithSlots : filteredTasks;
+
+    // Helper function to format time for display (HH:MM AM/PM)
+    const formatTimeDisplay = (date: Date): string => {
+      return date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+
+    // Helper function to convert time string to minutes since midnight
+    const timeToMinutes = (timeStr: string): number => {
+      // Handle various time formats (12-hour, 24-hour, locale-specific)
+      const cleanTime = timeStr.replace(/[AP]M/i, '').trim();
+      const [hours, minutes] = cleanTime.split(':').map(Number);
+
+      // Check if it's 12-hour format with AM/PM
+      const isPM = /PM/i.test(timeStr);
+      const isAM = /AM/i.test(timeStr);
+
+      let totalMinutes = hours * 60 + (minutes || 0);
+
+      // Convert 12-hour to 24-hour format
+      if (isPM && hours !== 12) {
+        totalMinutes += 12 * 60;
+      } else if (isAM && hours === 12) {
+        totalMinutes = 0 + (minutes || 0); // Midnight
+      }
+
+      return totalMinutes;
+    };
+
+    // Group tasks by date and time (slot start datetime/time or deadline time)
+    const tasksByDateTime = tasksToDisplay.reduce((acc, task) => {
+      let dateTimeKey: string;
+      let timeValue: Date;
+      let sortableTime: number; // Minutes since midnight for proper sorting
+
+      if (task.slot_start_datetime) {
+        // Priority: Use slot_start_datetime if available (from TaskEditDialog)
+        timeValue = new Date(task.slot_start_datetime);
+        const date = new Date(task.slot_start_datetime).toLocaleDateString('en-GB'); // DD/MM/YYYY format
+        const time = formatTimeDisplay(timeValue);
+        dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
+      } else if (task.slot_start_time) {
+        // Fallback: Use slot_start_time if available
+        timeValue = new Date(task.slot_start_time);
+        const date = new Date(task.slot_start_time).toLocaleDateString('en-GB'); // DD/MM/YYYY format
+        const time = formatTimeDisplay(timeValue);
+        dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
+      } else if (task.deadline) {
+        // Fallback: Use deadline time
+        timeValue = new Date(task.deadline);
+        const date = new Date(task.deadline).toLocaleDateString('en-GB'); // DD/MM/YYYY format
+        const time = formatTimeDisplay(timeValue);
+        dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
+      } else {
+        // For tasks without any time, group as "No Time Set"
+        dateTimeKey = "No Time Set";
+        sortableTime = 24 * 60; // Put at the end (midnight next day)
+      }
+
+      if (!acc[dateTimeKey]) {
+        acc[dateTimeKey] = { tasks: [], sortableTime };
+      }
+      acc[dateTimeKey].tasks.push(task);
+      return acc;
+    }, {} as Record<string, { tasks: any[], sortableTime: number }>);
+
+    // Sort date-time slots chronologically, with "No Time Set" at the end
+    const sortedDateTimeSlots = Object.keys(tasksByDateTime).sort((a, b) => {
+      if (a === "No Time Set") return 1;
+      if (b === "No Time Set") return -1;
+
+      // Extract date and time from the key "DD/MM/YYYY HH:MM AM/PM"
+      const [dateA, timeA] = a.split(' ');
+      const [dateB, timeB] = b.split(' ');
+
+      // Parse DD/MM/YYYY format
+      const [dayA, monthA, yearA] = dateA.split('/').map(Number);
+      const [dayB, monthB, yearB] = dateB.split('/').map(Number);
+
+      // Create comparable date objects
+      const dateObjA = new Date(yearA, monthA - 1, dayA);
+      const dateObjB = new Date(yearB, monthB - 1, dayB);
+
+      // Compare dates first
+      const dateCompare = dateObjA.getTime() - dateObjB.getTime();
+      if (dateCompare !== 0) return dateCompare;
+
+      // If same date, compare times using the sortableTime (minutes since midnight)
+      return tasksByDateTime[a].sortableTime - tasksByDateTime[b].sortableTime;
+    });
+
+    // Debug: Log the sorted time slots to verify correct ordering
+    console.log('Timeline time slots sorted:', sortedDateTimeSlots);
+
+    return (
+      <div className="relative">
+        {/* Timeline mode indicator */}
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4" />
+          <span>{hasSlotTasks ? "Time Slots" : "Deadline Times"}</span>
+          {hasSlotTasks && (
+            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+              {tasksWithSlots.some(t => t.slot_start_datetime) ? "Using slot datetime" :
+               tasksWithSlots.some(t => t.slot_start_time) ? "Using slot times" : "Using deadline times"}
+            </span>
+          )}
+        </div>
+
+        {/* Vertical thread line */}
+        <div className="absolute left-8 top-12 bottom-0 w-0.5 bg-border"></div>
+
+        <div className="space-y-6">
+          {sortedDateTimeSlots.map((dateTimeSlot, index) => (
+            <div key={dateTimeSlot} className="relative flex items-start gap-4">
+              {/* Time node on the vertical thread */}
+              <div className={`relative z-10 flex items-center justify-center w-16 h-8 bg-background border border-border rounded-md text-sm font-medium ${
+                dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
+              }`}>
+                {dateTimeSlot}
+              </div>
+
+              {/* Tasks at this time slot */}
+              <div className="flex-1 space-y-2">
+                {tasksByDateTime[dateTimeSlot].tasks.map((task) => {
+                  const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
+                  const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+
+                  return (
+                    <Card key={task.id} className="p-3 max-w-2xl">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm break-words">{task.name}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Due: {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "No deadline"}
+                          </p>
+                          {(task.slot_start_datetime || task.slot_start_time) && (
+                            <p className="text-xs text-muted-foreground">
+                              Slot: {new Date(task.slot_start_datetime || task.slot_start_time).toLocaleDateString('en-GB')} {new Date(task.slot_start_datetime || task.slot_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                          {(task.slot_start_datetime || task.slot_start_time) && !activeEntry && (
+                            <div className="mt-1">
+                              <CountdownTimer
+                                targetTime={new Date(task.slot_start_datetime || task.slot_start_time)}
+                                taskName={task.name}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 justify-end">
+                          {activeEntry ? (
+                            <>
+                              <div className="flex flex-col items-end gap-1">
+                                <LiveTimer
+                                  startTime={activeEntry.start_time}
+                                  isPaused={isPaused}
+                                  timerMetadata={activeEntry.timer_metadata}
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {isPaused ? "Paused" : "Running"}
+                                </span>
+                              </div>
+                              <CompactTimerControls
+                                taskId={task.id}
+                                taskName={task.name}
+                                entryId={activeEntry.id}
+                                timerMetadata={activeEntry.timer_metadata}
+                                onTimerUpdate={() => {}}
+                              />
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handleStartTask(task.id)}
+                              className="h-7 px-2"
+                            >
+                              <Play className="h-3 w-3" />
+                            </Button>
+                          )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTask(task);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/alltasks?highlight=${task.id}`);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              deleteTaskMutation.mutate(task.id);
+                            }}
+                            className="h-7 px-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {sortedDateTimeSlots.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No tasks for this period</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Countdown Timer Component
+  const CountdownTimer: React.FC<{ targetTime: Date; taskName: string }> = ({ targetTime, taskName }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+    const [isStarted, setIsStarted] = useState(false);
+    const [isVerySoon, setIsVerySoon] = useState(false);
+    const [isOverdue, setIsOverdue] = useState(false);
+
+    const updateCountdown = useCallback(() => {
+      const now = new Date();
+      const diff = targetTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        // Check if it's overdue (more than 5 minutes past)
+        if (diff < -5 * 60 * 1000) {
+          setIsOverdue(true);
+          setIsStarted(false);
+          setIsVerySoon(false);
+
+          const overdueDiff = Math.abs(diff);
+          const hours = Math.floor(overdueDiff / (1000 * 60 * 60));
+          const minutes = Math.floor((overdueDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+          if (hours > 0) {
+            setTimeLeft(`${hours}h ${minutes}m`);
+          } else {
+            setTimeLeft(`${minutes}m`);
+          }
+        } else {
+          // Within 5 minutes of start time
+          setTimeLeft('Started');
+          setIsStarted(true);
+          setIsOverdue(false);
+          setIsVerySoon(false);
+        }
+        return;
+      }
+
+      setIsStarted(false);
+      setIsOverdue(false);
+
+      // Check if very soon (less than 5 minutes)
+      setIsVerySoon(diff < 5 * 60 * 1000);
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 0) {
+        setTimeLeft(`${hours}h ${minutes}m`);
+      } else if (minutes > 0) {
+        setTimeLeft(`${minutes}m ${seconds}s`);
+      } else {
+        setTimeLeft(`${seconds}s`);
+      }
+    }, [targetTime]);
+
+    useEffect(() => {
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    }, [updateCountdown]);
+
+    if (isOverdue) {
+      return (
+        <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+          <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span>
+          Overdue by {timeLeft}
+        </span>
+      );
+    }
+
+    if (isStarted) {
+      return (
+        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+          <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+          Started
+        </span>
+      );
+    }
+
+    if (isVerySoon) {
+      return (
+        <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200 animate-pulse">
+          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
+          Starts in {timeLeft}
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+        Starts in {timeLeft}
+      </span>
+    );
+  };
 
   return (
     <>
@@ -676,7 +1045,7 @@ export const HostlistSection = () => {
           {filteredTasks.length === 0 ? (
             <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
           ) : viewMode === "timeline" ? (
-            <TaskTimeline
+            <TimelineView
               tasks={filteredTasks}
               timeEntries={activeEntries || []}
               onStartTask={async (taskId: string) => {
@@ -695,9 +1064,8 @@ export const HostlistSection = () => {
                   deleteTaskMutation.mutate(taskId);
                 }
               }}
-              onViewTask={(taskId: string) => navigate(`/tasks/${taskId}`)}
+              onViewTask={(taskId: string) => navigate(`/alltasks?highlight=${taskId}`)}
               timeFilter={timeFilter}
-              onTaskUpdate={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })}
             />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
