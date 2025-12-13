@@ -351,31 +351,33 @@ export const QuickTasksSection = () => {
         .single();
 
       // Calculate deadline based on time filter
-      let deadline = null;
+      let deadlineDate: Date = new Date();
       const now = new Date();
       
       switch (timeFilter) {
         case "yesterday":
-          deadline = endOfDay(addDays(now, -1)).toISOString();
+          deadlineDate = endOfDay(addDays(now, -1));
           break;
         case "today":
-          deadline = endOfDay(now).toISOString();
+          deadlineDate = endOfDay(now);
           break;
         case "tomorrow":
-          deadline = endOfDay(addDays(now, 1)).toISOString();
+          deadlineDate = endOfDay(addDays(now, 1));
           break;
         case "laterThisWeek":
-          // Set deadline for end of this week
-          deadline = endOfWeek(now).toISOString();
+          deadlineDate = endOfWeek(now);
           break;
         case "nextWeek":
-          // Set deadline for end of next week
-          deadline = endOfWeek(addDays(now, 7)).toISOString();
+          deadlineDate = endOfWeek(addDays(now, 7));
           break;
         default:
-          // For "all" filter, set deadline to today by default
-          deadline = endOfDay(now).toISOString();
+          deadlineDate = endOfDay(now);
       }
+
+      const deadlineIso = deadlineDate.toISOString();
+      // Align with CurrentShiftSection expectations: set date + scheduled_time on deadline's calendar day
+      const deadlineDateStr = format(deadlineDate, "yyyy-MM-dd");
+      const scheduledTime = "23:00"; // place into final shift of that day
 
       const { data, error } = await supabase
         .from("tasks")
@@ -384,7 +386,9 @@ export const QuickTasksSection = () => {
           project_id: project.id,
           status: "Not Started",
           assigner_id: employee?.id,
-          deadline: deadline,
+          deadline: deadlineIso,
+          date: deadlineDateStr,
+          scheduled_time: scheduledTime,
         })
         .select()
         .single();
@@ -396,6 +400,7 @@ export const QuickTasksSection = () => {
       toast.success("Task created successfully");
       setNewTaskName("");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
     },
     onError: (error) => {
       toast.error("Failed to create task");

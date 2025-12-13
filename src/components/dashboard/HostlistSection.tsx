@@ -261,6 +261,15 @@ export const HostlistSection = () => {
         .eq("email", (await supabase.auth.getUser()).data.user?.email)
         .single();
 
+      // Choose project: use currently selected filter if set, else default hostlist project
+      const projectIdToUse =
+        selectedProject === "all"
+          ? project.id
+          : tasks?.find(
+              (t) =>
+                (t.project?.name || (t as any).projects?.name) === selectedProject
+            )?.project_id || project.id;
+
       let deadline = null;
       const now = new Date();
       switch (timeFilter) {
@@ -287,7 +296,7 @@ export const HostlistSection = () => {
         .from("tasks")
         .insert({
           name: taskName,
-          project_id: project.id,
+          project_id: projectIdToUse,
           status: "On-Head",
           assigner_id: employee?.id,
           deadline,

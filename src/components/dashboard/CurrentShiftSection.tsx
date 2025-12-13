@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
-import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay } from 'date-fns';
+import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -178,9 +178,11 @@ export const CurrentShiftSection = () => {
   const { data: workloadItems = [], isLoading } = useQuery({
     queryKey: ['current-shift-workload', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const nextDateStr = addDays(selectedDate, 1).toISOString().split('T')[0];
-      const prevDateStr = subDays(selectedDate, 1).toISOString().split('T')[0];
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const nextDateStr = format(addDays(selectedDate, 1), 'yyyy-MM-dd');
+      const prevDateStr = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
+      const dayStartIso = startOfDay(selectedDate).toISOString();
+      const dayEndIso = endOfDay(selectedDate).toISOString();
 
       // Fetch tasks with scheduled_time
       const { data: tasksData, error: tasksError } = await supabase
@@ -227,8 +229,8 @@ export const CurrentShiftSection = () => {
             client:clients!projects_client_id_fkey(name)
           )
         `)
-        .gte('slot_start_datetime', `${dateStr}T00:00:00`)
-        .lt('slot_start_datetime', `${dateStr}T23:59:59`);
+        .gte('slot_start_datetime', dayStartIso)
+        .lt('slot_start_datetime', dayEndIso);
 
       if (slotTasksError) throw slotTasksError;
 
@@ -401,11 +403,13 @@ export const CurrentShiftSection = () => {
   const projectOptions = useMemo(() => {
     const projectSet = new Set<string>();
     workloadItems.forEach(item => {
+      const itemDateTime = parseScheduledTime(item.scheduled_time, item.scheduled_date);
+      if (!itemDateTime || !isSameDay(itemDateTime, selectedDate)) return;
       const projectName = getProjectName(item);
       if (projectName) projectSet.add(projectName);
     });
     return Array.from(projectSet);
-  }, [workloadItems]);
+  }, [workloadItems, selectedDate]);
 
   const [selectedProject, setSelectedProject] = useState('all');
 
@@ -459,20 +463,31 @@ export const CurrentShiftSection = () => {
       if (!miscProject?.id) {
         throw new Error('Quick task project not found');
       }
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      // Build datetime at shift start for deadline/slot start
-      const startDateTime = new Date(`${dateStr}T${shiftStart}`);
+
+      // Use selected nav date as the task date
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+      // Build start/end Date objects on that date in local time
+      const [startH, startM] = shiftStart.split(':').map(Number);
+      const startDateTime = new Date(selectedDate);
+      startDateTime.setHours(startH, startM || 0, 0, 0);
+
       const endDateTime = new Date(startDateTime);
       endDateTime.setHours(endDateTime.getHours() + 1);
+
+      // Deadline should follow the selected date for quick tasks (end of that day)
+      const deadlineValue = endOfDay(selectedDate).toISOString();
+      const slotStartValue = startDateTime.toISOString();
+      const slotEndValue = endDateTime.toISOString();
 
       const { error } = await supabase.from('tasks').insert({
         name,
         status: 'Not Started',
         date: dateStr,
         scheduled_time: shiftStart,
-        deadline: startDateTime.toISOString(),
-        slot_start_datetime: startDateTime.toISOString(),
-        slot_end_datetime: endDateTime.toISOString(),
+        deadline: deadlineValue,
+        slot_start_datetime: slotStartValue,
+        slot_end_datetime: slotEndValue,
         project_id: miscProject.id,
       });
       if (error) throw error;
@@ -480,6 +495,7 @@ export const CurrentShiftSection = () => {
     onSuccess: () => {
       toast.success('Task added to shift');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
     },
     onError: (err) => {
       console.error(err);
@@ -684,7 +700,16 @@ export const CurrentShiftSection = () => {
                       return (
                         <div 
                           key={item.id} 
-                          className={`flex items-start justify-between p-3 rounded-md transition-all ${item.type === 'subtask' ? 'bg-blue-50 dark:bg-blue-900/30' : item.type === 'slot-task' ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-muted/30'}`}
+                          className={cn(
+                            'flex items-start justify-between p-3 rounded-md transition-all',
+                            item.type === 'subtask'
+                              ? 'bg-blue-50 dark:bg-blue-900/30'
+                              : item.type === 'slot-task'
+                                ? 'bg-purple-50 dark:bg-purple-900/20'
+                                : 'bg-muted/30',
+                            activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
+                            getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
+                          )}
                           onClick={() => setShowingActionsFor(showingActionsFor === item.id ? null : item.id)}
                         >
                           <div className="flex-1 min-w-0">
