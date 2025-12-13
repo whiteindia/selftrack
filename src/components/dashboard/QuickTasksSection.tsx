@@ -96,10 +96,8 @@ export const QuickTasksSection = () => {
 
   // Fetch tasks from the project with subtasks and logged time
   const { data: tasks, refetch } = useQuery({
-    queryKey: ["quick-tasks", project?.id],
+    queryKey: ["quick-tasks"],
     queryFn: async () => {
-      if (!project?.id) return [];
-
       const { data, error } = await supabase
         .from("tasks")
         .select(`
@@ -112,10 +110,11 @@ export const QuickTasksSection = () => {
           slot_start_time,
           slot_start_datetime,
           slot_end_datetime,
-          sort_order
+          sort_order,
+          projects!inner(name)
         `)
-        .eq("project_id", project.id)
-        .neq("status", "Completed")
+        .eq("project_id", project?.id)
+        .not("status", "in", `("Archived","Completed")`)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true });
 
