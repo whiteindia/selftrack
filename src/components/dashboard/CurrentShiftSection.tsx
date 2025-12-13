@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,6 +115,14 @@ export const CurrentShiftSection = () => {
         return '';
     }
   };
+
+  const getProjectName = (item: WorkloadItem) => {
+    if (item.type === 'task' || item.type === 'slot-task') {
+      return item.task?.project?.name || '';
+    }
+    return item.subtask?.project?.name || '';
+  };
+
 
   const getItemStatus = (item: WorkloadItem) => {
     if (item.type === 'subtask') {
@@ -351,8 +359,24 @@ export const CurrentShiftSection = () => {
     return itemTime >= shiftStart && itemTime < shiftEnd;
   };
 
+  const projectOptions = useMemo(() => {
+    const projectSet = new Set<string>();
+    workloadItems.forEach(item => {
+      const projectName = getProjectName(item);
+      if (projectName) projectSet.add(projectName);
+    });
+    return Array.from(projectSet);
+  }, [workloadItems]);
+
+  const [selectedProject, setSelectedProject] = useState('all');
+
+  const filteredWorkloadItems = useMemo(() => {
+    if (selectedProject === 'all') return workloadItems;
+    return workloadItems.filter(item => getProjectName(item) === selectedProject);
+  }, [workloadItems, selectedProject]);
+
   const itemsByShift = shifts.map(currentShift => {
-    const shiftItems = workloadItems.filter(item => {
+    const shiftItems = filteredWorkloadItems.filter(item => {
       const itemDateTime = parseScheduledTime(item.scheduled_time, item.scheduled_date);
       if (!itemDateTime) return false;
 
@@ -463,8 +487,29 @@ export const CurrentShiftSection = () => {
           </CollapsibleTrigger>
         </CardHeader>
         <CollapsibleContent>
-          <CardContent className="px-0 sm:px-6 py-6">
-            <div className="space-y-4">
+        <CardContent className="px-0 sm:px-6 py-6">
+          <div className="space-y-4">
+            {projectOptions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant={selectedProject === 'all' ? 'default' : 'outline'}
+                  onClick={() => setSelectedProject('all')}
+                >
+                  All Projects
+                </Button>
+                {projectOptions.map(project => (
+                  <Button
+                    key={project}
+                    size="sm"
+                    variant={selectedProject === project ? 'default' : 'outline'}
+                    onClick={() => setSelectedProject(project)}
+                  >
+                    {project}
+                  </Button>
+                ))}
+              </div>
+            )}
             {itemsByShift.map(shift => (
               <div key={shift.id} className="space-y-2">
                 <div className="flex items-center gap-2">

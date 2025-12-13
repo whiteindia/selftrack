@@ -71,7 +71,7 @@ export const HostlistSection = () => {
           slot_start_datetime,
           slot_end_datetime,
           sort_order,
-          projects!inner(name)
+          project:projects!inner(name)
         `)
         .in("status", ["On-Head", "Targeted", "Imp"])
         .order("sort_order", { ascending: true, nullsFirst: false })
@@ -204,6 +204,25 @@ export const HostlistSection = () => {
 
     return sorted;
   }, [tasks, timeFilter]);
+
+  const hostlistProjects = useMemo(() => {
+    return Array.from(
+      new Set(
+        (filteredTasks || [])
+          .map(task => task.project?.name || (task as any).projects?.name || '')
+          .filter(Boolean)
+      )
+    );
+  }, [filteredTasks]);
+
+  const [selectedProject, setSelectedProject] = useState<"all" | string>("all");
+
+  const displayedTasks = useMemo(() => {
+    if (selectedProject === "all") return filteredTasks;
+    return filteredTasks.filter(
+      task => (task.project?.name || (task as any).projects?.name) === selectedProject
+    );
+  }, [filteredTasks, selectedProject]);
 
   const filterCounts = useMemo(() => {
     if (!tasks) return { all: 0, yesterday: 0, today: 0, tomorrow: 0, laterThisWeek: 0, nextWeek: 0 };
@@ -685,11 +704,11 @@ export const HostlistSection = () => {
   // Timeline view component - shows tasks grouped by time (slots or deadlines)
   const TimelineView = () => {
     // Check if any tasks have slot_start_datetime (priority) or slot_start_time
-    const tasksWithSlots = filteredTasks.filter(task => task.slot_start_datetime || task.slot_start_time);
+    const tasksWithSlots = displayedTasks.filter(task => task.slot_start_datetime || task.slot_start_time);
     const hasSlotTasks = tasksWithSlots.length > 0;
 
     // Use slot times if available, otherwise group by deadline time
-    const tasksToDisplay = hasSlotTasks ? tasksWithSlots : filteredTasks;
+    const tasksToDisplay = hasSlotTasks ? tasksWithSlots : displayedTasks;
 
     // Helper function to format time for display (HH:MM AM/PM)
     const formatTimeDisplay = (date: Date): string => {
@@ -1052,7 +1071,7 @@ export const HostlistSection = () => {
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="px-6 py-4">
             <CollapsibleTrigger asChild>
-              <div className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <h2 className="text-lg font-semibold">Hostlist</h2>
@@ -1130,6 +1149,27 @@ export const HostlistSection = () => {
           </CardHeader>
         <CollapsibleContent>
           <CardContent className="px-0 sm:px-6 py-6">
+            {hostlistProjects.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                <Button
+                  size="sm"
+                  variant={selectedProject === "all" ? "default" : "outline"}
+                  onClick={() => setSelectedProject("all")}
+                >
+                  All Projects
+                </Button>
+                {hostlistProjects.map(projectName => (
+                  <Button
+                    key={projectName}
+                    size="sm"
+                    variant={selectedProject === projectName ? "default" : "outline"}
+                    onClick={() => setSelectedProject(projectName)}
+                  >
+                    {projectName}
+                  </Button>
+                ))}
+              </div>
+            )}
             <div className="space-y-4">
               <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
                 <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
@@ -1144,7 +1184,7 @@ export const HostlistSection = () => {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3">
-                      {filteredTasks.map((task) => {
+                      {displayedTasks.map((task) => {
                         const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
                         const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
                         return (
