@@ -498,13 +498,13 @@ export const HostlistSection = () => {
               >
                 <h3 className="font-medium text-sm sm:text-base break-words">{task.name}</h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-                  <span 
-                    className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
-                      task.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                      task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}
-                  >
+                <span 
+                  className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                    task.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                    task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}
+                >
                     {task.status}
                   </span>
                   <span>Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}</span>
@@ -602,7 +602,7 @@ export const HostlistSection = () => {
                                   <span 
                                     className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
                                       subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                      subtask.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                                      subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
                                       'bg-gray-100 text-gray-800'
                                     }`}
                                     onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
@@ -1132,25 +1132,9 @@ export const HostlistSection = () => {
                 <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
               </form>
 
-              {filteredTasks.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
-              ) : viewMode === "timeline" ? (
-                <TimelineView />
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3">
-                      {filteredTasks.map((task) => {
-                        const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
-                        const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
-                        return (
-                          <SortableTask key={task.id} task={task} activeEntry={activeEntry} isPaused={isPaused} />
-                        );
-                      })}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              )}
+              <div className="rounded-lg border border-dashed border-muted/50 bg-muted/5 p-6 text-center text-sm text-muted-foreground">
+                Tasks and subtasks are hidden in this section.
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>

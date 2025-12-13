@@ -10,6 +10,7 @@ import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface WorkloadItem {
   id: string;
@@ -113,6 +114,31 @@ export const CurrentShiftSection = () => {
       default:
         return '';
     }
+  };
+
+  const getItemStatus = (item: WorkloadItem) => {
+    if (item.type === 'subtask') {
+      return item.subtask?.status || '';
+    }
+    return item.task?.status || '';
+  };
+
+  const getItemTitleClasses = (item: WorkloadItem) => {
+    const status = getItemStatus(item);
+    let baseColor = '';
+
+    if (status === 'In Progress') {
+      baseColor = 'text-orange-600 dark:text-orange-300';
+    } else if (item.type === 'subtask') {
+      baseColor = 'text-blue-700 dark:text-blue-300';
+    } else if (item.type === 'slot-task') {
+      baseColor = 'text-purple-700 dark:text-purple-300';
+    }
+
+    return cn(
+      baseColor,
+      status === 'Completed' && 'line-through decoration-current/70'
+    );
   };
 
   // Fetch workload items for selected date and nearby days
@@ -387,27 +413,23 @@ export const CurrentShiftSection = () => {
                 </Badge>
               )}
             </div>
-          </div>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          {/* Date Navigation */}
-          <div className="flex items-center justify-between mt-4 mb-4 border-b pb-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                goToPreviousDay();
-              }}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToPreviousDay();
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
               <span className="text-sm font-medium">
                 {format(selectedDate, 'EEE, MMM d, yyyy')}
               </span>
+
               {!isToday && (
                 <Button
                   variant="outline"
@@ -421,21 +443,22 @@ export const CurrentShiftSection = () => {
                   Today
                 </Button>
               )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToNextDay();
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRightIcon className="h-4 w-4" />
+              </Button>
             </div>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                goToNextDay();
-              }}
-              className="h-8 w-8 p-0"
-            >
-              <ChevronRightIcon className="h-4 w-4" />
-            </Button>
           </div>
-          
+        </CollapsibleTrigger>
+        <CollapsibleContent>
           <div className="space-y-4">
             {itemsByShift.map(shift => (
               <div key={shift.id} className="space-y-2">
@@ -470,13 +493,13 @@ export const CurrentShiftSection = () => {
                             <div className="font-medium text-sm flex flex-col gap-1">
                               {item.type === 'subtask' ? (
                                 <>
-                                  <span className="text-blue-700 dark:text-blue-300">{item.subtask?.name}</span>
+                                  <span className={getItemTitleClasses(item)}>{item.subtask?.name}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {item.subtask?.parent_task_name}
                                   </span>
                                 </>
                               ) : (
-                                <span className={item.type === 'slot-task' ? 'text-purple-700 dark:text-purple-300' : ''}>
+                                <span className={getItemTitleClasses(item)}>
                                   {getItemTitle(item)}
                                 </span>
                               )}
