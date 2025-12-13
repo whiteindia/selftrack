@@ -8,7 +8,7 @@ import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } fro
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -393,72 +393,76 @@ export const CurrentShiftSection = () => {
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="text-sm text-muted-foreground">Loading current shift...</div>
+      <Card className="w-full">
+        <CardContent className="px-2 sm:px-6 py-6">
+          <div className="text-sm text-muted-foreground">Loading current shift...</div>
+        </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="p-6">
+    <Card className="w-full">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between cursor-pointer">
-            <div className="flex items-center gap-2">
-              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              <h2 className="text-lg font-semibold">Current Shift</h2>
-              {isToday && (
-                <Badge variant="outline" className="text-xs">
-                  Next 6 Hours
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goToPreviousDay();
-                }}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-
-              <span className="text-sm font-medium">
-                {format(selectedDate, 'EEE, MMM d, yyyy')}
-              </span>
-
-              {!isToday && (
+        <CardHeader className="px-0 sm:px-6 py-4">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <h2 className="text-lg font-semibold">Current Shift</h2>
+                {isToday && (
+                  <Badge variant="outline" className="text-xs">
+                    Next 6 Hours
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    goToToday();
+                    goToPreviousDay();
                   }}
-                  className="h-6 px-2 text-xs"
+                  className="h-8 w-8 p-0"
                 >
-                  Today
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-              )}
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goToNextDay();
-                }}
-                className="h-8 w-8 p-0"
-              >
-                <ChevronRightIcon className="h-4 w-4" />
-              </Button>
+                <span className="text-sm font-medium">
+                  {format(selectedDate, 'EEE, MMM d, yyyy')}
+                </span>
+
+                {!isToday && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToToday();
+                    }}
+                    className="h-6 px-2 text-xs"
+                  >
+                    Today
+                  </Button>
+                )}
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToNextDay();
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CardContent className="px-0 sm:px-6 py-6">
           <div className="space-y-4">
             {itemsByShift.map(shift => (
               <div key={shift.id} className="space-y-2">
@@ -567,7 +571,7 @@ export const CurrentShiftSection = () => {
               </div>
             ))}
           </div>
-        </CollapsibleContent>
+        </CardContent>
       </Collapsible>
     </Card>
   );

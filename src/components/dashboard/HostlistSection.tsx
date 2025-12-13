@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -1048,86 +1048,88 @@ export const HostlistSection = () => {
 
   return (
     <>
-      <Card className="p-6">
+      <Card className="w-full">
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                <h2 className="text-lg font-semibold">Hostlist</h2>
-              </div>
-              <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                <div className="flex gap-1">
-                  <Button
-                    variant={viewMode === "list" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode("list")}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "timeline" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setViewMode("timeline")}
-                  >
-                    <Clock className="h-4 w-4" />
-                  </Button>
+        <CardHeader className="px-0 sm:px-6 py-4">
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2">
+                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <h2 className="text-lg font-semibold">Hostlist</h2>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    variant={timeFilter === "all" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTimeFilter("all")}
-                  >
-                    All
-                    <Badge variant="secondary" className="ml-2">{filterCounts.all}</Badge>
-                  </Button>
-                  <Button
-                    variant={timeFilter === "yesterday" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTimeFilter("yesterday")}
-                  >
-                    Yesterday
-                    <Badge variant="secondary" className="ml-2">{filterCounts.yesterday}</Badge>
-                  </Button>
-                  <Button
-                    variant={timeFilter === "today" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTimeFilter("today")}
-                  >
-                    Today
-                    <Badge variant="secondary" className="ml-2">{filterCounts.today}</Badge>
-                  </Button>
-                  <Button
-                    variant={timeFilter === "tomorrow" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTimeFilter("tomorrow")}
-                  >
-                    Tomorrow
-                    <Badge variant="secondary" className="ml-2">{filterCounts.tomorrow}</Badge>
-                  </Button>
-                  <Button
-                    variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTimeFilter("laterThisWeek")}
-                  >
-                    Later This Week
-                    <Badge variant="secondary" className="ml-2">{filterCounts.laterThisWeek}</Badge>
-                  </Button>
-                  <Button
-                    variant={timeFilter === "nextWeek" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTimeFilter("nextWeek")}
-                  >
-                    Next Week
-                    <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
-                  </Button>
+                <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={viewMode === "list" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setViewMode("list")}
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === "timeline" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setViewMode("timeline")}
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant={timeFilter === "all" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeFilter("all")}
+                    >
+                      All
+                      <Badge variant="secondary" className="ml-2">{filterCounts.all}</Badge>
+                    </Button>
+                    <Button
+                      variant={timeFilter === "yesterday" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeFilter("yesterday")}
+                    >
+                      Yesterday
+                      <Badge variant="secondary" className="ml-2">{filterCounts.yesterday}</Badge>
+                    </Button>
+                    <Button
+                      variant={timeFilter === "today" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeFilter("today")}
+                    >
+                      Today
+                      <Badge variant="secondary" className="ml-2">{filterCounts.today}</Badge>
+                    </Button>
+                    <Button
+                      variant={timeFilter === "tomorrow" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeFilter("tomorrow")}
+                    >
+                      Tomorrow
+                      <Badge variant="secondary" className="ml-2">{filterCounts.tomorrow}</Badge>
+                    </Button>
+                    <Button
+                      variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeFilter("laterThisWeek")}
+                    >
+                      Later This Week
+                      <Badge variant="secondary" className="ml-2">{filterCounts.laterThisWeek}</Badge>
+                    </Button>
+                    <Button
+                      variant={timeFilter === "nextWeek" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTimeFilter("nextWeek")}
+                    >
+                      Next Week
+                      <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="space-y-4 mt-4">
+            </CollapsibleTrigger>
+          </CardHeader>
+        <CardContent className="px-0 sm:px-6 py-6">
+            <div className="space-y-4">
               <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
                 <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
                 <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
@@ -1153,7 +1155,7 @@ export const HostlistSection = () => {
                 </DndContext>
               )}
             </div>
-          </CollapsibleContent>
+          </CardContent>
         </Collapsible>
       </Card>
 
