@@ -211,7 +211,7 @@ const WorkloadCal = () => {
       
       console.log('Fetching workload items for date:', dateStr);
       
-      // Fetch tasks (both direct assignments and followup assignments)
+      // Fetch tasks with scheduled_time
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
@@ -220,6 +220,8 @@ const WorkloadCal = () => {
           status,
           scheduled_time,
           date,
+          slot_start_datetime,
+          slot_end_datetime,
           assignee:employees!tasks_assignee_id_fkey(name),
           assigner:employees!tasks_assigner_id_fkey(name),
           project:projects!tasks_project_id_fkey(
@@ -229,6 +231,32 @@ const WorkloadCal = () => {
         `)
         .or(`date.eq.${dateStr},and(scheduled_time.not.is.null,date.is.null)`)
         .not('scheduled_time', 'is', null);
+
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
+        throw tasksError;
+      }
+
+      // Fetch tasks with deadline slots (slot_start_datetime)
+      const { data: slotTasksData, error: slotTasksError } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          name,
+          status,
+          scheduled_time,
+          date,
+          slot_start_datetime,
+          slot_end_datetime,
+          assignee:employees!tasks_assignee_id_fkey(name),
+          assigner:employees!tasks_assigner_id_fkey(name),
+          project:projects!tasks_project_id_fkey(
+            name,
+            client:clients!projects_client_id_fkey(name)
+          )
+        `)
+        .gte('slot_start_datetime', `${dateStr}T00:00:00`)
+        .lt('slot_start_datetime', `${dateStr}T23:59:59`);
 
       if (tasksError) {
         console.error('Error fetching tasks:', tasksError);
@@ -508,9 +536,49 @@ const WorkloadCal = () => {
         }
       });
 
-      const allItems = [...taskItems, ...subtaskItems, ...routineItems, ...sprintItems];
+      // Process tasks with deadline slots (slot_start_datetime)
+      const slotTaskItems: WorkloadItem[] = [];
+      const existingTaskIds = new Set(taskItems.map(t => t.id));
+      
+      if (!slotTasksError && slotTasksData) {
+        slotTasksData.forEach(task => {
+          // Skip if already added via scheduled_time
+          if (existingTaskIds.has(task.id)) return;
+          
+          const startDateTime = new Date(task.slot_start_datetime);
+          const endDateTime = task.slot_end_datetime ? new Date(task.slot_end_datetime) : null;
+          
+          const startHour = startDateTime.getHours();
+          const endHour = endDateTime ? endDateTime.getHours() : startHour + 1;
+          
+          // Create workload item for each hour slot the task spans
+          for (let hour = startHour; hour < endHour; hour++) {
+            const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+            
+            slotTaskItems.push({
+              id: `${task.id}-slot-${timeSlot}`,
+              type: 'task' as const,
+              scheduled_date: dateStr,
+              scheduled_time: timeSlot,
+              task: {
+                id: task.id,
+                name: task.name,
+                assignee_name: task.assignee?.name || 'Unassigned',
+                assigner: task.assigner,
+                sprint_name: null,
+                project_name: task.project?.name || '',
+                client_name: task.project?.client?.name || '',
+                status: task.status,
+                scheduled_time: task.slot_start_datetime
+              }
+            });
+          }
+        });
+      }
+
+      const allItems = [...taskItems, ...subtaskItems, ...routineItems, ...sprintItems, ...slotTaskItems];
       console.log('Processed workload items:', allItems);
-      console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length, 'Sprint Time Slots:', sprintItems.length);
+      console.log('Tasks:', taskItems.length, 'Subtasks:', subtaskItems.length, 'Routines:', routineItems.length, 'Sprint Time Slots:', sprintItems.length, 'Slot Tasks:', slotTaskItems.length);
       return allItems;
     }
   });

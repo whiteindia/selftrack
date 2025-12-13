@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock } from 'lucide-react';
-import { format, addHours, startOfHour, isWithinInterval } from 'date-fns';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -13,7 +13,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface WorkloadItem {
   id: string;
-  type: 'task' | 'subtask' | 'routine' | 'sprint';
+  type: 'task' | 'subtask' | 'routine' | 'sprint' | 'slot-task';
   scheduled_time: string;
   scheduled_date: string;
   task?: {
@@ -22,6 +22,8 @@ interface WorkloadItem {
     status: string;
     assignee?: { name: string };
     project?: { name: string; client?: { name: string } };
+    slot_start_datetime?: string;
+    slot_end_datetime?: string;
   };
   subtask?: {
     id: string;
@@ -47,27 +49,34 @@ interface WorkloadItem {
 
 export const CurrentShiftSection = () => {
   const [isOpen, setIsOpen] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Get current time and next 6 hours
+  // Get current time and next 6 hours based on selected date
   const now = new Date();
-  const next6Hours = addHours(now, 6);
+  const isToday = isSameDay(selectedDate, now);
+  const baseTime = isToday ? now : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0);
+  const next6Hours = addHours(baseTime, isToday ? 6 : 24);
 
-  // Define the 4 shifts - Shift D spans midnight
+  // Navigation functions
+  const goToPreviousDay = () => setSelectedDate(subDays(selectedDate, 1));
+  const goToNextDay = () => setSelectedDate(addDays(selectedDate, 1));
+  const goToToday = () => setSelectedDate(new Date());
+
+  // Define the 4 shifts for selected date
   const shifts = [
-    { id: 'A', label: 'Shift A (12 AM - 6 AM)', start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0), end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0) },
-    { id: 'B', label: 'Shift B (6 AM - 12 PM)', start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0), end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0) },
-    { id: 'C', label: 'Shift C (12 PM - 6 PM)', start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0), end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0) },
-    { id: 'D', label: 'Shift D (6 PM - 12 AM)', start: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 18, 0), end: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0) },
+    { id: 'A', label: 'Shift A (12 AM - 6 AM)', start: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0), end: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 6, 0) },
+    { id: 'B', label: 'Shift B (6 AM - 12 PM)', start: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 6, 0), end: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 12, 0) },
+    { id: 'C', label: 'Shift C (12 PM - 6 PM)', start: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 12, 0), end: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 18, 0) },
+    { id: 'D', label: 'Shift D (6 PM - 12 AM)', start: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 18, 0), end: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate() + 1, 0, 0) },
   ];
 
-  // Also create shifts for tomorrow in case items were assigned with tomorrow's date
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowShifts = [
-    { id: 'A', label: 'Tomorrow Shift A (12 AM - 6 AM)', start: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 0, 0), end: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 6, 0) },
-    { id: 'B', label: 'Tomorrow Shift B (6 AM - 12 PM)', start: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 6, 0), end: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 12, 0) },
-    { id: 'C', label: 'Tomorrow Shift C (12 PM - 6 PM)', start: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 12, 0), end: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 18, 0) },
-    { id: 'D', label: 'Tomorrow Shift D (6 PM - 12 AM)', start: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 18, 0), end: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate() + 1, 0, 0) },
+  // Also create shifts for next day in case items were assigned with next day's date
+  const nextDay = addDays(selectedDate, 1);
+  const nextDayShifts = [
+    { id: 'A', label: 'Next Day Shift A (12 AM - 6 AM)', start: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 0, 0), end: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 6, 0) },
+    { id: 'B', label: 'Next Day Shift B (6 AM - 12 PM)', start: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 6, 0), end: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 12, 0) },
+    { id: 'C', label: 'Next Day Shift C (12 PM - 6 PM)', start: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 12, 0), end: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 18, 0) },
+    { id: 'D', label: 'Next Day Shift D (6 PM - 12 AM)', start: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 18, 0), end: new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate() + 1, 0, 0) },
   ];
 
 
@@ -75,6 +84,7 @@ export const CurrentShiftSection = () => {
   const getItemTitle = (item: WorkloadItem) => {
     switch (item.type) {
       case 'task':
+      case 'slot-task':
         return item.task?.name || 'Unknown Task';
       case 'subtask':
         return `${item.subtask?.parent_task_name} > ${item.subtask?.name}` || 'Unknown Subtask';
@@ -90,6 +100,7 @@ export const CurrentShiftSection = () => {
   const getItemProject = (item: WorkloadItem) => {
     switch (item.type) {
       case 'task':
+      case 'slot-task':
         return item.task?.project?.name || '';
       case 'subtask':
         return item.subtask?.project?.name || '';
@@ -102,15 +113,15 @@ export const CurrentShiftSection = () => {
     }
   };
 
-  // Fetch workload items for today and next few days (to cover all possible assignments)
+  // Fetch workload items for selected date and nearby days
   const { data: workloadItems = [], isLoading } = useQuery({
-    queryKey: ['current-shift-workload', now.toISOString().split('T')[0]],
+    queryKey: ['current-shift-workload', selectedDate.toISOString().split('T')[0]],
     queryFn: async () => {
-      const today = now.toISOString().split('T')[0];
-      const tomorrowDate = addHours(now, 24).toISOString().split('T')[0];
-      const dayAfter = addHours(now, 48).toISOString().split('T')[0];
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const nextDateStr = addDays(selectedDate, 1).toISOString().split('T')[0];
+      const prevDateStr = subDays(selectedDate, 1).toISOString().split('T')[0];
 
-      // Fetch tasks for today and next few days (broader than WorkloadCal to catch all assignments)
+      // Fetch tasks with scheduled_time
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
@@ -119,18 +130,42 @@ export const CurrentShiftSection = () => {
           status,
           scheduled_time,
           date,
+          slot_start_datetime,
+          slot_end_datetime,
           assignee:employees!tasks_assignee_id_fkey(name),
           project:projects!tasks_project_id_fkey(
             name,
             client:clients!projects_client_id_fkey(name)
           )
         `)
-        .or(`date.eq.${today},date.eq.${tomorrowDate},date.eq.${dayAfter},and(scheduled_time.not.is.null,date.is.null)`)
+        .or(`date.eq.${dateStr},date.eq.${nextDateStr},date.eq.${prevDateStr},and(scheduled_time.not.is.null,date.is.null)`)
         .not('scheduled_time', 'is', null);
 
       if (tasksError) throw tasksError;
 
-      // Fetch subtasks for today and next few days (broader than WorkloadCal to catch all assignments)
+      // Fetch tasks with deadline slots (slot_start_datetime)
+      const { data: slotTasksData, error: slotTasksError } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          name,
+          status,
+          scheduled_time,
+          date,
+          slot_start_datetime,
+          slot_end_datetime,
+          assignee:employees!tasks_assignee_id_fkey(name),
+          project:projects!tasks_project_id_fkey(
+            name,
+            client:clients!projects_client_id_fkey(name)
+          )
+        `)
+        .gte('slot_start_datetime', `${dateStr}T00:00:00`)
+        .lt('slot_start_datetime', `${dateStr}T23:59:59`);
+
+      if (slotTasksError) throw slotTasksError;
+
+      // Fetch subtasks
       const { data: subtasksData, error: subtasksError } = await supabase
         .from('subtasks')
         .select(`
@@ -148,23 +183,23 @@ export const CurrentShiftSection = () => {
             )
           )
         `)
-        .or(`date.eq.${today},date.eq.${tomorrowDate},date.eq.${dayAfter},and(scheduled_time.not.is.null,date.is.null)`)
+        .or(`date.eq.${dateStr},date.eq.${nextDateStr},date.eq.${prevDateStr},and(scheduled_time.not.is.null,date.is.null)`)
         .not('scheduled_time', 'is', null);
 
       if (subtasksError) throw subtasksError;
 
       // Combine and format the data
       const workloadItems: WorkloadItem[] = [];
+      const addedTaskIds = new Set<string>();
 
-      // Add tasks
+      // Add tasks with scheduled_time
       tasksData?.forEach(task => {
         if (task.scheduled_time) {
-          // If no date but has scheduled_time, assume it's for today
-          const effectiveDate = task.date || today;
+          const effectiveDate = task.date || dateStr;
           const scheduledDateTime = parseScheduledTime(task.scheduled_time, effectiveDate);
 
-          // For debugging, include all items from today/tomorrow, we'll filter by shift later
           if (scheduledDateTime) {
+            addedTaskIds.add(task.id);
             workloadItems.push({
               id: task.id,
               type: 'task',
@@ -175,7 +210,43 @@ export const CurrentShiftSection = () => {
                 name: task.name,
                 status: task.status,
                 assignee: task.assignee,
-                project: task.project
+                project: task.project,
+                slot_start_datetime: task.slot_start_datetime,
+                slot_end_datetime: task.slot_end_datetime
+              }
+            });
+          }
+        }
+      });
+
+      // Add tasks with deadline slots (slot_start_datetime)
+      slotTasksData?.forEach(task => {
+        if (addedTaskIds.has(task.id)) return; // Skip if already added
+        
+        if (task.slot_start_datetime) {
+          const startDateTime = new Date(task.slot_start_datetime);
+          const endDateTime = task.slot_end_datetime ? new Date(task.slot_end_datetime) : null;
+          
+          const startHour = startDateTime.getHours();
+          const endHour = endDateTime ? endDateTime.getHours() : startHour + 1;
+          
+          // Create workload items for each hour slot the task spans
+          for (let hour = startHour; hour < endHour; hour++) {
+            const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+            
+            workloadItems.push({
+              id: `${task.id}-slot-${timeSlot}`,
+              type: 'slot-task',
+              scheduled_time: timeSlot,
+              scheduled_date: dateStr,
+              task: {
+                id: task.id,
+                name: task.name,
+                status: task.status,
+                assignee: task.assignee,
+                project: task.project,
+                slot_start_datetime: task.slot_start_datetime,
+                slot_end_datetime: task.slot_end_datetime
               }
             });
           }
@@ -185,11 +256,9 @@ export const CurrentShiftSection = () => {
       // Add subtasks
       subtasksData?.forEach(subtask => {
         if (subtask.scheduled_time) {
-          // If no date but has scheduled_time, assume it's for today
-          const effectiveDate = subtask.date || today;
+          const effectiveDate = subtask.date || dateStr;
           const scheduledDateTime = parseScheduledTime(subtask.scheduled_time, effectiveDate);
 
-          // For debugging, include all items from today/tomorrow, we'll filter by shift later
           if (scheduledDateTime) {
             workloadItems.push({
               id: subtask.id,
@@ -246,32 +315,32 @@ export const CurrentShiftSection = () => {
     }
   };
 
-  // Group workload items by shifts (check both today's and tomorrow's shifts)
-  const allShifts = [...shifts, ...tomorrowShifts];
-  const itemsByShift = shifts.map(todayShift => {
+  // Group workload items by shifts (check both selected date's and next day's shifts)
+  const allShifts = [...shifts, ...nextDayShifts];
+  const itemsByShift = shifts.map(currentShift => {
     const shiftItems = workloadItems.filter(item => {
       const itemDateTime = parseScheduledTime(item.scheduled_time, item.scheduled_date);
 
-      // Check if item falls in today's shift
-      const isInTodayShift = itemDateTime && isWithinInterval(itemDateTime, {
-        start: todayShift.start,
-        end: todayShift.end
+      // Check if item falls in this shift
+      const isInCurrentShift = itemDateTime && isWithinInterval(itemDateTime, {
+        start: currentShift.start,
+        end: currentShift.end
       });
 
-      // Also check tomorrow's corresponding shift if the item is within next 6 hours
-      const tomorrowShift = tomorrowShifts.find(s => s.id === todayShift.id);
-      const isInTomorrowShift = tomorrowShift && itemDateTime && isWithinInterval(itemDateTime, {
-        start: tomorrowShift.start,
-        end: tomorrowShift.end
+      // Also check next day's corresponding shift if viewing today and item is within next 6 hours
+      const nextShift = nextDayShifts.find(s => s.id === currentShift.id);
+      const isInNextShift = isToday && nextShift && itemDateTime && isWithinInterval(itemDateTime, {
+        start: nextShift.start,
+        end: nextShift.end
       }) && isWithinInterval(itemDateTime, { start: now, end: next6Hours });
 
-      const isInInterval = isInTodayShift || isInTomorrowShift;
+      const isInInterval = isInCurrentShift || isInNextShift;
 
       return isInInterval;
     });
 
     return {
-      ...todayShift,
+      ...currentShift,
       items: shiftItems
     };
   });
@@ -309,14 +378,62 @@ export const CurrentShiftSection = () => {
             <div className="flex items-center gap-2">
               {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               <h2 className="text-lg font-semibold">Current Shift</h2>
-              <Badge variant="outline" className="text-xs">
-                Next 6 Hours
-              </Badge>
+              {isToday && (
+                <Badge variant="outline" className="text-xs">
+                  Next 6 Hours
+                </Badge>
+              )}
             </div>
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="space-y-4 mt-4">
+          {/* Date Navigation */}
+          <div className="flex items-center justify-between mt-4 mb-4 border-b pb-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                goToPreviousDay();
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">
+                {format(selectedDate, 'EEE, MMM d, yyyy')}
+              </span>
+              {!isToday && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToToday();
+                  }}
+                  className="h-6 px-2 text-xs"
+                >
+                  Today
+                </Button>
+              )}
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                goToNextDay();
+              }}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRightIcon className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="space-y-4">
             {itemsByShift.map(shift => (
               <div key={shift.id} className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -332,8 +449,11 @@ export const CurrentShiftSection = () => {
                 ) : (
                   <div className="space-y-2 pl-6">
                     {shift.items.map(item => {
+                      // Get the real task ID for slot-task items
+                      const realTaskId = item.type === 'slot-task' ? item.task?.id : item.id;
+                      
                       const activeEntry = activeEntries.find(entry =>
-                        entry.task_id === item.id ||
+                        entry.task_id === realTaskId ||
                         (item.type === 'subtask' && entry.task_id === item.subtask?.id)
                       );
                       const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
@@ -341,12 +461,23 @@ export const CurrentShiftSection = () => {
                       return (
                         <div key={item.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">
+                            <div className="font-medium text-sm truncate flex items-center gap-2">
                               {getItemTitle(item)}
+                              {item.type === 'slot-task' && (
+                                <Badge variant="secondary" className="text-xs">Slot</Badge>
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {getItemProject(item)} • {(() => {
                                 try {
+                                  // For slot-task, show the slot time range
+                                  if (item.type === 'slot-task' && item.task?.slot_start_datetime) {
+                                    const start = new Date(item.task.slot_start_datetime);
+                                    const end = item.task.slot_end_datetime ? new Date(item.task.slot_end_datetime) : null;
+                                    return end 
+                                      ? `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`
+                                      : format(start, 'HH:mm');
+                                  }
                                   // Check if scheduled_time is already a full datetime string
                                   if (item.scheduled_time.includes('T') || item.scheduled_time.includes(' ')) {
                                     return format(new Date(item.scheduled_time), 'HH:mm');
@@ -369,7 +500,7 @@ export const CurrentShiftSection = () => {
                                   timerMetadata={activeEntry.timer_metadata}
                                 />
                                 <CompactTimerControls
-                                  taskId={item.id}
+                                  taskId={realTaskId || item.id}
                                   taskName={getItemTitle(item)}
                                   entryId={activeEntry.id}
                                   timerMetadata={activeEntry.timer_metadata}
@@ -379,7 +510,7 @@ export const CurrentShiftSection = () => {
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() => handleStartTask(item.id, item.type === 'subtask')}
+                                onClick={() => handleStartTask(realTaskId || item.id, item.type === 'subtask')}
                                 className="h-7 px-2"
                               >
                                 <Play className="h-3 w-3" />
