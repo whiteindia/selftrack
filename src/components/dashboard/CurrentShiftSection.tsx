@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import TaskEditDialog from '@/components/TaskEditDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface WorkloadItem {
   id: string;
@@ -63,6 +64,14 @@ export const CurrentShiftSection = () => {
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   const [shiftInputs, setShiftInputs] = useState<Record<string, string>>({});
+  const [expandedSubtasks, setExpandedSubtasks] = useState<Record<string, boolean>>({});
+  const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
+  const [subtaskDialogTaskId, setSubtaskDialogTaskId] = useState<string | null>(null);
+  const [subtaskDialogTaskName, setSubtaskDialogTaskName] = useState<string>('');
+  const [subtaskDialogParentDeadline, setSubtaskDialogParentDeadline] = useState<string | null | undefined>(null);
+  const [subtaskEditId, setSubtaskEditId] = useState<string | null>(null);
+  const [subtaskEditText, setSubtaskEditText] = useState<string>('');
+  const [subtaskNewName, setSubtaskNewName] = useState<string>('');
 
   const { data: miscProject } = useQuery({
     queryKey: ['misc-project'],
@@ -534,6 +543,80 @@ export const CurrentShiftSection = () => {
     }
   });
 
+  const handleCreateSubtask = (taskId: string, name: string, parentDeadline?: string | null) => {
+    if (!name.trim()) return;
+    createSubtaskMutation.mutate({ taskId, name: name.trim(), parentDeadline });
+  };
+
+  const handleToggleSubtaskStatus = (subtask: any) => {
+    const current = subtask.status || 'Not Started';
+    let next = 'Not Started';
+    if (current === 'Not Started') next = 'In Progress';
+    else if (current === 'In Progress') next = 'Completed';
+    else if (current === 'Completed') next = 'Not Started';
+    updateSubtaskStatusMutation.mutate({ subtaskId: subtask.id, status: next });
+  };
+
+  const handleDeleteSubtask = (subtaskId: string) => {
+    deleteSubtaskMutation.mutate({ subtaskId });
+  };
+
+  const { data: dialogSubtasks = [], isLoading: isDialogSubtasksLoading } = useQuery({
+    queryKey: ['task-subtasks', subtaskDialogTaskId],
+    enabled: subtaskDialogOpen && !!subtaskDialogTaskId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('subtasks')
+        .select('id, name, status, deadline')
+        .eq('task_id', subtaskDialogTaskId);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const createSubtaskMutation = useMutation({
+    mutationFn: async ({ taskId, name, parentDeadline }: { taskId: string; name: string; parentDeadline?: string | null }) => {
+      const { error } = await supabase.from('subtasks').insert({
+        name,
+        task_id: taskId,
+        status: 'Not Started',
+        deadline: parentDeadline || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      toast.success('Subtask added');
+      queryClient.invalidateQueries({ queryKey: ['task-subtasks', variables.taskId] });
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+    },
+    onError: () => toast.error('Failed to add subtask'),
+  });
+
+  const updateSubtaskStatusMutation = useMutation({
+    mutationFn: async ({ subtaskId, status }: { subtaskId: string; status: string }) => {
+      const { error } = await supabase.from('subtasks').update({ status }).eq('id', subtaskId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables, context) => {
+      queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+    },
+    onError: () => toast.error('Failed to update subtask'),
+  });
+
+  const deleteSubtaskMutation = useMutation({
+    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+      const { error } = await supabase.from('subtasks').delete().eq('id', subtaskId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      toast.success('Subtask deleted');
+      queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+    },
+    onError: () => toast.error('Failed to delete subtask'),
+  });
+
   const openAssignForItem = (item: WorkloadItem) => {
     const projectName = getItemProject(item);
     const projectId = item.task?.project_id || item.subtask?.project_id || item.subtask?.task?.project_id || '';
@@ -791,6 +874,23 @@ export const CurrentShiftSection = () => {
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSubtaskDialogTaskId(realTaskId || item.id);
+                                      setSubtaskDialogTaskName(item.task?.name || getItemTitle(item));
+                                      setSubtaskDialogParentDeadline(item.task?.deadline);
+                                      setSubtaskDialogOpen(true);
+                                    }}
+                                    className="h-7 px-2"
+                                    title="Subtasks"
+                                  >
+                                    <List className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {(item.type === 'task' || item.type === 'slot-task') && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
                                     onClick={(e) => { 
                                       e.stopPropagation(); 
                                       deleteItemMutation.mutate({ id: realTaskId || item.id, type: 'task' }); 
@@ -879,6 +979,261 @@ export const CurrentShiftSection = () => {
         queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
       }}
     />
+    <Dialog open={subtaskDialogOpen} onOpenChange={(open) => { if (!open) { setSubtaskDialogOpen(false); setSubtaskDialogTaskId(null); setSubtaskDialogTaskName(''); setSubtaskNewName(''); setSubtaskEditId(null); setSubtaskEditText(''); } }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Subtasks for {subtaskDialogTaskName || 'Task'}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (subtaskDialogTaskId && subtaskNewName.trim()) {
+                handleCreateSubtask(subtaskDialogTaskId, subtaskNewName, subtaskDialogParentDeadline);
+                setSubtaskNewName('');
+              }
+            }}
+            className="flex gap-2"
+          >
+            <input
+              className="flex-1 rounded-md border px-2 py-1 text-sm bg-background"
+              placeholder="Add subtask"
+              value={subtaskNewName}
+              onChange={(e) => setSubtaskNewName(e.target.value)}
+            />
+            <Button size="sm" type="submit" disabled={!subtaskNewName.trim()}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </form>
+
+          {isDialogSubtasksLoading ? (
+            <div className="text-sm text-muted-foreground">Loading subtasks...</div>
+          ) : dialogSubtasks.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No subtasks</div>
+          ) : (
+            <div className="space-y-2">
+              {dialogSubtasks.map((st: any) => (
+                <div key={st.id} className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      onClick={() => handleToggleSubtaskStatus(st)}
+                      title="Toggle status"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                    </Button>
+                    {subtaskEditId === st.id ? (
+                      <input
+                        className="rounded border px-1 py-0.5 text-sm"
+                        value={subtaskEditText}
+                        onChange={(e) => setSubtaskEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (subtaskEditText.trim()) {
+                              supabase.from('subtasks').update({ name: subtaskEditText.trim() }).eq('id', st.id).then(({ error }) => {
+                                if (!error) {
+                                  setSubtaskEditId(null);
+                                  setSubtaskEditText('');
+                                  queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+                                  queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+                                }
+                              });
+                            }
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span className={cn(
+                        'text-sm',
+                        st.status === 'Completed' && 'line-through text-muted-foreground'
+                      )}>
+                        {st.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {subtaskEditId === st.id ? (
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        if (subtaskEditText.trim()) {
+                          supabase.from('subtasks').update({ name: subtaskEditText.trim() }).eq('id', st.id).then(({ error }) => {
+                            if (!error) {
+                              setSubtaskEditId(null);
+                              setSubtaskEditText('');
+                              queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+                              queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+                            }
+                          });
+                        }
+                      }} className="h-7 px-2">Save</Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => { setSubtaskEditId(st.id); setSubtaskEditText(st.name); }}
+                        className="h-7 px-2"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteSubtask(st.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
     </>
+  );
+};
+
+interface TaskSubtaskListProps {
+  taskId: string;
+  parentDeadline?: string | null;
+  isOpen: boolean;
+  onCreateSubtask: (taskId: string, name: string, parentDeadline?: string | null) => void;
+  onToggleStatus: (subtask: any) => void;
+  onDelete: (subtaskId: string) => void;
+}
+
+const TaskSubtaskList: React.FC<TaskSubtaskListProps> = ({
+  taskId,
+  parentDeadline,
+  isOpen,
+  onCreateSubtask,
+  onToggleStatus,
+  onDelete,
+}) => {
+  const [newSubtask, setNewSubtask] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+
+  const { data: subtasks = [], isLoading } = useQuery({
+    queryKey: ['task-subtasks', taskId],
+    enabled: isOpen,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('subtasks')
+        .select('id, name, status, deadline')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const saveEdit = () => {
+    if (!editingId || !editText.trim()) return;
+    supabase.from('subtasks').update({ name: editText.trim() }).eq('id', editingId).then(({ error }) => {
+      if (!error) {
+        setEditingId(null);
+        setEditText('');
+      }
+    });
+  };
+
+  return (
+    <div className="mt-2 rounded-md border border-muted p-3 space-y-2 bg-background">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (newSubtask.trim()) {
+            onCreateSubtask(taskId, newSubtask, parentDeadline);
+            setNewSubtask('');
+          }
+        }}
+        className="flex gap-2"
+      >
+        <input
+          className="flex-1 rounded-md border px-2 py-1 text-sm bg-background"
+          placeholder="Add subtask"
+          value={newSubtask}
+          onChange={(e) => setNewSubtask(e.target.value)}
+        />
+        <Button size="sm" type="submit" disabled={!newSubtask.trim()}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </form>
+
+      {isLoading ? (
+        <div className="text-xs text-muted-foreground">Loading subtasks...</div>
+      ) : subtasks.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No subtasks</div>
+      ) : (
+        <div className="space-y-2">
+          {subtasks.map((st: any) => (
+            <div
+              key={st.id}
+              className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-sm"
+            >
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => onToggleStatus(st)}
+                  title="Toggle status"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                </Button>
+                {editingId === st.id ? (
+                  <input
+                    className="rounded border px-1 py-0.5 text-sm"
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveEdit();
+                      }
+                    }}
+                  />
+                ) : (
+                  <span className={cn(
+                    'truncate',
+                    st.status === 'Completed' && 'line-through text-muted-foreground'
+                  )}>
+                    {st.name}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {editingId === st.id ? (
+                  <Button size="sm" variant="ghost" onClick={saveEdit} className="h-7 px-2">Save</Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => { setEditingId(st.id); setEditText(st.name); }}
+                    className="h-7 px-2"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-destructive hover:text-destructive"
+                  onClick={() => onDelete(st.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
