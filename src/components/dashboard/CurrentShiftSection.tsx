@@ -8,7 +8,7 @@ import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } fro
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
-import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -462,8 +462,9 @@ export const CurrentShiftSection = () => {
             </div>
           </CollapsibleTrigger>
         </CardHeader>
-        <CardContent className="px-0 sm:px-6 py-6">
-          <div className="space-y-4">
+        <CollapsibleContent>
+          <CardContent className="px-0 sm:px-6 py-6">
+            <div className="space-y-4">
             {itemsByShift.map(shift => (
               <div key={shift.id} className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -571,7 +572,8 @@ export const CurrentShiftSection = () => {
               </div>
             ))}
           </div>
-        </CardContent>
+          </CardContent>
+        </CollapsibleContent>
       </Collapsible>
     </Card>
   );

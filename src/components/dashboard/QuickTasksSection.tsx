@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -1714,7 +1714,8 @@ export const QuickTasksSection = () => {
               </div>
             </CollapsibleTrigger>
           </CardHeader>
-        <CardContent className="px-0 sm:px-6 py-6">
+        <CollapsibleContent>
+          <CardContent className="px-0 sm:px-6 py-6">
             <div className="space-y-4">
               {/* Quick add task input */}
               <form onSubmit={handleCreateTask} className="flex gap-2">
@@ -1763,7 +1764,8 @@ export const QuickTasksSection = () => {
               )}
             </div>
           </CardContent>
-        </Collapsible>
+        </CollapsibleContent>
+      </Collapsible>
       </Card>
 
     {editingTask && (

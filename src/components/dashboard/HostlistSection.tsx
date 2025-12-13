@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -1128,7 +1128,8 @@ export const HostlistSection = () => {
               </div>
             </CollapsibleTrigger>
           </CardHeader>
-        <CardContent className="px-0 sm:px-6 py-6">
+        <CollapsibleContent>
+          <CardContent className="px-0 sm:px-6 py-6">
             <div className="space-y-4">
               <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
                 <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
@@ -1156,7 +1157,8 @@ export const HostlistSection = () => {
               )}
             </div>
           </CardContent>
-        </Collapsible>
+        </CollapsibleContent>
+      </Collapsible>
       </Card>
 
       {editingTask && (
