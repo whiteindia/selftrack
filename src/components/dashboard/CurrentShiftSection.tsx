@@ -462,16 +462,32 @@ export const CurrentShiftSection = () => {
                       const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
 
                       return (
-                        <div key={item.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                        <div 
+                          key={item.id} 
+                          className={`flex items-start justify-between p-3 rounded-md transition-all ${item.type === 'subtask' ? 'bg-blue-50 dark:bg-blue-900/30' : item.type === 'slot-task' ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-muted/30'}`}
+                        >
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate flex items-center gap-2">
-                              {getItemTitle(item)}
+                            <div className="font-medium text-sm flex flex-col gap-1">
+                              {item.type === 'subtask' ? (
+                                <>
+                                  <span className="text-blue-700 dark:text-blue-300">{item.subtask?.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {item.subtask?.parent_task_name}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className={item.type === 'slot-task' ? 'text-purple-700 dark:text-purple-300' : ''}>
+                                  {getItemTitle(item)}
+                                </span>
+                              )}
                               {item.type === 'slot-task' && (
-                                <Badge variant="secondary" className="text-xs">Slot</Badge>
+                                <Badge variant="secondary" className="mt-1 w-fit text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
+                                  Time Slot
+                                </Badge>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              {getItemProject(item)} • {(() => {
+                            <div className="text-xs text-muted-foreground mt-1">
+                              <span className="font-medium">{getItemProject(item)}</span> • {(() => {
                                 try {
                                   // For slot-task, show the slot time range
                                   if (item.type === 'slot-task' && item.task?.slot_start_datetime) {
@@ -494,7 +510,7 @@ export const CurrentShiftSection = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 ml-2">
+                          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                             {activeEntry ? (
                               <>
                                 <LiveTimer
