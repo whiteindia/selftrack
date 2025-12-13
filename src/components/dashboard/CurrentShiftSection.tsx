@@ -404,7 +404,7 @@ export const CurrentShiftSection = () => {
   return (
     <Card className="w-full">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CardHeader className="px-0 sm:px-6 py-4">
+        <CardHeader className="px-6 py-4">
           <CollapsibleTrigger asChild>
             <div className="flex items-center justify-between cursor-pointer">
               <div className="flex items-center gap-2">
