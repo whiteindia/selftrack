@@ -517,7 +517,14 @@ export const QuickTasksSection = () => {
     const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
     const [editSubtaskName, setEditSubtaskName] = useState("");
 
-    const visibleSubtasks = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+    const visibleSubtasks = useMemo(() => {
+      const list = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+      const withKey = list.map((st: any) => {
+        const match = /^(\d+)/.exec(st.name?.trim() || '');
+        return { ...st, _sortKey: match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER };
+      });
+      return withKey.sort((a: any, b: any) => a._sortKey - b._sortKey || (a.name || '').localeCompare(b.name || ''));
+    }, [task.subtasks]);
 
     const style = {
       transform: CSS.Transform.toString(transform),

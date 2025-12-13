@@ -355,7 +355,14 @@ export const HostlistSection = () => {
 
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, active } = useSortable({ id: task.id });
-    const visibleSubtasks = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+    const visibleSubtasks = useMemo(() => {
+      const list = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+      const withKey = list.map((st: any) => {
+        const match = /^(\d+)/.exec(st.name?.trim() || '');
+        return { ...st, _sortKey: match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER };
+      });
+      return withKey.sort((a: any, b: any) => a._sortKey - b._sortKey || (a.name || '').localeCompare(b.name || ''));
+    }, [task.subtasks]);
     const [showSubtasks, setShowSubtasks] = useState(false);
     const [newSubtaskName, setNewSubtaskName] = useState("");
     const [showTimeControls, setShowTimeControls] = useState(false);

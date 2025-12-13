@@ -590,7 +590,11 @@ export const CurrentShiftSection = () => {
         .select('id, name, status, deadline')
         .eq('task_id', subtaskDialogTaskId);
       if (error) throw error;
-      return data || [];
+      const withKey = (data || []).map((st: any) => {
+        const match = /^(\d+)/.exec(st.name?.trim() || '');
+        return { ...st, _sortKey: match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER };
+      });
+      return withKey.sort((a: any, b: any) => a._sortKey - b._sortKey || (a.name || '').localeCompare(b.name || ''));
     },
   });
 
