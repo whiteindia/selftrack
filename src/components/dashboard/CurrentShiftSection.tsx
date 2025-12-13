@@ -1,16 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2 } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import TaskEditDialog from '@/components/TaskEditDialog';
+import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 
 interface WorkloadItem {
   id: string;
@@ -21,8 +24,10 @@ interface WorkloadItem {
     id: string;
     name: string;
     status: string;
+    project_id?: string;
+    deadline?: string;
     assignee?: { name: string };
-    project?: { name: string; client?: { name: string } };
+    project?: { id?: string; name: string; client?: { name: string } };
     slot_start_datetime?: string;
     slot_end_datetime?: string;
   };
@@ -30,9 +35,10 @@ interface WorkloadItem {
     id: string;
     name: string;
     status: string;
+    project_id?: string;
     assignee?: { name: string };
-    task?: { name: string };
-    project?: { name: string; client?: { name: string } };
+    task?: { id?: string; name: string; project_id?: string };
+    project?: { id?: string; name: string; client?: { name: string } };
     parent_task_name: string;
   };
   routine?: {
@@ -49,8 +55,27 @@ interface WorkloadItem {
 }
 
 export const CurrentShiftSection = () => {
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+  const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
+  const [shiftInputs, setShiftInputs] = useState<Record<string, string>>({});
+
+  const { data: miscProject } = useQuery({
+    queryKey: ['misc-project'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('name', 'Miscellanious-Quick-Temp-Orglater')
+        .single();
+      if (error) throw error;
+      return data;
+    }
+  });
 
   // Get current time and next 6 hours based on selected date
   const now = new Date();
@@ -166,10 +191,13 @@ export const CurrentShiftSection = () => {
           status,
           scheduled_time,
           date,
+          deadline,
           slot_start_datetime,
           slot_end_datetime,
+          project_id,
           assignee:employees!tasks_assignee_id_fkey(name),
           project:projects!tasks_project_id_fkey(
+            id,
             name,
             client:clients!projects_client_id_fkey(name)
           )
@@ -188,10 +216,13 @@ export const CurrentShiftSection = () => {
           status,
           scheduled_time,
           date,
+          deadline,
           slot_start_datetime,
           slot_end_datetime,
+          project_id,
           assignee:employees!tasks_assignee_id_fkey(name),
           project:projects!tasks_project_id_fkey(
+            id,
             name,
             client:clients!projects_client_id_fkey(name)
           )
@@ -212,8 +243,11 @@ export const CurrentShiftSection = () => {
           date,
           assignee:employees!subtasks_assignee_id_fkey(name),
           task:tasks!subtasks_task_id_fkey(
+            id,
             name,
+            project_id,
             project:projects!tasks_project_id_fkey(
+              id,
               name,
               client:clients!projects_client_id_fkey(name)
             )
@@ -245,6 +279,8 @@ export const CurrentShiftSection = () => {
                 id: task.id,
                 name: task.name,
                 status: task.status,
+                project_id: task.project_id,
+                deadline: task.deadline,
                 assignee: task.assignee,
                 project: task.project,
                 slot_start_datetime: task.slot_start_datetime,
@@ -279,6 +315,8 @@ export const CurrentShiftSection = () => {
                 id: task.id,
                 name: task.name,
                 status: task.status,
+                project_id: task.project_id,
+                deadline: task.deadline,
                 assignee: task.assignee,
                 project: task.project,
                 slot_start_datetime: task.slot_start_datetime,
@@ -305,6 +343,7 @@ export const CurrentShiftSection = () => {
                 id: subtask.id,
                 name: subtask.name,
                 status: subtask.status,
+                project_id: subtask.task?.project_id,
                 assignee: subtask.assignee,
                 task: subtask.task,
                 project: subtask.task?.project,
@@ -415,6 +454,89 @@ export const CurrentShiftSection = () => {
     });
   };
 
+  const createShiftTaskMutation = useMutation({
+    mutationFn: async ({ name, shiftStart }: { name: string; shiftStart: string }) => {
+      if (!miscProject?.id) {
+        throw new Error('Quick task project not found');
+      }
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      // Build datetime at shift start for deadline/slot start
+      const startDateTime = new Date(`${dateStr}T${shiftStart}`);
+      const endDateTime = new Date(startDateTime);
+      endDateTime.setHours(endDateTime.getHours() + 1);
+
+      const { error } = await supabase.from('tasks').insert({
+        name,
+        status: 'Not Started',
+        date: dateStr,
+        scheduled_time: shiftStart,
+        deadline: startDateTime.toISOString(),
+        slot_start_datetime: startDateTime.toISOString(),
+        slot_end_datetime: endDateTime.toISOString(),
+        project_id: miscProject.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Task added to shift');
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error('Failed to add task to shift');
+    }
+  });
+
+  const handleAddShiftTask = (shiftId: string, shiftStart: Date) => {
+    const value = (shiftInputs[shiftId] || '').trim();
+    if (!value) return;
+    if (!miscProject?.id) {
+      toast.error('Quick task project not found');
+      return;
+    }
+    const shiftStartStr = `${shiftStart.getHours().toString().padStart(2, '0')}:00`;
+    createShiftTaskMutation.mutate({ name: value, shiftStart: shiftStartStr });
+    setShiftInputs(prev => ({ ...prev, [shiftId]: '' }));
+  };
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: 'task' | 'subtask' }) => {
+      if (type === 'task') {
+        const { error } = await supabase.from('tasks').delete().eq('id', id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('subtasks').delete().eq('id', id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success('Item deleted');
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+    },
+    onError: () => {
+      toast.error('Failed to delete item');
+    }
+  });
+
+  const openAssignForItem = (item: WorkloadItem) => {
+    const projectName = getItemProject(item);
+    const projectId = item.task?.project_id || item.subtask?.project_id || item.subtask?.task?.project_id || '';
+    const selected = {
+      id: item.id,
+      originalId: item.id,
+      type: item.type,
+      itemType: item.type,
+      title: getItemTitle(item),
+      date: item.scheduled_date || selectedDate.toISOString().split('T')[0],
+      client: '',
+      project: projectName,
+      assigneeId: null,
+      projectId: projectId || '',
+    };
+    setSelectedItemsForWorkload([selected]);
+    setIsAssignDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full">
@@ -426,6 +548,7 @@ export const CurrentShiftSection = () => {
   }
 
   return (
+    <>
     <Card className="w-full">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="px-6 py-4">
@@ -520,6 +643,30 @@ export const CurrentShiftSection = () => {
                   </Badge>
                 </div>
 
+                <div className="pl-6">
+                  <div className="flex gap-2 items-center mb-2">
+                    <input
+                      className="flex-1 rounded-md border px-2 py-1 text-sm bg-background"
+                      placeholder={`Quick add to ${shift.label}`}
+                      value={shiftInputs[shift.id] || ''}
+                      onChange={(e) => setShiftInputs(prev => ({ ...prev, [shift.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddShiftTask(shift.id, shift.start);
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleAddShiftTask(shift.id, shift.start)}
+                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftTaskMutation.isLoading}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+
                 {shift.items.length === 0 ? (
                   <div className="text-xs text-muted-foreground pl-6">No scheduled items</div>
                 ) : (
@@ -538,6 +685,7 @@ export const CurrentShiftSection = () => {
                         <div 
                           key={item.id} 
                           className={`flex items-start justify-between p-3 rounded-md transition-all ${item.type === 'subtask' ? 'bg-blue-50 dark:bg-blue-900/30' : item.type === 'slot-task' ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-muted/30'}`}
+                          onClick={() => setShowingActionsFor(showingActionsFor === item.id ? null : item.id)}
                         >
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm flex flex-col gap-1">
@@ -581,9 +729,72 @@ export const CurrentShiftSection = () => {
                                 }
                               })()}
                             </div>
+                            {showingActionsFor === item.id && (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                  className="h-7 px-2"
+                                  title="Add to Workload"
+                                >
+                                  <CalendarPlus className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                {(item.type === 'task' || item.type === 'slot-task') && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      setEditingTask({
+                                        id: item.task?.id || item.id,
+                                        name: item.task?.name || getItemTitle(item),
+                                        status: item.task?.status,
+                                        project_id: item.task?.project_id,
+                                        deadline: item.task?.deadline,
+                                        slot_start_datetime: item.task?.slot_start_datetime,
+                                        slot_end_datetime: item.task?.slot_end_datetime,
+                                      }); 
+                                    }}
+                                    className="h-7 px-2"
+                                    title="Edit"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {(item.type === 'task' || item.type === 'slot-task') && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      deleteItemMutation.mutate({ id: realTaskId || item.id, type: 'task' }); 
+                                    }}
+                                    className="h-7 px-2 text-destructive hover:text-destructive"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {item.type === 'subtask' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                    }}
+                                    className="h-7 px-2 text-destructive hover:text-destructive"
+                                    title="Delete subtask"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
 
-                          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                          <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                             {activeEntry ? (
                               <>
                                 <LiveTimer
@@ -621,5 +832,28 @@ export const CurrentShiftSection = () => {
         </CollapsibleContent>
       </Collapsible>
     </Card>
+    {editingTask && (
+      <TaskEditDialog
+        isOpen={!!editingTask}
+        onClose={() => { 
+          setEditingTask(null); 
+          queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] }); 
+        }}
+        task={editingTask}
+        mode="full"
+      />
+    )}
+    <AssignToSlotDialog
+      open={isAssignDialogOpen}
+      onOpenChange={setIsAssignDialogOpen}
+      selectedItems={selectedItemsForWorkload}
+      onAssigned={() => {
+        setIsAssignDialogOpen(false);
+        setSelectedItemsForWorkload([]);
+        toast.success('Added to workload');
+        queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      }}
+    />
+    </>
   );
 };
