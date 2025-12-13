@@ -317,26 +317,27 @@ export const CurrentShiftSection = () => {
 
   // Group workload items by shifts (check both selected date's and next day's shifts)
   const allShifts = [...shifts, ...nextDayShifts];
+  // Helper to check if time is in shift (start inclusive, end exclusive)
+  const isInShiftRange = (itemTime: Date, shiftStart: Date, shiftEnd: Date) => {
+    // Item time should be >= shift start AND < shift end (not inclusive of end)
+    return itemTime >= shiftStart && itemTime < shiftEnd;
+  };
+
   const itemsByShift = shifts.map(currentShift => {
     const shiftItems = workloadItems.filter(item => {
       const itemDateTime = parseScheduledTime(item.scheduled_time, item.scheduled_date);
+      if (!itemDateTime) return false;
 
-      // Check if item falls in this shift
-      const isInCurrentShift = itemDateTime && isWithinInterval(itemDateTime, {
-        start: currentShift.start,
-        end: currentShift.end
-      });
+      // Check if item falls in this shift (start inclusive, end exclusive)
+      const isInCurrentShift = isInShiftRange(itemDateTime, currentShift.start, currentShift.end);
 
       // Also check next day's corresponding shift if viewing today and item is within next 6 hours
       const nextShift = nextDayShifts.find(s => s.id === currentShift.id);
-      const isInNextShift = isToday && nextShift && itemDateTime && isWithinInterval(itemDateTime, {
-        start: nextShift.start,
-        end: nextShift.end
-      }) && isWithinInterval(itemDateTime, { start: now, end: next6Hours });
+      const isInNextShift = isToday && nextShift && 
+        isInShiftRange(itemDateTime, nextShift.start, nextShift.end) && 
+        isWithinInterval(itemDateTime, { start: now, end: next6Hours });
 
-      const isInInterval = isInCurrentShift || isInNextShift;
-
-      return isInInterval;
+      return isInCurrentShift || isInNextShift;
     });
 
     return {
