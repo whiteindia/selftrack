@@ -87,7 +87,9 @@ export const CurrentShiftSection = () => {
       case 'slot-task':
         return item.task?.name || 'Unknown Task';
       case 'subtask':
-        return `${item.subtask?.parent_task_name} > ${item.subtask?.name}` || 'Unknown Subtask';
+        return item.subtask?.parent_task_name 
+          ? `${item.subtask.name} [${item.subtask.parent_task_name}]` 
+          : item.subtask?.name || 'Unknown Subtask';
       case 'routine':
         return item.routine?.title || 'Unknown Routine';
       case 'sprint':
