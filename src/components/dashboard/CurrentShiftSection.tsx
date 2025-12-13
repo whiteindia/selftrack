@@ -561,6 +561,26 @@ export const CurrentShiftSection = () => {
     deleteSubtaskMutation.mutate({ subtaskId });
   };
 
+  const updateTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
+      const { error } = await supabase.from('tasks').update({ status }).eq('id', taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+    },
+    onError: () => toast.error('Failed to update task status'),
+  });
+
+  const handleToggleTaskStatus = (taskId: string, currentStatus: string) => {
+    let next = 'Not Started';
+    if (currentStatus === 'Not Started') next = 'In Progress';
+    else if (currentStatus === 'In Progress') next = 'Completed';
+    else if (currentStatus === 'Completed') next = 'Not Started';
+    updateTaskStatusMutation.mutate({ taskId, status: next });
+  };
+
   const { data: dialogSubtasks = [], isLoading: isDialogSubtasksLoading } = useQuery({
     queryKey: ['task-subtasks', subtaskDialogTaskId],
     enabled: subtaskDialogOpen && !!subtaskDialogTaskId,
@@ -915,6 +935,32 @@ export const CurrentShiftSection = () => {
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 )}
+                              {(item.type === 'task' || item.type === 'slot-task') && item.task && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleTaskStatus(realTaskId || item.id, item.task?.status || 'Not Started');
+                                  }}
+                                >
+                                  {item.task?.status || 'Not Started'}
+                                </Button>
+                              )}
+                              {item.type === 'subtask' && item.subtask && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleSubtaskStatus(item.subtask);
+                                  }}
+                                >
+                                  {item.subtask?.status || 'Not Started'}
+                                </Button>
+                              )}
                               </div>
                             )}
                           </div>
