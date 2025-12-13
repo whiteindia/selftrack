@@ -470,24 +470,13 @@ export const CurrentShiftSection = () => {
                             <div className="font-medium text-sm flex flex-col gap-1">
                               {item.type === 'subtask' ? (
                                 <>
-                                  <span 
-                                    className={`text-blue-700 dark:text-blue-300 ${
-                                      item.subtask?.status?.toLowerCase() === 'completed' ? 'line-through text-muted-foreground' : 
-                                      item.subtask?.status?.toLowerCase() === 'in progress' ? 'text-orange-500' : ''
-                                    }`}
-                                  >
-                                    {item.subtask?.name}
-                                  </span>
+                                  <span className="text-blue-700 dark:text-blue-300">{item.subtask?.name}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {item.subtask?.parent_task_name}
                                   </span>
                                 </>
                               ) : (
-                                <span className={`
-                                  ${item.type === 'slot-task' ? 'text-purple-700 dark:text-purple-300' : ''}
-                                  ${item.task?.status?.toLowerCase() === 'completed' ? 'line-through text-muted-foreground' : 
-                                    item.task?.status?.toLowerCase() === 'in progress' ? 'text-orange-500' : ''}
-                                `}>
+                                <span className={item.type === 'slot-task' ? 'text-purple-700 dark:text-purple-300' : ''}>
                                   {getItemTitle(item)}
                                 </span>
                               )}

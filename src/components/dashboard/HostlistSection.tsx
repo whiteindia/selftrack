@@ -73,7 +73,6 @@ export const HostlistSection = () => {
           sort_order,
           projects!inner(name)
         `)
-        .not("status", "in", `("Archived","Completed")`)
         .in("status", ["On-Head", "Targeted", "Imp"])
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true })
