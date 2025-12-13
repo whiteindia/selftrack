@@ -363,7 +363,15 @@ export const HostlistSection = () => {
       });
       return withKey.sort((a: any, b: any) => a._sortKey - b._sortKey || (a.name || '').localeCompare(b.name || ''));
     }, [task.subtasks]);
-    const [showSubtasks, setShowSubtasks] = useState(false);
+    const [showSubtasks, setShowSubtasks] = useState<boolean>(() => {
+      try {
+        const raw = sessionStorage.getItem('hostlist.expandedSubtasks') || '[]';
+        const arr = JSON.parse(raw);
+        return arr.includes(task.id);
+      } catch {
+        return false;
+      }
+    });
     const [newSubtaskName, setNewSubtaskName] = useState("");
     const [showTimeControls, setShowTimeControls] = useState(false);
     const [showTimeHistory, setShowTimeHistory] = useState(false);
@@ -569,7 +577,29 @@ export const HostlistSection = () => {
               <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowTimeControls(!showTimeControls); }} className="h-8 px-3">
                 <Clock className="h-4 w-4" />
               </Button>
-              <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowSubtasks(!showSubtasks); }} className="h-8 px-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSubtasks((prev) => {
+                    const next = !prev;
+                    try {
+                      const raw = sessionStorage.getItem('hostlist.expandedSubtasks') || '[]';
+                      const arr = JSON.parse(raw);
+                      if (next) {
+                        if (!arr.includes(task.id)) arr.push(task.id);
+                      } else {
+                        const idx = arr.indexOf(task.id);
+                        if (idx >= 0) arr.splice(idx, 1);
+                      }
+                      sessionStorage.setItem('hostlist.expandedSubtasks', JSON.stringify(arr));
+                    } catch {}
+                    return next;
+                  });
+                }}
+                className="h-8 px-3"
+              >
                 <List className="h-4 w-4" />
                 {visibleSubtasks.length > 0 && (<span className="ml-1 text-xs">{visibleSubtasks.length}</span>)}
               </Button>
