@@ -124,7 +124,7 @@ export const HostlistSection = () => {
       const enhanced = tasks.map(task => {
         const tEntries = taskEntriesByTask[task.id] || [];
         const totalLoggedMinutes = tEntries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0);
-        const taskSubtasks = (subtasks || []).filter(st => st.task_id === task.id);
+        const taskSubtasks = (subtasks || []).filter(st => st.task_id === task.id && st.status !== 'Completed');
         const subLoggedMinutes = taskSubtasks.reduce((sum, st) => sum + (subtaskTimeMap[st.id] || 0), 0);
         const totalLoggedHours = Math.round(((totalLoggedMinutes + subLoggedMinutes) / 60) * 100) / 100;
         return {
@@ -327,6 +327,7 @@ export const HostlistSection = () => {
 
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, active } = useSortable({ id: task.id });
+    const visibleSubtasks = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
     const [showSubtasks, setShowSubtasks] = useState(false);
     const [newSubtaskName, setNewSubtaskName] = useState("");
     const [showTimeControls, setShowTimeControls] = useState(false);
@@ -519,9 +520,9 @@ export const HostlistSection = () => {
                       {task.total_logged_hours}h logged
                     </span>
                   )}
-                  {task.subtask_count > 0 && (
+                  {visibleSubtasks.length > 0 && (
                     <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                      {task.subtask_count} subtasks
+                      {visibleSubtasks.length} subtasks
                     </span>
                   )}
                 </div>
@@ -535,7 +536,7 @@ export const HostlistSection = () => {
               </Button>
               <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowSubtasks(!showSubtasks); }} className="h-8 px-3">
                 <List className="h-4 w-4" />
-                {task.subtask_count > 0 && (<span className="ml-1 text-xs">{task.subtask_count}</span>)}
+                {visibleSubtasks.length > 0 && (<span className="ml-1 text-xs">{visibleSubtasks.length}</span>)}
               </Button>
               {activeEntry ? (
                 <>
@@ -583,9 +584,9 @@ export const HostlistSection = () => {
                   </Button>
                 </form>
 
-                {task.subtasks && task.subtasks.length > 0 ? (
+                {visibleSubtasks.length > 0 ? (
                   <div className="space-y-3">
-                    {task.subtasks.map((subtask: any) => (
+                    {visibleSubtasks.map((subtask: any) => (
                       <Card key={subtask.id} className="p-4 bg-muted/30">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                           <div className="flex-1 min-w-0">
@@ -1132,9 +1133,25 @@ export const HostlistSection = () => {
                 <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
               </form>
 
-              <div className="rounded-lg border border-dashed border-muted/50 bg-muted/5 p-6 text-center text-sm text-muted-foreground">
-                Tasks and subtasks are hidden in this section.
-              </div>
+              {filteredTasks.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
+              ) : viewMode === "timeline" ? (
+                <TimelineView />
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={filteredTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3">
+                      {filteredTasks.map((task) => {
+                        const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
+                        const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+                        return (
+                          <SortableTask key={task.id} task={task} activeEntry={activeEntry} isPaused={isPaused} />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>

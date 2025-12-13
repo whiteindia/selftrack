@@ -175,17 +175,19 @@ export const QuickTasksSection = () => {
           const subtaskLoggedMinutes = subtaskTimeEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
           const totalLoggedHours = Math.round(((totalLoggedMinutes + subtaskLoggedMinutes) / 60) * 100) / 100;
 
+          const visibleSubtaskEntries = (subtasks || []).filter(subtask => subtask.status !== 'Completed');
+
           return {
             ...task,
             time_entries: timeEntries || [],
-            subtasks: (subtasks || []).map(subtask => ({
+            subtasks: visibleSubtaskEntries.map(subtask => ({
               ...subtask,
               logged_minutes: subtaskTimeMap[subtask.id] || 0,
               logged_hours: Math.round(((subtaskTimeMap[subtask.id] || 0) / 60) * 100) / 100,
               time_entries: subtaskDetailedEntries[subtask.id] || []
             })),
             total_logged_hours: totalLoggedHours,
-            subtask_count: subtasks?.length || 0
+            subtask_count: visibleSubtaskEntries.length
           };
         })
       );
@@ -510,6 +512,8 @@ export const QuickTasksSection = () => {
     const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
     const [editSubtaskName, setEditSubtaskName] = useState("");
 
+    const visibleSubtasks = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+
     const style = {
       transform: CSS.Transform.toString(transform),
       transition,
@@ -720,8 +724,8 @@ export const QuickTasksSection = () => {
                 className="h-8 px-3"
               >
                 <List className="h-4 w-4" />
-                {task.subtask_count > 0 && (
-                  <span className="ml-1 text-xs">{task.subtask_count}</span>
+                {visibleSubtasks.length > 0 && (
+                  <span className="ml-1 text-xs">{visibleSubtasks.length}</span>
                 )}
               </Button>
 
@@ -864,9 +868,9 @@ export const QuickTasksSection = () => {
               </form>
 
               {/* Subtasks List */}
-              {task.subtasks && task.subtasks.length > 0 ? (
+              {visibleSubtasks.length > 0 ? (
                 <div className="space-y-3">
-                  {task.subtasks.map((subtask: any) => (
+                  {visibleSubtasks.map((subtask: any) => (
                     <Card key={subtask.id} className="p-4 bg-muted/30">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -1723,9 +1727,38 @@ export const QuickTasksSection = () => {
                 </Button>
               </form>
 
-              <div className="rounded-lg border border-dashed border-muted/50 bg-muted/5 p-6 text-center text-sm text-muted-foreground">
-                Tasks and subtasks are hidden in this section.
-              </div>
+              {filteredTasks.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No tasks for this time period</p>
+              ) : viewMode === "timeline" ? (
+                <TimelineView />
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={filteredTasks.map(task => task.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {filteredTasks.map((task) => {
+                        const activeEntry = timeEntries?.find((entry) => entry.task_id === task.id);
+                        const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+
+                        return (
+                          <SortableTask
+                            key={task.id}
+                            task={task}
+                            activeEntry={activeEntry}
+                            isPaused={isPaused}
+                          />
+                        );
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>
