@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -562,7 +563,7 @@ export const CurrentShiftSection = () => {
   };
 
   const updateTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, status }: { taskId: string; status: string }) => {
+    mutationFn: async ({ taskId, status }: { taskId: string; status: Database['public']['Enums']['task_status'] }) => {
       const { error } = await supabase.from('tasks').update({ status }).eq('id', taskId);
       if (error) throw error;
     },
@@ -574,7 +575,7 @@ export const CurrentShiftSection = () => {
   });
 
   const handleToggleTaskStatus = (taskId: string, currentStatus: string) => {
-    let next = 'Not Started';
+    let next: Database['public']['Enums']['task_status'] = 'Not Started';
     if (currentStatus === 'Not Started') next = 'In Progress';
     else if (currentStatus === 'In Progress') next = 'Completed';
     else if (currentStatus === 'Completed') next = 'Not Started';
@@ -783,7 +784,7 @@ export const CurrentShiftSection = () => {
                     <Button
                       size="sm"
                       onClick={() => handleAddShiftTask(shift.id, shift.start)}
-                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftTaskMutation.isLoading}
+                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftTaskMutation.isPending}
                     >
                       Add
                     </Button>
