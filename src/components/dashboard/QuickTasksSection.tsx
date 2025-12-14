@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useLayoutEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -53,9 +53,14 @@ export const QuickTasksSection = () => {
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
-  const [lastScrollY, setLastScrollY] = useState<number | null>(null);
-  const [lastFocusTaskId, setLastFocusTaskId] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
+
+  // Preserve page scroll position across quick-task mutations / refetches.
+  // This prevents the browser from jumping (often to the bottom) after any action.
+  const pendingScrollRestoreRef = useRef<number | null>(null);
+  const captureScrollPosition = useCallback(() => {
+    pendingScrollRestoreRef.current = window.scrollY;
+  }, []);
 
   
 
@@ -304,11 +309,13 @@ export const QuickTasksSection = () => {
     return sorted;
   }, [tasks, timeFilter]);
 
-  useEffect(() => {
-    if (lastScrollY !== null) {
-      window.scrollTo({ top: lastScrollY });
-      setLastScrollY(null);
-    }
+  useLayoutEffect(() => {
+    const y = pendingScrollRestoreRef.current;
+    if (y === null) return;
+    pendingScrollRestoreRef.current = null;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: y });
+    });
   }, [tasks]);
 
   const filterCounts = useMemo(() => {
@@ -396,6 +403,9 @@ export const QuickTasksSection = () => {
       if (error) throw error;
       return data;
     },
+    onMutate: () => {
+      captureScrollPosition();
+    },
     onSuccess: () => {
       toast.success("Task created successfully");
       setNewTaskName("");
@@ -417,6 +427,9 @@ export const QuickTasksSection = () => {
         .eq("id", taskId);
 
       if (error) throw error;
+    },
+    onMutate: () => {
+      captureScrollPosition();
     },
     onSuccess: () => {
       toast.success("Task deleted successfully");
@@ -440,6 +453,9 @@ export const QuickTasksSection = () => {
         .eq("id", taskId);
 
       if (error) throw error;
+    },
+    onMutate: () => {
+      captureScrollPosition();
     },
     onSuccess: () => {
       toast.success("Task status updated successfully");
@@ -478,6 +494,7 @@ export const QuickTasksSection = () => {
     );
     
     Promise.all(updatePromises).then(() => {
+      captureScrollPosition();
       queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
     });
   };
@@ -516,6 +533,14 @@ export const QuickTasksSection = () => {
     const [showTimeHistory, setShowTimeHistory] = useState(false);
     const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
     const [editSubtaskName, setEditSubtaskName] = useState("");
+    const editSubtaskInputRef = useRef<HTMLInputElement | null>(null);
+
+    useEffect(() => {
+      if (!editingSubtask) return;
+      // Focus without scrolling the page.
+      // Some browsers scroll the focused element into view, which can jump the page.
+      editSubtaskInputRef.current?.focus({ preventScroll: true });
+    }, [editingSubtask]);
 
     const visibleSubtasks = useMemo(() => {
       const list = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
@@ -710,6 +735,7 @@ export const QuickTasksSection = () => {
                   setShowTimeControls(!showTimeControls);
                 }}
                 className="h-8 px-3"
+                type="button"
               >
                 <Clock className="h-4 w-4" />
               </Button>
@@ -734,6 +760,7 @@ export const QuickTasksSection = () => {
                   } catch {}
                 }}
                 className="h-8 px-3"
+                type="button"
               >
                 <List className="h-4 w-4" />
                 {visibleSubtasks.length > 0 && (
@@ -766,6 +793,7 @@ export const QuickTasksSection = () => {
                   size="sm"
                   onClick={() => handleStartTask(task.id)}
                   className="h-8 px-3"
+                  type="button"
                 >
                   <Play className="h-4 w-4" />
                 </Button>
@@ -780,6 +808,7 @@ export const QuickTasksSection = () => {
                 }}
                 className="h-8 px-3"
                 title="Add to Workload"
+                type="button"
               >
                 <CalendarPlus className="h-4 w-4 text-blue-600" />
               </Button>
@@ -792,6 +821,7 @@ export const QuickTasksSection = () => {
                   setEditingTask(task);
                 }}
                 className="h-8 px-3"
+                type="button"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -804,6 +834,7 @@ export const QuickTasksSection = () => {
                   navigate(`/alltasks?highlight=${task.id}`);
                 }}
                 className="h-8 px-3"
+                type="button"
               >
                 <Eye className="h-4 w-4" />
               </Button>
@@ -812,10 +843,12 @@ export const QuickTasksSection = () => {
                 size="sm"
                 variant="ghost"
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   deleteTaskMutation.mutate(task.id);
                 }}
                 className="h-8 px-3 text-destructive hover:text-destructive"
+                type="button"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -892,7 +925,7 @@ export const QuickTasksSection = () => {
                                 value={editSubtaskName}
                                 onChange={(e) => setEditSubtaskName(e.target.value)}
                                 className="flex-1 text-sm h-8"
-                                autoFocus
+                                ref={editSubtaskInputRef}
                               />
                               <Button
                                 size="sm"
@@ -1054,6 +1087,9 @@ export const QuickTasksSection = () => {
 
       if (error1 || error2) throw error1 || error2;
     },
+    onMutate: () => {
+      captureScrollPosition();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
     },
@@ -1064,6 +1100,7 @@ export const QuickTasksSection = () => {
   });
 
   const handleStartTask = async (taskId: string) => {
+    captureScrollPosition();
     const { data: employee } = await supabase
       .from("employees")
       .select("id")
@@ -1122,9 +1159,10 @@ export const QuickTasksSection = () => {
       if (error) throw error;
       return data;
     },
+    onMutate: () => {
+      captureScrollPosition();
+    },
     onSuccess: (_data, variables) => {
-      setLastScrollY(window.scrollY);
-      setLastFocusTaskId(variables.taskId);
       toast.success("Subtask created successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
     },
@@ -1148,9 +1186,10 @@ export const QuickTasksSection = () => {
 
       if (error) throw error;
     },
+    onMutate: () => {
+      captureScrollPosition();
+    },
     onSuccess: (_data, variables) => {
-      setLastScrollY(window.scrollY);
-      if (variables.parentTaskId) setLastFocusTaskId(variables.parentTaskId);
       toast.success("Subtask updated successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
     },
@@ -1169,6 +1208,9 @@ export const QuickTasksSection = () => {
         .eq("id", subtaskId);
 
       if (error) throw error;
+    },
+    onMutate: () => {
+      captureScrollPosition();
     },
     onSuccess: () => {
       toast.success("Subtask deleted successfully");
