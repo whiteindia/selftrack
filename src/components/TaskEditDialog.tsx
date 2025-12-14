@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Calendar, Clock, User, Building, Edit, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { convertISTToUTC, formatUTCToISTInput } from '@/utils/timezoneUtils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { format } from 'date-fns';
 
 interface TaskEditDialogProps {
   isOpen: boolean;
@@ -270,10 +271,19 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
         }
       }
       
-      const updates = {
+      const updates: any = {
         slot_start_datetime: formData.slot_start_datetime || null,
         slot_end_datetime: formData.slot_end_datetime || null,
       };
+      // Keep scheduled_time/date in sync with slot start so it moves shifts instead of duplicating
+      if (formData.slot_start_datetime) {
+        const slotStart = new Date(formData.slot_start_datetime);
+        updates.date = format(slotStart, 'yyyy-MM-dd');
+        updates.scheduled_time = format(slotStart, 'HH:mm');
+      } else {
+        updates.date = null;
+        updates.scheduled_time = null;
+      }
       updateTaskMutation.mutate(updates);
     } else {
       // Full edit mode
@@ -292,6 +302,15 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
         slot_start_datetime: formData.slot_start_datetime || null,
         slot_end_datetime: formData.slot_end_datetime || null,
       };
+      // Sync scheduled_time/date when slot is set, otherwise clear them to avoid stale slots
+      if (formData.slot_start_datetime) {
+        const slotStart = new Date(formData.slot_start_datetime);
+        updates.date = format(slotStart, 'yyyy-MM-dd');
+        updates.scheduled_time = format(slotStart, 'HH:mm');
+      } else {
+        updates.date = null;
+        updates.scheduled_time = null;
+      }
 
       // Only include project_id for main tasks
       if (!isSubtask && formData.project_id) {
