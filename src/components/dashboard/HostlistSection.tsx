@@ -62,6 +62,7 @@ export const HostlistSection = () => {
         .from("tasks")
         .select(`
           id,
+          created_at,
           name,
           deadline,
           status,
@@ -194,9 +195,24 @@ export const HostlistSection = () => {
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      if (a.sort_order !== null && b.sort_order !== null) return a.sort_order - b.sort_order;
-      if (a.sort_order !== null) return -1;
-      if (b.sort_order !== null) return 1;
+      const hasSortA = a.sort_order !== null && a.sort_order !== undefined;
+      const hasSortB = b.sort_order !== null && b.sort_order !== undefined;
+
+      // Recently added (no sort_order) first
+      if (!hasSortA && hasSortB) return -1;
+      if (hasSortA && !hasSortB) return 1;
+
+      // Within recently added, newest first
+      if (!hasSortA && !hasSortB) {
+        const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (createdA !== createdB) return createdB - createdA;
+      }
+
+      // Manually ordered tasks
+      if (hasSortA && hasSortB) return a.sort_order - b.sort_order;
+
+      // Fallback
       const dateA = a.deadline ? new Date(a.deadline).getTime() : Infinity;
       const dateB = b.deadline ? new Date(b.deadline).getTime() : Infinity;
       return dateA - dateB;
