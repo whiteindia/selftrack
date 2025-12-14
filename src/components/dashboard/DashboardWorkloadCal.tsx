@@ -140,7 +140,7 @@ export const DashboardWorkloadCal = () => {
   const { data: workloadItems = [], isLoading } = useQuery({
     queryKey: ['dashboard-workload', todayStr],
     queryFn: async () => {
-      // Fetch tasks with scheduled_time
+      // Fetch ALL tasks with scheduled_time (assignments from WorkloadCal)
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
@@ -156,7 +156,6 @@ export const DashboardWorkloadCal = () => {
             client:clients!projects_client_id_fkey(name)
           )
         `)
-        .or(`date.eq.${todayStr},and(scheduled_time.not.is.null,date.is.null)`)
         .not('scheduled_time', 'is', null);
 
       if (tasksError) throw tasksError;
@@ -180,7 +179,7 @@ export const DashboardWorkloadCal = () => {
         .gte('slot_start_datetime', `${todayStr}T00:00:00`)
         .lt('slot_start_datetime', `${todayStr}T23:59:59`);
 
-      // Fetch subtasks
+      // Fetch subtasks with scheduled_time
       const { data: subtasksData, error: subtasksError } = await supabase
         .from('subtasks')
         .select(`
@@ -197,7 +196,6 @@ export const DashboardWorkloadCal = () => {
             )
           )
         `)
-        .or(`date.eq.${todayStr},and(scheduled_time.not.is.null,date.is.null)`)
         .not('scheduled_time', 'is', null);
 
       if (subtasksError) throw subtasksError;
@@ -236,11 +234,14 @@ export const DashboardWorkloadCal = () => {
         `)
         .eq('slot_date', todayStr);
 
-      // Process tasks
+      // Filter tasks - include those with date matching today OR scheduled_time starting with today's date
       const filteredTasks = tasksData?.filter(task => {
         if (task.date === todayStr) return true;
-        if (task.scheduled_time && !task.date) {
-          const scheduledDate = task.scheduled_time.split(' ')[0];
+        if (task.scheduled_time) {
+          // Format: "YYYY-MM-DD HH:MM" or just "HH:MM"
+          const scheduledDate = task.scheduled_time.includes(' ') 
+            ? task.scheduled_time.split(' ')[0] 
+            : todayStr; // If just time, assume today
           return scheduledDate === todayStr;
         }
         return false;
@@ -291,11 +292,14 @@ export const DashboardWorkloadCal = () => {
           };
         });
 
-      // Process subtasks
+      // Filter subtasks - include those with date matching today OR scheduled_time starting with today's date
       const filteredSubtasks = subtasksData?.filter(subtask => {
         if (subtask.date === todayStr) return true;
-        if (subtask.scheduled_time && !subtask.date) {
-          const scheduledDate = subtask.scheduled_time.split(' ')[0];
+        if (subtask.scheduled_time) {
+          // Format: "YYYY-MM-DD HH:MM" or just "HH:MM"
+          const scheduledDate = subtask.scheduled_time.includes(' ') 
+            ? subtask.scheduled_time.split(' ')[0] 
+            : todayStr;
           return scheduledDate === todayStr;
         }
         return false;
