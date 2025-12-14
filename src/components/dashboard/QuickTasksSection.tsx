@@ -109,6 +109,7 @@ export const QuickTasksSection = () => {
         .from("tasks")
         .select(`
           id,
+          created_at,
           name,
           deadline,
           status,
@@ -256,15 +257,28 @@ export const QuickTasksSection = () => {
     }
 
     // Sort logic
-    // 1. Custom sort_order takes priority
-    // 2. For "all" filter: sort by date (most recent first), then by nearest reminder/slot time
+    // 1. Tasks without a custom sort_order ("recently added") stay on top
+    // 2. Within "recently added", newest first (created_at desc)
+    // 3. For manually ordered tasks, use sort_order (ascending)
     const sorted = [...filtered].sort((a, b) => {
-      // Priority 1: Custom sort order (lower numbers first, nulls last)
-      if (a.sort_order !== null && b.sort_order !== null) {
+      const hasSortA = a.sort_order !== null && a.sort_order !== undefined;
+      const hasSortB = b.sort_order !== null && b.sort_order !== undefined;
+
+      // Priority 1: Recently added (no sort_order) first
+      if (!hasSortA && hasSortB) return -1;
+      if (hasSortA && !hasSortB) return 1;
+
+      // Priority 2: If both are recently added, newest first
+      if (!hasSortA && !hasSortB) {
+        const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (createdA !== createdB) return createdB - createdA;
+      }
+
+      // Priority 3: If both have sort_order, use it
+      if (hasSortA && hasSortB) {
         return a.sort_order - b.sort_order;
       }
-      if (a.sort_order !== null) return -1;
-      if (b.sort_order !== null) return 1;
 
       // Priority 2: For "all" filter, sort by date and time
       if (timeFilter === "all") {
