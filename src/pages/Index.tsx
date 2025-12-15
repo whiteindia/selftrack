@@ -35,16 +35,16 @@ const Index = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  // (kept for backward compatibility; global search now assigns directly to current slot)
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
 
   const addToWorkloadMutation = useMutation({
     mutationFn: async (task: any) => {
-      const storedDateIso = localStorage.getItem('workload.selectedDate');
-      const storedSlot = localStorage.getItem('workload.selectedTimeSlot');
-      const dateObj = storedDateIso ? new Date(storedDateIso) : new Date();
-      const dateStr = dateObj.toISOString().split('T')[0];
-      const timeSlot = storedSlot || `${new Date().getHours().toString().padStart(2, '0')}:00`;
+      // Always add to the *current running slot* (current hour), not any previously selected slot.
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const timeSlot = `${now.getHours().toString().padStart(2, '0')}:00`;
 
       const { error } = await supabase
         .from('tasks')
@@ -59,7 +59,9 @@ const Index = () => {
     },
     onSuccess: ({ dateStr, timeSlot }) => {
       toast.success(`Added to workload: ${dateStr} @ ${timeSlot}`);
-      navigate('/workload-cal');
+      // Stay on dashboard; just refresh relevant sections.
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
     },
     onError: (error) => {
       console.error('Error adding to workload:', error);
@@ -255,25 +257,8 @@ const Index = () => {
   };
 
   const handleAddToWorkload = (task: any) => {
-    const storedSlot = localStorage.getItem('workload.selectedTimeSlot');
-    if (!storedSlot) {
-      const item = {
-        id: task.id,
-        originalId: task.id,
-        type: 'task',
-        title: task.name,
-        date: new Date().toISOString().slice(0, 10),
-        client: task.client_name || '',
-        project: task.project_name || '',
-        assigneeId: task.assignee_id || null,
-        projectId: task.project_id,
-        itemType: 'task'
-      };
-      setSelectedItemsForWorkload([item]);
-      setIsAssignDialogOpen(true);
-    } else {
-      addToWorkloadMutation.mutate(task);
-    }
+    // Always add to current slot directly from dashboard search results.
+    addToWorkloadMutation.mutate(task);
   };
 
   return (
