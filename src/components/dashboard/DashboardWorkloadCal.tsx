@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Eye, ChevronDown, ChevronRight as ChevronRightIcon, Play, ChevronUp } from 'lucide-react';
+import { Clock, Eye, ChevronDown, ChevronRight as ChevronRightIcon, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -21,6 +20,7 @@ interface WorkloadItem {
   scheduled_time: string;
   scheduled_date: string;
   project_id?: string;
+  project_name?: string;
   task?: {
     id: string;
     name: string;
@@ -173,19 +173,6 @@ export const DashboardWorkloadCal = () => {
 
   // Get today's date string
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-
-  // Fetch projects for filter
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects-filter'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return data || [];
-    },
-  });
 
   // Fetch workload items for today ONLY
   const { data: workloadItems = [], isLoading } = useQuery({
@@ -424,29 +411,44 @@ export const DashboardWorkloadCal = () => {
     refetchInterval: 60000,
   });
 
-  // Filter items to only show next 6 hours AND apply project filter
-  const filteredItems = useMemo(() => {
+  // First filter items to only show next 6 hours (before project filter)
+  const itemsInNext6Hours = useMemo(() => {
     return workloadItems.filter(item => {
-      // Filter by next 6 hours
       const itemHour = parseInt(item.scheduled_time.split(':')[0]);
-      let inTimeWindow = false;
       for (let i = 0; i < 6; i++) {
         const slotHour = (currentHour + i) % 24;
-        if (itemHour === slotHour) {
-          inTimeWindow = true;
-          break;
-        }
+        if (itemHour === slotHour) return true;
       }
-      if (!inTimeWindow) return false;
-      
-      // Filter by project
-      if (selectedProject !== 'all' && item.project_id !== selectedProject) {
-        return false;
-      }
-      
-      return true;
+      return false;
     });
-  }, [workloadItems, currentHour, selectedProject]);
+  }, [workloadItems, currentHour]);
+
+  // Get unique projects from items in next 6 hours
+  const availableProjects = useMemo(() => {
+    const projectMap = new Map<string, string>();
+    itemsInNext6Hours.forEach(item => {
+      const projectId = item.project_id;
+      const projectName = getItemProject(item);
+      if (projectId && projectName && !projectMap.has(projectId)) {
+        projectMap.set(projectId, projectName);
+      }
+    });
+    return Array.from(projectMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [itemsInNext6Hours]);
+
+  // Apply project filter
+  const filteredItems = useMemo(() => {
+    if (selectedProject === 'all') return itemsInNext6Hours;
+    return itemsInNext6Hours.filter(item => item.project_id === selectedProject);
+  }, [itemsInNext6Hours, selectedProject]);
+
+  const getItemProject = (item: WorkloadItem) => {
+    if (item.type === 'task') return item.task?.project_name;
+    if (item.type === 'subtask') return item.subtask?.project_name;
+    if (item.type === 'routine') return item.routine?.project_name;
+    if (item.type === 'sprint') return item.sprint?.project_name;
+    return '';
+  };
 
   // Group items by time slot
   const itemsByTime = useMemo(() => {
@@ -471,13 +473,7 @@ export const DashboardWorkloadCal = () => {
     return 'Unknown';
   };
 
-  const getItemProject = (item: WorkloadItem) => {
-    if (item.type === 'task') return item.task?.project_name;
-    if (item.type === 'subtask') return item.subtask?.project_name;
-    if (item.type === 'routine') return item.routine?.project_name;
-    if (item.type === 'sprint') return item.sprint?.project_name;
-    return '';
-  };
+  // getItemProject already defined above
 
   const getItemStatus = (item: WorkloadItem) => {
     if (item.type === 'task') return item.task?.status;
@@ -524,22 +520,28 @@ export const DashboardWorkloadCal = () => {
           </CollapsibleTrigger>
           
           <CollapsibleContent>
-            {/* Project Filter */}
-            <div className="flex items-center gap-2 mt-3 pt-2 border-t">
-              <span className="text-xs text-muted-foreground">Project:</span>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger className="h-7 text-xs w-[180px]">
-                  <SelectValue placeholder="All Projects" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Tab-style Project Filter */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t">
+              <Button
+                variant={selectedProject === 'all' ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setSelectedProject('all')}
+              >
+                All
+              </Button>
+              {availableProjects.map(project => (
+                <Button
+                  key={project.id}
+                  variant={selectedProject === project.id ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-6 px-2 text-xs truncate max-w-[120px]"
+                  onClick={() => setSelectedProject(project.id)}
+                  title={project.name}
+                >
+                  {project.name}
+                </Button>
+              ))}
             </div>
           </CollapsibleContent>
         </Collapsible>
