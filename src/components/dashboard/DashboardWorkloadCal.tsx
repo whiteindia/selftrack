@@ -534,7 +534,7 @@ export const DashboardWorkloadCal = () => {
                   key={project.id}
                   variant={selectedProject === project.id ? 'default' : 'outline'}
                   size="sm"
-                  className="h-6 px-2 text-xs truncate max-w-[120px]"
+                  className="h-6 px-2 text-xs"
                   onClick={() => setSelectedProject(project.id)}
                   title={project.name}
                 >
