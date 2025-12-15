@@ -520,7 +520,7 @@ export const DashboardWorkloadCal = () => {
           
           <CollapsibleContent>
             {/* Tab-style Project Filter */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t">
+            <div className="flex flex-wrap items-center gap-2 mt-3 pt-2 border-t">
               <Button
                 variant={selectedProject === 'all' ? 'default' : 'outline'}
                 size="sm"
