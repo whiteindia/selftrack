@@ -411,6 +411,23 @@ export const DashboardWorkloadCal = () => {
     refetchInterval: 60000,
   });
 
+  // Helper functions - defined before useMemo hooks that use them
+  const getItemProject = (item: WorkloadItem) => {
+    if (item.type === 'task') return item.task?.project_name;
+    if (item.type === 'subtask') return item.subtask?.project_name;
+    if (item.type === 'routine') return item.routine?.project_name;
+    if (item.type === 'sprint') return item.sprint?.project_name;
+    return '';
+  };
+
+  const getItemTitle = (item: WorkloadItem) => {
+    if (item.type === 'task') return item.task?.name;
+    if (item.type === 'subtask') return item.subtask?.name;
+    if (item.type === 'routine') return item.routine?.title;
+    if (item.type === 'sprint') return item.sprint?.title;
+    return 'Unknown';
+  };
+
   // First filter items to only show next 6 hours (before project filter)
   const itemsInNext6Hours = useMemo(() => {
     return workloadItems.filter(item => {
@@ -442,14 +459,6 @@ export const DashboardWorkloadCal = () => {
     return itemsInNext6Hours.filter(item => item.project_id === selectedProject);
   }, [itemsInNext6Hours, selectedProject]);
 
-  const getItemProject = (item: WorkloadItem) => {
-    if (item.type === 'task') return item.task?.project_name;
-    if (item.type === 'subtask') return item.subtask?.project_name;
-    if (item.type === 'routine') return item.routine?.project_name;
-    if (item.type === 'sprint') return item.sprint?.project_name;
-    return '';
-  };
-
   // Group items by time slot
   const itemsByTime = useMemo(() => {
     return filteredItems.reduce((acc, item) => {
@@ -464,16 +473,6 @@ export const DashboardWorkloadCal = () => {
   const toggleSlot = (slot: string) => {
     setExpandedSlots(prev => ({ ...prev, [slot]: !prev[slot] }));
   };
-
-  const getItemTitle = (item: WorkloadItem) => {
-    if (item.type === 'task') return item.task?.name;
-    if (item.type === 'subtask') return item.subtask?.name;
-    if (item.type === 'routine') return item.routine?.title;
-    if (item.type === 'sprint') return item.sprint?.title;
-    return 'Unknown';
-  };
-
-  // getItemProject already defined above
 
   const getItemStatus = (item: WorkloadItem) => {
     if (item.type === 'task') return item.task?.status;
