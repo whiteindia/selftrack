@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, X } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -570,6 +570,31 @@ export const CurrentShiftSection = () => {
     }
   });
 
+  const clearFromSlotMutation = useMutation({
+    mutationFn: async ({ taskId }: { taskId: string }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          // remove task from shift slot / schedule
+          date: null,
+          scheduled_time: null,
+          // also clear any fixed slot assignment
+          slot_start_datetime: null,
+          slot_end_datetime: null,
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Cleared from slot');
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+    },
+    onError: () => {
+      toast.error('Failed to clear from slot');
+    }
+  });
+
   const handleCreateSubtask = (taskId: string, name: string, parentDeadline?: string | null) => {
     if (!name.trim()) return;
     createSubtaskMutation.mutate({ taskId, name: name.trim(), parentDeadline });
@@ -1013,13 +1038,32 @@ export const CurrentShiftSection = () => {
                                 />
                               </>
                             ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => handleStartTask(realTaskId || item.id, item.type === 'subtask')}
-                                className="h-7 px-2"
-                              >
-                                <Play className="h-3 w-3" />
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleStartTask(realTaskId || item.id, item.type === 'subtask')}
+                                  className="h-7 px-2"
+                                  title="Start"
+                                >
+                                  <Play className="h-3 w-3" />
+                                </Button>
+
+                                {(item.type === 'task' || item.type === 'slot-task') && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2"
+                                    title="Clear from slot"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      clearFromSlotMutation.mutate({ taskId: realTaskId || item.id });
+                                    }}
+                                    disabled={clearFromSlotMutation.isPending}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
