@@ -235,7 +235,6 @@ export const HostlistSection = () => {
   const [selectedProject, setSelectedProject] = useState<"all" | string>("all");
 
   const displayedTasks = useMemo(() => {
-    );
     let tasks = filteredTasks;
 
     // Apply project filter
