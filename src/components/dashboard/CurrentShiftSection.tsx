@@ -575,23 +575,27 @@ export const CurrentShiftSection = () => {
       const { error } = await supabase
         .from('tasks')
         .update({
-          // remove task from shift slot / schedule
-          date: null,
+          // Remove task from shift slot / schedule.
+          // We only clear the time/slot fields (not `date`) to avoid failures if `date` is non-nullable.
           scheduled_time: null,
-          // also clear any fixed slot assignment
+          // clear legacy + current slot fields
+          slot_start_time: null,
           slot_start_datetime: null,
           slot_end_datetime: null,
         })
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to clear from slot:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast.success('Cleared from slot');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
     },
-    onError: () => {
-      toast.error('Failed to clear from slot');
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to clear from slot');
     }
   });
 
