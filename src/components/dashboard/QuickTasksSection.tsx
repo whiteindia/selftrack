@@ -46,6 +46,7 @@ export const QuickTasksSection = () => {
   const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const [searchTerm, setSearchTerm] = useState("");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -256,6 +257,13 @@ export const QuickTasksSection = () => {
       });
     }
 
+    // Apply search filter before sorting
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(task =>
+        task.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
     // Sort logic
     // 1. Tasks without a custom sort_order ("recently added") stay on top
     // 2. Within "recently added", newest first (created_at desc)
@@ -321,7 +329,7 @@ export const QuickTasksSection = () => {
     });
 
     return sorted;
-  }, [tasks, timeFilter]);
+  }, [tasks, timeFilter, searchTerm]);
 
   useLayoutEffect(() => {
     const y = pendingScrollRestoreRef.current;
@@ -1785,6 +1793,25 @@ export const QuickTasksSection = () => {
         <CollapsibleContent>
           <CardContent className="px-0 sm:px-6 py-6">
             <div className="space-y-4">
+              {/* Search filter */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search tasks..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+
               {/* Quick add task input */}
               <form onSubmit={handleCreateTask} className="flex gap-2">
                 <Input

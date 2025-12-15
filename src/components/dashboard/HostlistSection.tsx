@@ -28,6 +28,7 @@ export const HostlistSection = () => {
   const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [viewMode, setViewMode] = useState<"list" | "timeline">("timeline");
+  const [searchTerm, setSearchTerm] = useState("");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
@@ -234,11 +235,25 @@ export const HostlistSection = () => {
   const [selectedProject, setSelectedProject] = useState<"all" | string>("all");
 
   const displayedTasks = useMemo(() => {
-    if (selectedProject === "all") return filteredTasks;
-    return filteredTasks.filter(
-      task => (task.project?.name || (task as any).projects?.name) === selectedProject
     );
-  }, [filteredTasks, selectedProject]);
+    let tasks = filteredTasks;
+
+    // Apply project filter
+    if (selectedProject !== "all") {
+      tasks = tasks.filter(
+        task => (task.project?.name || (task as any).projects?.name) === selectedProject
+      );
+    }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      tasks = tasks.filter(task =>
+        task.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return tasks;
+  }, [filteredTasks, selectedProject, searchTerm]);
 
   const filterCounts = useMemo(() => {
     if (!tasks) return { all: 0, yesterday: 0, today: 0, tomorrow: 0, laterThisWeek: 0, nextWeek: 0 };
@@ -1232,6 +1247,26 @@ export const HostlistSection = () => {
                 ))}
               </div>
             )}
+
+            {/* Search filter */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              {searchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchTerm("")}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
             <div className="space-y-4">
               <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
                 <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
