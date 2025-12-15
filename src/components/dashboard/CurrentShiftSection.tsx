@@ -184,6 +184,32 @@ export const CurrentShiftSection = () => {
     );
   };
 
+  // Function to render task name with clickable links
+  const renderTaskName = (name: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = name.split(urlRegex);
+
+    return parts.map((part, index) => {
+      // NOTE: don't use urlRegex.test() here (regex has /g and test() is stateful via lastIndex)
+      const isUrl = /^https?:\/\//i.test(part);
+      if (isUrl) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80 break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part.length > 30 ? part.substring(0, 30) + '...' : part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   // Fetch workload items for selected date and nearby days
   const { data: workloadItems = [], isLoading } = useQuery({
     queryKey: ['current-shift-workload', selectedDate.toISOString().split('T')[0]],
@@ -824,14 +850,14 @@ export const CurrentShiftSection = () => {
                             <div className="font-medium text-sm flex flex-col gap-1">
                               {item.type === 'subtask' ? (
                                 <>
-                                  <span className={getItemTitleClasses(item)}>{item.subtask?.name}</span>
+                                  <span className={getItemTitleClasses(item)}>{renderTaskName(item.subtask?.name || '')}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {item.subtask?.parent_task_name}
                                   </span>
                                 </>
                               ) : (
                                 <span className={getItemTitleClasses(item)}>
-                                  {getItemTitle(item)}
+                                  {renderTaskName(getItemTitle(item) || '')}
                                 </span>
                               )}
                               {item.type === 'slot-task' && (

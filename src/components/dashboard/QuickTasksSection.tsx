@@ -1688,7 +1688,9 @@ export const QuickTasksSection = () => {
     const parts = name.split(urlRegex);
     
     return parts.map((part, index) => {
-      if (urlRegex.test(part)) {
+      // NOTE: don't use urlRegex.test() here (regex has /g and test() is stateful via lastIndex)
+      const isUrl = /^https?:\/\//i.test(part);
+      if (isUrl) {
         return (
           <a
             key={index}

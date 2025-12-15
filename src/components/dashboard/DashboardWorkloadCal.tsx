@@ -81,6 +81,32 @@ const formatTimeSlot = (time: string) => {
   return `${hour12}:00 ${ampm}`;
 };
 
+// Function to render task name with clickable links
+const renderTaskName = (name: string) => {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = name.split(urlRegex);
+
+  return parts.map((part, index) => {
+    // NOTE: don't use urlRegex.test() here (regex has /g and test() is stateful via lastIndex)
+    const isUrl = /^https?:\/\//i.test(part);
+    if (isUrl) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80 break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part.length > 30 ? part.substring(0, 30) + '...' : part}
+        </a>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 export const DashboardWorkloadCal = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -605,7 +631,7 @@ export const DashboardWorkloadCal = () => {
                                           {item.type}
                                         </Badge>
                                         <span className="text-sm font-medium truncate">
-                                          {getItemTitle(item)}
+                                          {renderTaskName(getItemTitle(item) || '')}
                                         </span>
                                       </div>
                                       <div className="flex items-center gap-2 mt-1">

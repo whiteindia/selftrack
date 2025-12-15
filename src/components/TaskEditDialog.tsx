@@ -302,12 +302,15 @@ const TaskEditDialog = ({ isOpen, onClose, task, mode = 'full', isSubtask = fals
         slot_start_datetime: formData.slot_start_datetime || null,
         slot_end_datetime: formData.slot_end_datetime || null,
       };
-      // Sync scheduled_time/date when slot is set, otherwise clear them to avoid stale slots
+      // Sync scheduled_time/date when slot is set.
+      // Important: do NOT clear date/scheduled_time for non-slot tasks (e.g. current-shift scheduled_time tasks),
+      // otherwise those tasks disappear from time-based views after a simple rename/status change.
       if (formData.slot_start_datetime) {
         const slotStart = new Date(formData.slot_start_datetime);
         updates.date = format(slotStart, 'yyyy-MM-dd');
         updates.scheduled_time = format(slotStart, 'HH:mm');
-      } else {
+      } else if (task.slot_start_datetime) {
+        // The task previously had a slot, and the user cleared it in full edit mode.
         updates.date = null;
         updates.scheduled_time = null;
       }
