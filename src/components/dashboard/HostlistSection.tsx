@@ -1319,7 +1319,7 @@ export const HostlistSection = () => {
                       className={assignmentFilter === "assigned" ? "bg-teal-600 hover:bg-teal-700 text-white" : "border-teal-500 text-teal-600 hover:bg-teal-50"}
                     >
                       <span className="hidden sm:inline">Assigned</span>
-                      <span className="sm:hidden">Asgn</span>
+                      <span className="sm:hidden">Assign</span>
                       <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.assigned}</Badge>
                     </Button>
                     <Button
@@ -1329,7 +1329,7 @@ export const HostlistSection = () => {
                       className={assignmentFilter === "unassigned" ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "border-cyan-500 text-cyan-600 hover:bg-cyan-50"}
                     >
                       <span className="hidden sm:inline">Unassigned</span>
-                      <span className="sm:hidden">Unasgn</span>
+                      <span className="sm:hidden">Unassign</span>
                       <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.unassigned}</Badge>
                     </Button>
                   </div>
