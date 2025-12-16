@@ -37,6 +37,8 @@ export const HostlistSection = () => {
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   
 
   // Render task name with clickable hyperlinks (same behavior as QuickTasksSection)
@@ -173,6 +175,52 @@ export const HostlistSection = () => {
       });
 
       return enhanced;
+    },
+  });
+
+  // Fetch all tasks for autocomplete suggestions (excluding hostlist statuses)
+  const { data: allTasksForSuggestions } = useQuery({
+    queryKey: ["all-tasks-for-suggestions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select(`id, name, status, project:projects(name)`)
+        .not("status", "in", '("On-Head","Imp","Targeted")')
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Filter suggestions based on input
+  const filteredSuggestions = useMemo(() => {
+    if (!newTaskName.trim() || newTaskName.length < 2 || !allTasksForSuggestions) return [];
+    const searchLower = newTaskName.toLowerCase();
+    return allTasksForSuggestions
+      .filter(task => task.name.toLowerCase().includes(searchLower))
+      .slice(0, 10);
+  }, [newTaskName, allTasksForSuggestions]);
+
+  // Mutation to add existing task to hostlist
+  const addToHostlistMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: "On-Head" })
+        .eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Task added to hostlist");
+      setNewTaskName("");
+      setShowSuggestions(false);
+      queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["all-tasks-for-suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+    },
+    onError: () => {
+      toast.error("Failed to add task to hostlist");
     },
   });
 
@@ -1263,29 +1311,26 @@ export const HostlistSection = () => {
                       <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
                     </Button>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      variant={assignmentFilter === "all" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAssignmentFilter("all")}
-                    >
-                      All
-                    </Button>
+                  <div className="flex gap-1 sm:gap-2 flex-wrap">
                     <Button
                       variant={assignmentFilter === "assigned" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAssignmentFilter("assigned")}
+                      className={assignmentFilter === "assigned" ? "bg-teal-600 hover:bg-teal-700 text-white" : "border-teal-500 text-teal-600 hover:bg-teal-50"}
                     >
-                      Assigned
-                      <Badge variant="secondary" className="ml-2">{filterCounts.assigned}</Badge>
+                      <span className="hidden sm:inline">Assigned</span>
+                      <span className="sm:hidden">Asgn</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.assigned}</Badge>
                     </Button>
                     <Button
                       variant={assignmentFilter === "unassigned" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAssignmentFilter("unassigned")}
+                      className={assignmentFilter === "unassigned" ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "border-cyan-500 text-cyan-600 hover:bg-cyan-50"}
                     >
-                      Unassigned
-                      <Badge variant="secondary" className="ml-2">{filterCounts.unassigned}</Badge>
+                      <span className="hidden sm:inline">Unassigned</span>
+                      <span className="sm:hidden">Unasgn</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.unassigned}</Badge>
                     </Button>
                   </div>
                 </div>
@@ -1336,10 +1381,56 @@ export const HostlistSection = () => {
             </div>
 
             <div className="space-y-4">
-              <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
-                <Input placeholder="Add a host task..." value={newTaskName} onChange={(e) => setNewTaskName(e.target.value)} className="flex-1" />
-                <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
-              </form>
+              <div className="relative">
+                <form onSubmit={(e) => { e.preventDefault(); if (newTaskName.trim()) createTaskMutation.mutate(newTaskName.trim()); }} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input 
+                      placeholder="Add or search task..." 
+                      value={newTaskName} 
+                      onChange={(e) => {
+                        setNewTaskName(e.target.value);
+                        setShowSuggestions(true);
+                        setSelectedSuggestionIndex(-1);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      onKeyDown={(e) => {
+                        if (filteredSuggestions.length > 0 && showSuggestions) {
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setSelectedSuggestionIndex(prev => Math.min(prev + 1, filteredSuggestions.length - 1));
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setSelectedSuggestionIndex(prev => Math.max(prev - 1, -1));
+                          } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                            e.preventDefault();
+                            addToHostlistMutation.mutate(filteredSuggestions[selectedSuggestionIndex].id);
+                          }
+                        }
+                      }}
+                    />
+                    {showSuggestions && filteredSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {filteredSuggestions.map((task, index) => (
+                          <div
+                            key={task.id}
+                            className={`px-3 py-2 cursor-pointer hover:bg-muted text-sm ${
+                              index === selectedSuggestionIndex ? 'bg-muted' : ''
+                            }`}
+                            onMouseDown={() => addToHostlistMutation.mutate(task.id)}
+                          >
+                            <div className="font-medium truncate">{task.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(task.project as any)?.name || 'No project'} • {task.status}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <Button type="submit" disabled={!newTaskName.trim()}>Add</Button>
+                </form>
+              </div>
 
               {filteredTasks.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No hostlist tasks found</div>
