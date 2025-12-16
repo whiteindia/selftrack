@@ -22,11 +22,13 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 type TimeFilter = "all" | "yesterday" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
+type AssignmentFilter = "all" | "assigned" | "unassigned";
 
 export const HostlistSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>("all");
   const [viewMode, setViewMode] = useState<"list" | "timeline">("timeline");
   const [searchTerm, setSearchTerm] = useState("");
   const [newTaskName, setNewTaskName] = useState("");
@@ -270,6 +272,13 @@ export const HostlistSection = () => {
       );
     }
 
+    // Apply assignment filter
+    if (assignmentFilter === "assigned") {
+      tasks = tasks.filter(task => task.status === 'Assigned' || !!task.slot_start_datetime || !!task.slot_start_time);
+    } else if (assignmentFilter === "unassigned") {
+      tasks = tasks.filter(task => task.status !== 'Assigned' && !task.slot_start_datetime && !task.slot_start_time);
+    }
+
     // Apply search filter
     if (searchTerm.trim()) {
       tasks = tasks.filter(task =>
@@ -278,7 +287,7 @@ export const HostlistSection = () => {
     }
 
     return tasks;
-  }, [filteredTasks, selectedProject, searchTerm]);
+  }, [filteredTasks, selectedProject, assignmentFilter, searchTerm]);
 
   const filterCounts = useMemo(() => {
     if (!tasks) return { all: 0, yesterday: 0, today: 0, tomorrow: 0, laterThisWeek: 0, nextWeek: 0 };
@@ -305,7 +314,11 @@ export const HostlistSection = () => {
     }).length;
     const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
 
-    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek };
+    // Assignment counts
+    const assigned = tasks.filter(t => t.status === 'Assigned' || !!t.slot_start_datetime || !!t.slot_start_time).length;
+    const unassigned = tasks.filter(t => t.status !== 'Assigned' && !t.slot_start_datetime && !t.slot_start_time).length;
+
+    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek, assigned, unassigned };
   }, [tasks]);
 
   const createTaskMutation = useMutation({
@@ -675,7 +688,7 @@ export const HostlistSection = () => {
                 </Button>
               )}
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openAssignForTask(task); }} className="h-8 px-3" title="Add to Workload">
-                <CalendarPlus className="h-4 w-4 text-blue-600" />
+                <CalendarPlus className={`h-4 w-4 ${(task.status === 'Assigned' || task.slot_start_datetime || task.slot_start_time) ? 'text-yellow-500' : 'text-blue-600'}`} />
               </Button>
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingTask(task); }} className="h-8 px-3">
                 <Pencil className="h-4 w-4" />
@@ -1245,6 +1258,31 @@ export const HostlistSection = () => {
                     >
                       Next Week
                       <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant={assignmentFilter === "all" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAssignmentFilter("all")}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      variant={assignmentFilter === "assigned" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAssignmentFilter("assigned")}
+                    >
+                      Assigned
+                      <Badge variant="secondary" className="ml-2">{filterCounts.assigned}</Badge>
+                    </Button>
+                    <Button
+                      variant={assignmentFilter === "unassigned" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAssignmentFilter("unassigned")}
+                    >
+                      Unassigned
+                      <Badge variant="secondary" className="ml-2">{filterCounts.unassigned}</Badge>
                     </Button>
                   </div>
                 </div>

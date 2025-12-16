@@ -127,13 +127,14 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
           
           console.log('Creating subtask with scheduled time:', scheduledDateTime.toISOString());
           
-          // If item represents a task, update the task's scheduled_time/date
+          // If item represents a task, update the task's scheduled_time/date and status to "Assigned"
           if (item.itemType === 'task' || item.type === 'task' || item.type === 'reminder' || item.type === 'task-deadline') {
             const { data: taskData, error: taskError } = await supabase
               .from('tasks')
               .update({
                 date: format(date, 'yyyy-MM-dd'),
-                scheduled_time: `${format(date, 'yyyy-MM-dd')} ${slot}:00`
+                scheduled_time: `${format(date, 'yyyy-MM-dd')} ${slot}:00`,
+                status: 'Assigned'
               })
               .eq('id', item.originalId)
               .select()
@@ -233,6 +234,9 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
       queryClient.invalidateQueries({ queryKey: ['workload-calendar'] });
       queryClient.invalidateQueries({ queryKey: ['workload-data'] });
       queryClient.invalidateQueries({ queryKey: ['scheduled-items'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['hostlist-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
       
       onAssigned();
       onOpenChange(false);
