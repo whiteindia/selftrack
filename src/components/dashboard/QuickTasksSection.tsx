@@ -732,6 +732,7 @@ export const QuickTasksSection = () => {
                     className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
                       task.status === 'Completed' ? 'bg-green-100 text-green-800' :
                       task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                      task.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
                       'bg-gray-100 text-gray-800'
                     }`}
                     onClick={() => handleToggleTaskStatus(task.id, task.status)}
@@ -986,6 +987,7 @@ export const QuickTasksSection = () => {
                                   className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
                                     subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
                                     subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                    subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
                                     'bg-gray-100 text-gray-800'
                                   }`}
                                   onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
