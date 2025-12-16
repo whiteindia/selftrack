@@ -926,7 +926,7 @@ export const CurrentShiftSection = () => {
                                   className="h-7 px-2"
                                   title="Add to Workload"
                                 >
-                                  <CalendarPlus className="h-4 w-4 text-blue-600" />
+                                  <CalendarPlus className="h-4 w-4 text-yellow-500" />
                                 </Button>
                                 {(item.type === 'task' || item.type === 'slot-task') && (
                                   <Button

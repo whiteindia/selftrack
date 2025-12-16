@@ -40,11 +40,13 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 type TimeFilter = "all" | "yesterday" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
+type AssignmentFilter = "all" | "assigned" | "unassigned";
 
 export const QuickTasksSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>("all");
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const [searchTerm, setSearchTerm] = useState("");
   const [newTaskName, setNewTaskName] = useState("");
@@ -257,6 +259,13 @@ export const QuickTasksSection = () => {
       });
     }
 
+    // Apply assignment filter
+    if (assignmentFilter === "assigned") {
+      filtered = filtered.filter(task => task.status === 'Assigned' || !!task.slot_start_datetime || !!task.slot_start_time);
+    } else if (assignmentFilter === "unassigned") {
+      filtered = filtered.filter(task => task.status !== 'Assigned' && !task.slot_start_datetime && !task.slot_start_time);
+    }
+
     // Apply search filter before sorting
     if (searchTerm.trim()) {
       filtered = filtered.filter(task =>
@@ -329,7 +338,7 @@ export const QuickTasksSection = () => {
     });
 
     return sorted;
-  }, [tasks, timeFilter, searchTerm]);
+  }, [tasks, timeFilter, assignmentFilter, searchTerm]);
 
   useLayoutEffect(() => {
     const y = pendingScrollRestoreRef.current;
@@ -365,7 +374,11 @@ export const QuickTasksSection = () => {
     }).length;
     const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
 
-    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek };
+    // Assignment counts
+    const assigned = tasks.filter(t => t.status === 'Assigned' || !!t.slot_start_datetime || !!t.slot_start_time).length;
+    const unassigned = tasks.filter(t => t.status !== 'Assigned' && !t.slot_start_datetime && !t.slot_start_time).length;
+
+    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek, assigned, unassigned };
   }, [tasks]);
 
   // Create task mutation
@@ -832,7 +845,7 @@ export const QuickTasksSection = () => {
                 title="Add to Workload"
                 type="button"
               >
-                <CalendarPlus className="h-4 w-4 text-blue-600" />
+                <CalendarPlus className={`h-4 w-4 ${(task.status === 'Assigned' || task.slot_start_datetime || task.slot_start_time) ? 'text-yellow-500' : 'text-blue-600'}`} />
               </Button>
 
               <Button
@@ -1786,6 +1799,31 @@ export const QuickTasksSection = () => {
                     >
                       Next Week
                       <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
+                    </Button>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant={assignmentFilter === "all" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAssignmentFilter("all")}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      variant={assignmentFilter === "assigned" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAssignmentFilter("assigned")}
+                    >
+                      Assigned
+                      <Badge variant="secondary" className="ml-2">{filterCounts.assigned}</Badge>
+                    </Button>
+                    <Button
+                      variant={assignmentFilter === "unassigned" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAssignmentFilter("unassigned")}
+                    >
+                      Unassigned
+                      <Badge variant="secondary" className="ml-2">{filterCounts.unassigned}</Badge>
                     </Button>
                   </div>
                 </div>
