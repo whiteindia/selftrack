@@ -1244,7 +1244,7 @@ export const HostlistSection = () => {
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <h2 className="text-lg font-semibold">Hostlist</h2>
                 </div>
-                <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1">
                     <Button
                       variant={viewMode === "list" ? "default" : "outline"}
@@ -1261,57 +1261,61 @@ export const HostlistSection = () => {
                       <Clock className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
+                  <div className="flex gap-1 sm:gap-2 flex-wrap">
                     <Button
                       variant={timeFilter === "all" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeFilter("all")}
                     >
-                      All
-                      <Badge variant="secondary" className="ml-2">{filterCounts.all}</Badge>
+                      <span className="hidden sm:inline">All</span>
+                      <span className="sm:hidden">All</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.all}</Badge>
                     </Button>
                     <Button
                       variant={timeFilter === "yesterday" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeFilter("yesterday")}
                     >
-                      Yesterday
-                      <Badge variant="secondary" className="ml-2">{filterCounts.yesterday}</Badge>
+                      <span className="hidden sm:inline">Yesterday</span>
+                      <span className="sm:hidden">Yest</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.yesterday}</Badge>
                     </Button>
                     <Button
                       variant={timeFilter === "today" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeFilter("today")}
                     >
-                      Today
-                      <Badge variant="secondary" className="ml-2">{filterCounts.today}</Badge>
+                      <span className="hidden sm:inline">Today</span>
+                      <span className="sm:hidden">Tod</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.today}</Badge>
                     </Button>
                     <Button
                       variant={timeFilter === "tomorrow" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeFilter("tomorrow")}
                     >
-                      Tomorrow
-                      <Badge variant="secondary" className="ml-2">{filterCounts.tomorrow}</Badge>
+                      <span className="hidden sm:inline">Tomorrow</span>
+                      <span className="sm:hidden">Tom</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.tomorrow}</Badge>
                     </Button>
                     <Button
                       variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeFilter("laterThisWeek")}
                     >
-                      Later This Week
-                      <Badge variant="secondary" className="ml-2">{filterCounts.laterThisWeek}</Badge>
+                      <span className="hidden sm:inline">Later This Week</span>
+                      <span className="sm:hidden">LTW</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.laterThisWeek}</Badge>
                     </Button>
                     <Button
                       variant={timeFilter === "nextWeek" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setTimeFilter("nextWeek")}
                     >
-                      Next Week
-                      <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
+                      <span className="hidden sm:inline">Next Week</span>
+                      <span className="sm:hidden">NW</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.nextWeek}</Badge>
                     </Button>
-                  </div>
-                  <div className="flex gap-1 sm:gap-2 flex-wrap">
                     <Button
                       variant={assignmentFilter === "assigned" ? "default" : "outline"}
                       size="sm"
@@ -1319,7 +1323,7 @@ export const HostlistSection = () => {
                       className={assignmentFilter === "assigned" ? "bg-teal-600 hover:bg-teal-700 text-white" : "border-teal-500 text-teal-600 hover:bg-teal-50"}
                     >
                       <span className="hidden sm:inline">Assigned</span>
-                      <span className="sm:hidden">Assign</span>
+                      <span className="sm:hidden">Asgn</span>
                       <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.assigned}</Badge>
                     </Button>
                     <Button
@@ -1329,7 +1333,7 @@ export const HostlistSection = () => {
                       className={assignmentFilter === "unassigned" ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "border-cyan-500 text-cyan-600 hover:bg-cyan-50"}
                     >
                       <span className="hidden sm:inline">Unassigned</span>
-                      <span className="sm:hidden">Unassign</span>
+                      <span className="sm:hidden">Unasgn</span>
                       <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.unassigned}</Badge>
                     </Button>
                   </div>
