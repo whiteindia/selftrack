@@ -100,6 +100,7 @@ export const HostlistSection = () => {
           slot_start_time,
           slot_start_datetime,
           slot_end_datetime,
+          scheduled_time,
           sort_order,
           project:projects!inner(name)
         `)
@@ -274,9 +275,9 @@ export const HostlistSection = () => {
 
     // Apply assignment filter
     if (assignmentFilter === "assigned") {
-      tasks = tasks.filter(task => task.status === 'Assigned' || !!task.slot_start_datetime || !!task.slot_start_time);
+      tasks = tasks.filter(task => task.status === 'Assigned' || !!task.slot_start_datetime || !!task.slot_start_time || !!task.scheduled_time);
     } else if (assignmentFilter === "unassigned") {
-      tasks = tasks.filter(task => task.status !== 'Assigned' && !task.slot_start_datetime && !task.slot_start_time);
+      tasks = tasks.filter(task => task.status !== 'Assigned' && !task.slot_start_datetime && !task.slot_start_time && !task.scheduled_time);
     }
 
     // Apply search filter
@@ -315,8 +316,8 @@ export const HostlistSection = () => {
     const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
 
     // Assignment counts
-    const assigned = tasks.filter(t => t.status === 'Assigned' || !!t.slot_start_datetime || !!t.slot_start_time).length;
-    const unassigned = tasks.filter(t => t.status !== 'Assigned' && !t.slot_start_datetime && !t.slot_start_time).length;
+    const assigned = tasks.filter(t => t.status === 'Assigned' || !!t.slot_start_datetime || !!t.slot_start_time || !!t.scheduled_time).length;
+    const unassigned = tasks.filter(t => t.status !== 'Assigned' && !t.slot_start_datetime && !t.slot_start_time && !t.scheduled_time).length;
 
     return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek, assigned, unassigned };
   }, [tasks]);
@@ -688,7 +689,7 @@ export const HostlistSection = () => {
                 </Button>
               )}
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openAssignForTask(task); }} className="h-8 px-3" title="Add to Workload">
-                <CalendarPlus className={`h-4 w-4 ${(task.status === 'Assigned' || task.slot_start_datetime || task.slot_start_time) ? 'text-yellow-500' : 'text-blue-600'}`} />
+                <CalendarPlus className={`h-4 w-4 ${(task.status === 'Assigned' || task.slot_start_datetime || task.slot_start_time || task.scheduled_time) ? 'text-yellow-500' : 'text-blue-600'}`} />
               </Button>
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingTask(task); }} className="h-8 px-3">
                 <Pencil className="h-4 w-4" />
