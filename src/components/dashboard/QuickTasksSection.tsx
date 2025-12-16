@@ -1804,29 +1804,26 @@ export const QuickTasksSection = () => {
                       <Badge variant="secondary" className="ml-2">{filterCounts.nextWeek}</Badge>
                     </Button>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      variant={assignmentFilter === "all" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAssignmentFilter("all")}
-                    >
-                      All
-                    </Button>
+                  <div className="flex gap-1 sm:gap-2 flex-wrap">
                     <Button
                       variant={assignmentFilter === "assigned" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAssignmentFilter("assigned")}
+                      className={assignmentFilter === "assigned" ? "bg-teal-600 hover:bg-teal-700 text-white" : "border-teal-500 text-teal-600 hover:bg-teal-50"}
                     >
-                      Assigned
-                      <Badge variant="secondary" className="ml-2">{filterCounts.assigned}</Badge>
+                      <span className="hidden sm:inline">Assigned</span>
+                      <span className="sm:hidden">Asgn</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.assigned}</Badge>
                     </Button>
                     <Button
                       variant={assignmentFilter === "unassigned" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setAssignmentFilter("unassigned")}
+                      className={assignmentFilter === "unassigned" ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "border-cyan-500 text-cyan-600 hover:bg-cyan-50"}
                     >
-                      Unassigned
-                      <Badge variant="secondary" className="ml-2">{filterCounts.unassigned}</Badge>
+                      <span className="hidden sm:inline">Unassigned</span>
+                      <span className="sm:hidden">Unasgn</span>
+                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.unassigned}</Badge>
                     </Button>
                   </div>
                 </div>
