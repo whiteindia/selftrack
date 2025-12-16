@@ -37,6 +37,32 @@ export const HostlistSection = () => {
   const [isOpen, setIsOpen] = useState(true);
   
 
+  // Render task name with clickable hyperlinks (same behavior as QuickTasksSection)
+  const renderTaskName = (name: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = (name || '').split(urlRegex);
+
+    return parts.map((part, index) => {
+      // NOTE: don't use urlRegex.test() here (regex has /g and test() is stateful via lastIndex)
+      const isUrl = /^https?:\/\//i.test(part);
+      if (isUrl) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80 break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part.length > 30 ? part.substring(0, 30) + '...' : part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -572,7 +598,7 @@ export const HostlistSection = () => {
                 className="flex-1 task-content-area cursor-pointer"
                 onClick={() => setShowingActionsFor(showingActionsFor === task.id ? null : task.id)}
               >
-                <h3 className="font-medium text-sm sm:text-base break-words">{task.name}</h3>
+                <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
                 <span 
                   className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
@@ -938,7 +964,7 @@ export const HostlistSection = () => {
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => setShowingActionsFor(showingActionsFor === task.id ? null : task.id)}
                         >
-                          <h3 className="font-medium text-sm break-words">{task.name}</h3>
+                          <h3 className="font-medium text-sm break-words">{renderTaskName(task.name)}</h3>
                           <p className="text-xs text-muted-foreground">
                             Due: {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "No deadline"}
                           </p>
