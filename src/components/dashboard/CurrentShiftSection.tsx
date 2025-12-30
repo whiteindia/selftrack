@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, X } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -1310,7 +1310,11 @@ const TaskSubtaskList: React.FC<TaskSubtaskListProps> = ({
                   onClick={() => onToggleStatus(st)}
                   title="Toggle status"
                 >
-                  <CheckSquare className="h-4 w-4" />
+                  {st.status === 'Completed' ? (
+                    <CheckSquare className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
                 </Button>
                 {editingId === st.id ? (
                   <input
