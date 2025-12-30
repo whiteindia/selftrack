@@ -494,7 +494,7 @@ export const CurrentShiftSection = () => {
     });
   };
 
-  const createShiftTaskMutation = useMutation({
+  const createShiftSubtaskMutation = useMutation({
     mutationFn: async ({ name, shiftStart }: { name: string; shiftStart: string }) => {
       if (!miscProject?.id) {
         throw new Error('Quick task project not found');
@@ -511,31 +511,64 @@ export const CurrentShiftSection = () => {
       const endDateTime = new Date(startDateTime);
       endDateTime.setHours(endDateTime.getHours() + 1);
 
-      // Deadline should follow the selected date for quick tasks (end of that day)
-      const deadlineValue = endOfDay(selectedDate).toISOString();
-      const slotStartValue = startDateTime.toISOString();
-      const slotEndValue = endDateTime.toISOString();
+      // Create parent task name based on shift time and date
+      const endHour = (startH + 1) % 24;
+      const parentTaskName = `Quick Tasks ${shiftStart}-${endHour.toString().padStart(2, '0')}:00 (${format(selectedDate, 'MMM d')})`;
 
-      const { error } = await supabase.from('tasks').insert({
+      // Check if parent task already exists for this shift
+      const { data: existingTask } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('name', parentTaskName)
+        .eq('project_id', miscProject.id)
+        .eq('date', dateStr)
+        .single();
+
+      let parentTaskId = existingTask?.id;
+
+      // If parent task doesn't exist, create it
+      if (!parentTaskId) {
+        const deadlineValue = endOfDay(selectedDate).toISOString();
+        const slotStartValue = startDateTime.toISOString();
+        const slotEndValue = endDateTime.toISOString();
+
+        const { data: newTask, error: taskError } = await supabase.from('tasks').insert({
+          name: parentTaskName,
+          status: 'Not Started',
+          date: dateStr,
+          scheduled_time: shiftStart,
+          deadline: deadlineValue,
+          slot_start_datetime: slotStartValue,
+          slot_end_datetime: slotEndValue,
+          project_id: miscProject.id,
+        }).select('id').single();
+
+        if (taskError) throw taskError;
+        parentTaskId = newTask.id;
+      }
+
+      // Create subtask under the parent task
+      const { error: subtaskError } = await supabase.from('subtasks').insert({
         name,
+        task_id: parentTaskId,
         status: 'Not Started',
         date: dateStr,
         scheduled_time: shiftStart,
-        deadline: deadlineValue,
-        slot_start_datetime: slotStartValue,
-        slot_end_datetime: slotEndValue,
-        project_id: miscProject.id,
+        deadline: endOfDay(selectedDate).toISOString(),
       });
-      if (error) throw error;
+
+      if (subtaskError) throw subtaskError;
     },
     onSuccess: () => {
-      toast.success('Task added to shift');
+      toast.success('Subtask added to shift');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
     },
     onError: (err) => {
       console.error(err);
-      toast.error('Failed to add task to shift');
+      toast.error('Failed to add subtask to shift');
     }
   });
 
@@ -547,7 +580,7 @@ export const CurrentShiftSection = () => {
       return;
     }
     const shiftStartStr = `${shiftStart.getHours().toString().padStart(2, '0')}:00`;
-    createShiftTaskMutation.mutate({ name: value, shiftStart: shiftStartStr });
+    createShiftSubtaskMutation.mutate({ name: value, shiftStart: shiftStartStr });
     setShiftInputs(prev => ({ ...prev, [shiftId]: '' }));
   };
 
@@ -837,7 +870,7 @@ export const CurrentShiftSection = () => {
                     <Button
                       size="sm"
                       onClick={() => handleAddShiftTask(shift.id, shift.start)}
-                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftTaskMutation.isPending}
+                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftSubtaskMutation.isPending}
                     >
                       Add
                     </Button>
