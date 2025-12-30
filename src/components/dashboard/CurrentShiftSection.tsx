@@ -606,10 +606,8 @@ export const CurrentShiftSection = () => {
 
   const handleToggleSubtaskStatus = (subtask: any) => {
     const current = subtask.status || 'Not Started';
-    let next = 'Not Started';
-    if (current === 'Not Started') next = 'In Progress';
-    else if (current === 'In Progress') next = 'Completed';
-    else if (current === 'Completed') next = 'Not Started';
+    // Toggle between Completed and Not Started when clicking checkbox
+    const next = current === 'Completed' ? 'Not Started' : 'Completed';
     updateSubtaskStatusMutation.mutate({ subtaskId: subtask.id, status: next });
   };
 
@@ -1147,7 +1145,11 @@ export const CurrentShiftSection = () => {
                       onClick={() => handleToggleSubtaskStatus(st)}
                       title="Toggle status"
                     >
-                      <CheckSquare className="h-4 w-4" />
+                      {st.status === 'Completed' ? (
+                        <CheckSquare className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
                     </Button>
                     {subtaskEditId === st.id ? (
                       <input
