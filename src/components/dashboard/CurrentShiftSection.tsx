@@ -505,19 +505,37 @@ export const CurrentShiftSection = () => {
 
       // Build start/end Date objects on that date in local time
       const [startH, startM] = shiftStart.split(':').map(Number);
-      const startDateTime = new Date(selectedDate);
-      startDateTime.setHours(startH, startM || 0, 0, 0);
-
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setHours(endDateTime.getHours() + 1);
-
-      // Determine letter based on time period
+      
+      // Determine letter based on time period and set proper 6-hour shift boundaries
       // A: 12am-6am, B: 6am-12pm, C: 12pm-6pm, D: 6pm-12am
       let periodLetter = 'A';
-      if (startH >= 0 && startH < 6) periodLetter = 'A';
-      else if (startH >= 6 && startH < 12) periodLetter = 'B';
-      else if (startH >= 12 && startH < 18) periodLetter = 'C';
-      else periodLetter = 'D';
+      let shiftStartHour = 0;
+      let shiftEndHour = 6;
+      
+      if (startH >= 0 && startH < 6) {
+        periodLetter = 'A';
+        shiftStartHour = 0;
+        shiftEndHour = 6;
+      } else if (startH >= 6 && startH < 12) {
+        periodLetter = 'B';
+        shiftStartHour = 6;
+        shiftEndHour = 12;
+      } else if (startH >= 12 && startH < 18) {
+        periodLetter = 'C';
+        shiftStartHour = 12;
+        shiftEndHour = 18;
+      } else {
+        periodLetter = 'D';
+        shiftStartHour = 18;
+        shiftEndHour = 24;
+      }
+
+      // Quick Task parent should span the full 6-hour shift
+      const startDateTime = new Date(selectedDate);
+      startDateTime.setHours(shiftStartHour, 0, 0, 0);
+
+      const endDateTime = new Date(selectedDate);
+      endDateTime.setHours(shiftEndHour, 0, 0, 0);
 
       const parentTaskName = `Quick Tasks ${periodLetter} (${format(selectedDate, 'MMM d')})`;
 
