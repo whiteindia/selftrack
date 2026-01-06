@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -57,6 +59,7 @@ export const QuickTasksSection = () => {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Preserve page scroll position across quick-task mutations / refetches.
   // This prevents the browser from jumping (often to the bottom) after any action.
@@ -104,11 +107,11 @@ export const QuickTasksSection = () => {
 
   // Fetch tasks from the project with subtasks and logged time
   const { data: tasks, refetch } = useQuery({
-    queryKey: ["quick-tasks", project?.id],
+    queryKey: ["quick-tasks", project?.id, showCompleted],
     queryFn: async () => {
       if (!project?.id) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("tasks")
         .select(`
           id,
@@ -125,9 +128,15 @@ export const QuickTasksSection = () => {
           sort_order
         `)
         .eq("project_id", project.id)
-        .neq("status", "Completed")
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true });
+
+      // Only filter out completed if showCompleted is false
+      if (!showCompleted) {
+        query = query.neq("status", "Completed");
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -185,19 +194,20 @@ export const QuickTasksSection = () => {
           const subtaskLoggedMinutes = subtaskTimeEntries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
           const totalLoggedHours = Math.round(((totalLoggedMinutes + subtaskLoggedMinutes) / 60) * 100) / 100;
 
-          const visibleSubtaskEntries = (subtasks || []).filter(subtask => subtask.status !== 'Completed');
+          // Return all subtasks - filtering happens at display time based on showCompleted
+          const allSubtasks = subtasks || [];
 
           return {
             ...task,
             time_entries: timeEntries || [],
-            subtasks: visibleSubtaskEntries.map(subtask => ({
+            subtasks: allSubtasks.map(subtask => ({
               ...subtask,
               logged_minutes: subtaskTimeMap[subtask.id] || 0,
               logged_hours: Math.round(((subtaskTimeMap[subtask.id] || 0) / 60) * 100) / 100,
               time_entries: subtaskDetailedEntries[subtask.id] || []
             })),
             total_logged_hours: totalLoggedHours,
-            subtask_count: visibleSubtaskEntries.length
+            subtask_count: allSubtasks.filter(st => st.status !== 'Completed').length
           };
         })
       );
@@ -579,13 +589,15 @@ export const QuickTasksSection = () => {
     }, [editingSubtask]);
 
     const visibleSubtasks = useMemo(() => {
-      const list = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+      const list = (task.subtasks || []).filter((subtask: any) => 
+        showCompleted ? true : subtask.status !== 'Completed'
+      );
       const withKey = list.map((st: any) => {
         const match = /^(\d+)/.exec(st.name?.trim() || '');
         return { ...st, _sortKey: match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER };
       });
       return withKey.sort((a: any, b: any) => a._sortKey - b._sortKey || (a.name || '').localeCompare(b.name || ''));
-    }, [task.subtasks]);
+    }, [task.subtasks, showCompleted]);
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -1741,6 +1753,17 @@ export const QuickTasksSection = () => {
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <h2 className="text-lg font-semibold">Quick Tasks</h2>
+                  <div className="flex items-center gap-1.5 ml-4" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox 
+                      id="show-completed-quick" 
+                      checked={showCompleted} 
+                      onCheckedChange={(checked) => setShowCompleted(checked === true)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <Label htmlFor="show-completed-quick" className="text-xs text-muted-foreground cursor-pointer">
+                      Show completed
+                    </Label>
+                  </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1">
