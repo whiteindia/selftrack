@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
@@ -37,6 +39,7 @@ export const HostlistSection = () => {
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   
@@ -87,8 +90,12 @@ export const HostlistSection = () => {
   });
 
   const { data: tasks } = useQuery({
-    queryKey: ["hostlist-tasks"],
+    queryKey: ["hostlist-tasks", showCompleted],
     queryFn: async () => {
+      const statuses: ("On-Head" | "Targeted" | "Imp" | "Completed")[] = showCompleted 
+        ? ["On-Head", "Targeted", "Imp", "Completed"] 
+        : ["On-Head", "Targeted", "Imp"];
+      
       const { data: baseTasks, error } = await supabase
         .from("tasks")
         .select(`
@@ -106,7 +113,7 @@ export const HostlistSection = () => {
           sort_order,
           project:projects!inner(name)
         `)
-        .in("status", ["On-Head", "Targeted", "Imp"])
+        .in("status", statuses)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true })
         .limit(200);
@@ -486,13 +493,15 @@ export const HostlistSection = () => {
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, active } = useSortable({ id: task.id });
     const visibleSubtasks = useMemo(() => {
-      const list = (task.subtasks || []).filter((subtask: any) => subtask.status !== 'Completed');
+      const list = (task.subtasks || []).filter((subtask: any) => 
+        showCompleted ? true : subtask.status !== 'Completed'
+      );
       const withKey = list.map((st: any) => {
         const match = /^(\d+)/.exec(st.name?.trim() || '');
         return { ...st, _sortKey: match ? parseInt(match[1], 10) : Number.MAX_SAFE_INTEGER };
       });
       return withKey.sort((a: any, b: any) => a._sortKey - b._sortKey || (a.name || '').localeCompare(b.name || ''));
-    }, [task.subtasks]);
+    }, [task.subtasks, showCompleted]);
     const [showSubtasks, setShowSubtasks] = useState<boolean>(() => {
       try {
         const raw = sessionStorage.getItem('hostlist.expandedSubtasks') || '[]';
@@ -1256,6 +1265,17 @@ export const HostlistSection = () => {
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <h2 className="text-lg font-semibold">Hostlist</h2>
+                  <div className="flex items-center gap-1.5 ml-4" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox 
+                      id="show-completed-hostlist" 
+                      checked={showCompleted} 
+                      onCheckedChange={(checked) => setShowCompleted(checked === true)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <Label htmlFor="show-completed-hostlist" className="text-xs text-muted-foreground cursor-pointer">
+                      Show completed
+                    </Label>
+                  </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center" onClick={(e) => e.stopPropagation()}>
                   <div className="flex gap-1">
