@@ -485,16 +485,46 @@ export const DashboardWorkloadCal = () => {
     return itemsInNext6Hours.filter(item => item.project_id === selectedProject);
   }, [itemsInNext6Hours, selectedProject]);
 
-  // Group items by time slot
+  // Determine current Quick Tasks period letter based on current hour
+  const currentQuickTasksLetter = useMemo(() => {
+    if (currentHour >= 0 && currentHour < 6) return 'A';
+    if (currentHour >= 6 && currentHour < 12) return 'B';
+    if (currentHour >= 12 && currentHour < 18) return 'C';
+    return 'D';
+  }, [currentHour]);
+
+  // Separate Quick Tasks subtasks from regular items
+  const { quickTaskSubtasks, regularItems } = useMemo(() => {
+    const quickTasks: WorkloadItem[] = [];
+    const regular: WorkloadItem[] = [];
+    
+    filteredItems.forEach(item => {
+      // Check if this is a Quick Tasks subtask
+      if (item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks')) {
+        quickTasks.push(item);
+      } 
+      // Skip Quick Tasks parent tasks
+      else if (item.type === 'task' && item.task?.name?.startsWith('Quick Tasks')) {
+        // Skip - don't add to either list
+      } 
+      else {
+        regular.push(item);
+      }
+    });
+    
+    return { quickTaskSubtasks: quickTasks, regularItems: regular };
+  }, [filteredItems]);
+
+  // Group items by time slot (only regular items)
   const itemsByTime = useMemo(() => {
-    return filteredItems.reduce((acc, item) => {
+    return regularItems.reduce((acc, item) => {
       const hour = parseInt(item.scheduled_time.split(':')[0]);
       const timeKey = `${hour.toString().padStart(2, '0')}:00`;
       if (!acc[timeKey]) acc[timeKey] = [];
       acc[timeKey].push(item);
       return acc;
     }, {} as Record<string, WorkloadItem[]>);
-  }, [filteredItems]);
+  }, [regularItems]);
 
   const toggleSlot = (slot: string) => {
     setExpandedSlots(prev => ({ ...prev, [slot]: !prev[slot] }));
@@ -584,6 +614,97 @@ export const DashboardWorkloadCal = () => {
             ) : (
               <ScrollArea className="h-[400px]">
                 <div className="space-y-2 pr-1">
+                  {/* Quick Tasks Section */}
+                  {quickTaskSubtasks.length > 0 && (
+                    <div className="border border-red-300 rounded-lg p-2 bg-red-50 dark:bg-red-900/20">
+                      <Collapsible defaultOpen>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded">
+                          <div className="flex items-center gap-2">
+                            <ChevronDown className="h-4 w-4 text-red-600" />
+                            <span className="font-medium text-sm text-red-700 dark:text-red-300">
+                              Quick Tasks {currentQuickTasksLetter}
+                            </span>
+                            <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200">
+                              {quickTaskSubtasks.length}
+                            </Badge>
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="space-y-2 mt-2">
+                            {quickTaskSubtasks.map(item => {
+                              const itemId = item.subtask?.id;
+                              const runningTimer = itemId ? getRunningTimer(itemId, true) : null;
+                              
+                              return (
+                                <div 
+                                  key={item.id}
+                                  className={cn(
+                                    "p-2 rounded-md w-full bg-red-100/50 dark:bg-red-900/30",
+                                    runningTimer && "border border-orange-300 bg-orange-50 dark:bg-orange-900/20"
+                                  )}
+                                >
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-start gap-1.5">
+                                      <h3 className={cn(
+                                        "font-medium text-sm break-words line-clamp-3 flex-1 text-red-800 dark:text-red-200",
+                                        item.subtask?.status === 'Completed' && "line-through decoration-current/70"
+                                      )}>
+                                        {renderTaskName(item.subtask?.name || '')}
+                                      </h3>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 mt-1">
+                                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                                        <Badge className={cn("text-xs", getStatusColor(item.subtask?.status || ''))}>
+                                          {item.subtask?.status}
+                                        </Badge>
+                                      </div>
+                                      {itemId && (
+                                        <div className="shrink-0">
+                                          {runningTimer ? (
+                                            <CompactTimerControls
+                                              taskId={itemId}
+                                              taskName={item.subtask?.name || ''}
+                                              entryId={runningTimer.id}
+                                              timerMetadata={runningTimer.timer_metadata}
+                                              onTimerUpdate={() => {
+                                                queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+                                                queryClient.invalidateQueries({ queryKey: ['running-timers'] });
+                                              }}
+                                              isSubtask={true}
+                                            />
+                                          ) : (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                startTimerMutation.mutate({
+                                                  taskId: itemId,
+                                                  taskName: item.subtask?.name || '',
+                                                  isSubtask: true
+                                                });
+                                              }}
+                                              disabled={startTimerMutation.isPending || item.subtask?.status === 'Completed'}
+                                              className="h-7 w-7 p-0"
+                                              title="Start Timer"
+                                            >
+                                              <Play className="h-3.5 w-3.5" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  )}
+                  
+                  {/* Regular Time Slots */}
                   {timeSlots.map((slot) => {
                     const slotItems = itemsByTime[slot] || [];
                     const isCurrentSlot = parseInt(slot.split(':')[0]) === currentHour;
