@@ -353,19 +353,31 @@ export const HostlistSection = () => {
 
     const withDeadline = tasks.filter(t => !!t.deadline);
     const inRange = (d: Date, start: Date, end: Date) => d >= start && d <= end;
-    const all = tasks.length;
-    const yesterday = withDeadline.filter(t => inRange(new Date(t.deadline), yesterdayStart, yesterdayEnd)).length;
-    const today = withDeadline.filter(t => inRange(new Date(t.deadline), todayStart, todayEnd)).length;
-    const tomorrow = withDeadline.filter(t => inRange(new Date(t.deadline), tomorrowStart, tomorrowEnd)).length;
-    const laterThisWeek = withDeadline.filter(t => {
+    // Count tasks + their subtasks
+    const countWithSubtasks = (taskList: any[]) => {
+      return taskList.reduce((count, t) => count + 1 + (t.subtask_count || 0), 0);
+    };
+    
+    const all = countWithSubtasks(tasks);
+    const yesterdayTasks = withDeadline.filter(t => inRange(new Date(t.deadline), yesterdayStart, yesterdayEnd));
+    const yesterday = countWithSubtasks(yesterdayTasks);
+    const todayTasks = withDeadline.filter(t => inRange(new Date(t.deadline), todayStart, todayEnd));
+    const today = countWithSubtasks(todayTasks);
+    const tomorrowTasks = withDeadline.filter(t => inRange(new Date(t.deadline), tomorrowStart, tomorrowEnd));
+    const tomorrow = countWithSubtasks(tomorrowTasks);
+    const laterThisWeekTasks = withDeadline.filter(t => {
       const d = new Date(t.deadline);
       return d > tomorrowEnd && d <= thisWeekEnd;
-    }).length;
-    const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
+    });
+    const laterThisWeek = countWithSubtasks(laterThisWeekTasks);
+    const nextWeekTasks = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd));
+    const nextWeek = countWithSubtasks(nextWeekTasks);
 
     // Assignment counts
-    const assigned = tasks.filter(t => t.status === 'Assigned' || !!t.slot_start_datetime || !!t.slot_start_time || !!t.scheduled_time).length;
-    const unassigned = tasks.filter(t => t.status !== 'Assigned' && !t.slot_start_datetime && !t.slot_start_time && !t.scheduled_time).length;
+    const assignedTasks = tasks.filter(t => t.status === 'Assigned' || !!t.slot_start_datetime || !!t.slot_start_time || !!t.scheduled_time);
+    const assigned = countWithSubtasks(assignedTasks);
+    const unassignedTasks = tasks.filter(t => t.status !== 'Assigned' && !t.slot_start_datetime && !t.slot_start_time && !t.scheduled_time);
+    const unassigned = countWithSubtasks(unassignedTasks);
 
     return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek, assigned, unassigned };
   }, [tasks]);
@@ -809,6 +821,7 @@ export const HostlistSection = () => {
                           </div>
                           <div className="mt-2 sm:mt-0 flex flex-wrap gap-2 justify-start sm:justify-end">
                             <TimeTrackerWithComment task={{ id: subtask.id, name: subtask.name }} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} />
+                            <ManualTimeLog taskId={subtask.id} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} />
                             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); const item = { id: subtask.id, originalId: task.id, type: 'subtask', itemType: 'subtask', title: subtask.name, date: new Date().toISOString().slice(0, 10), }; setSelectedItemsForWorkload([item]); setIsAssignDialogOpen(true); }} className="h-8 px-3" title="Add subtask to Workload">
                               <CalendarPlus className="h-3 w-3 text-blue-600" />
                             </Button>

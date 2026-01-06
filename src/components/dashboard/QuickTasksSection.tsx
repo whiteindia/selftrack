@@ -1012,6 +1012,11 @@ export const QuickTasksSection = () => {
                             onSuccess={() => refetch()}
                             isSubtask={true}
                           />
+                          <ManualTimeLog 
+                            taskId={subtask.id} 
+                            onSuccess={() => refetch()} 
+                            isSubtask={true} 
+                          />
                           <Button
                             size="sm"
                             variant="ghost"
