@@ -1158,7 +1158,7 @@ export const CurrentShiftSection = () => {
                           {/* Render Quick Tasks groups - expanded by default, click to collapse */}
                           {Object.entries(quickTaskGroups).map(([parentName, subtasks]) => {
                             const groupKey = `quicktask-group-${parentName}`;
-                            const isExpanded = !collapsedItems.has(groupKey); // Expanded by default
+                            const isExpanded = collapsedItems.has(groupKey); // Collapsed by default
 
                             return (
                               <div key={groupKey} className="border border-red-300 rounded-md bg-red-50 dark:bg-red-900/20">
