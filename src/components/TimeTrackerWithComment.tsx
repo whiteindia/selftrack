@@ -20,6 +20,7 @@ interface TimeTrackerWithCommentProps {
   task: Task;
   onSuccess: () => void;
   isSubtask?: boolean;
+  iconOnly?: boolean;
 }
 
 interface ActiveTimer {
@@ -35,7 +36,8 @@ interface ActiveTimer {
 const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({ 
   task, 
   onSuccess, 
-  isSubtask = false 
+  isSubtask = false,
+  iconOnly = false
 }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -468,53 +470,100 @@ const TimeTrackerWithComment: React.FC<TimeTrackerWithCommentProps> = ({
     <>
       <div className="flex items-center space-x-2">
         {!activeTimer ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleStart}
-            disabled={startTimerMutation.isPending}
-          >
-            <Play className="h-4 w-4 mr-1" />
-            Start
-          </Button>
-        ) : (
-          <>
+          iconOnly ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleStart}
+              disabled={startTimerMutation.isPending}
+              className="h-6 w-6"
+              title="Start Timer"
+            >
+              <Play className="h-3 w-3 text-green-600" />
+            </Button>
+          ) : (
             <Button
               size="sm"
               variant="outline"
-              onClick={handlePause}
-              disabled={pauseTimerMutation.isPending || resumeTimerMutation.isPending}
+              onClick={handleStart}
+              disabled={startTimerMutation.isPending}
             >
-              {activeTimer.isPaused ? (
-                <>
-                  <Play className="h-4 w-4 mr-1" />
-                  Resume
-                </>
-              ) : (
-                <>
-                  <Pause className="h-4 w-4 mr-1" />
-                  Pause
-                </>
-              )}
+              <Play className="h-4 w-4 mr-1" />
+              Start
             </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={handleStop}
-              disabled={stopTimerMutation.isPending}
-            >
-              <Square className="h-4 w-4 mr-1" />
-              Stop
-            </Button>
-            <div className="flex items-center text-sm font-mono">
-              <Clock className="h-4 w-4 mr-1" />
-              <span className={activeTimer.isPaused ? "text-yellow-600" : "text-blue-600"}>
-                {formatTime(elapsedTime)}
-              </span>
-              {activeTimer.isPaused && (
-                <span className="ml-1 text-xs text-yellow-600">(Paused)</span>
-              )}
-            </div>
+          )
+        ) : (
+          <>
+            {iconOnly ? (
+              <>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handlePause}
+                  disabled={pauseTimerMutation.isPending || resumeTimerMutation.isPending}
+                  className="h-6 w-6"
+                  title={activeTimer.isPaused ? "Resume" : "Pause"}
+                >
+                  {activeTimer.isPaused ? (
+                    <Play className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Pause className="h-3 w-3 text-yellow-600" />
+                  )}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={handleStop}
+                  disabled={stopTimerMutation.isPending}
+                  className="h-6 w-6"
+                  title="Stop Timer"
+                >
+                  <Square className="h-3 w-3 text-red-600" />
+                </Button>
+                <span className={`text-xs font-mono ${activeTimer.isPaused ? "text-yellow-600" : "text-blue-600"}`}>
+                  {formatTime(elapsedTime)}
+                </span>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handlePause}
+                  disabled={pauseTimerMutation.isPending || resumeTimerMutation.isPending}
+                >
+                  {activeTimer.isPaused ? (
+                    <>
+                      <Play className="h-4 w-4 mr-1" />
+                      Resume
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="h-4 w-4 mr-1" />
+                      Pause
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleStop}
+                  disabled={stopTimerMutation.isPending}
+                >
+                  <Square className="h-4 w-4 mr-1" />
+                  Stop
+                </Button>
+                <div className="flex items-center text-sm font-mono">
+                  <Clock className="h-4 w-4 mr-1" />
+                  <span className={activeTimer.isPaused ? "text-yellow-600" : "text-blue-600"}>
+                    {formatTime(elapsedTime)}
+                  </span>
+                  {activeTimer.isPaused && (
+                    <span className="ml-1 text-xs text-yellow-600">(Paused)</span>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

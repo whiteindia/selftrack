@@ -806,7 +806,7 @@ export const HostlistSection = () => {
                             ) : (
                               <>
                                 <p className="text-sm font-medium break-words">{subtask.name}</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
                                   <span 
                                     className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
                                       subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
@@ -819,30 +819,31 @@ export const HostlistSection = () => {
                                     {subtask.status}
                                   </span>
                                   {subtask.logged_hours > 0 && (
-                                    <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">{subtask.logged_hours}h logged</span>
+                                    <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">{subtask.logged_hours}h</span>
                                   )}
+                                  {/* Inline action icons */}
+                                  <div className="flex items-center gap-0.5 ml-1">
+                                    <TimeTrackerWithComment task={{ id: subtask.id, name: subtask.name }} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} iconOnly={true} />
+                                    <ManualTimeLog taskId={subtask.id} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} iconOnly={true} />
+                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); const item = { id: subtask.id, originalId: task.id, type: 'subtask', itemType: 'subtask', title: subtask.name, date: new Date().toISOString().slice(0, 10), }; setSelectedItemsForWorkload([item]); setIsAssignDialogOpen(true); }} className="h-6 w-6" title="Add to Workload">
+                                      <CalendarPlus className="h-3 w-3 text-blue-600" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSubtask(subtask.id, subtask.name); }} className="h-6 w-6" title="Edit">
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/alltasks?highlight=${subtask.id}&subtask=true`); }} className="h-6 w-6" title="View">
+                                      <Eye className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDeleteSubtask(subtask.id); }} className="h-6 w-6 text-destructive hover:text-destructive" title="Delete">
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                   {subtask.deadline && (
-                                    <span>Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
+                                    <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
                                   )}
                                 </div>
                               </>
                             )}
-                          </div>
-                          <div className="mt-2 sm:mt-0 flex flex-wrap gap-2 justify-start sm:justify-end">
-                            <TimeTrackerWithComment task={{ id: subtask.id, name: subtask.name }} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} />
-                            <ManualTimeLog taskId={subtask.id} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} />
-                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); const item = { id: subtask.id, originalId: task.id, type: 'subtask', itemType: 'subtask', title: subtask.name, date: new Date().toISOString().slice(0, 10), }; setSelectedItemsForWorkload([item]); setIsAssignDialogOpen(true); }} className="h-8 px-3" title="Add subtask to Workload">
-                              <CalendarPlus className="h-3 w-3 text-blue-600" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSubtask(subtask.id, subtask.name); }} className="h-8 px-3">
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/alltasks?highlight=${subtask.id}&subtask=true`); }} className="h-8 px-3">
-                              <Eye className="h-3 w-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDeleteSubtask(subtask.id); }} className="h-8 px-3 text-destructive hover:text-destructive">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
                           </div>
                         </div>
                       </Card>
