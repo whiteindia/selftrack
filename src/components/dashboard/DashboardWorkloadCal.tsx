@@ -21,6 +21,8 @@ interface WorkloadItem {
   scheduled_date: string;
   project_id?: string;
   project_name?: string;
+  slot_start_datetime?: string;
+  slot_end_datetime?: string;
   task?: {
     id: string;
     name: string;
@@ -331,6 +333,8 @@ export const DashboardWorkloadCal = () => {
           scheduled_date: todayStr,
           scheduled_time: scheduledTime,
           project_id: task.project?.id || task.project_id,
+          slot_start_datetime: task.slot_start_datetime || undefined,
+          slot_end_datetime: task.slot_end_datetime || undefined,
           task: {
             id: task.id,
             name: task.name,
@@ -455,14 +459,32 @@ export const DashboardWorkloadCal = () => {
   };
 
   // First filter items to only show next 6 hours (before project filter)
+  // Include items whose slot overlaps with the next 6 hours window
   const itemsInNext6Hours = useMemo(() => {
+    const now = new Date();
+    const sixHoursLater = new Date(now.getTime() + 6 * 60 * 60 * 1000);
+    
     return workloadItems.filter(item => {
       const itemHour = parseInt(item.scheduled_time.split(':')[0]);
-      for (let i = 0; i < 6; i++) {
-        const slotHour = (currentHour + i) % 24;
-        if (itemHour === slotHour) return true;
+      
+      // Create start datetime for this item (default from scheduled_time)
+      let itemStartDate = new Date();
+      itemStartDate.setHours(itemHour, 0, 0, 0);
+      
+      // Default end time is 1 hour after start
+      let itemEndDate = new Date(itemStartDate.getTime() + 60 * 60 * 1000);
+      
+      // If task has slot_start_datetime and slot_end_datetime, use those
+      if (item.slot_start_datetime) {
+        itemStartDate = new Date(item.slot_start_datetime);
       }
-      return false;
+      if (item.slot_end_datetime) {
+        itemEndDate = new Date(item.slot_end_datetime);
+      }
+      
+      // Check if item's time range overlaps with the next 6 hours window
+      // Overlap occurs if: itemStart < windowEnd AND itemEnd > windowStart
+      return itemStartDate < sixHoursLater && itemEndDate > now;
     });
   }, [workloadItems, currentHour]);
 
