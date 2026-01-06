@@ -623,19 +623,19 @@ export const DashboardWorkloadCal = () => {
                                 return (
                                   <div
                                     key={item.id}
-                                    className="flex items-center justify-between p-2 bg-muted/30 rounded-md"
+                                    className="flex flex-col md:flex-row md:items-center md:justify-between p-2 bg-muted/30 rounded-md w-full"
                                   >
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="text-xs capitalize shrink-0">
+                                    <div className="flex-1 min-w-0 w-full">
+                                      <div className="flex items-start gap-2">
+                                        <Badge variant="outline" className="text-xs capitalize shrink-0 mt-0.5">
                                           {item.type}
                                         </Badge>
-                                        <span className="text-sm font-medium truncate">
+                                        <span className="text-sm font-medium line-clamp-3 break-words">
                                           {renderTaskName(getItemTitle(item) || '')}
                                         </span>
                                       </div>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className="text-xs text-muted-foreground truncate">
+                                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        <span className="text-xs text-muted-foreground line-clamp-1">
                                           {getItemProject(item)}
                                         </span>
                                         <Badge className={cn("text-xs", getStatusColor(getItemStatus(item) || ''))}>
