@@ -16,9 +16,10 @@ interface ManualTimeLogProps {
   taskId: string;
   onSuccess: () => void;
   isSubtask?: boolean;
+  iconOnly?: boolean;
 }
 
-const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess, isSubtask = false }) => {
+const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess, isSubtask = false, iconOnly = false }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -150,10 +151,16 @@ const ManualTimeLog: React.FC<ManualTimeLogProps> = ({ taskId, onSuccess, isSubt
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
-          <Plus className="h-4 w-4 mr-1" />
-          Log Time
-        </Button>
+        {iconOnly ? (
+          <Button size="icon" variant="ghost" className="h-6 w-6" title="Log Time">
+            <Plus className="h-3 w-3 text-purple-600" />
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline">
+            <Plus className="h-4 w-4 mr-1" />
+            Log Time
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
