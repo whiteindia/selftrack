@@ -567,7 +567,8 @@ export const DashboardWorkloadCal = () => {
     );
   };
 
-  const totalItems = filteredItems.length;
+  // Total items excludes Quick Tasks parent tasks (they're just containers)
+  const totalItems = quickTaskSubtasks.length + regularItems.length;
 
   return (
     <Card>
