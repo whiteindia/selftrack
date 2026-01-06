@@ -63,7 +63,7 @@ export const CurrentShiftSection = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
-  const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
+  const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
   const [shiftInputs, setShiftInputs] = useState<Record<string, string>>({});
   const [expandedSubtasks, setExpandedSubtasks] = useState<Record<string, boolean>>({});
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
@@ -511,35 +511,24 @@ export const CurrentShiftSection = () => {
       const endDateTime = new Date(startDateTime);
       endDateTime.setHours(endDateTime.getHours() + 1);
 
-      // Get existing Quick Tasks for this date to determine next letter
-      const { data: existingQuickTasks } = await supabase
+      // Determine letter based on time period
+      // A: 12am-6am, B: 6am-12pm, C: 12pm-6pm, D: 6pm-12am
+      let periodLetter = 'A';
+      if (startH >= 0 && startH < 6) periodLetter = 'A';
+      else if (startH >= 6 && startH < 12) periodLetter = 'B';
+      else if (startH >= 12 && startH < 18) periodLetter = 'C';
+      else periodLetter = 'D';
+
+      const parentTaskName = `Quick Tasks ${periodLetter} (${format(selectedDate, 'MMM d')})`;
+
+      // Check if parent task already exists for this period
+      const { data: existingTask } = await supabase
         .from('tasks')
-        .select('id, name')
+        .select('id')
+        .eq('name', parentTaskName)
         .eq('project_id', miscProject.id)
         .eq('date', dateStr)
-        .like('name', `Quick Tasks % (${format(selectedDate, 'MMM d')})`)
-        .order('name', { ascending: true });
-
-      // Determine the next letter (A, B, C, etc.)
-      let nextLetter = 'A';
-      if (existingQuickTasks && existingQuickTasks.length > 0) {
-        const usedLetters = existingQuickTasks
-          .map(t => {
-            const match = t.name.match(/Quick Tasks ([A-Z])/);
-            return match ? match[1] : null;
-          })
-          .filter(Boolean) as string[];
-        
-        if (usedLetters.length > 0) {
-          const lastLetter = usedLetters.sort().pop()!;
-          nextLetter = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
-        }
-      }
-
-      const parentTaskName = `Quick Tasks ${nextLetter} (${format(selectedDate, 'MMM d')})`;
-
-      // Check if parent task already exists (shouldn't happen with new naming but just in case)
-      const existingTask = existingQuickTasks?.find(t => t.name === parentTaskName);
+        .single();
 
       let parentTaskId = existingTask?.id;
 
@@ -921,7 +910,12 @@ export const CurrentShiftSection = () => {
                             activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
                             getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
                           )}
-                          onClick={() => setShowingActionsFor(showingActionsFor === item.id ? null : item.id)}
+                          onClick={() => setCollapsedItems(prev => {
+                            const next = new Set(prev);
+                            if (next.has(item.id)) next.delete(item.id);
+                            else next.add(item.id);
+                            return next;
+                          })}
                         >
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-sm flex flex-col gap-1">
@@ -965,7 +959,7 @@ export const CurrentShiftSection = () => {
                                 }
                               })()}
                             </div>
-                            {showingActionsFor === item.id && (
+                            {!collapsedItems.has(item.id) && (
                               <div className="flex flex-wrap gap-2 mt-2">
                                 <Button
                                   size="sm"
