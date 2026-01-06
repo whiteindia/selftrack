@@ -526,8 +526,8 @@ export const DashboardWorkloadCal = () => {
               <CardTitle className="flex items-center gap-2 text-lg">
                 {isSectionOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
                 <Clock className="h-5 w-5" />
-                Next 6 Hours
-                <Badge variant="secondary" className="ml-2">{totalItems} items</Badge>
+                Nxt6hrs
+                <Badge variant="secondary" className="ml-2">{totalItems}</Badge>
               </CardTitle>
               <Button 
                 variant="ghost" 
@@ -539,7 +539,7 @@ export const DashboardWorkloadCal = () => {
                 className="text-xs"
               >
                 <Eye className="h-4 w-4 mr-1" />
-                Full Calendar
+                FullCal
               </Button>
             </div>
           </CollapsibleTrigger>
@@ -620,8 +620,19 @@ export const DashboardWorkloadCal = () => {
                                   ? getRunningTimer(itemId, isSubtask)
                                   : null;
                                 
+                                // Check if task has a slot (orange color like CurrentShiftSection)
+                                const hasSlot = item.type === 'task' && item.task;
+                                
                                 return (
-                                  <div key={item.id} className="p-2 bg-muted/30 rounded-md w-full">
+                                  <div 
+                                    key={item.id} 
+                                    className={cn(
+                                      "p-2 rounded-md w-full",
+                                      hasSlot 
+                                        ? "bg-orange-100 border border-orange-300 dark:bg-orange-950/30 dark:border-orange-800" 
+                                        : "bg-muted/30"
+                                    )}
+                                  >
                                     <div className="flex flex-col gap-1">
                                       <div className="flex items-start gap-1.5">
                                         <Badge variant="outline" className="text-xs capitalize shrink-0 mt-0.5">
