@@ -897,6 +897,7 @@ export const CurrentShiftSection = () => {
                       );
                       const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
 
+                      const hasSlot = item.task?.slot_start_datetime || item.task?.slot_end_datetime;
                       return (
                         <div 
                           key={item.id} 
@@ -906,7 +907,9 @@ export const CurrentShiftSection = () => {
                               ? 'bg-blue-50 dark:bg-blue-900/30'
                               : item.type === 'slot-task'
                                 ? 'bg-purple-50 dark:bg-purple-900/20'
-                                : 'bg-muted/30',
+                                : hasSlot
+                                  ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-300'
+                                  : 'bg-muted/30',
                             activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
                             getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
                           )}
