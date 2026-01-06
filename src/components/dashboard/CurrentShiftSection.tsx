@@ -511,18 +511,35 @@ export const CurrentShiftSection = () => {
       const endDateTime = new Date(startDateTime);
       endDateTime.setHours(endDateTime.getHours() + 1);
 
-      // Create parent task name based on shift time and date
-      const endHour = (startH + 1) % 24;
-      const parentTaskName = `Quick Tasks ${shiftStart}-${endHour.toString().padStart(2, '0')}:00 (${format(selectedDate, 'MMM d')})`;
-
-      // Check if parent task already exists for this shift
-      const { data: existingTask } = await supabase
+      // Get existing Quick Tasks for this date to determine next letter
+      const { data: existingQuickTasks } = await supabase
         .from('tasks')
-        .select('id')
-        .eq('name', parentTaskName)
+        .select('id, name')
         .eq('project_id', miscProject.id)
         .eq('date', dateStr)
-        .single();
+        .like('name', `Quick Tasks % (${format(selectedDate, 'MMM d')})`)
+        .order('name', { ascending: true });
+
+      // Determine the next letter (A, B, C, etc.)
+      let nextLetter = 'A';
+      if (existingQuickTasks && existingQuickTasks.length > 0) {
+        const usedLetters = existingQuickTasks
+          .map(t => {
+            const match = t.name.match(/Quick Tasks ([A-Z])/);
+            return match ? match[1] : null;
+          })
+          .filter(Boolean) as string[];
+        
+        if (usedLetters.length > 0) {
+          const lastLetter = usedLetters.sort().pop()!;
+          nextLetter = String.fromCharCode(lastLetter.charCodeAt(0) + 1);
+        }
+      }
+
+      const parentTaskName = `Quick Tasks ${nextLetter} (${format(selectedDate, 'MMM d')})`;
+
+      // Check if parent task already exists (shouldn't happen with new naming but just in case)
+      const existingTask = existingQuickTasks?.find(t => t.name === parentTaskName);
 
       let parentTaskId = existingTask?.id;
 
