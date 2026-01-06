@@ -1044,8 +1044,8 @@ export const CurrentShiftSection = () => {
                                   }
                                 })()}
                               </div>
-                              {/* Only show action buttons row for non-subtask items */}
-                              {!collapsedItems.has(item.id) && item.type !== 'subtask' && (
+                              {/* Only show action buttons row when item is clicked (expanded) */}
+                              {collapsedItems.has(item.id) && item.type !== 'subtask' && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                   <Button
                                     size="sm"
