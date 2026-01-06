@@ -892,8 +892,15 @@ export const CurrentShiftSection = () => {
                       const quickTaskSubtasks = shift.items.filter(
                         item => item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks')
                       );
+                      // Filter out Quick Tasks parent tasks (not needed in current shift) and Quick Tasks subtasks
                       const otherItems = shift.items.filter(
-                        item => !(item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks'))
+                        item => {
+                          // Skip Quick Tasks subtasks (they're rendered separately)
+                          if (item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks')) return false;
+                          // Skip Quick Tasks parent tasks entirely
+                          if ((item.type === 'task' || item.type === 'slot-task') && item.task?.name?.startsWith('Quick Tasks')) return false;
+                          return true;
+                        }
                       );
 
                       // Group quick task subtasks by parent task name
@@ -922,9 +929,7 @@ export const CurrentShiftSection = () => {
                                 ? 'bg-blue-50 dark:bg-blue-900/30'
                                 : item.type === 'slot-task'
                                   ? 'bg-purple-50 dark:bg-purple-900/20'
-                                  : hasSlot
-                                    ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-300'
-                                    : 'bg-muted/30',
+                                  : 'bg-muted/30',
                               activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
                               getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
                             )}
@@ -945,7 +950,7 @@ export const CurrentShiftSection = () => {
                                     </span>
                                   </>
                                 ) : (
-                                  <span className={getItemTitleClasses(item)}>
+                                  <span className={cn(getItemTitleClasses(item), hasSlot && 'text-orange-600 dark:text-orange-400')}>
                                     {renderTaskName(getItemTitle(item) || '')}
                                   </span>
                                 )}
