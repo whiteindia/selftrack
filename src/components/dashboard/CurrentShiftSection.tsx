@@ -645,8 +645,11 @@ export const CurrentShiftSection = () => {
 
   const handleToggleSubtaskStatus = (subtask: any) => {
     const current = subtask.status || 'Not Started';
-    // Toggle between Completed and Not Started when clicking checkbox
-    const next = current === 'Completed' ? 'Not Started' : 'Completed';
+    // Toggle: Not Started → In Progress → Completed → Not Started
+    let next: string;
+    if (current === 'Not Started') next = 'In Progress';
+    else if (current === 'In Progress') next = 'Completed';
+    else next = 'Not Started';
     updateSubtaskStatusMutation.mutate({ subtaskId: subtask.id, status: next });
   };
 
@@ -943,15 +946,52 @@ export const CurrentShiftSection = () => {
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-sm flex flex-col gap-1">
                                 {item.type === 'subtask' ? (
-                                  <>
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <span className={getItemTitleClasses(item)}>{renderTaskName(item.subtask?.name || '')}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {item.subtask?.parent_task_name}
-                                    </span>
-                                  </>
+                                    {/* Inline icons for subtasks */}
+                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                        className="h-6 px-1"
+                                        title="Add to Workload"
+                                      >
+                                        <CalendarPlus className="h-3 w-3 text-yellow-500" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                        }}
+                                        className="h-6 px-1 text-destructive hover:text-destructive"
+                                        title="Delete subtask"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 px-1 text-xs"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleToggleSubtaskStatus(item.subtask);
+                                        }}
+                                      >
+                                        {item.subtask?.status || 'Not Started'}
+                                      </Button>
+                                    </div>
+                                  </div>
                                 ) : (
                                   <span className={cn(getItemTitleClasses(item), hasSlot && 'text-orange-600 dark:text-orange-400')}>
                                     {renderTaskName(getItemTitle(item) || '')}
+                                  </span>
+                                )}
+                                {item.type === 'subtask' && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {item.subtask?.parent_task_name}
                                   </span>
                                 )}
                                 {item.type === 'slot-task' && (
@@ -979,7 +1019,8 @@ export const CurrentShiftSection = () => {
                                   }
                                 })()}
                               </div>
-                              {!collapsedItems.has(item.id) && (
+                              {/* Only show action buttons row for non-subtask items */}
+                              {!collapsedItems.has(item.id) && item.type !== 'subtask' && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                   <Button
                                     size="sm"
@@ -1043,20 +1084,6 @@ export const CurrentShiftSection = () => {
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   )}
-                                  {item.type === 'subtask' && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
-                                      }}
-                                      className="h-7 px-2 text-destructive hover:text-destructive"
-                                      title="Delete subtask"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  )}
                                 {(item.type === 'task' || item.type === 'slot-task') && item.task && (
                                   <Button
                                     size="sm"
@@ -1068,19 +1095,6 @@ export const CurrentShiftSection = () => {
                                     }}
                                   >
                                     {item.task?.status || 'Not Started'}
-                                  </Button>
-                                )}
-                                {item.type === 'subtask' && item.subtask && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleSubtaskStatus(item.subtask);
-                                    }}
-                                  >
-                                    {item.subtask?.status || 'Not Started'}
                                   </Button>
                                 )}
                                 </div>
@@ -1186,42 +1200,48 @@ export const CurrentShiftSection = () => {
                                           )}
                                         >
                                           <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-sm text-red-800 dark:text-red-200">
-                                              {renderTaskName(item.subtask?.name || '')}
-                                            </div>
-                                            <div className="flex flex-wrap gap-2 mt-1">
-                                              <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
-                                                className="h-6 px-1"
-                                                title="Add to Workload"
-                                              >
-                                                <CalendarPlus className="h-3 w-3 text-yellow-500" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={(e) => { 
-                                                  e.stopPropagation(); 
-                                                  deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
-                                                }}
-                                                className="h-6 px-1 text-destructive hover:text-destructive"
-                                                title="Delete"
-                                              >
-                                                <Trash2 className="h-3 w-3" />
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-6 px-1 text-xs"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleToggleSubtaskStatus(item.subtask);
-                                                }}
-                                              >
-                                                {item.subtask?.status || 'Not Started'}
-                                              </Button>
+                                            <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+                                              <span className={cn(
+                                                'text-red-800 dark:text-red-200',
+                                                item.subtask?.status === 'Completed' && 'line-through decoration-current/70'
+                                              )}>
+                                                {renderTaskName(item.subtask?.name || '')}
+                                              </span>
+                                              {/* Inline icons for Quick Tasks subtasks */}
+                                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                                  className="h-5 px-1"
+                                                  title="Add to Workload"
+                                                >
+                                                  <CalendarPlus className="h-3 w-3 text-yellow-500" />
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                                  }}
+                                                  className="h-5 px-1 text-destructive hover:text-destructive"
+                                                  title="Delete"
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="h-5 px-1 text-xs"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleToggleSubtaskStatus(item.subtask);
+                                                  }}
+                                                >
+                                                  {item.subtask?.status || 'Not Started'}
+                                                </Button>
+                                              </div>
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
