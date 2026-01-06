@@ -574,7 +574,7 @@ export const DashboardWorkloadCal = () => {
       
       <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
         <CollapsibleContent>
-          <CardContent className="pt-2">
+          <CardContent className="pt-2 px-2 sm:px-6">
             {isLoading ? (
               <div className="text-sm text-muted-foreground">Loading...</div>
             ) : totalItems === 0 ? (
@@ -583,7 +583,7 @@ export const DashboardWorkloadCal = () => {
               </div>
             ) : (
               <ScrollArea className="h-[400px]">
-                <div className="space-y-3 pr-2">
+                <div className="space-y-2 pr-1">
                   {timeSlots.map((slot) => {
                     const slotItems = itemsByTime[slot] || [];
                     const isCurrentSlot = parseInt(slot.split(':')[0]) === currentHour;
@@ -595,7 +595,7 @@ export const DashboardWorkloadCal = () => {
                       <div 
                         key={slot}
                         className={cn(
-                          "border rounded-lg p-3",
+                          "border rounded-lg p-2",
                           isCurrentSlot && "border-primary bg-primary/5"
                         )}
                       >
@@ -621,63 +621,63 @@ export const DashboardWorkloadCal = () => {
                                   : null;
                                 
                                 return (
-                                  <Card key={item.id} className="p-3 w-full">
-                                    <div className="flex flex-col gap-2">
-                                      <div className="flex items-start gap-2">
+                                  <div key={item.id} className="p-2 bg-muted/30 rounded-md w-full">
+                                    <div className="flex flex-col gap-1">
+                                      <div className="flex items-start gap-1.5">
                                         <Badge variant="outline" className="text-xs capitalize shrink-0 mt-0.5">
                                           {item.type}
                                         </Badge>
-                                        <div className="flex-1 min-w-0">
-                                          <h3 className="font-medium text-sm sm:text-base break-words line-clamp-3">
-                                            {renderTaskName(getItemTitle(item) || '')}
-                                          </h3>
-                                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-                                            <Badge className={cn("text-xs", getStatusColor(getItemStatus(item) || ''))}>
-                                              {getItemStatus(item)}
-                                            </Badge>
-                                            <span className="break-words">
-                                              {getItemProject(item)}
-                                            </span>
-                                          </div>
-                                        </div>
+                                        <h3 className="font-medium text-sm break-words line-clamp-3 flex-1">
+                                          {renderTaskName(getItemTitle(item) || '')}
+                                        </h3>
                                       </div>
-                                      {(item.type === 'task' || item.type === 'subtask') && itemId && (
-                                        <div className="flex flex-wrap gap-2 mt-1">
-                                          {runningTimer ? (
-                                            <CompactTimerControls
-                                              taskId={itemId}
-                                              taskName={getItemTitle(item) || ''}
-                                              entryId={runningTimer.id}
-                                              timerMetadata={runningTimer.timer_metadata}
-                                              onTimerUpdate={() => {
-                                                queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
-                                                queryClient.invalidateQueries({ queryKey: ['running-timers'] });
-                                              }}
-                                              isSubtask={isSubtask}
-                                            />
-                                          ) : (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                startTimerMutation.mutate({
-                                                  taskId: itemId,
-                                                  taskName: getItemTitle(item) || '',
-                                                  isSubtask
-                                                });
-                                              }}
-                                              disabled={startTimerMutation.isPending || getItemStatus(item) === 'Completed'}
-                                              className="h-8 px-3"
-                                              title="Start Timer"
-                                            >
-                                              <Play className="h-4 w-4" />
-                                            </Button>
-                                          )}
+                                      <div className="flex items-center justify-between gap-2 mt-1">
+                                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                                          <Badge className={cn("text-xs", getStatusColor(getItemStatus(item) || ''))}>
+                                            {getItemStatus(item)}
+                                          </Badge>
+                                          <span className="break-words text-xs">
+                                            {getItemProject(item)}
+                                          </span>
                                         </div>
-                                      )}
+                                        {(item.type === 'task' || item.type === 'subtask') && itemId && (
+                                          <div className="shrink-0">
+                                            {runningTimer ? (
+                                              <CompactTimerControls
+                                                taskId={itemId}
+                                                taskName={getItemTitle(item) || ''}
+                                                entryId={runningTimer.id}
+                                                timerMetadata={runningTimer.timer_metadata}
+                                                onTimerUpdate={() => {
+                                                  queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+                                                  queryClient.invalidateQueries({ queryKey: ['running-timers'] });
+                                                }}
+                                                isSubtask={isSubtask}
+                                              />
+                                            ) : (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  startTimerMutation.mutate({
+                                                    taskId: itemId,
+                                                    taskName: getItemTitle(item) || '',
+                                                    isSubtask
+                                                  });
+                                                }}
+                                                disabled={startTimerMutation.isPending || getItemStatus(item) === 'Completed'}
+                                                className="h-7 w-7 p-0"
+                                                title="Start Timer"
+                                              >
+                                                <Play className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
-                                  </Card>
+                                  </div>
                                 );
                               })}
                             </div>
