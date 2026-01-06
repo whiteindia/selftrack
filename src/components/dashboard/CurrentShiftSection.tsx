@@ -534,8 +534,15 @@ export const CurrentShiftSection = () => {
       const startDateTime = new Date(selectedDate);
       startDateTime.setHours(shiftStartHour, 0, 0, 0);
 
+      // For Shift D (18:00-24:00), end time is midnight next day
       const endDateTime = new Date(selectedDate);
-      endDateTime.setHours(shiftEndHour, 0, 0, 0);
+      if (shiftEndHour === 24) {
+        // Set to next day at 00:00
+        endDateTime.setDate(endDateTime.getDate() + 1);
+        endDateTime.setHours(0, 0, 0, 0);
+      } else {
+        endDateTime.setHours(shiftEndHour, 0, 0, 0);
+      }
 
       const parentTaskName = `Quick Tasks ${periodLetter} (${format(selectedDate, 'MMM d')})`;
 
