@@ -887,237 +887,376 @@ export const CurrentShiftSection = () => {
                   <div className="text-xs text-muted-foreground pl-6">No scheduled items</div>
                 ) : (
                   <div className="space-y-2 pl-6">
-                    {shift.items.map(item => {
-                      // Get the real task ID for slot-task items
-                      const realTaskId = item.type === 'slot-task' ? item.task?.id : item.id;
-                      
-                      const activeEntry = activeEntries.find(entry =>
-                        entry.task_id === realTaskId ||
-                        (item.type === 'subtask' && entry.task_id === item.subtask?.id)
+                    {(() => {
+                      // Separate Quick Tasks subtasks from other items
+                      const quickTaskSubtasks = shift.items.filter(
+                        item => item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks')
                       );
-                      const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+                      const otherItems = shift.items.filter(
+                        item => !(item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks'))
+                      );
 
-                      const hasSlot = item.task?.slot_start_datetime || item.task?.slot_end_datetime;
-                      return (
-                        <div 
-                          key={item.id} 
-                          className={cn(
-                            'flex items-start justify-between p-3 rounded-md transition-all',
-                            item.type === 'subtask'
-                              ? 'bg-blue-50 dark:bg-blue-900/30'
-                              : item.type === 'slot-task'
-                                ? 'bg-purple-50 dark:bg-purple-900/20'
-                                : hasSlot
-                                  ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-300'
-                                  : 'bg-muted/30',
-                            activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
-                            getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
-                          )}
-                          onClick={() => setCollapsedItems(prev => {
-                            const next = new Set(prev);
-                            if (next.has(item.id)) next.delete(item.id);
-                            else next.add(item.id);
-                            return next;
-                          })}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm flex flex-col gap-1">
-                              {item.type === 'subtask' ? (
-                                <>
-                                  <span className={getItemTitleClasses(item)}>{renderTaskName(item.subtask?.name || '')}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {item.subtask?.parent_task_name}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className={getItemTitleClasses(item)}>
-                                  {renderTaskName(getItemTitle(item) || '')}
-                                </span>
-                              )}
-                              {item.type === 'slot-task' && (
-                                <Badge variant="secondary" className="mt-1 w-fit text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
-                                  Time Slot
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              <span className="font-medium">{getItemProject(item)}</span> • {(() => {
-                                try {
-                                  // For slot-task, show the slot time range
-                                  if (item.type === 'slot-task' && item.task?.slot_start_datetime) {
-                                    const start = new Date(item.task.slot_start_datetime);
-                                    const end = item.task.slot_end_datetime ? new Date(item.task.slot_end_datetime) : null;
-                                    return end 
-                                      ? `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`
-                                      : format(start, 'HH:mm');
-                                  }
-                                  // Check if scheduled_time is already a full datetime string
-                                  if (item.scheduled_time.includes('T') || item.scheduled_time.includes(' ')) {
-                                    return format(new Date(item.scheduled_time), 'HH:mm');
-                                  }
-                                  // Otherwise, combine date and time
-                                  return format(new Date(`${item.scheduled_date}T${item.scheduled_time}`), 'HH:mm');
-                                } catch (error) {
-                                  return 'Invalid time';
-                                }
-                              })()}
-                            </div>
-                            {!collapsedItems.has(item.id) && (
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
-                                  className="h-7 px-2"
-                                  title="Add to Workload"
-                                >
-                                  <CalendarPlus className="h-4 w-4 text-yellow-500" />
-                                </Button>
-                                {(item.type === 'task' || item.type === 'slot-task') && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      setEditingTask({
-                                        id: item.task?.id || item.id,
-                                        name: item.task?.name || getItemTitle(item),
-                                        status: item.task?.status,
-                                        project_id: item.task?.project_id,
-                                        deadline: item.task?.deadline,
-                                        slot_start_datetime: item.task?.slot_start_datetime,
-                                        slot_end_datetime: item.task?.slot_end_datetime,
-                                      }); 
-                                    }}
-                                    className="h-7 px-2"
-                                    title="Edit"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                {(item.type === 'task' || item.type === 'slot-task') && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSubtaskDialogTaskId(realTaskId || item.id);
-                                      setSubtaskDialogTaskName(item.task?.name || getItemTitle(item));
-                                      setSubtaskDialogParentDeadline(item.task?.deadline);
-                                      setSubtaskDialogOpen(true);
-                                    }}
-                                    className="h-7 px-2"
-                                    title="Subtasks"
-                                  >
-                                    <List className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                {(item.type === 'task' || item.type === 'slot-task') && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      deleteItemMutation.mutate({ id: realTaskId || item.id, type: 'task' }); 
-                                    }}
-                                    className="h-7 px-2 text-destructive hover:text-destructive"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                {item.type === 'subtask' && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
-                                    }}
-                                    className="h-7 px-2 text-destructive hover:text-destructive"
-                                    title="Delete subtask"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              {(item.type === 'task' || item.type === 'slot-task') && item.task && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleTaskStatus(realTaskId || item.id, item.task?.status || 'Not Started');
-                                  }}
-                                >
-                                  {item.task?.status || 'Not Started'}
-                                </Button>
-                              )}
-                              {item.type === 'subtask' && item.subtask && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleSubtaskStatus(item.subtask);
-                                  }}
-                                >
-                                  {item.subtask?.status || 'Not Started'}
-                                </Button>
-                              )}
-                              </div>
+                      // Group quick task subtasks by parent task name
+                      const quickTaskGroups: Record<string, typeof quickTaskSubtasks> = {};
+                      quickTaskSubtasks.forEach(item => {
+                        const parentName = item.subtask?.parent_task_name || 'Quick Tasks';
+                        if (!quickTaskGroups[parentName]) quickTaskGroups[parentName] = [];
+                        quickTaskGroups[parentName].push(item);
+                      });
+
+                      const renderItem = (item: WorkloadItem) => {
+                        const realTaskId = item.type === 'slot-task' ? item.task?.id : item.id;
+                        const activeEntry = activeEntries.find(entry =>
+                          entry.task_id === realTaskId ||
+                          (item.type === 'subtask' && entry.task_id === item.subtask?.id)
+                        );
+                        const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+                        const hasSlot = item.task?.slot_start_datetime || item.task?.slot_end_datetime;
+
+                        return (
+                          <div 
+                            key={item.id} 
+                            className={cn(
+                              'flex items-start justify-between p-3 rounded-md transition-all',
+                              item.type === 'subtask'
+                                ? 'bg-blue-50 dark:bg-blue-900/30'
+                                : item.type === 'slot-task'
+                                  ? 'bg-purple-50 dark:bg-purple-900/20'
+                                  : hasSlot
+                                    ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-300'
+                                    : 'bg-muted/30',
+                              activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
+                              getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
                             )}
-                          </div>
-
-                          <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {activeEntry ? (
-                              <>
-                                <LiveTimer
-                                  startTime={activeEntry.start_time}
-                                  isPaused={isPaused}
-                                  timerMetadata={activeEntry.timer_metadata}
-                                />
-                                <CompactTimerControls
-                                  taskId={realTaskId || item.id}
-                                  taskName={getItemTitle(item)}
-                                  entryId={activeEntry.id}
-                                  timerMetadata={activeEntry.timer_metadata}
-                                  onTimerUpdate={() => {}}
-                                />
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleStartTask(realTaskId || item.id, item.type === 'subtask')}
-                                  className="h-7 px-2"
-                                  title="Start"
-                                >
-                                  <Play className="h-3 w-3" />
-                                </Button>
-
-                                {(item.type === 'task' || item.type === 'slot-task') && (
+                            onClick={() => setCollapsedItems(prev => {
+                              const next = new Set(prev);
+                              if (next.has(item.id)) next.delete(item.id);
+                              else next.add(item.id);
+                              return next;
+                            })}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm flex flex-col gap-1">
+                                {item.type === 'subtask' ? (
+                                  <>
+                                    <span className={getItemTitleClasses(item)}>{renderTaskName(item.subtask?.name || '')}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {item.subtask?.parent_task_name}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className={getItemTitleClasses(item)}>
+                                    {renderTaskName(getItemTitle(item) || '')}
+                                  </span>
+                                )}
+                                {item.type === 'slot-task' && (
+                                  <Badge variant="secondary" className="mt-1 w-fit text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
+                                    Time Slot
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                <span className="font-medium">{getItemProject(item)}</span> • {(() => {
+                                  try {
+                                    if (item.type === 'slot-task' && item.task?.slot_start_datetime) {
+                                      const start = new Date(item.task.slot_start_datetime);
+                                      const end = item.task.slot_end_datetime ? new Date(item.task.slot_end_datetime) : null;
+                                      return end 
+                                        ? `${format(start, 'HH:mm')} - ${format(end, 'HH:mm')}`
+                                        : format(start, 'HH:mm');
+                                    }
+                                    if (item.scheduled_time.includes('T') || item.scheduled_time.includes(' ')) {
+                                      return format(new Date(item.scheduled_time), 'HH:mm');
+                                    }
+                                    return format(new Date(`${item.scheduled_date}T${item.scheduled_time}`), 'HH:mm');
+                                  } catch (error) {
+                                    return 'Invalid time';
+                                  }
+                                })()}
+                              </div>
+                              {!collapsedItems.has(item.id) && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                    className="h-7 px-2"
+                                    title="Add to Workload"
+                                  >
+                                    <CalendarPlus className="h-4 w-4 text-yellow-500" />
+                                  </Button>
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setEditingTask({
+                                          id: item.task?.id || item.id,
+                                          name: item.task?.name || getItemTitle(item),
+                                          status: item.task?.status,
+                                          project_id: item.task?.project_id,
+                                          deadline: item.task?.deadline,
+                                          slot_start_datetime: item.task?.slot_start_datetime,
+                                          slot_end_datetime: item.task?.slot_end_datetime,
+                                        }); 
+                                      }}
+                                      className="h-7 px-2"
+                                      title="Edit"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSubtaskDialogTaskId(realTaskId || item.id);
+                                        setSubtaskDialogTaskName(item.task?.name || getItemTitle(item));
+                                        setSubtaskDialogParentDeadline(item.task?.deadline);
+                                        setSubtaskDialogOpen(true);
+                                      }}
+                                      className="h-7 px-2"
+                                      title="Subtasks"
+                                    >
+                                      <List className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        deleteItemMutation.mutate({ id: realTaskId || item.id, type: 'task' }); 
+                                      }}
+                                      className="h-7 px-2 text-destructive hover:text-destructive"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                      }}
+                                      className="h-7 px-2 text-destructive hover:text-destructive"
+                                      title="Delete subtask"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                {(item.type === 'task' || item.type === 'slot-task') && item.task && (
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 px-2"
-                                    title="Clear from slot"
+                                    className="h-7 px-2 text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      clearFromSlotMutation.mutate({ taskId: realTaskId || item.id });
+                                      handleToggleTaskStatus(realTaskId || item.id, item.task?.status || 'Not Started');
                                     }}
-                                    disabled={clearFromSlotMutation.isPending}
                                   >
-                                    <X className="h-3 w-3" />
+                                    {item.task?.status || 'Not Started'}
                                   </Button>
                                 )}
-                              </>
-                            )}
+                                {item.type === 'subtask' && item.subtask && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleSubtaskStatus(item.subtask);
+                                    }}
+                                  >
+                                    {item.subtask?.status || 'Not Started'}
+                                  </Button>
+                                )}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                              {activeEntry ? (
+                                <>
+                                  <LiveTimer
+                                    startTime={activeEntry.start_time}
+                                    isPaused={isPaused}
+                                    timerMetadata={activeEntry.timer_metadata}
+                                  />
+                                  <CompactTimerControls
+                                    taskId={realTaskId || item.id}
+                                    taskName={getItemTitle(item)}
+                                    entryId={activeEntry.id}
+                                    timerMetadata={activeEntry.timer_metadata}
+                                    onTimerUpdate={() => {}}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStartTask(realTaskId || item.id, item.type === 'subtask')}
+                                    className="h-7 px-2"
+                                    title="Start"
+                                  >
+                                    <Play className="h-3 w-3" />
+                                  </Button>
+
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2"
+                                      title="Clear from slot"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearFromSlotMutation.mutate({ taskId: realTaskId || item.id });
+                                      }}
+                                      disabled={clearFromSlotMutation.isPending}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        );
+                      };
+
+                      return (
+                        <>
+                          {/* Render other items first */}
+                          {otherItems.map(item => renderItem(item))}
+
+                          {/* Render Quick Tasks groups - expanded by default, click to collapse */}
+                          {Object.entries(quickTaskGroups).map(([parentName, subtasks]) => {
+                            const groupKey = `quicktask-group-${parentName}`;
+                            const isExpanded = !collapsedItems.has(groupKey); // Expanded by default
+
+                            return (
+                              <div key={groupKey} className="border border-red-300 rounded-md bg-red-50 dark:bg-red-900/20">
+                                <div
+                                  className="flex items-center gap-2 p-2 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30"
+                                  onClick={() => setCollapsedItems(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(groupKey)) next.delete(groupKey);
+                                    else next.add(groupKey);
+                                    return next;
+                                  })}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-red-600" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-red-600" />
+                                  )}
+                                  <span className="font-medium text-sm text-red-700 dark:text-red-300">
+                                    {parentName}
+                                  </span>
+                                  <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 dark:bg-red-800 dark:text-red-200">
+                                    {subtasks.length} subtasks
+                                  </Badge>
+                                </div>
+                                {isExpanded && (
+                                  <div className="space-y-1 p-2 pt-0">
+                                    {subtasks.map(item => {
+                                      const realTaskId = item.subtask?.id || item.id;
+                                      const activeEntry = activeEntries.find(entry => entry.task_id === realTaskId);
+                                      const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+
+                                      return (
+                                        <div
+                                          key={item.id}
+                                          className={cn(
+                                            'flex items-start justify-between p-2 rounded-md transition-all bg-red-100/50 dark:bg-red-900/30',
+                                            activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
+                                            getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
+                                          )}
+                                        >
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-sm text-red-800 dark:text-red-200">
+                                              {renderTaskName(item.subtask?.name || '')}
+                                            </div>
+                                            <div className="flex flex-wrap gap-2 mt-1">
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                                className="h-6 px-1"
+                                                title="Add to Workload"
+                                              >
+                                                <CalendarPlus className="h-3 w-3 text-yellow-500" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={(e) => { 
+                                                  e.stopPropagation(); 
+                                                  deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                                }}
+                                                className="h-6 px-1 text-destructive hover:text-destructive"
+                                                title="Delete"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 px-1 text-xs"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleToggleSubtaskStatus(item.subtask);
+                                                }}
+                                              >
+                                                {item.subtask?.status || 'Not Started'}
+                                              </Button>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                            {activeEntry ? (
+                                              <>
+                                                <LiveTimer
+                                                  startTime={activeEntry.start_time}
+                                                  isPaused={isPaused}
+                                                  timerMetadata={activeEntry.timer_metadata}
+                                                />
+                                                <CompactTimerControls
+                                                  taskId={realTaskId}
+                                                  taskName={item.subtask?.name || ''}
+                                                  entryId={activeEntry.id}
+                                                  timerMetadata={activeEntry.timer_metadata}
+                                                  onTimerUpdate={() => {}}
+                                                />
+                                              </>
+                                            ) : (
+                                              <Button
+                                                size="sm"
+                                                onClick={() => handleStartTask(realTaskId, true)}
+                                                className="h-6 px-1"
+                                                title="Start"
+                                              >
+                                                <Play className="h-3 w-3" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </>
                       );
-                    })}
+                    })()}
                   </div>
                 )}
               </div>
