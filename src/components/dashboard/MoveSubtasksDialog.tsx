@@ -122,7 +122,7 @@ export function MoveSubtasksDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[calc(100%-1.5rem)] sm:max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRight className="h-5 w-5" />
@@ -130,9 +130,10 @@ export function MoveSubtasksDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* Body (scrollable area) */}
+        <div className="flex-1 min-h-0 space-y-4 overflow-hidden">
           {/* Selected subtasks preview */}
-          <div className="bg-muted/50 rounded-md p-3">
+          <div className="bg-muted/50 rounded-md p-3 max-h-28 overflow-auto">
             <p className="text-xs text-muted-foreground mb-2">Selected subtasks:</p>
             <div className="flex flex-wrap gap-1">
               {selectedSubtasks.slice(0, 5).map((subtask) => (
@@ -163,7 +164,7 @@ export function MoveSubtasksDialog({
           </div>
 
           {/* Task list */}
-          <ScrollArea className="h-[300px] border rounded-md">
+          <ScrollArea className="flex-1 min-h-0 border rounded-md">
             {isLoading ? (
               <div className="p-4 text-center text-muted-foreground">Loading tasks...</div>
             ) : filteredTasks.length === 0 ? (
@@ -190,10 +191,10 @@ export function MoveSubtasksDialog({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className={`font-medium text-sm truncate ${isSelected ? "text-primary-foreground" : ""}`}>
+                          <p className={`font-medium text-sm break-words ${isSelected ? "text-primary-foreground" : ""}`}>
                             {task.name}
                           </p>
-                          <p className={`text-xs truncate ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                          <p className={`text-xs break-words ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                             {clientName} • {projectName}
                           </p>
                         </div>
@@ -217,7 +218,8 @@ export function MoveSubtasksDialog({
           )}
         </div>
 
-        <DialogFooter>
+        {/* Footer (always visible) */}
+        <DialogFooter className="pt-3 border-t mt-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
