@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
@@ -58,6 +59,8 @@ export const QuickTasksSection = () => {
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+  const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -937,7 +940,23 @@ export const QuickTasksSection = () => {
           {showSubtasks && (
             <div className="mt-4 pt-4 border-t space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium text-muted-foreground">Subtasks</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-medium text-muted-foreground">Subtasks</h4>
+                  {selectedSubtasks.filter(s => s.task_id === task.id).length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsMoveDialogOpen(true);
+                      }}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <ArrowRight className="h-3 w-3 mr-1" />
+                      Move ({selectedSubtasks.filter(s => s.task_id === task.id).length})
+                    </Button>
+                  )}
+                </div>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -995,7 +1014,27 @@ export const QuickTasksSection = () => {
                             </div>
                           ) : (
                             <>
-                              <p className="text-sm font-medium break-words">{subtask.name}</p>
+                              <div className="flex items-start gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const isSelected = selectedSubtasks.some(s => s.id === subtask.id);
+                                    if (isSelected) {
+                                      setSelectedSubtasks(prev => prev.filter(s => s.id !== subtask.id));
+                                    } else {
+                                      setSelectedSubtasks(prev => [...prev, { id: subtask.id, name: subtask.name, task_id: task.id }]);
+                                    }
+                                  }}
+                                  className="mt-0.5 shrink-0"
+                                >
+                                  {selectedSubtasks.some(s => s.id === subtask.id) ? (
+                                    <CheckSquare className="h-4 w-4 text-primary" />
+                                  ) : (
+                                    <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                  )}
+                                </button>
+                                <p className="text-sm font-medium break-words">{subtask.name}</p>
+                              </div>
                               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
                                 <span 
                                   className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
@@ -1963,6 +2002,16 @@ export const QuickTasksSection = () => {
         setSelectedItemsForWorkload([]);
         toast.success('Added to workload');
         queryClient.invalidateQueries({ queryKey: ['workload-assignments'] });
+      }}
+    />
+    
+    <MoveSubtasksDialog
+      open={isMoveDialogOpen}
+      onOpenChange={setIsMoveDialogOpen}
+      selectedSubtasks={selectedSubtasks}
+      onSuccess={() => {
+        setSelectedSubtasks([]);
+        refetch();
       }}
     />
     
