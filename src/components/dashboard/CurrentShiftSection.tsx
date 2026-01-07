@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import TaskEditDialog from '@/components/TaskEditDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 
 interface WorkloadItem {
   id: string;
@@ -63,6 +64,8 @@ export const CurrentShiftSection = () => {
   const [editingTask, setEditingTask] = useState<any>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
+  const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
   const [shiftInputs, setShiftInputs] = useState<Record<string, string>>({});
   const [expandedSubtasks, setExpandedSubtasks] = useState<Record<string, boolean>>({});
@@ -663,6 +666,34 @@ export const CurrentShiftSection = () => {
     }
   });
 
+  const clearSubtaskFromSlotMutation = useMutation({
+    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+      const { error } = await supabase
+        .from('subtasks')
+        .update({
+          // Remove subtask from shift slot / schedule.
+          // We only clear the time field (not `date`) to avoid failures if `date` is non-nullable.
+          scheduled_time: null,
+        })
+        .eq('id', subtaskId);
+
+      if (error) {
+        console.error('Failed to clear subtask from slot:', error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success('Cleared from slot');
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to clear from slot');
+    }
+  });
+
   const handleCreateSubtask = (taskId: string, name: string, parentDeadline?: string | null) => {
     if (!name.trim()) return;
     createSubtaskMutation.mutate({ taskId, name: name.trim(), parentDeadline });
@@ -877,6 +908,27 @@ export const CurrentShiftSection = () => {
                 ))}
               </div>
             )}
+
+            {selectedSubtasks.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsMoveDialogOpen(true)}
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Move ({selectedSubtasks.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedSubtasks([])}
+                  className="text-muted-foreground"
+                >
+                  Clear selection
+                </Button>
+              </div>
+            )}
             {itemsByShift.map(shift => (
               <div 
                 key={shift.id} 
@@ -981,6 +1033,28 @@ export const CurrentShiftSection = () => {
                               <div className="font-medium text-sm flex flex-col gap-1">
                                 {item.type === 'subtask' ? (
                                   <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const subtaskId = item.subtask?.id || item.id;
+                                        const parentTaskId = item.subtask?.task?.id || '';
+                                        if (!parentTaskId) return;
+                                        setSelectedSubtasks(prev => {
+                                          const exists = prev.some(s => s.id === subtaskId);
+                                          if (exists) return prev.filter(s => s.id !== subtaskId);
+                                          return [...prev, { id: subtaskId, name: item.subtask?.name || '', task_id: parentTaskId }];
+                                        });
+                                      }}
+                                      className="mt-0.5 shrink-0"
+                                      aria-label="Select subtask"
+                                      title="Select"
+                                    >
+                                      {selectedSubtasks.some(s => s.id === (item.subtask?.id || item.id)) ? (
+                                        <CheckSquare className="h-4 w-4 text-primary" />
+                                      ) : (
+                                        <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                      )}
+                                    </button>
                                     <span className={getItemTitleClasses(item)}>{renderTaskName(item.subtask?.name || '')}</span>
                                     {/* Inline icons for subtasks */}
                                     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -1196,6 +1270,22 @@ export const CurrentShiftSection = () => {
                                     <Play className="h-3 w-3" />
                                   </Button>
 
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2"
+                                      title="Clear from slot"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearSubtaskFromSlotMutation.mutate({ subtaskId: item.subtask?.id || item.id });
+                                      }}
+                                      disabled={clearSubtaskFromSlotMutation.isPending}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+
                                   {(item.type === 'task' || item.type === 'slot-task') && (
                                     <Button
                                       size="sm"
@@ -1257,6 +1347,7 @@ export const CurrentShiftSection = () => {
                                       const realTaskId = item.subtask?.id || item.id;
                                       const activeEntry = activeEntries.find(entry => entry.task_id === realTaskId);
                                       const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
+                                      const parentTaskId = item.subtask?.task?.id || '';
 
                                       return (
                                         <div
@@ -1269,6 +1360,26 @@ export const CurrentShiftSection = () => {
                                         >
                                           <div className="flex-1 min-w-0">
                                             <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (!parentTaskId) return;
+                                                  setSelectedSubtasks(prev => {
+                                                    const exists = prev.some(s => s.id === realTaskId);
+                                                    if (exists) return prev.filter(s => s.id !== realTaskId);
+                                                    return [...prev, { id: realTaskId, name: item.subtask?.name || '', task_id: parentTaskId }];
+                                                  });
+                                                }}
+                                                className="mt-0.5 shrink-0"
+                                                aria-label="Select subtask"
+                                                title="Select"
+                                              >
+                                                {selectedSubtasks.some(s => s.id === realTaskId) ? (
+                                                  <CheckSquare className="h-4 w-4 text-primary" />
+                                                ) : (
+                                                  <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                                )}
+                                              </button>
                                               <span className={cn(
                                                 'text-red-800 dark:text-red-200',
                                                 item.subtask?.status === 'Completed' && 'line-through decoration-current/70'
@@ -1329,14 +1440,29 @@ export const CurrentShiftSection = () => {
                                                 />
                                               </>
                                             ) : (
-                                              <Button
-                                                size="sm"
-                                                onClick={() => handleStartTask(realTaskId, true)}
-                                                className="h-6 px-1"
-                                                title="Start"
-                                              >
-                                                <Play className="h-3 w-3" />
-                                              </Button>
+                                              <>
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() => handleStartTask(realTaskId, true)}
+                                                  className="h-6 px-1"
+                                                  title="Start"
+                                                >
+                                                  <Play className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="h-6 px-1"
+                                                  title="Clear from slot"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    clearSubtaskFromSlotMutation.mutate({ subtaskId: realTaskId });
+                                                  }}
+                                                  disabled={clearSubtaskFromSlotMutation.isPending}
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </Button>
+                                              </>
                                             )}
                                           </div>
                                         </div>
@@ -1379,6 +1505,19 @@ export const CurrentShiftSection = () => {
         setSelectedItemsForWorkload([]);
         toast.success('Added to workload');
         queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      }}
+    />
+
+    <MoveSubtasksDialog
+      open={isMoveDialogOpen}
+      onOpenChange={setIsMoveDialogOpen}
+      selectedSubtasks={selectedSubtasks}
+      onSuccess={() => {
+        setSelectedSubtasks([]);
+        queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+        queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+        queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
       }}
     />
     <Dialog open={subtaskDialogOpen} onOpenChange={(open) => { if (!open) { setSubtaskDialogOpen(false); setSubtaskDialogTaskId(null); setSubtaskDialogTaskName(''); setSubtaskNewName(''); setSubtaskEditId(null); setSubtaskEditText(''); } }}>
