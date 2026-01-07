@@ -878,7 +878,16 @@ export const CurrentShiftSection = () => {
               </div>
             )}
             {itemsByShift.map(shift => (
-              <div key={shift.id} className="space-y-2">
+              <div 
+                key={shift.id} 
+                className={cn(
+                  "space-y-2 p-3 rounded-lg",
+                  shift.id === 'A' && 'bg-blue-50 dark:bg-blue-900/20',
+                  shift.id === 'B' && 'bg-green-50 dark:bg-green-900/20',
+                  shift.id === 'C' && 'bg-amber-50 dark:bg-amber-900/20',
+                  shift.id === 'D' && 'bg-purple-50 dark:bg-purple-900/20'
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <h3 className="font-medium text-sm">{shift.label}</h3>
@@ -1025,8 +1034,42 @@ export const CurrentShiftSection = () => {
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                <span className="font-medium">{getItemProject(item)}</span> • {(() => {
+                              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className={cn(
+                                    "h-5 px-1.5 text-[10px]",
+                                    getItemStatus(item) === 'Completed' && 'bg-green-100 text-green-800 border-green-200',
+                                    getItemStatus(item) === 'In Progress' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                    getItemStatus(item) === 'Assigned' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                    getItemStatus(item) === 'On-Head' && 'bg-blue-100 text-blue-800 border-blue-200',
+                                    !['Completed', 'In Progress', 'Assigned', 'On-Head'].includes(getItemStatus(item)) && 'bg-gray-100 text-gray-800 border-gray-200'
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (item.type === 'task' || item.type === 'slot-task') {
+                                      handleToggleTaskStatus(item.task?.id || item.id, getItemStatus(item));
+                                    }
+                                  }}
+                                >
+                                  {getItemStatus(item)}
+                                </Button>
+                                {(() => {
+                                  const deadline = item.task?.deadline;
+                                  if (deadline) {
+                                    return (
+                                      <span className="text-[10px] text-muted-foreground">
+                                        Due: {format(new Date(deadline), 'MMM d')}
+                                      </span>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                <span className="text-muted-foreground">•</span>
+                                <span className="font-medium">{getItemProject(item)}</span>
+                                <span className="text-muted-foreground">•</span>
+                                {(() => {
                                   try {
                                     if (item.type === 'slot-task' && item.task?.slot_start_datetime) {
                                       const start = new Date(item.task.slot_start_datetime);

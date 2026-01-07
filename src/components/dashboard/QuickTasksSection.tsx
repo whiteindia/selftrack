@@ -568,12 +568,12 @@ export const QuickTasksSection = () => {
     const [showSubtasks, setShowSubtasks] = useState<boolean>(() => {
       try {
         const raw = sessionStorage.getItem('quick.expandedSubtasks');
-        // Default to true (expanded) if no preference is saved
-        if (raw === null) return true;
+        // Default to false (collapsed) if no preference is saved
+        if (raw === null) return false;
         const arr = JSON.parse(raw);
         return arr.includes(task.id);
       } catch {
-        return true;
+        return false;
       }
     });
     const [newSubtaskName, setNewSubtaskName] = useState("");
