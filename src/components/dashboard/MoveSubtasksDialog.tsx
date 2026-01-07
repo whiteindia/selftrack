@@ -40,12 +40,13 @@ export function MoveSubtasksDialog({
         .select(`
           id,
           name,
+          deadline,
           project_id,
           status,
-          projects!inner (
+          projects (
             id,
             name,
-            clients!inner (
+            clients (
               id,
               name
             )
@@ -84,21 +85,32 @@ export function MoveSubtasksDialog({
 
   // Mutation to move subtasks
   const moveSubtasksMutation = useMutation({
-    mutationFn: async (targetTaskId: string) => {
+    mutationFn: async ({ targetTaskId, targetTaskDeadline }: { targetTaskId: string; targetTaskDeadline: string | null }) => {
       const subtaskIds = selectedSubtasks.map((s) => s.id);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("subtasks")
-        .update({ task_id: targetTaskId })
-        .in("id", subtaskIds);
+        // When moving, force the subtasks to inherit the destination task's due date.
+        .update({ task_id: targetTaskId, deadline: targetTaskDeadline })
+        .in("id", subtaskIds)
+        .select("id, task_id, deadline");
 
       if (error) throw error;
+      return { updated: data || [], requestedCount: subtaskIds.length };
     },
-    onSuccess: () => {
-      toast.success(`${selectedSubtasks.length} subtask(s) moved successfully`);
+    onSuccess: (result) => {
+      const movedCount = result?.updated?.length ?? 0;
+      if (movedCount === 0) {
+        toast.error("No subtasks were moved (permission or filtering issue)");
+        return;
+      }
+      toast.success(`${movedCount} subtask(s) moved successfully`);
       queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["all-tasks-for-move"] });
+      // Other screens rely on these broader keys.
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
       onOpenChange(false);
       setSearchQuery("");
       setSelectedTaskId(null);
@@ -115,7 +127,11 @@ export function MoveSubtasksDialog({
       toast.error("Please select a target task");
       return;
     }
-    moveSubtasksMutation.mutate(selectedTaskId);
+    const task = tasks.find((t) => t.id === selectedTaskId);
+    moveSubtasksMutation.mutate({
+      targetTaskId: selectedTaskId,
+      targetTaskDeadline: (task?.deadline ?? null) as string | null,
+    });
   };
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId);
