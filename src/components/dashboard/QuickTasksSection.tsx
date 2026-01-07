@@ -14,6 +14,7 @@ import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
+import SubtaskDialog from "@/components/SubtaskDialog";
 import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
 import ManualTimeLog from "@/components/ManualTimeLog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
@@ -44,6 +45,16 @@ import { CSS } from '@dnd-kit/utilities';
 
 type TimeFilter = "all" | "yesterday" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 type AssignmentFilter = "all" | "assigned" | "unassigned";
+type EmployeeForSubtaskDialog = { id: string; name: string; email: string };
+type EditableSubtask = {
+  id: string;
+  name: string;
+  status: string;
+  deadline: string | null;
+  estimated_duration: number | null;
+  assignee_id: string | null;
+  task_id: string;
+};
 
 export const QuickTasksSection = () => {
   const navigate = useNavigate();
@@ -61,8 +72,29 @@ export const QuickTasksSection = () => {
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
+  const [editingSubtaskForDialog, setEditingSubtaskForDialog] = useState<EditableSubtask | null>(null);
   const [isOpen, setIsOpen] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
+
+  const { data: employeesForSubtaskDialog = [] } = useQuery({
+    queryKey: ["employees-for-subtask-dialog"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id, name, email")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data || []) as EmployeeForSubtaskDialog[];
+    },
+  });
+
+  const toDateInputValue = (deadline: string | null) => {
+    if (!deadline) return null;
+    // If stored as ISO datetime, convert to YYYY-MM-DD for <input type="date" />
+    if (deadline.includes("T")) return deadline.slice(0, 10);
+    return deadline;
+  };
 
   // Preserve page scroll position across quick-task mutations / refetches.
   // This prevents the browser from jumping (often to the bottom) after any action.
@@ -149,7 +181,7 @@ export const QuickTasksSection = () => {
           // Fetch subtasks for this task
           const { data: subtasks } = await supabase
             .from('subtasks')
-            .select('id, name, status, deadline, estimated_duration')
+            .select('id, name, status, deadline, estimated_duration, assignee_id')
             .eq('task_id', task.id)
             .order('created_at', { ascending: true });
 
@@ -582,16 +614,6 @@ export const QuickTasksSection = () => {
     const [newSubtaskName, setNewSubtaskName] = useState("");
     const [showTimeControls, setShowTimeControls] = useState(false);
     const [showTimeHistory, setShowTimeHistory] = useState(false);
-    const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
-    const [editSubtaskName, setEditSubtaskName] = useState("");
-    const editSubtaskInputRef = useRef<HTMLInputElement | null>(null);
-
-    useEffect(() => {
-      if (!editingSubtask) return;
-      // Focus without scrolling the page.
-      // Some browsers scroll the focused element into view, which can jump the page.
-      editSubtaskInputRef.current?.focus({ preventScroll: true });
-    }, [editingSubtask]);
 
     const visibleSubtasks = useMemo(() => {
       const list = (task.subtasks || []).filter((subtask: any) => 
@@ -627,22 +649,17 @@ export const QuickTasksSection = () => {
       }
     };
 
-    const handleEditSubtask = (subtaskId: string, currentName: string) => {
-      setEditingSubtask(subtaskId);
-      setEditSubtaskName(currentName);
-    };
-
-    const handleSaveSubtask = (subtaskId: string) => {
-      if (editSubtaskName.trim()) {
-        updateSubtaskMutation.mutate({ subtaskId, name: editSubtaskName.trim() });
-        setEditingSubtask(null);
-        setEditSubtaskName("");
-      }
-    };
-
-    const handleCancelEdit = () => {
-      setEditingSubtask(null);
-      setEditSubtaskName("");
+    const openSubtaskEditDialog = (subtask: any) => {
+      setEditingSubtaskForDialog({
+        id: subtask.id,
+        name: subtask.name,
+        status: subtask.status,
+        deadline: toDateInputValue(subtask.deadline),
+        estimated_duration: subtask.estimated_duration ?? null,
+        assignee_id: subtask.assignee_id ?? null,
+        task_id: task.id,
+      });
+      setIsSubtaskDialogOpen(true);
     };
 
     const handleDeleteSubtask = (subtaskId: string) => {
@@ -989,147 +1006,122 @@ export const QuickTasksSection = () => {
                     <Card key={subtask.id} className="p-4 bg-muted/30">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          {editingSubtask === subtask.id ? (
-                            <div className="flex gap-2">
-                              <Input
-                                value={editSubtaskName}
-                                onChange={(e) => setEditSubtaskName(e.target.value)}
-                                className="flex-1 text-sm h-8"
-                                ref={editSubtaskInputRef}
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveSubtask(subtask.id)}
-                                disabled={!editSubtaskName.trim()}
+                          <>
+                            <div className="flex items-start gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const isSelected = selectedSubtasks.some(s => s.id === subtask.id);
+                                  if (isSelected) {
+                                    setSelectedSubtasks(prev => prev.filter(s => s.id !== subtask.id));
+                                  } else {
+                                    setSelectedSubtasks(prev => [...prev, { id: subtask.id, name: subtask.name, task_id: task.id }]);
+                                  }
+                                }}
+                                className="mt-0.5 shrink-0"
                               >
-                                Save
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleCancelEdit}
-                              >
-                                Cancel
-                              </Button>
+                                {selectedSubtasks.some(s => s.id === subtask.id) ? (
+                                  <CheckSquare className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                )}
+                              </button>
+                              <p className="text-sm font-medium break-words">{subtask.name}</p>
                             </div>
-                          ) : (
-                            <>
-                              <div className="flex items-start gap-2">
-                                <button
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
+                              <span 
+                                className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                                  subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                  subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                  subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}
+                                onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
+                              >
+                                {subtask.status}
+                              </span>
+                              {subtask.logged_hours > 0 && (
+                                <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
+                                  {subtask.logged_hours}h
+                                </span>
+                              )}
+                              {/* Inline action icons */}
+                              <div className="flex items-center gap-0.5 ml-1">
+                                <TimeTrackerWithComment 
+                                  task={{ id: subtask.id, name: subtask.name }}
+                                  onSuccess={() => refetch()}
+                                  isSubtask={true}
+                                  iconOnly={true}
+                                />
+                                <ManualTimeLog 
+                                  taskId={subtask.id} 
+                                  onSuccess={() => refetch()} 
+                                  isSubtask={true}
+                                  iconOnly={true}
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const isSelected = selectedSubtasks.some(s => s.id === subtask.id);
-                                    if (isSelected) {
-                                      setSelectedSubtasks(prev => prev.filter(s => s.id !== subtask.id));
-                                    } else {
-                                      setSelectedSubtasks(prev => [...prev, { id: subtask.id, name: subtask.name, task_id: task.id }]);
-                                    }
+                                    const item = {
+                                      id: subtask.id,
+                                      originalId: task.id,
+                                      type: 'subtask',
+                                      itemType: 'subtask',
+                                      title: subtask.name,
+                                      date: new Date().toISOString().slice(0, 10),
+                                    };
+                                    setSelectedItemsForWorkload([item]);
+                                    setIsAssignDialogOpen(true);
                                   }}
-                                  className="mt-0.5 shrink-0"
+                                  className="h-6 w-6"
+                                  title="Add to Workload"
                                 >
-                                  {selectedSubtasks.some(s => s.id === subtask.id) ? (
-                                    <CheckSquare className="h-4 w-4 text-primary" />
-                                  ) : (
-                                    <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                                  )}
-                                </button>
-                                <p className="text-sm font-medium break-words">{subtask.name}</p>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
-                                <span 
-                                  className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
-                                    subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                    subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                    subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}
-                                  onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
+                                  <CalendarPlus className="h-3 w-3 text-blue-600" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openSubtaskEditDialog(subtask);
+                                  }}
+                                  className="h-6 w-6"
+                                  title="Edit"
                                 >
-                                  {subtask.status}
-                                </span>
-                                {subtask.logged_hours > 0 && (
-                                  <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
-                                    {subtask.logged_hours}h
-                                  </span>
-                                )}
-                                {/* Inline action icons */}
-                                <div className="flex items-center gap-0.5 ml-1">
-                                  <TimeTrackerWithComment 
-                                    task={{ id: subtask.id, name: subtask.name }}
-                                    onSuccess={() => refetch()}
-                                    isSubtask={true}
-                                    iconOnly={true}
-                                  />
-                                  <ManualTimeLog 
-                                    taskId={subtask.id} 
-                                    onSuccess={() => refetch()} 
-                                    isSubtask={true}
-                                    iconOnly={true}
-                                  />
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const item = {
-                                        id: subtask.id,
-                                        originalId: task.id,
-                                        type: 'subtask',
-                                        itemType: 'subtask',
-                                        title: subtask.name,
-                                        date: new Date().toISOString().slice(0, 10),
-                                      };
-                                      setSelectedItemsForWorkload([item]);
-                                      setIsAssignDialogOpen(true);
-                                    }}
-                                    className="h-6 w-6"
-                                    title="Add to Workload"
-                                  >
-                                    <CalendarPlus className="h-3 w-3 text-blue-600" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditSubtask(subtask.id, subtask.name);
-                                    }}
-                                    className="h-6 w-6"
-                                    title="Edit"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate(`/alltasks?highlight=${subtask.id}&subtask=true`);
-                                    }}
-                                    className="h-6 w-6"
-                                    title="View"
-                                  >
-                                    <Eye className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteSubtask(subtask.id);
-                                    }}
-                                    className="h-6 w-6 text-destructive hover:text-destructive"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                {subtask.deadline && (
-                                  <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
-                                )}
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/alltasks?highlight=${subtask.id}&subtask=true`);
+                                  }}
+                                  className="h-6 w-6"
+                                  title="View"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteSubtask(subtask.id);
+                                  }}
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                               </div>
-                            </>
-                          )}
+                              {subtask.deadline && (
+                                <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
+                              )}
+                            </div>
+                          </>
                         </div>
                       </div>
                       
@@ -1294,6 +1286,27 @@ export const QuickTasksSection = () => {
     onSuccess: (_data, variables) => {
       toast.success("Subtask updated successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+    },
+    onError: (error) => {
+      toast.error("Failed to update subtask");
+      console.error(error);
+    },
+  });
+
+  const updateSubtaskDetailsMutation = useMutation({
+    mutationFn: async ({ subtaskId, updates }: { subtaskId: string; updates: any }) => {
+      const { error } = await supabase.from("subtasks").update(updates).eq("id", subtaskId);
+      if (error) throw error;
+    },
+    onMutate: () => {
+      captureScrollPosition();
+    },
+    onSuccess: () => {
+      toast.success("Subtask updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
+      setIsSubtaskDialogOpen(false);
+      setEditingSubtaskForDialog(null);
     },
     onError: (error) => {
       toast.error("Failed to update subtask");
@@ -2013,6 +2026,37 @@ export const QuickTasksSection = () => {
         setSelectedSubtasks([]);
         refetch();
       }}
+    />
+
+    <SubtaskDialog
+      isOpen={isSubtaskDialogOpen}
+      onClose={() => {
+        setIsSubtaskDialogOpen(false);
+        setEditingSubtaskForDialog(null);
+      }}
+      onSave={(data) => {
+        if (!editingSubtaskForDialog) return;
+        // Convert YYYY-MM-DD from the dialog into an ISO datetime (end-of-day),
+        // which matches how tasks/subtasks deadlines are used elsewhere.
+        let deadlineToSave = data.deadline ?? null;
+        if (deadlineToSave && /^\d{4}-\d{2}-\d{2}$/.test(deadlineToSave)) {
+          deadlineToSave = endOfDay(new Date(deadlineToSave)).toISOString();
+        }
+        updateSubtaskDetailsMutation.mutate({
+          subtaskId: editingSubtaskForDialog.id,
+          updates: {
+            name: data.name,
+            status: data.status,
+            assignee_id: data.assignee_id || null,
+            deadline: deadlineToSave,
+            estimated_duration: data.estimated_duration ?? null,
+          },
+        });
+      }}
+      taskId={editingSubtaskForDialog?.task_id || ""}
+      editingSubtask={editingSubtaskForDialog}
+      employees={employeesForSubtaskDialog}
+      isLoading={updateSubtaskDetailsMutation.isPending}
     />
     
   </>
