@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine, ArrowDownToLine } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
+import { ConvertToSubtaskDialog } from "./ConvertToSubtaskDialog";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
@@ -67,6 +68,7 @@ export const QuickTasksSection = () => {
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [moveToProjectTask, setMoveToProjectTask] = useState<{ id: string; name: string; project_id: string | null } | null>(null);
+  const [convertToSubtaskSourceTask, setConvertToSubtaskSourceTask] = useState<{ id: string; name: string } | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showingSubtasksFor, setShowingSubtasksFor] = useState<string | null>(null);
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
@@ -981,6 +983,20 @@ export const QuickTasksSection = () => {
                 size="sm"
                 variant="ghost"
                 onClick={(e) => {
+                  e.stopPropagation();
+                  setConvertToSubtaskSourceTask({ id: task.id, name: task.name });
+                }}
+                className="h-8 px-3"
+                title="Convert to Subtask"
+                type="button"
+              >
+                <ArrowDownToLine className="h-4 w-4 text-blue-600" />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   deleteTaskMutation.mutate(task.id);
@@ -1833,6 +1849,19 @@ export const QuickTasksSection = () => {
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConvertToSubtaskSourceTask({ id: task.id, name: task.name });
+                            }}
+                            className="h-7 px-2"
+                            title="Convert to Subtask"
+                          >
+                            <ArrowDownToLine className="h-3 w-3 text-blue-600" />
+                          </Button>
                           
                           <Button
                             size="sm"
@@ -2161,6 +2190,19 @@ export const QuickTasksSection = () => {
       taskId={moveToProjectTask?.id || ""}
       taskName={moveToProjectTask?.name}
       currentProjectId={moveToProjectTask?.project_id || null}
+    />
+
+    <ConvertToSubtaskDialog
+      open={!!convertToSubtaskSourceTask}
+      onOpenChange={(open) => {
+        if (!open) setConvertToSubtaskSourceTask(null);
+      }}
+      sourceTask={convertToSubtaskSourceTask}
+      onSuccess={() => {
+        queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+        queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+        queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+      }}
     />
     
   </>

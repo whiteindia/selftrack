@@ -8,10 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine, ArrowDownToLine } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
+import { ConvertToSubtaskDialog } from "./ConvertToSubtaskDialog";
 import LiveTimer from "./LiveTimer";
 import CompactTimerControls from "./CompactTimerControls";
 import TaskEditDialog from "@/components/TaskEditDialog";
@@ -38,6 +39,7 @@ export const HostlistSection = () => {
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
   const [moveToProjectTask, setMoveToProjectTask] = useState<{ id: string; name: string; project_id: string | null } | null>(null);
+  const [convertToSubtaskSourceTask, setConvertToSubtaskSourceTask] = useState<{ id: string; name: string } | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
@@ -838,6 +840,18 @@ export const HostlistSection = () => {
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/alltasks?highlight=${task.id}`); }} className="h-8 px-3">
                 <Eye className="h-4 w-4" />
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConvertToSubtaskSourceTask({ id: task.id, name: task.name });
+                }}
+                className="h-8 px-3"
+                title="Convert to Subtask"
+              >
+                <ArrowDownToLine className="h-4 w-4 text-blue-600" />
+              </Button>
               <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); deleteTaskMutation.mutate(task.id); }} className="h-8 px-3 text-destructive hover:text-destructive">
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -1261,6 +1275,19 @@ export const HostlistSection = () => {
                             size="sm"
                             variant="ghost"
                             onClick={(e) => {
+                              e.stopPropagation();
+                              setConvertToSubtaskSourceTask({ id: task.id, name: task.name });
+                            }}
+                            className="h-7 px-2"
+                            title="Convert to Subtask"
+                          >
+                            <ArrowDownToLine className="h-3 w-3 text-blue-600" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               deleteTaskMutation.mutate(task.id);
@@ -1666,6 +1693,19 @@ export const HostlistSection = () => {
         onSuccess={() => {
           setSelectedSubtasks([]);
           queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+        }}
+      />
+
+      <ConvertToSubtaskDialog
+        open={!!convertToSubtaskSourceTask}
+        onOpenChange={(open) => {
+          if (!open) setConvertToSubtaskSourceTask(null);
+        }}
+        sourceTask={convertToSubtaskSourceTask}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+          queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+          queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
         }}
       />
     </>

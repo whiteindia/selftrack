@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight, FolderOpen, ArrowUpFromLine } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight, FolderOpen, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -18,6 +18,7 @@ import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
+import { ConvertToSubtaskDialog } from "./ConvertToSubtaskDialog";
 
 interface WorkloadItem {
   id: string;
@@ -78,6 +79,7 @@ export const CurrentShiftSection = () => {
   const [subtaskEditId, setSubtaskEditId] = useState<string | null>(null);
   const [subtaskEditText, setSubtaskEditText] = useState<string>('');
   const [subtaskNewName, setSubtaskNewName] = useState<string>('');
+  const [convertToSubtaskSourceTask, setConvertToSubtaskSourceTask] = useState<{ id: string; name: string } | null>(null);
 
   const { data: miscProject } = useQuery({
     queryKey: ['misc-project'],
@@ -1306,6 +1308,23 @@ export const CurrentShiftSection = () => {
                                     <Button
                                       size="sm"
                                       variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConvertToSubtaskSourceTask({
+                                          id: realTaskId || item.id,
+                                          name: item.task?.name || getItemTitle(item),
+                                        });
+                                      }}
+                                      className="h-7 px-2"
+                                      title="Convert to Subtask"
+                                    >
+                                      <ArrowDownToLine className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                  )}
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
                                       onClick={(e) => { 
                                         e.stopPropagation(); 
                                         deleteItemMutation.mutate({ id: realTaskId || item.id, type: 'task' }); 
@@ -1620,6 +1639,19 @@ export const CurrentShiftSection = () => {
       taskName={moveToProjectTask?.name}
       currentProjectId={moveToProjectTask?.project_id || null}
       onMoved={() => {
+        queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+        queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['hostlist-tasks'] });
+      }}
+    />
+    <ConvertToSubtaskDialog
+      open={!!convertToSubtaskSourceTask}
+      onOpenChange={(open) => {
+        if (!open) setConvertToSubtaskSourceTask(null);
+      }}
+      sourceTask={convertToSubtaskSourceTask}
+      onSuccess={() => {
+        // Ensure current shift refreshes after conversion.
         queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
         queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
         queryClient.invalidateQueries({ queryKey: ['hostlist-tasks'] });
