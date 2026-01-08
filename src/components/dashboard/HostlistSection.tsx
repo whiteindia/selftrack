@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, CalendarPlus, ChevronDown, ChevronUp, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
@@ -340,10 +340,12 @@ export const HostlistSection = () => {
       tasks = tasks.filter(task => task.status !== 'Assigned' && !task.slot_start_datetime && !task.slot_start_time && !task.scheduled_time);
     }
 
-    // Apply search filter
+    // Apply search filter (including subtasks)
     if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
       tasks = tasks.filter(task =>
-        task.name.toLowerCase().includes(searchTerm.toLowerCase())
+        task.name.toLowerCase().includes(searchLower) ||
+        (task.subtasks || []).some((subtask: any) => subtask.name.toLowerCase().includes(searchLower))
       );
     }
 
@@ -585,6 +587,58 @@ export const HostlistSection = () => {
       },
       onError: () => {
         toast.error("Failed to delete subtask");
+      },
+    });
+
+    const convertSubtaskToTaskMutation = useMutation({
+      mutationFn: async ({ subtaskId, subtaskName }: { subtaskId: string; subtaskName: string }) => {
+        // Get subtask details
+        const { data: subtask, error: subtaskError } = await supabase
+          .from("subtasks")
+          .select("deadline, status, estimated_duration, assignee_id, task_id")
+          .eq("id", subtaskId)
+          .single();
+        
+        if (subtaskError) throw subtaskError;
+        
+        // Get parent task's project_id
+        const { data: parentTask, error: parentError } = await supabase
+          .from("tasks")
+          .select("project_id")
+          .eq("id", subtask.task_id)
+          .single();
+        
+        if (parentError) throw parentError;
+        
+        // Create new task from subtask
+        const { error: taskError } = await supabase
+          .from("tasks")
+          .insert({
+            name: subtaskName,
+            project_id: parentTask.project_id,
+            status: subtask?.status === 'Completed' ? 'Completed' : 'On-Head',
+            deadline: subtask?.deadline,
+            estimated_duration: subtask?.estimated_duration,
+            assignee_id: subtask?.assignee_id,
+          });
+        
+        if (taskError) throw taskError;
+        
+        // Delete the subtask
+        const { error: deleteError } = await supabase
+          .from("subtasks")
+          .delete()
+          .eq("id", subtaskId);
+        
+        if (deleteError) throw deleteError;
+      },
+      onSuccess: () => {
+        toast.success("Subtask converted to task");
+        queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+      },
+      onError: (error) => {
+        toast.error("Failed to convert subtask to task");
+        console.error(error);
       },
     });
 
@@ -889,6 +943,14 @@ export const HostlistSection = () => {
                                     </Button>
                                     <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/alltasks?highlight=${subtask.id}&subtask=true`); }} className="h-6 w-6" title="View">
                                       <Eye className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      if (confirm("Convert this subtask to a task?")) {
+                                        convertSubtaskToTaskMutation.mutate({ subtaskId: subtask.id, subtaskName: subtask.name });
+                                      }
+                                    }} className="h-6 w-6" title="Convert to Task">
+                                      <ArrowUpFromLine className="h-3 w-3 text-green-600" />
                                     </Button>
                                     <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDeleteSubtask(subtask.id); }} className="h-6 w-6 text-destructive hover:text-destructive" title="Delete">
                                       <Trash2 className="h-3 w-3" />

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
@@ -314,10 +314,12 @@ export const QuickTasksSection = () => {
       filtered = filtered.filter(task => task.status !== 'Assigned' && !task.slot_start_datetime && !task.slot_start_time && !task.scheduled_time);
     }
 
-    // Apply search filter before sorting
+    // Apply search filter before sorting (including subtasks)
     if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(task =>
-        task.name.toLowerCase().includes(searchTerm.toLowerCase())
+        task.name.toLowerCase().includes(searchLower) ||
+        (task.subtasks || []).some((subtask: any) => subtask.name.toLowerCase().includes(searchLower))
       );
     }
 
@@ -546,6 +548,55 @@ export const QuickTasksSection = () => {
     },
     onError: (error) => {
       toast.error("Failed to update task status");
+      console.error(error);
+    },
+  });
+
+  // Convert subtask to task mutation
+  const convertSubtaskToTaskMutation = useMutation({
+    mutationFn: async ({ subtaskId, subtaskName, parentTaskId }: { subtaskId: string; subtaskName: string; parentTaskId: string }) => {
+      if (!project?.id) throw new Error("Project not found");
+      
+      // Get subtask details
+      const { data: subtask, error: subtaskError } = await supabase
+        .from("subtasks")
+        .select("deadline, status, estimated_duration, assignee_id")
+        .eq("id", subtaskId)
+        .single();
+      
+      if (subtaskError) throw subtaskError;
+      
+      // Create new task from subtask
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          name: subtaskName,
+          project_id: project.id,
+          status: subtask?.status === 'Completed' ? 'Completed' : 'Not Started',
+          deadline: subtask?.deadline,
+          estimated_duration: subtask?.estimated_duration,
+          assignee_id: subtask?.assignee_id,
+        });
+      
+      if (taskError) throw taskError;
+      
+      // Delete the subtask
+      const { error: deleteError } = await supabase
+        .from("subtasks")
+        .delete()
+        .eq("id", subtaskId);
+      
+      if (deleteError) throw deleteError;
+    },
+    onMutate: () => {
+      captureScrollPosition();
+    },
+    onSuccess: () => {
+      toast.success("Subtask converted to task");
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to convert subtask to task");
       console.error(error);
     },
   });
@@ -1119,6 +1170,20 @@ export const QuickTasksSection = () => {
                                   title="View"
                                 >
                                   <Eye className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm("Convert this subtask to a task?")) {
+                                      convertSubtaskToTaskMutation.mutate({ subtaskId: subtask.id, subtaskName: subtask.name, parentTaskId: task.id });
+                                    }
+                                  }}
+                                  className="h-6 w-6"
+                                  title="Convert to Task"
+                                >
+                                  <ArrowUpFromLine className="h-3 w-3 text-green-600" />
                                 </Button>
                                 <Button
                                   size="icon"

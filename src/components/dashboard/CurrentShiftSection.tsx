@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight, FolderOpen } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight, FolderOpen, ArrowUpFromLine } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -795,6 +795,59 @@ export const CurrentShiftSection = () => {
     onError: () => toast.error('Failed to delete subtask'),
   });
 
+  // Convert subtask to task mutation
+  const convertSubtaskToTaskMutation = useMutation({
+    mutationFn: async ({ subtaskId, subtaskName }: { subtaskId: string; subtaskName: string }) => {
+      // Get subtask details
+      const { data: subtask, error: subtaskError } = await supabase
+        .from("subtasks")
+        .select("deadline, status, estimated_duration, assignee_id, task_id")
+        .eq("id", subtaskId)
+        .single();
+      
+      if (subtaskError) throw subtaskError;
+      
+      // Get parent task's project_id
+      const { data: parentTask, error: parentError } = await supabase
+        .from("tasks")
+        .select("project_id")
+        .eq("id", subtask.task_id)
+        .single();
+      
+      if (parentError) throw parentError;
+      
+      // Create new task from subtask
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          name: subtaskName,
+          project_id: parentTask.project_id,
+          status: subtask?.status === 'Completed' ? 'Completed' : 'Not Started',
+          deadline: subtask?.deadline,
+          estimated_duration: subtask?.estimated_duration,
+          assignee_id: subtask?.assignee_id,
+        });
+      
+      if (taskError) throw taskError;
+      
+      // Delete the subtask
+      const { error: deleteError } = await supabase
+        .from("subtasks")
+        .delete()
+        .eq("id", subtaskId);
+      
+      if (deleteError) throw deleteError;
+    },
+    onSuccess: () => {
+      toast.success("Subtask converted to task");
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to convert subtask to task");
+      console.error(error);
+    },
+  });
+
   const openAssignForItem = (item: WorkloadItem) => {
     const projectName = getItemProject(item);
     const projectId = item.task?.project_id || item.subtask?.project_id || item.subtask?.task?.project_id || '';
@@ -1068,6 +1121,23 @@ export const CurrentShiftSection = () => {
                                         title="Add to Workload"
                                       >
                                         <CalendarPlus className="h-3 w-3 text-yellow-500" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={(e) => { 
+                                          e.stopPropagation();
+                                          if (confirm("Convert this subtask to a task?")) {
+                                            convertSubtaskToTaskMutation.mutate({ 
+                                              subtaskId: item.subtask?.id || item.id, 
+                                              subtaskName: item.subtask?.name || '' 
+                                            });
+                                          }
+                                        }}
+                                        className="h-6 px-1"
+                                        title="Convert to Task"
+                                      >
+                                        <ArrowUpFromLine className="h-3 w-3 text-green-600" />
                                       </Button>
                                       <Button
                                         size="sm"

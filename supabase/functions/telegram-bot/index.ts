@@ -38,12 +38,13 @@ interface TelegramUpdate {
 
 interface NotificationData {
   chat_id: number;
-  message: string;
+  text: string;
   parse_mode?: 'HTML' | 'Markdown';
   reply_markup?: {
     inline_keyboard: Array<Array<{
       text: string;
-      callback_data: string;
+      callback_data?: string;
+      url?: string;
     }>>;
   };
 }
