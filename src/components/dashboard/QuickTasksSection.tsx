@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
@@ -18,6 +18,7 @@ import SubtaskDialog from "@/components/SubtaskDialog";
 import TimeTrackerWithComment from "@/components/TimeTrackerWithComment";
 import ManualTimeLog from "@/components/ManualTimeLog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
+import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
 import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { convertISTToUTC } from "@/utils/timezoneUtils";
@@ -65,6 +66,7 @@ export const QuickTasksSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [newTaskName, setNewTaskName] = useState("");
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [moveToProjectTask, setMoveToProjectTask] = useState<{ id: string; name: string; project_id: string | null } | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showingSubtasksFor, setShowingSubtasksFor] = useState<string | null>(null);
   const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
@@ -882,6 +884,20 @@ export const QuickTasksSection = () => {
                 type="button"
               >
                 <CalendarPlus className={`h-4 w-4 ${(task.status === 'Assigned' || task.slot_start_datetime || task.slot_start_time || task.scheduled_time) ? 'text-yellow-500' : 'text-blue-600'}`} />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id ?? null });
+                }}
+                className="h-8 px-3"
+                title="Move to Project"
+                type="button"
+              >
+                <FolderOpen className="h-4 w-4" />
               </Button>
 
               <Button
@@ -1715,6 +1731,19 @@ export const QuickTasksSection = () => {
                               <Play className="h-3 w-3" />
                             </Button>
                           )}
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id ?? null });
+                            }}
+                            className="h-7 px-2"
+                            title="Move to Project"
+                          >
+                            <FolderOpen className="h-3 w-3" />
+                          </Button>
                           
                           <Button
                             size="sm"
@@ -2057,6 +2086,16 @@ export const QuickTasksSection = () => {
       editingSubtask={editingSubtaskForDialog}
       employees={employeesForSubtaskDialog}
       isLoading={updateSubtaskDetailsMutation.isPending}
+    />
+
+    <MoveToProjectDialog
+      open={!!moveToProjectTask}
+      onOpenChange={(open) => {
+        if (!open) setMoveToProjectTask(null);
+      }}
+      taskId={moveToProjectTask?.id || ""}
+      taskName={moveToProjectTask?.name}
+      currentProjectId={moveToProjectTask?.project_id || null}
     />
     
   </>

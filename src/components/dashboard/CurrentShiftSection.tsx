@@ -5,7 +5,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight } from 'lucide-react';
+import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight, FolderOpen } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
@@ -17,6 +17,7 @@ import TaskEditDialog from '@/components/TaskEditDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
+import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
 
 interface WorkloadItem {
   id: string;
@@ -62,6 +63,7 @@ export const CurrentShiftSection = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [moveToProjectTask, setMoveToProjectTask] = useState<{ id: string; name: string; project_id: string | null } | null>(null);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedItemsForWorkload, setSelectedItemsForWorkload] = useState<any[]>([]);
   const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
@@ -1201,6 +1203,24 @@ export const CurrentShiftSection = () => {
                                       variant="ghost"
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        setMoveToProjectTask({
+                                          id: realTaskId || item.id,
+                                          name: item.task?.name || getItemTitle(item),
+                                          project_id: item.task?.project_id || null,
+                                        });
+                                      }}
+                                      className="h-7 px-2"
+                                      title="Move to Project"
+                                    >
+                                      <FolderOpen className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         setSubtaskDialogTaskId(realTaskId || item.id);
                                         setSubtaskDialogTaskName(item.task?.name || getItemTitle(item));
                                         setSubtaskDialogParentDeadline(item.task?.deadline);
@@ -1518,6 +1538,21 @@ export const CurrentShiftSection = () => {
         queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
         queryClient.invalidateQueries({ queryKey: ['subtasks'] });
         queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+      }}
+    />
+
+    <MoveToProjectDialog
+      open={!!moveToProjectTask}
+      onOpenChange={(open) => {
+        if (!open) setMoveToProjectTask(null);
+      }}
+      taskId={moveToProjectTask?.id || ""}
+      taskName={moveToProjectTask?.name}
+      currentProjectId={moveToProjectTask?.project_id || null}
+      onMoved={() => {
+        queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+        queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['hostlist-tasks'] });
       }}
     />
     <Dialog open={subtaskDialogOpen} onOpenChange={(open) => { if (!open) { setSubtaskDialogOpen(false); setSubtaskDialogTaskId(null); setSubtaskDialogTaskName(''); setSubtaskNewName(''); setSubtaskEditId(null); setSubtaskEditText(''); } }}>
