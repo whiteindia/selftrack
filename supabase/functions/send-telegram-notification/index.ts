@@ -26,7 +26,8 @@ interface NotificationData {
   reply_markup?: {
     inline_keyboard: Array<Array<{
       text: string;
-      callback_data: string;
+      callback_data?: string;
+      url?: string;
     }>>;
   };
 }
