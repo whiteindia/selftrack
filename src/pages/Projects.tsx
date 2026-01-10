@@ -28,6 +28,8 @@ const Projects = () => {
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]); // service names
+  const [selectedClients, setSelectedClients] = useState<string[]>([]); // client ids
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const { data: projects = [], isLoading, refetch } = useQuery({
@@ -72,32 +74,58 @@ const Projects = () => {
     return years;
   }, [projects]);
 
-  const filteredProjects = projects.filter(project => {
-    // Search filter
-    if (searchTerm && !project.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
-        !project.clients.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-      return false;
-    }
-    
-    // Status filter
-    if (selectedStatus.length > 0 && !selectedStatus.includes(project.status)) {
-      return false;
-    }
-    
-    // Year filter
-    if (selectedYear !== 'all') {
-      const projectYear = new Date(project.created_at).getFullYear();
-      if (projectYear.toString() !== selectedYear) return false;
-    }
-    
-    // Month filter
-    if (selectedMonth !== 'all') {
-      const projectMonth = new Date(project.created_at).getMonth() + 1;
-      if (projectMonth.toString() !== selectedMonth) return false;
-    }
-    
-    return true;
-  });
+  // Base filters (everything except client selection) so we can compute available clients in cascade mode.
+  const baseFilteredProjects = React.useMemo(() => {
+    return projects.filter(project => {
+      // Search filter
+      if (
+        searchTerm &&
+        !project.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !project.clients.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        return false;
+      }
+
+      // Status filter
+      if (selectedStatus.length > 0 && !selectedStatus.includes(project.status)) {
+        return false;
+      }
+
+      // Year filter
+      if (selectedYear !== 'all') {
+        const projectYear = new Date(project.created_at).getFullYear();
+        if (projectYear.toString() !== selectedYear) return false;
+      }
+
+      // Month filter
+      if (selectedMonth !== 'all') {
+        const projectMonth = new Date(project.created_at).getMonth() + 1;
+        if (projectMonth.toString() !== selectedMonth) return false;
+      }
+
+      // Service filter (cascade parent)
+      if (selectedServices.length > 0 && !selectedServices.includes(project.service)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [projects, searchTerm, selectedStatus, selectedYear, selectedMonth, selectedServices]);
+
+  const availableClients = React.useMemo(() => {
+    const clientMap = new Map<string, { id: string; name: string }>();
+    baseFilteredProjects.forEach((p: any) => {
+      if (p.clients?.id && p.clients?.name) {
+        clientMap.set(p.clients.id, { id: p.clients.id, name: p.clients.name });
+      }
+    });
+    return Array.from(clientMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [baseFilteredProjects]);
+
+  const filteredProjects = React.useMemo(() => {
+    if (selectedClients.length === 0) return baseFilteredProjects;
+    return baseFilteredProjects.filter((p: any) => selectedClients.includes(p.clients?.id));
+  }, [baseFilteredProjects, selectedClients]);
 
   const handleEditProject = (project: any) => {
     setEditingProject(project);
@@ -119,6 +147,8 @@ const Projects = () => {
     setSelectedYear('all');
     setSelectedMonth('all');
     setSearchTerm('');
+    setSelectedServices([]);
+    setSelectedClients([]);
   };
 
   if (isLoading) {
@@ -173,6 +203,11 @@ const Projects = () => {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           services={services}
+          selectedServices={selectedServices}
+          setSelectedServices={setSelectedServices}
+          availableClients={availableClients}
+          selectedClients={selectedClients}
+          setSelectedClients={setSelectedClients}
           availableYears={availableYears}
           onClearFilters={handleClearFilters}
         />

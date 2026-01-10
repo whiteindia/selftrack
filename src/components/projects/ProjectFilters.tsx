@@ -1,14 +1,19 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Filter } from 'lucide-react';
+import { Check, Filter } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Service {
+  id: string;
+  name: string;
+}
+
+interface ClientOption {
   id: string;
   name: string;
 }
@@ -23,6 +28,11 @@ interface ProjectFiltersProps {
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   services: Service[];
+  selectedServices: string[];
+  setSelectedServices: (value: string[]) => void;
+  availableClients: ClientOption[];
+  selectedClients: string[];
+  setSelectedClients: (value: string[]) => void;
   availableYears: number[];
   onClearFilters: () => void;
 }
@@ -37,6 +47,11 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
   searchTerm,
   setSearchTerm,
   services,
+  selectedServices,
+  setSelectedServices,
+  availableClients,
+  selectedClients,
+  setSelectedClients,
   availableYears,
   onClearFilters
 }) => {
@@ -63,6 +78,26 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
 
   const isAllSelected = statusOptions.every((s) => selectedStatus.includes(s));
   const selectAllStatuses = () => setSelectedStatus(statusOptions);
+
+  const [activeCascadeTab, setActiveCascadeTab] = React.useState<"services" | "clients">("services");
+
+  const toggleService = (serviceName: string) => {
+    const nextServices = selectedServices.includes(serviceName)
+      ? selectedServices.filter((s) => s !== serviceName)
+      : [...selectedServices, serviceName];
+
+    setSelectedServices(nextServices);
+    // Cascade reset
+    setSelectedClients([]);
+    setActiveCascadeTab(nextServices.length > 0 ? "clients" : "services");
+  };
+
+  const toggleClient = (clientId: string) => {
+    const nextClients = selectedClients.includes(clientId)
+      ? selectedClients.filter((c) => c !== clientId)
+      : [...selectedClients, clientId];
+    setSelectedClients(nextClients);
+  };
 
   return (
     <Card className="mb-6">
@@ -121,6 +156,63 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Cascade Filter (same style as Active Time Tracking): Services → Clients */}
+        <div className="space-y-2 mb-4">
+          <Label>Global Filters</Label>
+          <Tabs value={activeCascadeTab} onValueChange={(v) => setActiveCascadeTab(v as any)}>
+            <TabsList className="w-full justify-start">
+              <TabsTrigger value="services">Services</TabsTrigger>
+              {selectedServices.length > 0 && <TabsTrigger value="clients">Clients</TabsTrigger>}
+            </TabsList>
+
+            <TabsContent value="services" className="mt-3">
+              {services.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {services.map((service) => (
+                    <Button
+                      key={service.id}
+                      variant={selectedServices.includes(service.name) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleService(service.name)}
+                      className="flex items-center gap-2 text-xs"
+                      type="button"
+                    >
+                      {selectedServices.includes(service.name) && <Check className="h-3 w-3" />}
+                      {service.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">No services found.</div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="clients" className="mt-3">
+              {selectedServices.length === 0 ? (
+                <div className="text-xs text-muted-foreground">Select a service to see clients.</div>
+              ) : availableClients.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {availableClients.map((client) => (
+                    <Button
+                      key={client.id}
+                      variant={selectedClients.includes(client.id) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleClient(client.id)}
+                      className="flex items-center gap-2 text-xs"
+                      type="button"
+                    >
+                      {selectedClients.includes(client.id) && <Check className="h-3 w-3" />}
+                      {client.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">No clients found for the selected services.</div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
         
         {/* Status Filter Buttons */}
