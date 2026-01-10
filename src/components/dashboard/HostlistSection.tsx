@@ -499,6 +499,111 @@ export const HostlistSection = () => {
     }
   };
 
+  // Create subtask mutation at parent level to avoid re-creation on every render
+  const createSubtaskMutation = useMutation({
+    mutationFn: async ({ taskId, name }: { taskId: string; name: string }) => {
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("email", (await supabase.auth.getUser()).data.user?.email)
+        .single();
+      if (!employee) throw new Error("Employee not found");
+      const { data, error } = await supabase
+        .from("subtasks")
+        .insert({ name, task_id: taskId, status: "Not Started", assigner_id: employee.id })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Subtask created successfully");
+      queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+    },
+    onError: () => {
+      toast.error("Failed to create subtask");
+    },
+  });
+
+  const updateSubtaskMutation = useMutation({
+    mutationFn: async ({ subtaskId, name, status }: { subtaskId: string; name?: string; status?: string }) => {
+      const updates: any = {};
+      if (name) updates.name = name;
+      if (status) updates.status = status;
+      const { error } = await supabase.from("subtasks").update(updates).eq("id", subtaskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Subtask updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+    },
+    onError: () => {
+      toast.error("Failed to update subtask");
+    },
+  });
+
+  const deleteSubtaskMutation = useMutation({
+    mutationFn: async (subtaskId: string) => {
+      const { error } = await supabase.from("subtasks").delete().eq("id", subtaskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Subtask deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+    },
+    onError: () => {
+      toast.error("Failed to delete subtask");
+    },
+  });
+
+  const convertSubtaskToTaskMutation = useMutation({
+    mutationFn: async ({ subtaskId, subtaskName }: { subtaskId: string; subtaskName: string }) => {
+      const { data: subtask, error: subtaskError } = await supabase
+        .from("subtasks")
+        .select("deadline, status, estimated_duration, assignee_id, task_id")
+        .eq("id", subtaskId)
+        .single();
+      
+      if (subtaskError) throw subtaskError;
+      
+      const { data: parentTask, error: parentError } = await supabase
+        .from("tasks")
+        .select("project_id")
+        .eq("id", subtask.task_id)
+        .single();
+      
+      if (parentError) throw parentError;
+      
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          name: subtaskName,
+          project_id: parentTask.project_id,
+          status: subtask?.status === 'Completed' ? 'Completed' : 'On-Head',
+          deadline: subtask?.deadline,
+          estimated_duration: subtask?.estimated_duration,
+          assignee_id: subtask?.assignee_id,
+        });
+      
+      if (taskError) throw taskError;
+      
+      const { error: deleteError } = await supabase
+        .from("subtasks")
+        .delete()
+        .eq("id", subtaskId);
+      
+      if (deleteError) throw deleteError;
+    },
+    onSuccess: () => {
+      toast.success("Subtask converted to task");
+      queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to convert subtask to task");
+      console.error(error);
+    },
+  });
+
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging, active } = useSortable({ id: task.id });
     const visibleSubtasks = useMemo(() => {
@@ -535,114 +640,6 @@ export const HostlistSection = () => {
         setNewSubtaskName("");
       }
     };
-
-    const createSubtaskMutation = useMutation({
-      mutationFn: async ({ taskId, name }: { taskId: string; name: string }) => {
-        const { data: employee } = await supabase
-          .from("employees")
-          .select("id")
-          .eq("email", (await supabase.auth.getUser()).data.user?.email)
-          .single();
-        if (!employee) throw new Error("Employee not found");
-        const { data, error } = await supabase
-          .from("subtasks")
-          .insert({ name, task_id: taskId, status: "Not Started", assigner_id: employee.id })
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      },
-      onSuccess: () => {
-        toast.success("Subtask created successfully");
-        queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
-      },
-      onError: () => {
-        toast.error("Failed to create subtask");
-      },
-    });
-
-    const updateSubtaskMutation = useMutation({
-      mutationFn: async ({ subtaskId, name, status }: { subtaskId: string; name?: string; status?: string }) => {
-        const updates: any = {};
-        if (name) updates.name = name;
-        if (status) updates.status = status;
-        const { error } = await supabase.from("subtasks").update(updates).eq("id", subtaskId);
-        if (error) throw error;
-      },
-      onSuccess: () => {
-        toast.success("Subtask updated successfully");
-        queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
-      },
-      onError: () => {
-        toast.error("Failed to update subtask");
-      },
-    });
-
-    const deleteSubtaskMutation = useMutation({
-      mutationFn: async (subtaskId: string) => {
-        const { error } = await supabase.from("subtasks").delete().eq("id", subtaskId);
-        if (error) throw error;
-      },
-      onSuccess: () => {
-        toast.success("Subtask deleted successfully");
-        queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
-      },
-      onError: () => {
-        toast.error("Failed to delete subtask");
-      },
-    });
-
-    const convertSubtaskToTaskMutation = useMutation({
-      mutationFn: async ({ subtaskId, subtaskName }: { subtaskId: string; subtaskName: string }) => {
-        // Get subtask details
-        const { data: subtask, error: subtaskError } = await supabase
-          .from("subtasks")
-          .select("deadline, status, estimated_duration, assignee_id, task_id")
-          .eq("id", subtaskId)
-          .single();
-        
-        if (subtaskError) throw subtaskError;
-        
-        // Get parent task's project_id
-        const { data: parentTask, error: parentError } = await supabase
-          .from("tasks")
-          .select("project_id")
-          .eq("id", subtask.task_id)
-          .single();
-        
-        if (parentError) throw parentError;
-        
-        // Create new task from subtask
-        const { error: taskError } = await supabase
-          .from("tasks")
-          .insert({
-            name: subtaskName,
-            project_id: parentTask.project_id,
-            status: subtask?.status === 'Completed' ? 'Completed' : 'On-Head',
-            deadline: subtask?.deadline,
-            estimated_duration: subtask?.estimated_duration,
-            assignee_id: subtask?.assignee_id,
-          });
-        
-        if (taskError) throw taskError;
-        
-        // Delete the subtask
-        const { error: deleteError } = await supabase
-          .from("subtasks")
-          .delete()
-          .eq("id", subtaskId);
-        
-        if (deleteError) throw deleteError;
-      },
-      onSuccess: () => {
-        toast.success("Subtask converted to task");
-        queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] });
-      },
-      onError: (error) => {
-        toast.error("Failed to convert subtask to task");
-        console.error(error);
-      },
-    });
 
     const handleEditSubtask = (subtaskId: string, currentName: string) => {
       setEditingSubtask(subtaskId);
