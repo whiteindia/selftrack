@@ -49,7 +49,7 @@ export const HotProjSection = () => {
 
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>("all");
-  const [viewMode, setViewMode] = useState<"list" | "timeline">("timeline");
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
