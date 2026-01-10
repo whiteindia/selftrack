@@ -5,10 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, Building, Calendar, FileText, ExternalLink } from 'lucide-react';
+import { Edit, Trash2, Building, Calendar, FileText, ExternalLink, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useProjectOperations } from '@/hooks/useProjectOperations';
+import { useNavigate } from 'react-router-dom';
 
 interface Project {
   id: string;
@@ -38,6 +39,7 @@ interface ProjectCardsProps {
 const ProjectCards = ({ projects, onEditProject }: ProjectCardsProps) => {
   const queryClient = useQueryClient();
   const { deleteProjectMutation } = useProjectOperations();
+  const navigate = useNavigate();
 
   const handleDeleteProject = (projectId: string, projectName: string) => {
     if (confirm(`Are you sure you want to delete "${projectName}"? This action cannot be undone.`)) {
@@ -112,6 +114,15 @@ const ProjectCards = ({ projects, onEditProject }: ProjectCardsProps) => {
                   {project.name}
                 </CardTitle>
                 <div className="flex gap-1 ml-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(`/alltasks?project_id=${project.id}`)}
+                    className="h-8 w-8 p-0"
+                    title="View project tasks"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"

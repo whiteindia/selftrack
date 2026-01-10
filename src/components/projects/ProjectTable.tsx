@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { ProjectData } from '@/hooks/projects/types';
+import { useNavigate } from 'react-router-dom';
 
 interface ExtendedProjectData extends ProjectData {
   assignee_id: string | null;
@@ -37,6 +38,7 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
   onDelete,
   onViewBRD
 }) => {
+  const navigate = useNavigate();
   const getBillingType = (project: ExtendedProjectData) => {
     // Use the type column directly from the database
     return project.type || "Hourly";
@@ -118,6 +120,14 @@ const ProjectTable: React.FC<ProjectTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/alltasks?project_id=${project.id}`)}
+                      title="View project tasks"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     {canUpdate && (
                       <Button
                         variant="outline"

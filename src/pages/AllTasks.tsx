@@ -91,11 +91,20 @@ const AllTasks = () => {
   
   // Handle highlight parameter from URL
   const highlightTaskId = searchParams.get('highlight');
+  // Optional: preselect a project when coming from Projects page
+  const projectIdFromUrl = searchParams.get('project_id');
   
   // Subtask states
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string>('');
   const [editingSubtask, setEditingSubtask] = useState<any>(null);
+
+  // Apply project filter from URL (used by Projects page "eye" button)
+  useEffect(() => {
+    if (projectIdFromUrl) {
+      setProjectFilter(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl]);
   
   const [newTask, setNewTask] = useState({
     name: '',
