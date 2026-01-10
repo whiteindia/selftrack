@@ -741,14 +741,19 @@ export const HostlistSection = () => {
               >
                 <h3 className="font-medium text-sm sm:text-base break-words">{renderTaskName(task.name)}</h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-                <span 
-                  className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
-                    task.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                    task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                    task.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}
-                >
+                  {(task.project?.name || (task as any).projects?.name) && (
+                    <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                      {task.project?.name || (task as any).projects?.name}
+                    </span>
+                  )}
+                  <span 
+                    className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                      task.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                      task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                      task.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}
+                  >
                     {task.status}
                   </span>
                   <span>Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}</span>
