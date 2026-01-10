@@ -61,6 +61,9 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
     }
   };
 
+  const isAllSelected = statusOptions.every((s) => selectedStatus.includes(s));
+  const selectAllStatuses = () => setSelectedStatus(statusOptions);
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -124,6 +127,14 @@ const ProjectFilters: React.FC<ProjectFiltersProps> = ({
         <div className="space-y-2 mb-4">
           <Label>Status</Label>
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={isAllSelected ? "default" : "outline"}
+              onClick={selectAllStatuses}
+            >
+              All Status
+            </Button>
             {statusOptions.map((status) => (
               <Toggle
                 key={status}

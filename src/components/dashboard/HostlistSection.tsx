@@ -171,7 +171,9 @@ export const HostlistSection = () => {
       const enhanced = tasks.map(task => {
         const tEntries = taskEntriesByTask[task.id] || [];
         const totalLoggedMinutes = tEntries.reduce((sum, e) => sum + (e.duration_minutes || 0), 0);
-        const taskSubtasks = (subtasks || []).filter(st => st.task_id === task.id && st.status !== 'Completed');
+        // Important: keep ALL subtasks available so the "Show completed" toggle can reveal completed subtasks too.
+        // (Filtering happens at display time based on `showCompleted`, similar to QuickTasksSection.)
+        const taskSubtasks = (subtasks || []).filter(st => st.task_id === task.id);
         const subLoggedMinutes = taskSubtasks.reduce((sum, st) => sum + (subtaskTimeMap[st.id] || 0), 0);
         const totalLoggedHours = Math.round(((totalLoggedMinutes + subLoggedMinutes) / 60) * 100) / 100;
         return {
@@ -184,7 +186,8 @@ export const HostlistSection = () => {
             time_entries: subtaskDetailedEntries[st.id] || []
           })),
           total_logged_hours: totalLoggedHours,
-          subtask_count: taskSubtasks.length
+          // Keep count as "active" subtasks, so the badge matches the default (non-completed) view.
+          subtask_count: taskSubtasks.filter(st => st.status !== 'Completed').length
         };
       });
 

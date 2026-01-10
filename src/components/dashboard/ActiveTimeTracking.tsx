@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock, Eye, Filter, Check } from 'lucide-react';
+import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -25,6 +27,8 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
+  const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
 
   // Get unique services from running/paused tasks
   const availableServices = useMemo(() => {
@@ -151,6 +155,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
       // Clear dependent filters when services change
       setSelectedClients([]);
       setSelectedProjects([]);
+      setActiveFilterTab(newServices.length > 0 ? "clients" : "services");
       
       return newServices;
     });
@@ -164,6 +169,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
       
       // Clear dependent filters when clients change
       setSelectedProjects([]);
+      setActiveFilterTab(newClients.length > 0 ? "projects" : "clients");
       
       return newClients;
     });
@@ -195,171 +201,184 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Play className="h-5 w-5 mr-2 text-green-600" />
-          Active Time Tracking
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
-        {/* Hierarchical Filter Section - Cascade: Services → Clients → Projects */}
-        {runningTasks.length > 0 && (
-          <div className="mb-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Filters (Cascade Mode):</span>
+    <Card className="w-full">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="px-6 py-4">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-2">
+                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <CardTitle className="flex items-center">
+                  <Play className="h-5 w-5 mr-2 text-green-600" />
+                  Active Time Tracking
+                </CardTitle>
+              </div>
             </div>
-            
-            {/* Step 1: Service Filter */}
-            {availableServices.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                  <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">1</span>
-                  Services ({availableServices.length})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {availableServices.map((service) => (
-                    <Button
-                      key={service}
-                      variant={selectedServices.includes(service) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleService(service)}
-                      className="flex items-center gap-2 text-xs"
-                    >
-                      {selectedServices.includes(service) && <Check className="h-3 w-3" />}
-                      {service}
-                    </Button>
-                  ))}
+          </CollapsibleTrigger>
+        </CardHeader>
+
+        <CollapsibleContent>
+          <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
+            {/* Global Filter (Cascade) with tab-style buttons: Services → Clients → Projects */}
+            {runningTasks.length > 0 && (
+              <div className="mb-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Global Filters:</span>
                 </div>
-              </div>
-            )}
 
-            {/* Step 2: Client Filter - Only show when services are selected */}
-            {selectedServices.length > 0 && availableClients.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                  <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span>
-                  Clients ({availableClients.length})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {availableClients.map((client) => (
-                    <Button
-                      key={client.id}
-                      variant={selectedClients.includes(client.id) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleClient(client.id)}
-                      className="flex items-center gap-2 text-xs"
-                    >
-                      {selectedClients.includes(client.id) && <Check className="h-3 w-3" />}
-                      {client.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
+                <Tabs value={activeFilterTab} onValueChange={(v) => setActiveFilterTab(v as any)}>
+                  <TabsList className="w-full justify-start">
+                    <TabsTrigger value="services">Services</TabsTrigger>
+                    {selectedServices.length > 0 && <TabsTrigger value="clients">Clients</TabsTrigger>}
+                    {selectedClients.length > 0 && <TabsTrigger value="projects">Projects</TabsTrigger>}
+                  </TabsList>
 
-            {/* Step 3: Project Filter - Only show when clients are selected */}
-            {selectedClients.length > 0 && availableProjects.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-1">
-                  <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
-                  Projects ({availableProjects.length})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {availableProjects.map((project) => (
-                    <Button
-                      key={project.id}
-                      variant={selectedProjects.includes(project.id) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleProject(project.id)}
-                      className="flex items-center gap-2 text-xs"
-                    >
-                      {selectedProjects.includes(project.id) && <Check className="h-3 w-3" />}
-                      {project.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
+                  <TabsContent value="services" className="mt-3">
+                    {availableServices.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {availableServices.map((service) => (
+                          <Button
+                            key={service}
+                            variant={selectedServices.includes(service) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleService(service)}
+                            className="flex items-center gap-2 text-xs"
+                          >
+                            {selectedServices.includes(service) && <Check className="h-3 w-3" />}
+                            {service}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No services found for running tasks</div>
+                    )}
+                  </TabsContent>
 
-            {/* Filter Results Info */}
-            {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProjects.length > 0) && (
-              <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                Showing {filteredTasks.length} of {runningTasks.length} running tasks
-                {selectedServices.length > 0 && ` | Services: ${selectedServices.length}`}
-                {selectedClients.length > 0 && ` | Clients: ${selectedClients.length}`}
-                {selectedProjects.length > 0 && ` | Projects: ${selectedProjects.length}`}
-              </div>
-            )}
-          </div>
-        )}
+                  <TabsContent value="clients" className="mt-3">
+                    {selectedServices.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">Select a service to see clients.</div>
+                    ) : availableClients.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {availableClients.map((client) => (
+                          <Button
+                            key={client.id}
+                            variant={selectedClients.includes(client.id) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleClient(client.id)}
+                            className="flex items-center gap-2 text-xs"
+                          >
+                            {selectedClients.includes(client.id) && <Check className="h-3 w-3" />}
+                            {client.name}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No clients found for selected services</div>
+                    )}
+                  </TabsContent>
 
-        {runningTasks.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No tasks currently running</p>
-            <p className="text-sm">Start a timer on any task to track your work</p>
-          </div>
-        ) : filteredTasks.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No tasks match the selected filters</p>
-            <p className="text-sm">Try adjusting your filter criteria</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredTasks.map((entry: any) => (
-              <div
-                key={entry.id}
-                className="p-3 border rounded-lg bg-green-50 border-green-200"
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-green-900 text-sm leading-tight break-words" title={entry.tasks.name}>{entry.tasks.name}</h4>
-                    <p className="text-xs text-green-700 mt-1 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
-                      {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
-                    </p>
+                  <TabsContent value="projects" className="mt-3">
+                    {selectedClients.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">Select a client to see projects.</div>
+                    ) : availableProjects.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {availableProjects.map((project) => (
+                          <Button
+                            key={project.id}
+                            variant={selectedProjects.includes(project.id) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleProject(project.id)}
+                            className="flex items-center gap-2 text-xs"
+                          >
+                            {selectedProjects.includes(project.id) && <Check className="h-3 w-3" />}
+                            {project.name}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No projects found for selected clients</div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+
+                {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProjects.length > 0) && (
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                    Showing {filteredTasks.length} of {runningTasks.length} running tasks
+                    {selectedServices.length > 0 && ` | Services: ${selectedServices.length}`}
+                    {selectedClients.length > 0 && ` | Clients: ${selectedClients.length}`}
+                    {selectedProjects.length > 0 && ` | Projects: ${selectedProjects.length}`}
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default" className={`text-xs ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
-                        {isPaused(entry) ? 'Paused' : 'Running'}
-                      </Badge>
-                      <LiveTimer 
-                        startTime={entry.start_time} 
-                        timerMetadata={entry.timer_metadata}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <CompactTimerControls
-                        taskId={entry.tasks.id}
-                        taskName={entry.tasks.name}
-                        entryId={entry.id}
-                        timerMetadata={entry.timer_metadata}
-                        onTimerUpdate={onRunningTaskClick}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleViewTask(entry.tasks.id);
-                        }}
-                        className="h-6 px-2 text-xs"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
+                )}
+              </div>
+            )}
+
+            {runningTasks.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No tasks currently running</p>
+                <p className="text-sm">Start a timer on any task to track your work</p>
+              </div>
+            ) : filteredTasks.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No tasks match the selected filters</p>
+                <p className="text-sm">Try adjusting your filter criteria</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredTasks.map((entry: any) => (
+                  <div
+                    key={entry.id}
+                    className="p-3 border rounded-lg bg-green-50 border-green-200"
+                  >
+                    <div className="flex flex-col gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-green-900 text-sm leading-tight break-words" title={entry.tasks.name}>{entry.tasks.name}</h4>
+                        <p className="text-xs text-green-700 mt-1 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
+                          {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="default" className={`text-xs ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
+                            {isPaused(entry) ? 'Paused' : 'Running'}
+                          </Badge>
+                          <LiveTimer
+                            startTime={entry.start_time}
+                            timerMetadata={entry.timer_metadata}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <CompactTimerControls
+                            taskId={entry.tasks.id}
+                            taskName={entry.tasks.name}
+                            entryId={entry.id}
+                            timerMetadata={entry.timer_metadata}
+                            onTimerUpdate={onRunningTaskClick}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleViewTask(entry.tasks.id);
+                            }}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-        {isError && <p className="text-xs text-red-500 mt-1">Error loading running tasks</p>}
-      </CardContent>
+            )}
+            {isError && <p className="text-xs text-red-500 mt-1">Error loading running tasks</p>}
+          </CardContent>
+        </CollapsibleContent>
 
       {/* Task Details Dialog */}
       <TaskDetailsDialog
@@ -368,6 +387,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
         taskId={selectedTaskId}
         onTimeUpdate={onRunningTaskClick}
       />
+      </Collapsible>
     </Card>
   );
 };

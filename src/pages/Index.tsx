@@ -12,6 +12,7 @@ import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { CurrentShiftSection } from '@/components/dashboard/CurrentShiftSection';
 import { DashboardWorkloadCal } from '@/components/dashboard/DashboardWorkloadCal';
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
+import { HotProjSection } from '@/components/dashboard/HotProjSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
@@ -449,11 +450,6 @@ const Index = () => {
           <QuickTasksSection />
         </div>
 
-        {/* Hostlist Section */}
-        <div className="mb-8">
-          <HostlistSection />
-        </div>
-
         {/* Active Time Tracking Section */}
         <div className="mb-8">
           <ActiveTimeTracking
@@ -461,6 +457,16 @@ const Index = () => {
             isError={!!runningTasksQuery.error}
             onRunningTaskClick={() => { /* stay on dashboard after timer actions */ }}
           />
+        </div>
+
+        {/* Hostlist Section */}
+        <div className="mb-8">
+          <HostlistSection />
+        </div>
+
+        {/* HotProj Section */}
+        <div className="mb-8">
+          <HotProjSection />
         </div>
 
         {/* Today's Reminders Section */}

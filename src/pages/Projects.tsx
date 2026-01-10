@@ -12,7 +12,19 @@ import { Grid, List } from 'lucide-react';
 const Projects = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-  const [selectedStatus, setSelectedStatus] = useState<string[]>(['Imp', 'Targeted', 'On-Head']);
+  // Show ALL project statuses by default (user can narrow down via filters).
+  const allStatusOptions = [
+    'Planning',
+    'Active',
+    'On Hold',
+    'Completed',
+    'Cancelled',
+    'Imp',
+    'On-Head',
+    'Targeted',
+    'OverDue',
+  ];
+  const [selectedStatus, setSelectedStatus] = useState<string[]>(allStatusOptions);
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,7 +115,7 @@ const Projects = () => {
   };
 
   const handleClearFilters = () => {
-    setSelectedStatus(['Imp', 'Targeted', 'On-Head']);
+    setSelectedStatus(allStatusOptions);
     setSelectedYear('all');
     setSelectedMonth('all');
     setSearchTerm('');
