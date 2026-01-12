@@ -1682,129 +1682,117 @@ const WorkloadCal = () => {
                             <div className="space-y-2">
                               {item.type === 'task' ? (
                                 <>
-                                  <div className="text-xs text-gray-600">
-                                    👤 Assigned to: {item.task?.assignee_name}
-                                  </div>
-                                  {item.task?.assigner?.name && (
-                                    <div className="text-xs text-gray-500">
-                                      📋 Assigned by: {item.task.assigner.name}
-                                    </div>
-                                  )}
                                   <div className="font-medium text-sm">{item.task?.name}</div>
-                                  <div className="text-xs text-gray-600">
-                                    {item.task?.client_name} || {item.task?.project_name}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="text-xs text-gray-600">
+                                      {item.task?.client_name} || {item.task?.project_name}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <TaskTimer
+                                        taskId={item.task.id}
+                                        taskName={item.task.name}
+                                        onTimeUpdate={handleTimeUpdate}
+                                      />
+                                      {(() => {
+                                        const runningEntry = getRunningTimerEntry(item.task.id, false);
+                                        return runningEntry ? (
+                                          <>
+                                            <CompactTimerControls
+                                              taskId={item.task.id}
+                                              taskName={item.task.name}
+                                              entryId={runningEntry.id}
+                                              timerMetadata={runningEntry.timer_metadata}
+                                              onTimerUpdate={handleTimeUpdate}
+                                            />
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleViewTask(item.task.id);
+                                              }}
+                                              className="h-6 w-6 p-0"
+                                            >
+                                              <Eye className="h-3 w-3" />
+                                            </Button>
+                                          </>
+                                        ) : (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => handleViewTask(item.task.id)}
+                                            className="h-6 w-6 p-0"
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                          </Button>
+                                        );
+                                      })()}
+                                    </div>
                                   </div>
                                   {item.task?.sprint_name && (
                                     <Badge variant="outline" className="text-xs">
                                       🏃 {item.task.sprint_name}
                                     </Badge>
                                   )}
-                                  <div className="pt-2 border-t border-gray-100 space-y-2">
-                                    <TaskTimer
-                                      taskId={item.task.id}
-                                      taskName={item.task.name}
-                                      onTimeUpdate={handleTimeUpdate}
-                                    />
-                                    {(() => {
-                                      const runningEntry = getRunningTimerEntry(item.task.id, false);
-                                      return runningEntry ? (
-                                        <div className="flex items-center gap-2">
-                                          <CompactTimerControls
-                                            taskId={item.task.id}
-                                            taskName={item.task.name}
-                                            entryId={runningEntry.id}
-                                            timerMetadata={runningEntry.timer_metadata}
-                                            onTimerUpdate={handleTimeUpdate}
-                                          />
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              handleViewTask(item.task.id);
-                                            }}
-                                            className="h-6 px-2 text-xs"
-                                          >
-                                            <Eye className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleViewTask(item.task.id)}
-                                          className="h-6 px-2 text-xs"
-                                        >
-                                          <Eye className="h-3 w-3" />
-                                        </Button>
-                                      );
-                                    })()}
-                                  </div>
                                 </>
                               ) : item.type === 'subtask' ? (
                                 <>
                                   <div className="text-xs text-gray-600">
                                     📋 Subtask
                                   </div>
-                                  <div className="text-xs text-gray-600">
-                                    👤 Assigned to: {item.subtask?.assignee_name}
-                                  </div>
-                                  {item.subtask?.assigner?.name && (
-                                    <div className="text-xs text-gray-500">
-                                      📋 Assigned by: {item.subtask.assigner.name}
-                                    </div>
-                                  )}
                                   <div className="font-medium text-sm">{item.subtask?.name}</div>
                                   <div className="text-xs text-gray-500">
                                     Task: {item.subtask?.parent_task_name}
                                   </div>
-                                  <div className="text-xs text-gray-600">
-                                    {item.subtask?.client_name} || {item.subtask?.project_name}
-                                  </div>
-                                  <div className="pt-2 border-t border-gray-100 space-y-2">
-                                    <TaskTimer
-                                      taskId={item.subtask.id}
-                                      taskName={item.subtask.name}
-                                      onTimeUpdate={handleTimeUpdate}
-                                      isSubtask={true}
-                                    />
-                                    {(() => {
-                                      const runningEntry = getRunningTimerEntry(item.subtask.id, true);
-                                      return runningEntry ? (
-                                        <div className="flex items-center gap-2">
-                                          <CompactTimerControls
-                                            taskId={item.subtask.id}
-                                            taskName={item.subtask.name}
-                                            entryId={runningEntry.id}
-                                            timerMetadata={runningEntry.timer_metadata}
-                                            onTimerUpdate={handleTimeUpdate}
-                                            isSubtask={true}
-                                          />
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="text-xs text-gray-600">
+                                      {item.subtask?.client_name} || {item.subtask?.project_name}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <TaskTimer
+                                        taskId={item.subtask.id}
+                                        taskName={item.subtask.name}
+                                        onTimeUpdate={handleTimeUpdate}
+                                        isSubtask={true}
+                                      />
+                                      {(() => {
+                                        const runningEntry = getRunningTimerEntry(item.subtask.id, true);
+                                        return runningEntry ? (
+                                          <>
+                                            <CompactTimerControls
+                                              taskId={item.subtask.id}
+                                              taskName={item.subtask.name}
+                                              entryId={runningEntry.id}
+                                              timerMetadata={runningEntry.timer_metadata}
+                                              onTimerUpdate={handleTimeUpdate}
+                                              isSubtask={true}
+                                            />
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleViewTask(item.subtask.id);
+                                              }}
+                                              className="h-6 w-6 p-0"
+                                            >
+                                              <Eye className="h-3 w-3" />
+                                            </Button>
+                                          </>
+                                        ) : (
                                           <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              handleViewTask(item.subtask.id);
-                                            }}
-                                            className="h-6 px-2 text-xs"
+                                            onClick={() => handleViewTask(item.subtask.id)}
+                                            className="h-6 w-6 p-0"
                                           >
                                             <Eye className="h-3 w-3" />
                                           </Button>
-                                        </div>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleViewTask(item.subtask.id)}
-                                          className="h-6 px-2 text-xs"
-                                        >
-                                          <Eye className="h-3 w-3" />
-                                        </Button>
-                                      );
-                                    })()}
+                                        );
+                                      })()}
+                                    </div>
                                   </div>
                                 </>
                               ) : item.type === 'routine' ? (
