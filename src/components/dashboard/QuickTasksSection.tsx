@@ -1111,25 +1111,30 @@ export const QuickTasksSection = () => {
                               </button>
                               <p className="text-sm font-medium break-words">{subtask.name}</p>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
-                              <span 
-                                className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
-                                  subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                  subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                  subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
-                                  'bg-gray-100 text-gray-800'
-                                }`}
-                                onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
-                              >
-                                {subtask.status}
-                              </span>
-                              {subtask.logged_hours > 0 && (
-                                <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
-                                  {subtask.logged_hours}h
+                            <div className="flex flex-col gap-1 text-xs text-muted-foreground mt-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span 
+                                  className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                                    subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                    subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                    subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}
+                                  onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
+                                >
+                                  {subtask.status}
                                 </span>
-                              )}
-                              {/* Inline action icons */}
-                              <div className="flex items-center gap-0.5 ml-1">
+                                {subtask.logged_hours > 0 && (
+                                  <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">
+                                    {subtask.logged_hours}h
+                                  </span>
+                                )}
+                                {subtask.deadline && (
+                                  <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
+                                )}
+                              </div>
+                              {/* Inline action icons - on separate row for mobile */}
+                              <div className="flex items-center gap-0.5 flex-wrap">
                                 <TimeTrackerWithComment 
                                   task={{ id: subtask.id, name: subtask.name }}
                                   onSuccess={() => refetch()}
@@ -1214,9 +1219,6 @@ export const QuickTasksSection = () => {
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
-                              {subtask.deadline && (
-                                <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
-                              )}
                             </div>
                           </>
                         </div>
