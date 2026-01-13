@@ -49,6 +49,9 @@ export const HostlistSection = () => {
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  // Lifted editing state to parent to prevent losing focus on query invalidation
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [editingSubtaskName, setEditingSubtaskName] = useState("");
   
 
   // Render task name with clickable hyperlinks (same behavior as QuickTasksSection)
@@ -631,8 +634,6 @@ export const HostlistSection = () => {
     const [newSubtaskName, setNewSubtaskName] = useState("");
     const [showTimeControls, setShowTimeControls] = useState(false);
     const [showTimeHistory, setShowTimeHistory] = useState(false);
-    const [editingSubtask, setEditingSubtask] = useState<string | null>(null);
-    const [editSubtaskName, setEditSubtaskName] = useState("");
 
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 } as any;
 
@@ -645,21 +646,21 @@ export const HostlistSection = () => {
     };
 
     const handleEditSubtask = (subtaskId: string, currentName: string) => {
-      setEditingSubtask(subtaskId);
-      setEditSubtaskName(currentName);
+      setEditingSubtaskId(subtaskId);
+      setEditingSubtaskName(currentName);
     };
 
     const handleSaveSubtask = (subtaskId: string) => {
-      if (editSubtaskName.trim()) {
-        updateSubtaskMutation.mutate({ subtaskId, name: editSubtaskName.trim() });
-        setEditingSubtask(null);
-        setEditSubtaskName("");
+      if (editingSubtaskName.trim()) {
+        updateSubtaskMutation.mutate({ subtaskId, name: editingSubtaskName.trim() });
+        setEditingSubtaskId(null);
+        setEditingSubtaskName("");
       }
     };
 
     const handleCancelEdit = () => {
-      setEditingSubtask(null);
-      setEditSubtaskName("");
+      setEditingSubtaskId(null);
+      setEditingSubtaskName("");
     };
 
     const handleDeleteSubtask = (subtaskId: string) => {
@@ -906,10 +907,10 @@ export const HostlistSection = () => {
                       <Card key={subtask.id} className="p-4 bg-muted/30">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            {editingSubtask === subtask.id ? (
+                            {editingSubtaskId === subtask.id ? (
                               <div className="flex gap-2">
-                                <Input value={editSubtaskName} onChange={(e) => setEditSubtaskName(e.target.value)} className="flex-1 text-sm h-8" autoFocus />
-                                <Button size="sm" onClick={() => handleSaveSubtask(subtask.id)} disabled={!editSubtaskName.trim()}>Save</Button>
+                                <Input value={editingSubtaskName} onChange={(e) => setEditingSubtaskName(e.target.value)} className="flex-1 text-sm h-8" autoFocus />
+                                <Button size="sm" onClick={() => handleSaveSubtask(subtask.id)} disabled={!editingSubtaskName.trim()}>Save</Button>
                                 <Button size="sm" variant="outline" onClick={handleCancelEdit}>Cancel</Button>
                               </div>
                             ) : (
@@ -935,23 +936,28 @@ export const HostlistSection = () => {
                                   </button>
                                   <p className="text-sm font-medium break-words">{subtask.name}</p>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1 flex-wrap">
-                                  <span 
-                                    className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
-                                      subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                      subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                                      subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}
-                                    onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
-                                  >
-                                    {subtask.status}
-                                  </span>
-                                  {subtask.logged_hours > 0 && (
-                                    <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">{subtask.logged_hours}h</span>
-                                  )}
-                                  {/* Inline action icons */}
-                                  <div className="flex items-center gap-0.5 ml-1">
+                                <div className="flex flex-col gap-1 text-xs text-muted-foreground mt-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span 
+                                      className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
+                                        subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                        subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                        subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}
+                                      onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
+                                    >
+                                      {subtask.status}
+                                    </span>
+                                    {subtask.logged_hours > 0 && (
+                                      <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs">{subtask.logged_hours}h</span>
+                                    )}
+                                    {subtask.deadline && (
+                                      <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
+                                    )}
+                                  </div>
+                                  {/* Inline action icons - on separate row for mobile */}
+                                  <div className="flex items-center gap-0.5 flex-wrap">
                                     <TimeTrackerWithComment task={{ id: subtask.id, name: subtask.name }} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} iconOnly={true} />
                                     <ManualTimeLog taskId={subtask.id} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hostlist-tasks"] })} isSubtask={true} iconOnly={true} />
                                     <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); const item = { id: subtask.id, originalId: task.id, type: 'subtask', itemType: 'subtask', title: subtask.name, date: new Date().toISOString().slice(0, 10), }; setSelectedItemsForWorkload([item]); setIsAssignDialogOpen(true); }} className="h-6 w-6" title="Add to Workload">
@@ -975,9 +981,6 @@ export const HostlistSection = () => {
                                       <Trash2 className="h-3 w-3" />
                                     </Button>
                                   </div>
-                                  {subtask.deadline && (
-                                    <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
-                                  )}
                                 </div>
                               </>
                             )}
