@@ -14,6 +14,7 @@ import { DashboardWorkloadCal } from '@/components/dashboard/DashboardWorkloadCa
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
 import { HotProjSection } from '@/components/dashboard/HotProjSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
+import QuickAddSection from '@/components/dashboard/QuickAddSection';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Button } from '@/components/ui/button';
@@ -433,6 +434,11 @@ const Index = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Quick Add Section */}
+        <div className="mb-8">
+          <QuickAddSection />
         </div>
 
         {/* Dashboard Workload Calendar - Next 6 Hours */}

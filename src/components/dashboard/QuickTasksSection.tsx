@@ -1109,9 +1109,9 @@ export const QuickTasksSection = () => {
                                   <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
                                 )}
                               </button>
-                              <p className="text-sm font-medium break-words">{subtask.name}</p>
+                              <p className="text-sm font-medium break-words min-w-0 flex-1">{subtask.name}</p>
                             </div>
-                            <div className="flex flex-col gap-1 text-xs text-muted-foreground mt-1">
+                            <div className="flex flex-col gap-1 text-xs text-muted-foreground mt-1 pl-6">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span 
                                   className={`px-2 py-0.5 rounded-full text-xs cursor-pointer hover:opacity-80 ${
