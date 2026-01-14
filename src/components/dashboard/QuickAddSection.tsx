@@ -294,6 +294,13 @@ const QuickAddSection: React.FC = () => {
                     <SelectContent>
                       <SelectItem value="Not Started">Not Started</SelectItem>
                       <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                      <SelectItem value="Won">Won</SelectItem>
+                      <SelectItem value="Lost">Lost</SelectItem>
+                      <SelectItem value="On Hold">On Hold</SelectItem>
+                      <SelectItem value="On-Head">On-Head</SelectItem>
+                      <SelectItem value="Targeted">Targeted</SelectItem>
+                      <SelectItem value="Imp">Imp</SelectItem>
                       <SelectItem value="Assigned">Assigned</SelectItem>
                     </SelectContent>
                   </Select>
