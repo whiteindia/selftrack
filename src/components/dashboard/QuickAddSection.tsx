@@ -37,11 +37,19 @@ const QuickAddSection: React.FC = () => {
     }
   });
 
+  // Get selected service IDs for client filtering
+  const selectedServiceIds = useMemo(() => {
+    return services
+      .filter(s => selectedServices.includes(s.name))
+      .map(s => s.id);
+  }, [services, selectedServices]);
+
   // Fetch clients based on selected services
+  // clients.services contains service IDs (UUIDs)
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients-by-services', selectedServices],
+    queryKey: ['clients-by-services', selectedServiceIds],
     queryFn: async () => {
-      if (selectedServices.length === 0) return [];
+      if (selectedServiceIds.length === 0) return [];
       
       const { data, error } = await supabase
         .from('clients')
@@ -50,15 +58,16 @@ const QuickAddSection: React.FC = () => {
       
       if (error) throw error;
       
-      // Filter clients that have any of the selected services
+      // Filter clients that have any of the selected service IDs
       return (data || []).filter(client => 
-        client.services?.some((s: string) => selectedServices.includes(s))
+        client.services?.some((serviceId: string) => selectedServiceIds.includes(serviceId))
       );
     },
-    enabled: selectedServices.length > 0
+    enabled: selectedServiceIds.length > 0
   });
 
   // Fetch projects based on selected clients and services
+  // projects.service contains service NAME, not ID
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-by-clients', selectedClients, selectedServices],
     queryFn: async () => {
@@ -70,7 +79,7 @@ const QuickAddSection: React.FC = () => {
         .in('client_id', selectedClients)
         .order('name');
       
-      // Also filter by selected services
+      // Also filter by selected service names (projects.service stores service name)
       if (selectedServices.length > 0) {
         query = query.in('service', selectedServices);
       }
