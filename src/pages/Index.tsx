@@ -79,7 +79,7 @@ const Index = () => {
 
   const { activityFeedQuery } = useActivityFeed();
 
-  // Search tasks functionality
+  // Search tasks and subtasks functionality
   const searchTasks = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -88,7 +88,8 @@ const Index = () => {
 
     setIsSearching(true);
     try {
-      const { data: tasksData, error } = await supabase
+      // Search tasks
+      const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
           *,
@@ -98,7 +99,20 @@ const Index = () => {
         .ilike('name', `%${query}%`)
         .limit(5);
 
-      if (error) throw error;
+      if (tasksError) throw tasksError;
+
+      // Search subtasks
+      const { data: subtasksData, error: subtasksError } = await supabase
+        .from('subtasks')
+        .select(`
+          *,
+          assignee:employees!assignee_id (name),
+          assigner:employees!assigner_id (name)
+        `)
+        .ilike('name', `%${query}%`)
+        .limit(5);
+
+      if (subtasksError) throw subtasksError;
 
       // Get project info for each task
       const tasksWithProjects = await Promise.all(
@@ -112,6 +126,7 @@ const Index = () => {
           
           return {
             ...task,
+            item_type: 'task',
             project_name: projectInfo?.name || null,
             project_service: projectInfo?.service || null,
             client_name: projectInfo?.client_name || null,
@@ -119,7 +134,40 @@ const Index = () => {
         })
       );
 
-      setSearchResults(tasksWithProjects);
+      // Get parent task and project info for each subtask
+      const subtasksWithProjects = await Promise.all(
+        (subtasksData || []).map(async (subtask) => {
+          // Get parent task info
+          const { data: parentTask } = await supabase
+            .from('tasks')
+            .select('id, name, project_id')
+            .eq('id', subtask.task_id)
+            .single();
+
+          let projectInfo = null;
+          if (parentTask?.project_id) {
+            const { data: projectData } = await supabase
+              .rpc('get_project_info_for_task', { 
+                project_uuid: parentTask.project_id 
+              });
+            projectInfo = projectData?.[0];
+          }
+          
+          return {
+            ...subtask,
+            item_type: 'subtask',
+            parent_task_name: parentTask?.name || null,
+            project_id: parentTask?.project_id || null,
+            project_name: projectInfo?.name || null,
+            project_service: projectInfo?.service || null,
+            client_name: projectInfo?.client_name || null,
+          };
+        })
+      );
+
+      // Combine and sort results (tasks first, then subtasks)
+      const combinedResults = [...tasksWithProjects, ...subtasksWithProjects].slice(0, 10);
+      setSearchResults(combinedResults);
     } catch (error) {
       console.error('Error searching tasks:', error);
       toast.error('Failed to search tasks');
@@ -393,36 +441,53 @@ const Index = () => {
                       <div className="p-2 text-sm text-gray-500">Searching...</div>
                     ) : searchResults.length > 0 ? (
                       <div className="space-y-1">
-                        {searchResults.map((task: any) => (
+                        {searchResults.map((item: any) => (
                           <div
-                            key={task.id}
-                            className="flex items-center justify-between p-2 hover:bg-gray-50 rounded text-sm"
+                            key={`${item.item_type}-${item.id}`}
+                            className="flex items-center justify-between p-2 hover:bg-muted/50 rounded text-sm"
                           >
-                            <div className="flex-1">
-                              <div className="font-medium">{task.name}</div>
-                              <div className="text-gray-500 text-xs">
-                                {task.project_name} • {task.status}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded ${
+                                  item.item_type === 'task' 
+                                    ? 'bg-primary/10 text-primary' 
+                                    : 'bg-orange-100 text-orange-700'
+                                }`}>
+                                  {item.item_type === 'task' ? 'Task' : 'Subtask'}
+                                </span>
+                                <span className="font-medium truncate">{item.name}</span>
+                              </div>
+                              <div className="text-muted-foreground text-xs mt-0.5">
+                                {item.item_type === 'subtask' && item.parent_task_name && (
+                                  <span className="text-foreground/70">↳ {item.parent_task_name} • </span>
+                                )}
+                                {item.project_name} • {item.status}
                               </div>
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => startTaskMutation.mutate({ taskId: task.id, taskName: task.name })}
-                              disabled={task.status === 'Completed' || task.status === 'In Progress'}
+                              onClick={() => startTaskMutation.mutate({ 
+                                taskId: item.item_type === 'task' ? item.id : item.task_id, 
+                                taskName: item.name 
+                              })}
+                              disabled={item.status === 'Completed' || item.status === 'In Progress'}
                               className="ml-2"
                             >
                               <Play className="h-3 w-3 mr-1" />
                               Start
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleAddToWorkload(task)}
-                              title="Add to Workload"
-                              className="ml-1"
-                            >
-                              <CalendarPlus className="h-4 w-4 text-blue-600" />
-                            </Button>
+                            {item.item_type === 'task' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleAddToWorkload(item)}
+                                title="Add to Workload"
+                                className="ml-1"
+                              >
+                                <CalendarPlus className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            )}
                           </div>
                         ))}
                       </div>
