@@ -5,14 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Filter, Check, ChevronDown, ChevronRight, Zap } from 'lucide-react';
+import { Plus, Filter, Check, ChevronDown, ChevronRight, Zap, ListTodo } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 const QuickAddSection: React.FC = () => {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
+  const [isTaskListOpen, setIsTaskListOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
   
   // Selected filters
@@ -91,6 +94,25 @@ const QuickAddSection: React.FC = () => {
     enabled: selectedClients.length > 0
   });
 
+  // Fetch tasks for selected project
+  const { data: projectTasks = [] } = useQuery({
+    queryKey: ['project-tasks-quick-add', selectedProject],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, name, status, date, hours, deadline')
+        .eq('project_id', selectedProject)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedProject
+  });
+
   // Create task mutation
   const createTaskMutation = useMutation({
     mutationFn: async () => {
@@ -119,6 +141,7 @@ const QuickAddSection: React.FC = () => {
       setTaskName('');
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
     },
     onError: (error) => {
       console.error('Error creating task:', error);
@@ -318,6 +341,50 @@ const QuickAddSection: React.FC = () => {
               <div className="text-center py-4 text-muted-foreground text-sm">
                 Select a project above to add tasks quickly
               </div>
+            )}
+
+            {/* Collapsible Task List for Selected Project */}
+            {selectedProject && projectTasks.length > 0 && (
+              <Collapsible open={isTaskListOpen} onOpenChange={setIsTaskListOpen} className="mt-4">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between px-2 py-2 h-auto">
+                    <div className="flex items-center gap-2">
+                      <ListTodo className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        Project Tasks ({projectTasks.length})
+                      </span>
+                    </div>
+                    {isTaskListOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
+                    {projectTasks.map((task) => (
+                      <div key={task.id} className="p-2 flex items-center justify-between gap-2 hover:bg-muted/50">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{task.name}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {task.deadline && (
+                              <span>Due: {format(new Date(task.deadline), 'MMM d')}</span>
+                            )}
+                            {task.hours > 0 && <span>• {task.hours}h</span>}
+                          </div>
+                        </div>
+                        <Badge 
+                          variant={
+                            task.status === 'Completed' || task.status === 'Won' ? 'default' :
+                            task.status === 'In Progress' ? 'secondary' :
+                            task.status === 'Lost' ? 'destructive' : 'outline'
+                          }
+                          className="text-xs shrink-0"
+                        >
+                          {task.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </CardContent>
         </CollapsibleContent>
