@@ -6,7 +6,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Bell, MessageCircle, Settings, Clock, Globe, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
@@ -196,18 +195,6 @@ const TelegramNotificationSettings = () => {
     }
   });
 
-  const timezoneOptions = [
-    { value: 'Asia/Kolkata', label: 'India (IST)' },
-    { value: 'America/New_York', label: 'Eastern Time (ET)' },
-    { value: 'America/Chicago', label: 'Central Time (CT)' },
-    { value: 'America/Denver', label: 'Mountain Time (MT)' },
-    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-    { value: 'Europe/London', label: 'London (GMT)' },
-    { value: 'Europe/Paris', label: 'Paris (CET)' },
-    { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-    { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
-  ];
-
   if (telegramLoading || settingsLoading) {
     return (
       <Card className="mb-6">
@@ -371,58 +358,6 @@ const TelegramNotificationSettings = () => {
                 </div>
               </div>
 
-              {/* Quiet Hours */}
-              <div className="border-t pt-4">
-                <h3 className="text-lg font-medium mb-4">Quiet Hours</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quiet-start">Start Time</Label>
-                    <Input
-                      id="quiet-start"
-                      type="time"
-                      value={telegramSettings?.quiet_hours_start || '22:00'}
-                      onChange={(e) => handleSettingChange('quiet_hours_start', e.target.value + ':00')}
-                      disabled={updateSettingsMutation.isPending}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="quiet-end">End Time</Label>
-                    <Input
-                      id="quiet-end"
-                      type="time"
-                      value={telegramSettings?.quiet_hours_end || '08:00'}
-                      onChange={(e) => handleSettingChange('quiet_hours_end', e.target.value + ':00')}
-                      disabled={updateSettingsMutation.isPending}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <Select
-                      value={telegramSettings?.timezone || 'Asia/Kolkata'}
-                      onValueChange={(value) => handleSettingChange('timezone', value)}
-                      disabled={updateSettingsMutation.isPending}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timezoneOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-gray-600 mt-2">
-                  Notifications will be paused during quiet hours to avoid disturbing you.
-                </p>
-              </div>
             </div>
           )}
         </CardContent>
