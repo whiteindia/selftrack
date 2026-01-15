@@ -513,6 +513,11 @@ export const CurrentShiftSection = () => {
     };
   });
 
+  const visibleShifts = useMemo(
+    () => itemsByShift.filter(shift => shift.items.length > 0),
+    [itemsByShift]
+  );
+
   const handleStartTask = async (taskId: string, isSubtask: boolean = false) => {
     const { data: employee } = await supabase
       .from("employees")
@@ -1059,7 +1064,12 @@ export const CurrentShiftSection = () => {
                 </Button>
               </div>
             )}
-            {itemsByShift.map(shift => (
+            {visibleShifts.length === 0 ? (
+              <div className="text-xs text-muted-foreground pl-2">
+                No scheduled items
+              </div>
+            ) : (
+              visibleShifts.map(shift => (
               <div 
                 key={shift.id} 
                 className={cn(
@@ -1730,7 +1740,8 @@ export const CurrentShiftSection = () => {
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
           </CardContent>
         </CollapsibleContent>

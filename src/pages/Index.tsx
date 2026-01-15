@@ -321,7 +321,7 @@ const Index = () => {
         {/* Quick Actions Section */}
         <div className="mb-8 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
               <Button 
                 variant="outline"
                 size="icon"
@@ -341,69 +341,43 @@ const Index = () => {
               <Button 
                 variant="outline"
                 size="icon"
-                onClick={() => navigate('/sprints')}
-                title="Sprints"
-              >
-                <Target className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline"
-                size="icon"
                 onClick={() => navigate('/reminders')}
                 title="Reminders & Deadlines"
               >
                 <Bell className="h-4 w-4" />
               </Button>
-              <div className="flex items-center gap-1 flex-wrap">
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/workload-cal')}
-                  title="Workload Calendar"
-                >
-                  <Calendar className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/routines-tracker')}
-                  title="Routines Tracker"
-                >
-                  <RotateCw className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/followupcal')}
-                  title="Followup Calendar"
-                >
-                  <CalendarCheck className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/fixed-slots')}
-                  title="Fixed Slots"
-                >
-                  <AlarmClock className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/log-cal')}
-                  title="Log Calendar"
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate('/team-slots')}
-                  title="Team Slots"
-                >
-                  <Users className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/routines-tracker')}
+                title="Routines Tracker"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/followupcal')}
+                title="Followup Calendar"
+              >
+                <CalendarCheck className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/fixed-slots')}
+                title="Fixed Slots"
+              >
+                <AlarmClock className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline"
+                size="icon"
+                onClick={() => navigate('/log-cal')}
+                title="Log Calendar"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
             </div>
             
             <div className="relative w-full sm:w-96">
