@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,6 +34,7 @@ const QuickAddSection: React.FC = () => {
   // Task form fields
   const [taskName, setTaskName] = useState('');
   const [taskStatus, setTaskStatus] = useState('Not Started');
+  const [newSubtaskNames, setNewSubtaskNames] = useState<Record<string, string>>({});
 
   // Fetch all services
   const { data: services = [] } = useQuery({
@@ -384,6 +386,56 @@ const QuickAddSection: React.FC = () => {
     }
   });
 
+  // Create subtask mutation
+  const createSubtaskMutation = useMutation({
+    mutationFn: async ({ taskId, names }: { taskId: string; names: string[] }) => {
+      const { data: employee, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('email', user?.email)
+        .single();
+
+      if (empError || !employee) {
+        throw new Error('Employee record not found');
+      }
+
+      const rows = names.map(name => ({
+        name,
+        task_id: taskId,
+        status: 'Not Started',
+        assigner_id: employee.id
+      }));
+
+      const { error } = await supabase
+        .from('subtasks')
+        .insert(rows);
+
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      toast.success('Subtask created successfully');
+      setNewSubtaskNames(prev => ({ ...prev, [variables.taskId]: '' }));
+      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+    },
+    onError: (error) => {
+      console.error('Error creating subtask:', error);
+      toast.error('Failed to create subtask');
+    }
+  });
+
+  const handleAddSubtask = (taskId: string) => (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = newSubtaskNames[taskId] || '';
+    const names = raw
+      .split(/\r?\n/)
+      .flatMap(line => line.split(','))
+      .map(name => name.trim())
+      .filter(Boolean);
+
+    if (names.length === 0) return;
+    createSubtaskMutation.mutate({ taskId, names });
+  };
+
   const toggleService = (serviceName: string) => {
     setSelectedServices(prev => {
       const newServices = prev.includes(serviceName)
@@ -701,6 +753,28 @@ const QuickAddSection: React.FC = () => {
                               <p className="text-xs font-medium text-muted-foreground mb-2">
                                 Subtasks ({task.subtasks?.length || 0})
                               </p>
+                              <form onSubmit={handleAddSubtask(task.id)} className="flex items-center gap-2 mb-2">
+                                <Textarea
+                                  placeholder="Add subtasks (one per line or comma-separated)"
+                                  value={newSubtaskNames[task.id] || ''}
+                                  onChange={(e) => setNewSubtaskNames(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                  onKeyDown={(e) => {
+                                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleAddSubtask(task.id)(e as unknown as React.FormEvent);
+                                    }
+                                  }}
+                                  className="min-h-[48px] resize-none"
+                                />
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  disabled={createSubtaskMutation.isPending || !(newSubtaskNames[task.id] || '').trim()}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add
+                                </Button>
+                              </form>
                               {task.subtasks && task.subtasks.length > 0 ? (
                                 <div className="space-y-2">
                                   {task.subtasks.map((subtask: any) => (
