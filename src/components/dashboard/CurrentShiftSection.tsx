@@ -461,8 +461,19 @@ export const CurrentShiftSection = () => {
     return workloadItems.filter(item => getProjectName(item) === selectedProject);
   }, [workloadItems, selectedProject]);
 
+  const isQuickShiftItem = (item: WorkloadItem) => {
+    const projectId =
+      item.type === 'subtask' ? item.subtask?.task?.project_id : item.task?.project_id;
+
+    if (miscProject?.id && projectId === miscProject.id) return true;
+    if (item.type === 'subtask' && item.subtask?.parent_task_name?.startsWith('Quick Tasks')) return true;
+    if ((item.type === 'task' || item.type === 'slot-task') && item.task?.name?.startsWith('Quick Tasks')) return true;
+    return false;
+  };
+
   const itemsByShift = shifts.map(currentShift => {
     const shiftItems = filteredWorkloadItems.filter(item => {
+      if (isToday && !isQuickShiftItem(item)) return false;
       const itemDateTime = parseScheduledTime(item.scheduled_time, item.scheduled_date);
       if (!itemDateTime) return false;
 

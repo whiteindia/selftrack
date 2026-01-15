@@ -830,7 +830,7 @@ const QuickAddSection: React.FC = () => {
                                           <Button
                                             size="icon"
                                             variant="ghost"
-                                            onClick={() => navigate(`/alltasks?highlight=${subtask.id}&subtask=true`)}
+                                            onClick={() => navigate(`/alltasks?highlight=${task.id}`)}
                                             title="View in All Tasks"
                                             className="h-6 w-6"
                                           >

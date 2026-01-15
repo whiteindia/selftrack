@@ -20,7 +20,7 @@ import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users, CalendarPlus } from 'lucide-react';
+import { Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users, CalendarPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -354,21 +354,6 @@ const Index = () => {
                 title="Reminders & Deadlines"
               >
                 <Bell className="h-4 w-4" />
-              </Button>
-              <Button 
-                onClick={() => setIsCreateTaskDialogOpen(true)}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Task
-              </Button>
-              <Button 
-                variant="outline"
-                className="flex items-center gap-2"
-                onClick={() => setIsQuickTaskDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Quick
               </Button>
               <div className="flex items-center gap-1 flex-wrap">
                 <Button 
