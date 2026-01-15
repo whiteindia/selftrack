@@ -74,33 +74,20 @@ const Tasks = () => {
   const { user, userRole } = useAuth();
   const { hasPageAccess, hasOperationAccess, loading: privilegesLoading } = usePrivileges();
   const queryClient = useQueryClient();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress','On-Head','Targeted','Imp']);
   const [assigneeFilter, setAssigneeFilter] = useState('all');
-  const [projectFilter, setProjectFilter] = useState('all');
-  const [globalServiceFilter, setGlobalServiceFilter] = useState('all');
-  const [globalClientFilter, setGlobalClientFilter] = useState('all');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedProject, setSelectedProject] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'kanban'>('cards');
   
   // Subtask states
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string>('');
   const [editingSubtask, setEditingSubtask] = useState<any>(null);
-  
-  const [newTask, setNewTask] = useState({
-    name: '',
-    project_id: '',
-    assignee_id: '',
-    deadline: '',
-    estimated_duration: '',
-    status: 'Not Started',
-    reminder_datetime: '',
-    slot_start_datetime: '',
-    slot_end_datetime: ''
-  });
 
   // Define all available status options
   const statusOptions = [
@@ -259,6 +246,12 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
+  const selectedClientNames = useMemo(() => {
+    return selectedClients
+      .map(clientId => clients.find(c => c.id === clientId)?.name)
+      .filter((name): name is string => !!name);
+  }, [selectedClients, clients]);
+
   // Filter tasks based on filters - updated to handle multi-select status
   const filteredTasks = useMemo(() => {
     let filtered = tasks.filter(task => {
@@ -266,12 +259,10 @@ const Tasks = () => {
                            (task.project_name || '').toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilters.includes('all') || statusFilters.includes(task.status);
       const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
-      const matchesProject = projectFilter === 'all' || task.project_id === projectFilter;
-      const matchesService = globalServiceFilter === 'all' || task.project_service === globalServiceFilter;
+      const matchesProject = !selectedProject || task.project_id === selectedProject;
+      const matchesService = selectedServices.length === 0 || selectedServices.includes(task.project_service || '');
       
-      // Find the client ID for this task through its project
-      const taskProject = projects.find(p => p.id === task.project_id);
-      const matchesClient = globalClientFilter === 'all' || taskProject?.clients?.name === clients.find(c => c.id === globalClientFilter)?.name;
+      const matchesClient = selectedClientNames.length === 0 || selectedClientNames.includes(task.client_name || '');
       
       return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
     });
@@ -304,70 +295,7 @@ const Tasks = () => {
       
       return 0;
     });
-  }, [tasks, searchTerm, statusFilters, assigneeFilter, projectFilter, globalServiceFilter, globalClientFilter, projects, clients, runningTasks]);
-
-  // Create task mutation
-  const createTaskMutation = useMutation({
-    mutationFn: async (taskData: any) => {
-      const { data: employee, error: empError } = await supabase
-        .from('employees')
-        .select('id')
-        .eq('email', user?.email)
-        .single();
-      
-      if (empError || !employee) {
-        throw new Error('Employee record not found');
-      }
-
-      // Convert IST datetime inputs to UTC for storage
-      const processedTaskData = { ...taskData };
-      if (taskData.reminder_datetime) {
-        processedTaskData.reminder_datetime = convertISTToUTC(taskData.reminder_datetime);
-      }
-      if (taskData.slot_start_datetime) {
-        processedTaskData.slot_start_datetime = convertISTToUTC(taskData.slot_start_datetime);
-      }
-      if (taskData.slot_end_datetime) {
-        processedTaskData.slot_end_datetime = convertISTToUTC(taskData.slot_end_datetime);
-      }
-
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert([{
-          ...processedTaskData,
-          assigner_id: employee.id,
-          deadline: taskData.deadline || null,
-          estimated_duration: taskData.estimated_duration ? parseFloat(taskData.estimated_duration) : null,
-          reminder_datetime: processedTaskData.reminder_datetime || null,
-          slot_start_datetime: processedTaskData.slot_start_datetime || null,
-          slot_end_datetime: processedTaskData.slot_end_datetime || null
-        }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      setNewTask({ 
-        name: '', 
-        project_id: '', 
-        assignee_id: '', 
-        deadline: '', 
-        estimated_duration: '', 
-        status: 'Not Started',
-        reminder_datetime: '',
-        slot_start_datetime: '',
-        slot_end_datetime: ''
-      });
-      setIsCreateDialogOpen(false);
-      toast.success('Task created successfully!');
-    },
-    onError: (error) => {
-      toast.error('Failed to create task: ' + error.message);
-    }
-  });
+  }, [tasks, searchTerm, statusFilters, assigneeFilter, selectedProject, selectedServices, selectedClientNames, projects, runningTasks]);
 
   // Update task mutation
   const updateTaskMutation = useMutation({
@@ -423,14 +351,6 @@ const Tasks = () => {
     }
   });
 
-  const handleCreateTask = () => {
-    if (!newTask.name || !newTask.project_id) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    createTaskMutation.mutate(newTask);
-  };
-
   const handleUpdateTask = (updates: any) => {
     if (!editingTask) return;
     updateTaskMutation.mutate({ id: editingTask.id, updates });
@@ -483,9 +403,9 @@ const Tasks = () => {
     setSearchTerm('');
     setStatusFilters(['In Progress','On-Head','Targeted','Imp']);
     setAssigneeFilter('all');
-    setProjectFilter('all');
-    setGlobalServiceFilter('all');
-    setGlobalClientFilter('all');
+    setSelectedServices([]);
+    setSelectedClients([]);
+    setSelectedProject('');
   };
 
   const handleStatusFilterChange = (status: string, checked: boolean) => {
@@ -586,17 +506,15 @@ const Tasks = () => {
     <Navigation>
       <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6">
         <TasksHeader
-          globalServiceFilter={globalServiceFilter}
-          setGlobalServiceFilter={setGlobalServiceFilter}
-          globalClientFilter={globalClientFilter}
-          setGlobalClientFilter={setGlobalClientFilter}
-          projectFilter={projectFilter}
-          setProjectFilter={setProjectFilter}
+          selectedServices={selectedServices}
+          setSelectedServices={setSelectedServices}
+          selectedClients={selectedClients}
+          setSelectedClients={setSelectedClients}
+          selectedProject={selectedProject}
+          setSelectedProject={setSelectedProject}
           services={services}
           clients={clients}
           projects={projects}
-          canCreate={hasOperationAccess('tasks', 'create')}
-          onCreateTask={() => setIsCreateDialogOpen(true)}
         />
 
         {/* View Toggle */}
@@ -737,7 +655,6 @@ const Tasks = () => {
             canUpdate={hasOperationAccess('tasks', 'update')}
             canDelete={hasOperationAccess('tasks', 'delete')}
             onTaskStatusChange={handleTaskStatusChange}
-            onAddTask={() => setIsCreateDialogOpen(true)}
           />
         ) : (
           <div className="grid gap-3">
@@ -761,166 +678,6 @@ const Tasks = () => {
             ))}
           </div>
         )}
-
-        {/* Create Task Dialog */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Task</DialogTitle>
-              <DialogDescription>
-                Add a new task to the system.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="task-name">Task Name</Label>
-                <Input
-                  id="task-name"
-                  placeholder="Enter task name"
-                  value={newTask.name}
-                  onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project">Project</Label>
-                <Select 
-                  value={newTask.project_id} 
-                  onValueChange={(value) => setNewTask({ ...newTask, project_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name} - {project.service}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select 
-                  value={newTask.status} 
-                  onValueChange={(value) => setNewTask({ ...newTask, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="assignee">Assignee</Label>
-                <Select 
-                  value={newTask.assignee_id} 
-                  onValueChange={(value) => setNewTask({ ...newTask, assignee_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id}>
-                        {employee.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="deadline">Deadline</Label>
-                  <Input
-                    id="deadline"
-                    type="date"
-                    value={newTask.deadline}
-                    onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="estimated-duration">Estimated Hours</Label>
-                  <Input
-                    id="estimated-duration"
-                    type="number"
-                    step="0.5"
-                    value={newTask.estimated_duration}
-                    onChange={(e) => setNewTask({ ...newTask, estimated_duration: e.target.value })}
-                    placeholder="0.0"
-                  />
-                </div>
-              </div>
-              
-              {/* New Reminder Field */}
-              <div className="space-y-2">
-                <Label htmlFor="reminder-datetime" className="flex items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  Reminder (Optional) - IST
-                </Label>
-                <Input
-                  id="reminder-datetime"
-                  type="datetime-local"
-                  value={newTask.reminder_datetime}
-                  onChange={(e) => setNewTask({ ...newTask, reminder_datetime: e.target.value })}
-                />
-                <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
-              </div>
-
-              {/* New Slot Fields */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <CalendarClock className="h-4 w-4" />
-                  Slot Duration (Optional) - IST
-                </Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="slot-start">Start Time (IST)</Label>
-                    <Input
-                      id="slot-start"
-                      type="datetime-local"
-                      value={newTask.slot_start_datetime}
-                      onChange={(e) => setNewTask({ ...newTask, slot_start_datetime: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="slot-end">End Time (IST)</Label>
-                    <Input
-                      id="slot-end"
-                      type="datetime-local"
-                      value={newTask.slot_end_datetime}
-                      onChange={(e) => setNewTask({ ...newTask, slot_end_datetime: e.target.value })}
-                    />
-                  </div>
-                </div>
-                {newTask.slot_start_datetime && newTask.slot_end_datetime && (
-                  <div className="text-sm text-green-600 font-medium">
-                    Duration: {calculateSlotDuration(newTask.slot_start_datetime, newTask.slot_end_datetime) || 'Invalid duration'}
-                  </div>
-                )}
-                <p className="text-xs text-gray-500">Times will be stored and displayed in Indian Standard Time</p>
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleCreateTask}
-                  disabled={createTaskMutation.isPending}
-                >
-                  {createTaskMutation.isPending ? 'Creating...' : 'Create Task'}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Edit Task Dialog */}
         {editingTask && (

@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Check, Filter } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -24,94 +24,194 @@ interface Project {
 }
 
 interface TasksHeaderProps {
-  globalServiceFilter: string;
-  setGlobalServiceFilter: (value: string) => void;
-  globalClientFilter: string;
-  setGlobalClientFilter: (value: string) => void;
-  projectFilter: string;
-  setProjectFilter: (value: string) => void;
+  selectedServices: string[];
+  setSelectedServices: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedClients: string[];
+  setSelectedClients: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedProject: string;
+  setSelectedProject: (value: string) => void;
   services: Service[];
   clients: Client[];
   projects: Project[];
-  canCreate: boolean;
-  onCreateTask: () => void;
 }
 
 const TasksHeader: React.FC<TasksHeaderProps> = ({
-  globalServiceFilter,
-  setGlobalServiceFilter,
-  globalClientFilter,
-  setGlobalClientFilter,
-  projectFilter,
-  setProjectFilter,
-  services,
-  clients,
-  projects,
-  canCreate,
-  onCreateTask
+  selectedServices = [],
+  setSelectedServices,
+  selectedClients = [],
+  setSelectedClients,
+  selectedProject = '',
+  setSelectedProject,
+  services = [],
+  clients = [],
+  projects = []
 }) => {
+  const [activeFilterTab, setActiveFilterTab] = useState<'services' | 'clients' | 'projects'>('services');
+
+  const selectedClientNames = useMemo(() => {
+    return selectedClients
+      .map(clientId => clients.find(c => c.id === clientId)?.name)
+      .filter((name): name is string => !!name);
+  }, [selectedClients, clients]);
+
+  const availableClients = useMemo(() => {
+    if (selectedServices.length === 0) return clients;
+    const clientNameSet = new Set(
+      projects
+        .filter(project => selectedServices.includes(project.service))
+        .map(project => project.clients?.name)
+        .filter((name): name is string => !!name)
+    );
+    return clients.filter(client => clientNameSet.has(client.name));
+  }, [clients, projects, selectedServices]);
+
+  const availableProjects = useMemo(() => {
+    let filtered = projects;
+    if (selectedServices.length > 0) {
+      filtered = filtered.filter(project => selectedServices.includes(project.service));
+    }
+    if (selectedClientNames.length > 0) {
+      filtered = filtered.filter(project => selectedClientNames.includes(project.clients?.name || ''));
+    }
+    return filtered;
+  }, [projects, selectedServices, selectedClientNames]);
+
+  const toggleService = (serviceName: string) => {
+    setSelectedServices(prev => {
+      const newServices = prev.includes(serviceName)
+        ? prev.filter(name => name !== serviceName)
+        : [...prev, serviceName];
+
+      setSelectedClients([]);
+      setSelectedProject('');
+      setActiveFilterTab(newServices.length > 0 ? 'clients' : 'services');
+      return newServices;
+    });
+  };
+
+  const toggleClient = (clientId: string) => {
+    setSelectedClients(prev => {
+      const newClients = prev.includes(clientId)
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId];
+
+      setSelectedProject('');
+      setActiveFilterTab(newClients.length > 0 ? 'projects' : 'clients');
+      return newClients;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedServices([]);
+    setSelectedClients([]);
+    setSelectedProject('');
+    setActiveFilterTab('services');
+  };
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+    <div className="space-y-3 mb-6">
+      <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Tasks</h1>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Service:</span>
-            <Select value={globalServiceFilter} onValueChange={setGlobalServiceFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Services" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Services</SelectItem>
-                {services.map((service) => (
-                  <SelectItem key={service.id} value={service.name}>
-                    {service.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Client:</span>
-            <Select value={globalClientFilter} onValueChange={setGlobalClientFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Project:</span>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Projects" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Projects</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
+          <Button variant="outline" size="sm" onClick={handleClearSelection}>
+            Clear selection
+          </Button>
+        )}
       </div>
-      
-      {canCreate && (
-        <Button onClick={onCreateTask} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          Create Task
-        </Button>
-      )}
+
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Select Filters:</span>
+        </div>
+
+        <Tabs value={activeFilterTab} onValueChange={(value) => setActiveFilterTab(value as any)}>
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="services">Services</TabsTrigger>
+            <TabsTrigger value="clients">Clients</TabsTrigger>
+            <TabsTrigger value="projects">Projects</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="services" className="mt-3">
+            {services.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {services.map((service) => (
+                  <Button
+                    key={service.id}
+                    variant={selectedServices.includes(service.name) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleService(service.name)}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    {selectedServices.includes(service.name) && <Check className="h-3 w-3" />}
+                    {service.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">No services found</div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="clients" className="mt-3">
+            {availableClients.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {availableClients.map((client) => (
+                  <Button
+                    key={client.id}
+                    variant={selectedClients.includes(client.id) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleClient(client.id)}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    {selectedClients.includes(client.id) && <Check className="h-3 w-3" />}
+                    {client.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">No clients found</div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="projects" className="mt-3">
+            {availableProjects.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {availableProjects.map((project) => (
+                  <Button
+                    key={project.id}
+                    variant={selectedProject === project.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedProject(project.id)}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    {selectedProject === project.id && <Check className="h-3 w-3" />}
+                    {project.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">No projects found</div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
+          <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+            {selectedServices.length > 0 && <span>Services: {selectedServices.join(', ')}</span>}
+            {selectedClients.length > 0 && (
+              <span className="ml-2">
+                | Clients: {selectedClients.map(id => clients.find(c => c.id === id)?.name).filter(Boolean).join(', ')}
+              </span>
+            )}
+            {selectedProject && (
+              <span className="ml-2">
+                | Project: {projects.find(p => p.id === selectedProject)?.name}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
