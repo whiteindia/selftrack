@@ -5,15 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Filter, Check, ChevronDown, ChevronRight, Zap, ListTodo } from 'lucide-react';
+import { Plus, Filter, Check, ChevronDown, ChevronRight, Zap, ListTodo, Play, CalendarPlus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 const QuickAddSection: React.FC = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isTaskListOpen, setIsTaskListOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
@@ -146,6 +148,86 @@ const QuickAddSection: React.FC = () => {
     onError: (error) => {
       console.error('Error creating task:', error);
       toast.error('Failed to create task');
+    }
+  });
+
+  // Start task mutation
+  const startTaskMutation = useMutation({
+    mutationFn: async ({ taskId, taskName }: { taskId: string; taskName: string }) => {
+      const { data: employee, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('email', user?.email)
+        .single();
+
+      if (empError || !employee) {
+        throw new Error('Employee record not found');
+      }
+
+      const startTime = new Date().toISOString();
+
+      const { data: timeEntry, error: timeError } = await supabase
+        .from('time_entries')
+        .insert({
+          task_id: taskId,
+          employee_id: employee.id,
+          start_time: startTime,
+          entry_type: 'running'
+        })
+        .select()
+        .single();
+
+      if (timeError) throw timeError;
+
+      // Update task status to In Progress
+      await supabase
+        .from('tasks')
+        .update({ status: 'In Progress' })
+        .eq('id', taskId);
+
+      return { timeEntry, taskName };
+    },
+    onSuccess: ({ taskName }) => {
+      toast.success(`Timer started for "${taskName}"`);
+      queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+    },
+    onError: (error) => {
+      console.error('Error starting task:', error);
+      toast.error('Failed to start task');
+    }
+  });
+
+  // Add to workload mutation
+  const addToWorkloadMutation = useMutation({
+    mutationFn: async (task: any) => {
+      const now = new Date();
+      const slotDate = now.toISOString().split('T')[0];
+      const currentHour = now.getHours();
+      const startHour = currentHour.toString().padStart(2, '0') + ':00';
+      const endHour = (currentHour + 1).toString().padStart(2, '0') + ':00';
+
+      const slotStartDatetime = `${slotDate}T${startHour}:00`;
+      const slotEndDatetime = `${slotDate}T${endHour}:00`;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          slot_start_datetime: slotStartDatetime,
+          slot_end_datetime: slotEndDatetime
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+      return task;
+    },
+    onSuccess: (task) => {
+      toast.success(`"${task.name}" added to current workload slot`);
+      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+    },
+    onError: (error) => {
+      console.error('Error adding to workload:', error);
+      toast.error('Failed to add to workload');
     }
   });
 
@@ -367,19 +449,41 @@ const QuickAddSection: React.FC = () => {
                             {task.deadline && (
                               <span>Due: {format(new Date(task.deadline), 'MMM d')}</span>
                             )}
+                            <Badge 
+                              variant={
+                                task.status === 'Completed' || task.status === 'Won' ? 'default' :
+                                task.status === 'In Progress' ? 'secondary' :
+                                task.status === 'Lost' ? 'destructive' : 'outline'
+                              }
+                              className="text-[10px] px-1 py-0"
+                            >
+                              {task.status}
+                            </Badge>
                             {task.hours > 0 && <span>• {task.hours}h</span>}
                           </div>
                         </div>
-                        <Badge 
-                          variant={
-                            task.status === 'Completed' || task.status === 'Won' ? 'default' :
-                            task.status === 'In Progress' ? 'secondary' :
-                            task.status === 'Lost' ? 'destructive' : 'outline'
-                          }
-                          className="text-xs shrink-0"
-                        >
-                          {task.status}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => startTaskMutation.mutate({ taskId: task.id, taskName: task.name })}
+                            disabled={task.status === 'Completed' || task.status === 'In Progress' || startTaskMutation.isPending}
+                            className="h-7 px-2"
+                          >
+                            <Play className="h-3 w-3 mr-1" />
+                            Start
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => addToWorkloadMutation.mutate(task)}
+                            disabled={addToWorkloadMutation.isPending}
+                            title="Add to Workload"
+                            className="h-7 px-2"
+                          >
+                            <CalendarPlus className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
