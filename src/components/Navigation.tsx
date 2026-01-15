@@ -1073,7 +1073,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     }`}
                                     onClick={() => {
                                       markAsRead('task_reminder', task.id);
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${task.id}`);
                                     }}
                                   >
                                     <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1121,7 +1121,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     }`}
                                     onClick={() => {
                                       markAsRead('task_reminder', task.id);
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${task.id}`);
                                     }}
                                   >
                                     <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1169,7 +1169,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     }`}
                                     onClick={() => {
                                       markAsRead('task_slot', slot.id);
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${slot.id}`);
                                     }}
                                   >
                                     <Clock className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1220,7 +1220,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     }`}
                                     onClick={() => {
                                       markAsRead('sprint_deadline', sprint.id);
-                                      navigate('/sprints');
+                                      navigate(`/sprints?highlight=${sprint.id}`);
                                     }}
                                   >
                                     <Calendar className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1271,7 +1271,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     }`}
                                     onClick={() => {
                                       markAsRead('sprint_deadline', sprint.id);
-                                      navigate('/sprints');
+                                      navigate(`/sprints?highlight=${sprint.id}`);
                                     }}
                                   >
                                     <Calendar className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1322,7 +1322,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                     }`}
                                     onClick={() => {
                                       markAsRead('task_slot', slot.id);
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${slot.id}`);
                                     }}
                                   >
                                     <Clock className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1489,7 +1489,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                       // Mark this specific task as read
                                       markAsRead('task_reminder', task.id);
                                       // Navigate to tasks page
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${task.id}`);
                                     }}
                                   >
                                     <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1539,7 +1539,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                       // Mark this specific task as read
                                       markAsRead('task_reminder', task.id);
                                       // Navigate to tasks page
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${task.id}`);
                                     }}
                                   >
                                     <AlertTriangle className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1589,7 +1589,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                       // Mark this specific sprint as read
                                       markAsRead('sprint_deadline', sprint.id);
                                       // Navigate to sprints page
-                                      navigate('/sprints');
+                                      navigate(`/sprints?highlight=${sprint.id}`);
                                     }}
                                   >
                                     <Calendar className={`h-3 w-3 mt-0.5 flex-shrink-0 ${
@@ -1642,7 +1642,7 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                                       // Mark this specific slot as read
                                       markAsRead('task_slot', slot.id);
                                       // Navigate to tasks page
-                                      navigate('/alltasks');
+                                      navigate(`/alltasks?highlight=${slot.id}`);
                                     }}
                                   >
                                     <Clock className={`h-3 w-3 mt-0.5 flex-shrink-0 ${

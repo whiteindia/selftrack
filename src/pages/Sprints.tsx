@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
@@ -10,6 +10,7 @@ import SprintsEmptyState from '@/components/SprintsEmptyState';
 import Navigation from '@/components/Navigation';
 import { usePrivileges } from '@/hooks/usePrivileges';
 import { toast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 import AddTasksToSprintDialog from '@/components/AddTasksToSprintDialog';
 
 interface Sprint {
@@ -90,6 +91,8 @@ const Sprints = () => {
   const [selectedPinFilter, setSelectedPinFilter] = useState<string>('all');
   const [selectedFavoriteFilter, setSelectedFavoriteFilter] = useState<string>('all');
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const highlightSprintId = new URLSearchParams(location.search).get('highlight');
 
   console.log('Sprints component rendered');
 
@@ -594,6 +597,14 @@ const Sprints = () => {
     });
   });
 
+  useEffect(() => {
+    if (!highlightSprintId) return;
+    const el = document.getElementById(`sprint-${highlightSprintId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [highlightSprintId, filteredSprints]);
+
   // Delete sprint mutation
   const deleteSprint = useMutation({
     mutationFn: async (sprintId: string) => {
@@ -980,19 +991,24 @@ const Sprints = () => {
             />
           ) : (
             filteredSprints.map((sprint) => (
-              <SprintCard
+              <div
                 key={sprint.id}
-                sprint={sprint}
-                canUpdate={canUpdate}
-                canDelete={canDelete}
-                onTaskStatusChange={handleTaskStatusChange}
-                onRemoveTask={handleRemoveTask}
-                onAddTasks={handleAddTasksToSprint}
-                onEdit={() => handleEditSprint(sprint)}
-                onDelete={() => handleDeleteSprint(sprint.id)}
-                getStatusIcon={getStatusIcon}
-                getStatusColor={getStatusColor}
-              />
+                id={`sprint-${sprint.id}`}
+                className={highlightSprintId === sprint.id ? 'ring-2 ring-blue-400 rounded-lg' : undefined}
+              >
+                <SprintCard
+                  sprint={sprint}
+                  canUpdate={canUpdate}
+                  canDelete={canDelete}
+                  onTaskStatusChange={handleTaskStatusChange}
+                  onRemoveTask={handleRemoveTask}
+                  onAddTasks={handleAddTasksToSprint}
+                  onEdit={() => handleEditSprint(sprint)}
+                  onDelete={() => handleDeleteSprint(sprint.id)}
+                  getStatusIcon={getStatusIcon}
+                  getStatusColor={getStatusColor}
+                />
+              </div>
             ))
           )}
         </div>

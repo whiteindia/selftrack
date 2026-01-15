@@ -238,6 +238,27 @@ export const useReminderNotifications = () => {
     unreadUpcomingTaskSlots.length + 
     unreadOverdueTaskSlots.length;
 
+  const sortByDateDesc = <T,>(items: T[], getDate: (item: T) => string) =>
+    [...items].sort((a, b) => {
+      const aTime = new Date(getDate(a)).getTime();
+      const bTime = new Date(getDate(b)).getTime();
+      return bTime - aTime;
+    });
+
+  const sortedDueSoonTasks = sortByDateDesc(dueSoonTasks, (task) => task.reminder_datetime);
+  const sortedOverdueTasks = sortByDateDesc(overdueTasks, (task) => task.reminder_datetime);
+  const sortedUpcomingSprintDeadlines = sortByDateDesc(upcomingSprintDeadlines, (sprint) => sprint.deadline);
+  const sortedOverdueSprintDeadlines = sortByDateDesc(overdueSprintDeadlines, (sprint) => sprint.deadline);
+  const sortedUpcomingTaskSlots = sortByDateDesc(upcomingTaskSlots, (slot) => slot.slot_start_datetime);
+  const sortedOverdueTaskSlots = sortByDateDesc(overdueTaskSlots, (slot) => slot.slot_start_datetime);
+
+  const sortedUnreadDueSoonTasks = sortByDateDesc(unreadDueSoonTasks, (task) => task.reminder_datetime);
+  const sortedUnreadOverdueTasks = sortByDateDesc(unreadOverdueTasks, (task) => task.reminder_datetime);
+  const sortedUnreadUpcomingSprintDeadlines = sortByDateDesc(unreadUpcomingSprintDeadlines, (sprint) => sprint.deadline);
+  const sortedUnreadOverdueSprintDeadlines = sortByDateDesc(unreadOverdueSprintDeadlines, (sprint) => sprint.deadline);
+  const sortedUnreadUpcomingTaskSlots = sortByDateDesc(unreadUpcomingTaskSlots, (slot) => slot.slot_start_datetime);
+  const sortedUnreadOverdueTaskSlots = sortByDateDesc(unreadOverdueTaskSlots, (slot) => slot.slot_start_datetime);
+
 
   // Browser notification functions
   const sendBrowserNotification = (item: any, type: 'task' | 'sprint' | 'slot') => {
@@ -354,6 +375,10 @@ export const useReminderNotifications = () => {
     }
   };
 
+  const deleteAllNotifications = async () => {
+    await markAllAsRead();
+  };
+
   // Mark individual notification as read
   const markAsRead = (type: 'task_reminder' | 'sprint_deadline' | 'task_slot' | 'overdue' | 'due_soon', id: string) => {
     markAsReadMutation.mutate({ type, id });
@@ -362,20 +387,20 @@ export const useReminderNotifications = () => {
   return {
     totalNotificationCount,
     // Task reminders
-    dueSoonTasks: unreadDueSoonTasks,
-    overdueTasks: unreadOverdueTasks,
-    allDueSoonTasks: dueSoonTasks,
-    allOverdueTasks: overdueTasks,
+    dueSoonTasks: sortedUnreadDueSoonTasks,
+    overdueTasks: sortedUnreadOverdueTasks,
+    allDueSoonTasks: sortedDueSoonTasks,
+    allOverdueTasks: sortedOverdueTasks,
     // Sprint deadlines
-    upcomingSprintDeadlines: unreadUpcomingSprintDeadlines,
-    overdueSprintDeadlines: unreadOverdueSprintDeadlines,
-    allUpcomingSprintDeadlines: upcomingSprintDeadlines,
-    allOverdueSprintDeadlines: overdueSprintDeadlines,
+    upcomingSprintDeadlines: sortedUnreadUpcomingSprintDeadlines,
+    overdueSprintDeadlines: sortedUnreadOverdueSprintDeadlines,
+    allUpcomingSprintDeadlines: sortedUpcomingSprintDeadlines,
+    allOverdueSprintDeadlines: sortedOverdueSprintDeadlines,
     // Task slots
-    upcomingTaskSlots: unreadUpcomingTaskSlots,
-    overdueTaskSlots: unreadOverdueTaskSlots,
-    allUpcomingTaskSlots: upcomingTaskSlots,
-    allOverdueTaskSlots: overdueTaskSlots,
+    upcomingTaskSlots: sortedUnreadUpcomingTaskSlots,
+    overdueTaskSlots: sortedUnreadOverdueTaskSlots,
+    allUpcomingTaskSlots: sortedUpcomingTaskSlots,
+    allOverdueTaskSlots: sortedOverdueTaskSlots,
     // Helper functions
     isTaskDueSoon: (reminderDatetime: string) => {
       const reminderTime = new Date(reminderDatetime);
@@ -397,6 +422,7 @@ export const useReminderNotifications = () => {
     setNotificationsEnabled,
     requestNotificationPermission,
     markAllAsRead,
+    deleteAllNotifications,
     markAsRead,
     setNotifiedItems,
     refetch: () => {
