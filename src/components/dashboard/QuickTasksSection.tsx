@@ -174,6 +174,10 @@ export const QuickTasksSection = ({
     return filtered;
   }, [projects, selectedServices, selectedClients]);
 
+  const projectNameMap = useMemo(() => {
+    return new Map(projects.map(project => [project.id, project.name]));
+  }, [projects]);
+
   const toDateInputValue = (deadline: string | null) => {
     if (!deadline) return null;
     // If stored as ISO datetime, convert to YYYY-MM-DD for <input type="date" />
@@ -531,8 +535,7 @@ export const QuickTasksSection = ({
 
   // Create task mutation
   const createTaskMutation = useMutation({
-    mutationFn: async (taskName: string) => {
-      if (!project?.id) throw new Error("Project not found");
+    mutationFn: async (taskNames: string[]) => {
       
       const { data: employee } = await supabase
         .from("employees")
@@ -569,24 +572,25 @@ export const QuickTasksSection = ({
       const deadlineDateStr = format(deadlineDate, "yyyy-MM-dd");
       const scheduledTime = "23:00"; // place into final shift of that day
 
-      const targetProjectId = selectedProject || (projectScope === "misc" ? project?.id : null);
+      const targetProjectId = selectedProject || project?.id || null;
       if (!targetProjectId) {
         throw new Error("Please select a project");
       }
 
+      const rows = taskNames.map(taskName => ({
+        name: taskName,
+        project_id: targetProjectId,
+        status: "Not Started",
+        assigner_id: employee?.id,
+        deadline: deadlineIso,
+        date: deadlineDateStr,
+        scheduled_time: scheduledTime,
+      }));
+
       const { data, error } = await supabase
         .from("tasks")
-        .insert({
-          name: taskName,
-          project_id: targetProjectId,
-          status: "Not Started",
-          assigner_id: employee?.id,
-          deadline: deadlineIso,
-          date: deadlineDateStr,
-          scheduled_time: scheduledTime,
-        })
-        .select()
-        .single();
+        .insert(rows)
+        .select();
 
       if (error) throw error;
       return data;
@@ -746,6 +750,7 @@ export const QuickTasksSection = ({
 
   // Sortable Task Component with subtasks and time logging
   const SortableTask: React.FC<{ task: any; activeEntry?: any; isPaused?: boolean }> = ({ task, activeEntry, isPaused }) => {
+    const enableDrag = projectScope === "misc";
     const {
       attributes,
       listeners,
@@ -754,7 +759,7 @@ export const QuickTasksSection = ({
       transition,
       isDragging,
       active,
-    } = useSortable({ id: task.id });
+    } = useSortable({ id: task.id, disabled: !enableDrag });
 
     const [showSubtasks, setShowSubtasks] = useState<boolean>(() => {
       try {
@@ -790,8 +795,13 @@ export const QuickTasksSection = ({
 
     const handleAddSubtask = (e: React.FormEvent) => {
       e.preventDefault();
-      if (newSubtaskName.trim()) {
-        createSubtaskMutation.mutate({ taskId: task.id, name: newSubtaskName.trim() });
+      const names = newSubtaskName
+        .split(/\r?\n/)
+        .flatMap(part => part.split(","))
+        .map(name => name.trim())
+        .filter(Boolean);
+      if (names.length > 0) {
+        createSubtaskMutation.mutate({ taskId: task.id, names });
         // Persist expansion state
         try {
           const raw = sessionStorage.getItem('quick.expandedSubtasks') || '[]';
@@ -889,29 +899,31 @@ export const QuickTasksSection = ({
 
     return (
       <div ref={setNodeRef} style={style} className={`select-none ${active?.id === task.id ? 'drag-active' : ''}`}>
-        <Card className="p-4 w-full">
-          <div className="flex flex-col gap-3">
+        <Card className={projectScope === "all" ? "p-2 w-full" : "p-4 w-full"}>
+          <div className={projectScope === "all" ? "flex flex-col gap-2" : "flex flex-col gap-3"}>
             <div className="flex items-center gap-3">
               {/* Dedicated drag handle for better mobile touch support */}
-              <div
-                key={`drag-handle-${task.id}`}
-                {...attributes}
-                {...listeners}
-                className="drag-handle cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-200 select-none"
-                role="button"
-                aria-label="Drag task"
-                style={{ touchAction: 'none' }}
-                onMouseDown={(e) => e.preventDefault()}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onTouchEnd={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
-              </div>
+              {enableDrag && (
+                <div
+                  key={`drag-handle-${task.id}`}
+                  {...attributes}
+                  {...listeners}
+                  className="drag-handle cursor-grab active:cursor-grabbing p-2 rounded hover:bg-muted/50 transition-all duration-200 select-none"
+                  role="button"
+                  aria-label="Drag task"
+                  style={{ touchAction: 'none' }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onTouchEnd={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <GripVertical className="h-5 w-5 text-muted-foreground pointer-events-none transition-transform duration-200" />
+                </div>
+              )}
               <div
                 className="flex-1 task-content-area cursor-pointer"
                 onClick={() => setShowingActionsFor(showingActionsFor === task.id ? null : task.id)}
@@ -930,6 +942,11 @@ export const QuickTasksSection = ({
                     {task.status}
                   </span>
                   <span>Due: {task.deadline ? new Date(task.deadline).toLocaleDateString() : "No deadline"}</span>
+                  {projectScope === "all" && (
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                      Project: {projectNameMap.get(task.project_id) || "Unknown"}
+                    </span>
+                  )}
                   {task.total_logged_hours > 0 && (
                     <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                       {task.total_logged_hours}h logged
@@ -1173,9 +1190,15 @@ export const QuickTasksSection = ({
               {/* Add Subtask Form */}
               <form onSubmit={handleAddSubtask} className="flex gap-2">
                 <Input
-                  placeholder="Add subtask..."
+                  placeholder="Add subtasks (comma-separated)..."
                   value={newSubtaskName}
                   onChange={(e) => setNewSubtaskName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSubtask(e as unknown as React.FormEvent);
+                    }
+                  }}
                   className="flex-1 text-sm h-8"
                 />
                 <Button type="submit" size="sm" disabled={!newSubtaskName.trim()}>
@@ -1185,9 +1208,9 @@ export const QuickTasksSection = ({
 
               {/* Subtasks List */}
               {visibleSubtasks.length > 0 ? (
-                <div className="space-y-3">
+                <div className={projectScope === "all" ? "space-y-2" : "space-y-3"}>
                   {visibleSubtasks.map((subtask: any) => (
-                    <Card key={subtask.id} className="p-4 bg-muted/30">
+                    <Card key={subtask.id} className={projectScope === "all" ? "p-2 bg-muted/30" : "p-4 bg-muted/30"}>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <>
@@ -1430,7 +1453,7 @@ export const QuickTasksSection = ({
 
   // Subtask creation mutation
   const createSubtaskMutation = useMutation({
-    mutationFn: async ({ taskId, name }: { taskId: string; name: string }) => {
+    mutationFn: async ({ taskId, names }: { taskId: string; names: string[] }) => {
       const { data: employee } = await supabase
         .from("employees")
         .select("id")
@@ -1439,16 +1462,17 @@ export const QuickTasksSection = ({
 
       if (!employee) throw new Error("Employee not found");
 
+      const rows = names.map(name => ({
+        name,
+        task_id: taskId,
+        status: "Not Started",
+        assigner_id: employee.id,
+      }));
+
       const { data, error } = await supabase
         .from("subtasks")
-        .insert({
-          name,
-          task_id: taskId,
-          status: "Not Started",
-          assigner_id: employee.id,
-        })
-        .select()
-        .single();
+        .insert(rows)
+        .select();
 
       if (error) throw error;
       return data;
@@ -1456,7 +1480,7 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       toast.success("Subtask created successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
     },
@@ -1539,8 +1563,13 @@ export const QuickTasksSection = ({
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newTaskName.trim()) {
-      createTaskMutation.mutate(newTaskName.trim());
+    const names = newTaskName
+      .split(/\r?\n/)
+      .flatMap(part => part.split(","))
+      .map(name => name.trim())
+      .filter(Boolean);
+    if (names.length > 0) {
+      createTaskMutation.mutate(names);
     }
   };
 
@@ -2052,99 +2081,21 @@ export const QuickTasksSection = ({
                     </Label>
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex gap-1">
-                    <Button
-                      variant={viewMode === "list" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setViewMode("list")}
-                    >
-                      <List className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={viewMode === "timeline" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setViewMode("timeline")}
-                    >
-                      <Clock className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex gap-1 sm:gap-2 flex-wrap">
-                    <Button
-                      variant={timeFilter === "all" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTimeFilter("all")}
-                    >
-                      <span className="hidden sm:inline">All</span>
-                      <span className="sm:hidden">All</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.all}</Badge>
-                    </Button>
-                    <Button
-                      variant={timeFilter === "yesterday" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTimeFilter("yesterday")}
-                    >
-                      <span className="hidden sm:inline">Yesterday</span>
-                      <span className="sm:hidden">Yest</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.yesterday}</Badge>
-                    </Button>
-                    <Button
-                      variant={timeFilter === "today" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTimeFilter("today")}
-                    >
-                      <span className="hidden sm:inline">Today</span>
-                      <span className="sm:hidden">Tod</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.today}</Badge>
-                    </Button>
-                    <Button
-                      variant={timeFilter === "tomorrow" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTimeFilter("tomorrow")}
-                    >
-                      <span className="hidden sm:inline">Tomorrow</span>
-                      <span className="sm:hidden">Tom</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.tomorrow}</Badge>
-                    </Button>
-                    <Button
-                      variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTimeFilter("laterThisWeek")}
-                    >
-                      <span className="hidden sm:inline">Later This Week</span>
-                      <span className="sm:hidden">LTW</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.laterThisWeek}</Badge>
-                    </Button>
-                    <Button
-                      variant={timeFilter === "nextWeek" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTimeFilter("nextWeek")}
-                    >
-                      <span className="hidden sm:inline">Next Week</span>
-                      <span className="sm:hidden">NW</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.nextWeek}</Badge>
-                    </Button>
-                    <Button
-                      variant={assignmentFilter === "assigned" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAssignmentFilter("assigned")}
-                      className={assignmentFilter === "assigned" ? "bg-teal-600 hover:bg-teal-700 text-white" : "border-teal-500 text-teal-600 hover:bg-teal-50"}
-                    >
-                      <span className="hidden sm:inline">Assigned</span>
-                      <span className="sm:hidden">Asgn</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.assigned}</Badge>
-                    </Button>
-                    <Button
-                      variant={assignmentFilter === "unassigned" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAssignmentFilter("unassigned")}
-                      className={assignmentFilter === "unassigned" ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "border-cyan-500 text-cyan-600 hover:bg-cyan-50"}
-                    >
-                      <span className="hidden sm:inline">Unassigned</span>
-                      <span className="sm:hidden">Unasgn</span>
-                      <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.unassigned}</Badge>
-                    </Button>
-                  </div>
+                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    variant={viewMode === "list" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "timeline" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("timeline")}
+                  >
+                    <Clock className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </CollapsibleTrigger>
@@ -2169,6 +2120,84 @@ export const QuickTasksSection = ({
                     Clear
                   </Button>
                 )}
+              </div>
+
+              {/* Time & Assignment filters */}
+              <div className="flex gap-1 sm:gap-2 flex-wrap">
+                <Button
+                  variant={timeFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("all")}
+                >
+                  <span className="hidden sm:inline">All</span>
+                  <span className="sm:hidden">All</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.all}</Badge>
+                </Button>
+                <Button
+                  variant={timeFilter === "yesterday" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("yesterday")}
+                >
+                  <span className="hidden sm:inline">Yesterday</span>
+                  <span className="sm:hidden">Yest</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.yesterday}</Badge>
+                </Button>
+                <Button
+                  variant={timeFilter === "today" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("today")}
+                >
+                  <span className="hidden sm:inline">Today</span>
+                  <span className="sm:hidden">Tod</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.today}</Badge>
+                </Button>
+                <Button
+                  variant={timeFilter === "tomorrow" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("tomorrow")}
+                >
+                  <span className="hidden sm:inline">Tomorrow</span>
+                  <span className="sm:hidden">Tom</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.tomorrow}</Badge>
+                </Button>
+                <Button
+                  variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("laterThisWeek")}
+                >
+                  <span className="hidden sm:inline">Later This Week</span>
+                  <span className="sm:hidden">LTW</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.laterThisWeek}</Badge>
+                </Button>
+                <Button
+                  variant={timeFilter === "nextWeek" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeFilter("nextWeek")}
+                >
+                  <span className="hidden sm:inline">Next Week</span>
+                  <span className="sm:hidden">NW</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.nextWeek}</Badge>
+                </Button>
+                <Button
+                  variant={assignmentFilter === "assigned" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAssignmentFilter("assigned")}
+                  className={assignmentFilter === "assigned" ? "bg-teal-600 hover:bg-teal-700 text-white" : "border-teal-500 text-teal-600 hover:bg-teal-50"}
+                >
+                  <span className="hidden sm:inline">Assigned</span>
+                  <span className="sm:hidden">Asgn</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.assigned}</Badge>
+                </Button>
+                <Button
+                  variant={assignmentFilter === "unassigned" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAssignmentFilter("unassigned")}
+                  className={assignmentFilter === "unassigned" ? "bg-cyan-600 hover:bg-cyan-700 text-white" : "border-cyan-500 text-cyan-600 hover:bg-cyan-50"}
+                >
+                  <span className="hidden sm:inline">Unassigned</span>
+                  <span className="sm:hidden">Unasgn</span>
+                  <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.unassigned}</Badge>
+                </Button>
               </div>
 
               {showProjectFilters && (
@@ -2310,9 +2339,15 @@ export const QuickTasksSection = ({
               {/* Quick add task input */}
               <form onSubmit={handleCreateTask} className="flex gap-2">
                 <Input
-                  placeholder="Add a quick task..."
+                  placeholder="Add tasks (comma-separated)..."
                   value={newTaskName}
                   onChange={(e) => setNewTaskName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      handleCreateTask(e as unknown as React.FormEvent);
+                    }
+                  }}
                   className="flex-1"
                 />
                 <Button type="submit" disabled={!newTaskName.trim() || createTaskMutation.isPending}>

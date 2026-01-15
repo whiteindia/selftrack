@@ -14,7 +14,6 @@ import { DashboardWorkloadCal } from '@/components/dashboard/DashboardWorkloadCa
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
 import { HotProjSection } from '@/components/dashboard/HotProjSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
-import QuickAddSection from '@/components/dashboard/QuickAddSection';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Button } from '@/components/ui/button';
@@ -486,16 +485,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Quick Add Section */}
-        <div className="mb-8">
-          <QuickAddSection />
-        </div>
-
-        {/* Quick Show Tasks Section */}
-        <div className="mb-8">
-          <QuickTasksSection title="QuickShowTasks" defaultOpen={false} showProjectFilters projectScope="all" />
-        </div>
-
         {/* Dashboard Workload Calendar - Next 6 Hours */}
         <div className="mb-8">
           <DashboardWorkloadCal />
@@ -509,6 +498,11 @@ const Index = () => {
         {/* Quick Tasks Section */}
         <div className="mb-8">
           <QuickTasksSection />
+        </div>
+
+        {/* Quick Show Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection title="QuickShowTasks" defaultOpen={false} showProjectFilters projectScope="all" />
         </div>
 
         {/* Active Time Tracking Section */}

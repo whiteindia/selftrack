@@ -27,7 +27,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
 
   // Get unique services from running/paused tasks
@@ -326,22 +326,20 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                 <p className="text-sm">Try adjusting your filter criteria</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y rounded-md border bg-green-50 border-green-200">
                 {filteredTasks.map((entry: any) => (
                   <div
                     key={entry.id}
-                    className="p-3 border rounded-lg bg-green-50 border-green-200"
+                    className="px-3 py-2 hover:bg-green-100/50"
                   >
-                    <div className="flex flex-col gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-green-900 text-sm leading-tight break-words" title={entry.tasks.name}>{entry.tasks.name}</h4>
-                        <p className="text-xs text-green-700 mt-1 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
-                          {entry.tasks.projects.name} • {entry.tasks.projects.clients.name}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-green-900 leading-tight break-words" title={entry.tasks.name}>
+                          {entry.tasks.name}
                         </p>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default" className={`text-xs ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
+                        <div className="mt-1 flex items-center gap-2 text-xs text-green-700 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
+                          <span className="truncate">{entry.tasks.projects.name} • {entry.tasks.projects.clients.name}</span>
+                          <Badge variant="default" className={`text-[10px] px-1.5 py-0.5 ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
                             {isPaused(entry) ? 'Paused' : 'Running'}
                           </Badge>
                           <LiveTimer
@@ -349,27 +347,27 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                             timerMetadata={entry.timer_metadata}
                           />
                         </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <CompactTimerControls
-                            taskId={entry.tasks.id}
-                            taskName={entry.tasks.name}
-                            entryId={entry.id}
-                            timerMetadata={entry.timer_metadata}
-                            onTimerUpdate={onRunningTaskClick}
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleViewTask(entry.tasks.id);
-                            }}
-                            className="h-6 px-2 text-xs"
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <CompactTimerControls
+                          taskId={entry.tasks.id}
+                          taskName={entry.tasks.name}
+                          entryId={entry.id}
+                          timerMetadata={entry.timer_metadata}
+                          onTimerUpdate={onRunningTaskClick}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleViewTask(entry.tasks.id);
+                          }}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
                   </div>

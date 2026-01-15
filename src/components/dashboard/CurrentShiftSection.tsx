@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, Clock, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarPlus, Pencil, Trash2, List, Plus, CheckSquare, Square, X, ArrowRight, FolderOpen, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react';
 import { format, addHours, addDays, subDays, startOfHour, isWithinInterval, isSameDay, startOfDay, endOfDay } from 'date-fns';
@@ -80,6 +81,10 @@ export const CurrentShiftSection = () => {
   const [subtaskEditText, setSubtaskEditText] = useState<string>('');
   const [subtaskNewName, setSubtaskNewName] = useState<string>('');
   const [convertToSubtaskSourceTask, setConvertToSubtaskSourceTask] = useState<{ id: string; name: string } | null>(null);
+  const [selectedShiftSlots, setSelectedShiftSlots] = useState<Record<string, string>>({});
+  const [selectedShiftProjects, setSelectedShiftProjects] = useState<Record<string, string>>({});
+  const [shiftInputsFocused, setShiftInputsFocused] = useState<Record<string, boolean>>({});
+  const shiftInputContainers = useRef<Record<string, HTMLDivElement | null>>({});
 
   const { data: miscProject } = useQuery({
     queryKey: ['misc-project'],
@@ -91,6 +96,18 @@ export const CurrentShiftSection = () => {
         .single();
       if (error) throw error;
       return data;
+    }
+  });
+
+  const { data: projectChoices = [] } = useQuery({
+    queryKey: ['current-shift-projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data || [];
     }
   });
 
@@ -473,7 +490,6 @@ export const CurrentShiftSection = () => {
 
   const itemsByShift = shifts.map(currentShift => {
     const shiftItems = filteredWorkloadItems.filter(item => {
-      if (isToday && !isQuickShiftItem(item)) return false;
       const itemDateTime = parseScheduledTime(item.scheduled_time, item.scheduled_date);
       if (!itemDateTime) return false;
 
@@ -486,7 +502,9 @@ export const CurrentShiftSection = () => {
         isInShiftRange(itemDateTime, nextShift.start, nextShift.end) && 
         isWithinInterval(itemDateTime, { start: now, end: next6Hours });
 
-      return isInCurrentShift || isInNextShift;
+      if (isInCurrentShift) return true;
+      if (isInNextShift) return isQuickShiftItem(item);
+      return false;
     });
 
     return {
@@ -621,16 +639,60 @@ export const CurrentShiftSection = () => {
     }
   });
 
+  const createShiftTaskMutation = useMutation({
+    mutationFn: async ({ name, shiftStart, projectId }: { name: string; shiftStart: string; projectId: string }) => {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      const deadlineValue = endOfDay(selectedDate).toISOString();
+      const [startH, startM] = shiftStart.split(':').map(Number);
+      const slotStartDateTime = new Date(selectedDate);
+      slotStartDateTime.setHours(startH, startM || 0, 0, 0);
+      const slotEndDateTime = new Date(slotStartDateTime);
+      slotEndDateTime.setHours(slotStartDateTime.getHours() + 1);
+
+      const { error } = await supabase.from('tasks').insert({
+        name,
+        project_id: projectId,
+        status: 'Not Started',
+        date: dateStr,
+        scheduled_time: shiftStart,
+        deadline: deadlineValue,
+        slot_start_datetime: slotStartDateTime.toISOString(),
+        slot_end_datetime: slotEndDateTime.toISOString(),
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Task added to shift');
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error('Failed to add task to shift');
+    }
+  });
+
   const handleAddShiftTask = (shiftId: string, shiftStart: Date) => {
     const value = (shiftInputs[shiftId] || '').trim();
     if (!value) return;
-    if (!miscProject?.id) {
-      toast.error('Quick task project not found');
-      return;
+    const selectedSlot = selectedShiftSlots[shiftId];
+    const shiftStartStr = selectedSlot || `${shiftStart.getHours().toString().padStart(2, '0')}:00`;
+    const selectedProjectId = selectedShiftProjects[shiftId];
+
+    if (selectedProjectId) {
+      createShiftTaskMutation.mutate({ name: value, shiftStart: shiftStartStr, projectId: selectedProjectId });
+    } else {
+      if (!miscProject?.id) {
+        toast.error('Quick task project not found');
+        return;
+      }
+      createShiftSubtaskMutation.mutate({ name: value, shiftStart: shiftStartStr });
     }
-    const shiftStartStr = `${shiftStart.getHours().toString().padStart(2, '0')}:00`;
-    createShiftSubtaskMutation.mutate({ name: value, shiftStart: shiftStartStr });
     setShiftInputs(prev => ({ ...prev, [shiftId]: '' }));
+    setSelectedShiftSlots(prev => ({ ...prev, [shiftId]: '' }));
+    setSelectedShiftProjects(prev => ({ ...prev, [shiftId]: '' }));
   };
 
   const deleteItemMutation = useMutation({
@@ -1017,7 +1079,19 @@ export const CurrentShiftSection = () => {
                 </div>
 
                 <div className="pl-6">
-                  <div className="flex gap-2 items-center mb-2">
+                  <div
+                    className="flex gap-2 items-center mb-2"
+                    ref={(el) => {
+                      shiftInputContainers.current[shift.id] = el;
+                    }}
+                    onBlurCapture={(e) => {
+                      const current = shiftInputContainers.current[shift.id];
+                      const nextTarget = e.relatedTarget as Node | null;
+                      if (!current || (nextTarget && current.contains(nextTarget))) return;
+                      setShiftInputsFocused(prev => ({ ...prev, [shift.id]: false }));
+                    }}
+                    onFocusCapture={() => setShiftInputsFocused(prev => ({ ...prev, [shift.id]: true }))}
+                  >
                     <input
                       className="flex-1 rounded-md border px-2 py-1 text-sm bg-background"
                       placeholder={`Quick add to ${shift.label}`}
@@ -1033,11 +1107,68 @@ export const CurrentShiftSection = () => {
                     <Button
                       size="sm"
                       onClick={() => handleAddShiftTask(shift.id, shift.start)}
-                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftSubtaskMutation.isPending}
+                      disabled={!((shiftInputs[shift.id] || '').trim()) || createShiftSubtaskMutation.isPending || createShiftTaskMutation.isPending}
                     >
                       Add
                     </Button>
                   </div>
+                  {(shiftInputsFocused[shift.id] || (shiftInputs[shift.id] || '').trim().length > 0) && (
+                    <>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {(() => {
+                          const slots: string[] = [];
+                          const start = new Date(shift.start);
+                          const end = new Date(shift.end);
+                          const cursor = new Date(start);
+                          while (cursor < end) {
+                            const slot = `${cursor.getHours().toString().padStart(2, '0')}:00`;
+                            slots.push(slot);
+                            cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
+                          }
+                          return slots.map(slot => (
+                            <Button
+                              key={`${shift.id}-${slot}`}
+                              type="button"
+                              size="sm"
+                              variant={selectedShiftSlots[shift.id] === slot ? "default" : "outline"}
+                              onClick={() => setSelectedShiftSlots(prev => ({ ...prev, [shift.id]: slot }))}
+                              className="text-xs"
+                            >
+                              {slot}
+                            </Button>
+                          ));
+                        })()}
+                      </div>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <Select
+                          value={selectedShiftProjects[shift.id] || ''}
+                          onValueChange={(value) => setSelectedShiftProjects(prev => ({ ...prev, [shift.id]: value }))}
+                        >
+                          <SelectTrigger className="h-8 w-[200px] text-xs">
+                            <SelectValue placeholder="Optional project" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {projectChoices.map((project: any) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedShiftProjects[shift.id] && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={() => setSelectedShiftProjects(prev => ({ ...prev, [shift.id]: '' }))}
+                          >
+                            Clear project
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {shift.items.length === 0 ? (
