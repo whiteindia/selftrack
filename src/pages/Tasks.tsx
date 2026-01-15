@@ -2,16 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Filter, ChevronDown, LayoutList, Kanban, Play, Bell, CalendarClock, Check } from 'lucide-react';
+import { Calendar, Clock, User, Building, Plus, MessageSquare, Trash2, Edit, Play, Bell, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
 import { formatToIST, formatUTCToISTInput, convertISTToUTC } from '@/utils/timezoneUtils';
@@ -21,12 +19,9 @@ import TaskHistory from '@/components/TaskHistory';
 import TimeTrackerWithComment from '@/components/TimeTrackerWithComment';
 import SubtaskCard from '@/components/SubtaskCard';
 import SubtaskDialog from '@/components/SubtaskDialog';
-import TaskKanban from '@/components/TaskKanban';
 import { useSubtasks } from '@/hooks/useSubtasks';
 import { useTimeEntryCount } from '@/hooks/useTimeEntryCount';
-import { Toggle } from '@/components/ui/toggle';
 import TaskTimer from '@/components/TaskTimer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Task {
   id: string;
@@ -76,14 +71,6 @@ const Tasks = () => {
   const queryClient = useQueryClient();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<string[]>(['In Progress','On-Head','Targeted','Imp']);
-  const [assigneeFilter, setAssigneeFilter] = useState('all');
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [selectedProject, setSelectedProject] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'kanban'>('cards');
-  const [activeFilterTab, setActiveFilterTab] = useState<'services' | 'clients' | 'projects'>('services');
   
   // Subtask states
   const [subtaskDialogOpen, setSubtaskDialogOpen] = useState(false);
@@ -204,34 +191,6 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
-  // Fetch services for global filter
-  const { data: services = [] } = useQuery({
-    queryKey: ['services'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('services')
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return data;
-    },
-    enabled: hasTasksAccess
-  });
-
-  // Fetch clients for global filter
-  const { data: clients = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id, name')
-        .order('name');
-      if (error) throw error;
-      return data;
-    },
-    enabled: hasTasksAccess
-  });
-
   // Fetch running tasks (tasks with active timers)
   const { data: runningTasks = [] } = useQuery({
     queryKey: ['running-tasks'],
@@ -247,48 +206,9 @@ const Tasks = () => {
     enabled: hasTasksAccess
   });
 
-  const selectedClientNames = useMemo(() => {
-    return selectedClients
-      .map(clientId => clients.find(c => c.id === clientId)?.name)
-      .filter((name): name is string => !!name);
-  }, [selectedClients, clients]);
-
-  const availableClients = useMemo(() => {
-    if (selectedServices.length === 0) return clients;
-    const clientNameSet = new Set(
-      projects
-        .filter(project => selectedServices.includes(project.service))
-        .map(project => project.clients?.name)
-        .filter((name): name is string => !!name)
-    );
-    return clients.filter(client => clientNameSet.has(client.name));
-  }, [clients, projects, selectedServices]);
-
-  const availableProjects = useMemo(() => {
-    let filtered = projects;
-    if (selectedServices.length > 0) {
-      filtered = filtered.filter(project => selectedServices.includes(project.service));
-    }
-    if (selectedClientNames.length > 0) {
-      filtered = filtered.filter(project => selectedClientNames.includes(project.clients?.name || ''));
-    }
-    return filtered;
-  }, [projects, selectedServices, selectedClientNames]);
-
-  // Filter tasks based on filters - updated to handle multi-select status
+  // Filter tasks (sorted for visibility)
   const filteredTasks = useMemo(() => {
-    let filtered = tasks.filter(task => {
-      const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (task.project_name || '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilters.includes('all') || statusFilters.includes(task.status);
-      const matchesAssignee = assigneeFilter === 'all' || task.assignee_id === assigneeFilter;
-      const matchesProject = !selectedProject || task.project_id === selectedProject;
-      const matchesService = selectedServices.length === 0 || selectedServices.includes(task.project_service || '');
-      
-      const matchesClient = selectedClientNames.length === 0 || selectedClientNames.includes(task.client_name || '');
-      
-      return matchesSearch && matchesStatus && matchesAssignee && matchesProject && matchesService && matchesClient;
-    });
+    let filtered = [...tasks];
 
     // Sort tasks: running timers first, then overdue, then by deadline
     return filtered.sort((a, b) => {
@@ -318,7 +238,7 @@ const Tasks = () => {
       
       return 0;
     });
-  }, [tasks, searchTerm, statusFilters, assigneeFilter, selectedProject, selectedServices, selectedClientNames, projects, runningTasks]);
+  }, [tasks, runningTasks]);
 
   // Update task mutation
   const updateTaskMutation = useMutation({
@@ -395,16 +315,6 @@ const Tasks = () => {
     toast.success('Task started!');
   };
 
-  const handleTaskStatusChange = (taskId: string, newStatus: string) => {
-    const updates: any = { status: newStatus };
-    if (newStatus === 'Completed') {
-      updates.completion_date = new Date().toISOString();
-    } else if (newStatus !== 'Completed') {
-      updates.completion_date = null;
-    }
-    updateTaskMutation.mutate({ id: taskId, updates });
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Not Started': return 'bg-gray-500';
@@ -420,64 +330,6 @@ const Tasks = () => {
 
   const handleTimeUpdate = () => {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
-  };
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setStatusFilters(['In Progress','On-Head','Targeted','Imp']);
-    setAssigneeFilter('all');
-    setSelectedServices([]);
-    setSelectedClients([]);
-    setSelectedProject('');
-    setActiveFilterTab('services');
-  };
-
-  const handleClearSelection = () => {
-    setSelectedServices([]);
-    setSelectedClients([]);
-    setSelectedProject('');
-    setActiveFilterTab('services');
-  };
-
-  const toggleService = (serviceName: string) => {
-    setSelectedServices(prev => {
-      const newServices = prev.includes(serviceName)
-        ? prev.filter(name => name !== serviceName)
-        : [...prev, serviceName];
-
-      setSelectedClients([]);
-      setSelectedProject('');
-      setActiveFilterTab(newServices.length > 0 ? 'clients' : 'services');
-      return newServices;
-    });
-  };
-
-  const toggleClient = (clientId: string) => {
-    setSelectedClients(prev => {
-      const newClients = prev.includes(clientId)
-        ? prev.filter(id => id !== clientId)
-        : [...prev, clientId];
-
-      setSelectedProject('');
-      setActiveFilterTab(newClients.length > 0 ? 'projects' : 'clients');
-      return newClients;
-    });
-  };
-
-  const handleStatusFilterChange = (status: string, checked: boolean) => {
-    if (status === 'all') {
-      setStatusFilters(checked ? ['all'] : []);
-    } else {
-      setStatusFilters(prev => {
-        const newFilters = prev.filter(f => f !== 'all');
-        if (checked) {
-          return [...newFilters, status];
-        } else {
-          const filtered = newFilters.filter(f => f !== status);
-          return filtered.length === 0 ? ['all'] : filtered;
-        }
-      });
-    }
   };
 
   const handleCreateSubtask = (taskId: string) => {
@@ -565,225 +417,6 @@ const Tasks = () => {
           <h1 className="text-3xl font-bold">Tasks</h1>
         </div>
 
-        {/* View & Filters */}
-        <div className="space-y-4 rounded-lg border bg-background p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              <span className="text-base font-medium">View & Filters</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Toggle
-                pressed={viewMode === 'cards'}
-                onPressedChange={() => setViewMode('cards')}
-                variant="outline"
-                size="sm"
-              >
-                <LayoutList className="h-4 w-4 mr-1" />
-                Cards
-              </Toggle>
-              <Toggle
-                pressed={viewMode === 'kanban'}
-                onPressedChange={() => setViewMode('kanban')}
-                variant="outline"
-                size="sm"
-              >
-                <Kanban className="h-4 w-4 mr-1" />
-                Kanban
-              </Toggle>
-            </div>
-          </div>
-
-          {/* Filters Section */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="sm:col-span-2 lg:col-span-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">Select Filters:</span>
-                </div>
-
-                <Tabs value={activeFilterTab} onValueChange={(value) => setActiveFilterTab(value as any)}>
-                  <TabsList className="w-full justify-start">
-                    <TabsTrigger value="services">Services</TabsTrigger>
-                    {selectedServices.length > 0 && <TabsTrigger value="clients">Clients</TabsTrigger>}
-                    {selectedClients.length > 0 && <TabsTrigger value="projects">Projects</TabsTrigger>}
-                  </TabsList>
-
-                  <TabsContent value="services" className="mt-3">
-                    {services.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {services.map((service) => (
-                          <Button
-                            key={service.id}
-                            variant={selectedServices.includes(service.name) ? 'default' : 'outline'}
-                            size="sm"
-                            type="button"
-                            onClick={() => toggleService(service.name)}
-                            className="flex items-center gap-2 text-xs"
-                          >
-                            {selectedServices.includes(service.name) && <Check className="h-3 w-3" />}
-                            {service.name}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No services found</div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="clients" className="mt-3">
-                    {selectedServices.length === 0 ? (
-                      <div className="text-xs text-muted-foreground">Select a service to see clients.</div>
-                    ) : availableClients.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {availableClients.map((client) => (
-                          <Button
-                            key={client.id}
-                            variant={selectedClients.includes(client.id) ? 'default' : 'outline'}
-                            size="sm"
-                            type="button"
-                            onClick={() => toggleClient(client.id)}
-                            className="flex items-center gap-2 text-xs"
-                          >
-                            {selectedClients.includes(client.id) && <Check className="h-3 w-3" />}
-                            {client.name}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No clients found for selected services</div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="projects" className="mt-3">
-                    {selectedClients.length === 0 ? (
-                      <div className="text-xs text-muted-foreground">Select a client to see projects.</div>
-                    ) : availableProjects.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {availableProjects.map((project) => (
-                          <Button
-                            key={project.id}
-                            variant={selectedProject === project.id ? 'default' : 'outline'}
-                            size="sm"
-                            type="button"
-                            onClick={() => setSelectedProject(project.id)}
-                            className="flex items-center gap-2 text-xs"
-                          >
-                            {selectedProject === project.id && <Check className="h-3 w-3" />}
-                            {project.name}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">No projects found for selected clients</div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-
-                {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
-                  <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded flex flex-wrap items-center gap-2">
-                    {selectedServices.length > 0 && <span>Services: {selectedServices.join(', ')}</span>}
-                    {selectedClients.length > 0 && (
-                      <span className="ml-2">
-                        | Clients: {selectedClients.map(id => clients.find(c => c.id === id)?.name).filter(Boolean).join(', ')}
-                      </span>
-                    )}
-                    {selectedProject && (
-                      <span className="ml-2">
-                        | Project: {projects.find(p => p.id === selectedProject)?.name}
-                      </span>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={handleClearSelection}
-                      className="h-auto px-2 py-1 text-xs"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="search" className="text-sm">Search</Label>
-                <Input
-                  id="search"
-                  placeholder="Search tasks or projects..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status-filter" className="text-sm">Status</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between h-9 text-sm">
-                      {statusFilters.includes('all') 
-                        ? 'All Statuses' 
-                        : statusFilters.length === 1 
-                          ? statusFilters[0]
-                          : `${statusFilters.length} selected`
-                      }
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-3 bg-white border shadow-lg z-50">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="status-all"
-                          checked={statusFilters.includes('all')}
-                          onCheckedChange={(checked) => handleStatusFilterChange('all', !!checked)}
-                        />
-                        <Label htmlFor="status-all" className="text-sm font-medium">
-                          All Statuses
-                        </Label>
-                      </div>
-                      {statusOptions.map((status) => (
-                        <div key={status} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`status-${status}`}
-                            checked={statusFilters.includes(status)}
-                            onCheckedChange={(checked) => handleStatusFilterChange(status, !!checked)}
-                          />
-                          <Label htmlFor={`status-${status}`} className="text-sm">
-                            {status}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="assignee-filter" className="text-sm">Assignee</Label>
-                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="All Assignees" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Assignees</SelectItem>
-                    {employees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id}>
-                        {employee.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button variant="outline" onClick={clearFilters} className="w-full h-9 text-sm">
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Results Summary */}
         <div className="flex items-center justify-between text-sm text-gray-600 px-1">
           <span>
@@ -802,17 +435,6 @@ const Tasks = () => {
               </p>
             </CardContent>
           </Card>
-        ) : viewMode === 'kanban' ? (
-          <TaskKanban
-            tasks={filteredTasks.map(task => ({
-              ...task,
-              hours: task.total_logged_hours || 0
-            }))}
-            canCreate={hasOperationAccess('tasks', 'create')}
-            canUpdate={hasOperationAccess('tasks', 'update')}
-            canDelete={hasOperationAccess('tasks', 'delete')}
-            onTaskStatusChange={handleTaskStatusChange}
-          />
         ) : (
           <div className="grid gap-3">
             {filteredTasks.map((task) => (
