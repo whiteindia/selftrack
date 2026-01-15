@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Clock, Eye, ChevronDown, ChevronRight as ChevronRightIcon, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -635,7 +634,7 @@ export const DashboardWorkloadCal = () => {
                 No scheduled items for the next 6 hours
               </div>
             ) : (
-              <ScrollArea className="h-[400px]">
+              <div className="max-h-[400px] overflow-y-auto">
                 <div className="space-y-2 pr-1">
                   {/* Quick Tasks Section */}
                   {quickTaskSubtasks.length > 0 && (
@@ -842,7 +841,7 @@ export const DashboardWorkloadCal = () => {
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             )}
           </CardContent>
         </CollapsibleContent>
