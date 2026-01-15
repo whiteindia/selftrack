@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine, ArrowDownToLine } from "lucide-react";
+import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine, ArrowDownToLine, Check, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
@@ -24,6 +24,7 @@ import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "d
 import { Badge } from "@/components/ui/badge";
 import { convertISTToUTC } from "@/utils/timezoneUtils";
 import type { Database } from "@/integrations/supabase/types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DndContext,
   closestCenter,
@@ -58,7 +59,19 @@ type EditableSubtask = {
   task_id: string;
 };
 
-export const QuickTasksSection = () => {
+interface QuickTasksSectionProps {
+  title?: string;
+  defaultOpen?: boolean;
+  showProjectFilters?: boolean;
+  projectScope?: "misc" | "all";
+}
+
+export const QuickTasksSection = ({
+  title = "Quick Tasks",
+  defaultOpen = true,
+  showProjectFilters = false,
+  projectScope = "misc"
+}: QuickTasksSectionProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
@@ -78,8 +91,12 @@ export const QuickTasksSection = () => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
   const [editingSubtaskForDialog, setEditingSubtaskForDialog] = useState<EditableSubtask | null>(null);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedProject, setSelectedProject] = useState("");
+  const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
 
   const { data: employeesForSubtaskDialog = [] } = useQuery({
     queryKey: ["employees-for-subtask-dialog"],
@@ -92,6 +109,70 @@ export const QuickTasksSection = () => {
       return (data || []) as EmployeeForSubtaskDialog[];
     },
   });
+
+  const { data: services = [] } = useQuery({
+    queryKey: ["quick-tasks-services"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("services")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ["quick-tasks-clients"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["quick-tasks-projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name, service, client_id")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const selectedClientNames = useMemo(() => {
+    return selectedClients
+      .map(clientId => clients.find(c => c.id === clientId)?.name)
+      .filter((name): name is string => !!name);
+  }, [selectedClients, clients]);
+
+  const availableClients = useMemo(() => {
+    if (selectedServices.length === 0) return clients;
+    const clientNameSet = new Set(
+      projects
+        .filter(project => selectedServices.includes(project.service))
+        .map(project => clients.find(c => c.id === project.client_id)?.name)
+        .filter((name): name is string => !!name)
+    );
+    return clients.filter(client => clientNameSet.has(client.name));
+  }, [clients, projects, selectedServices]);
+
+  const availableProjects = useMemo(() => {
+    let filtered = projects;
+    if (selectedServices.length > 0) {
+      filtered = filtered.filter(project => selectedServices.includes(project.service));
+    }
+    if (selectedClients.length > 0) {
+      filtered = filtered.filter(project => selectedClients.includes(project.client_id));
+    }
+    return filtered;
+  }, [projects, selectedServices, selectedClients]);
 
   const toDateInputValue = (deadline: string | null) => {
     if (!deadline) return null;
@@ -146,10 +227,8 @@ export const QuickTasksSection = () => {
 
   // Fetch tasks from the project with subtasks and logged time
   const { data: tasks, refetch } = useQuery({
-    queryKey: ["quick-tasks", project?.id, showCompleted],
+    queryKey: ["quick-tasks", projectScope, project?.id, showCompleted],
     queryFn: async () => {
-      if (!project?.id) return [];
-
       let query = supabase
         .from("tasks")
         .select(`
@@ -166,9 +245,13 @@ export const QuickTasksSection = () => {
           scheduled_time,
           sort_order
         `)
-        .eq("project_id", project.id)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("deadline", { ascending: true });
+
+      if (projectScope === "misc") {
+        if (!project?.id) return [];
+        query = query.eq("project_id", project.id);
+      }
 
       // Only filter out completed if showCompleted is false
       if (!showCompleted) {
@@ -253,7 +336,7 @@ export const QuickTasksSection = () => {
 
       return enhancedTasks;
     },
-    enabled: !!project?.id,
+    enabled: projectScope === "misc" ? !!project?.id : true,
   });
 
   // Fetch active time entries for these tasks
@@ -325,6 +408,19 @@ export const QuickTasksSection = () => {
       );
     }
 
+    // Apply service/client/project filters
+    if (showProjectFilters && (selectedServices.length > 0 || selectedClients.length > 0 || selectedProject)) {
+      const projectsById = new Map(projects.map(project => [project.id, project]));
+      filtered = filtered.filter(task => {
+        const project = projectsById.get(task.project_id);
+        if (!project) return false;
+        const matchesService = selectedServices.length === 0 || selectedServices.includes(project.service);
+        const matchesClient = selectedClients.length === 0 || selectedClients.includes(project.client_id);
+        const matchesProject = !selectedProject || task.project_id === selectedProject;
+        return matchesService && matchesClient && matchesProject;
+      });
+    }
+
     // Sort logic
     // 1. Tasks without a custom sort_order ("recently added") stay on top
     // 2. Within "recently added", newest first (created_at desc)
@@ -390,7 +486,7 @@ export const QuickTasksSection = () => {
     });
 
     return sorted;
-  }, [tasks, timeFilter, assignmentFilter, searchTerm]);
+  }, [tasks, timeFilter, assignmentFilter, searchTerm, selectedServices, selectedClients, selectedProject, projects, showProjectFilters]);
 
   useLayoutEffect(() => {
     const y = pendingScrollRestoreRef.current;
@@ -473,11 +569,16 @@ export const QuickTasksSection = () => {
       const deadlineDateStr = format(deadlineDate, "yyyy-MM-dd");
       const scheduledTime = "23:00"; // place into final shift of that day
 
+      const targetProjectId = selectedProject || (projectScope === "misc" ? project?.id : null);
+      if (!targetProjectId) {
+        throw new Error("Please select a project");
+      }
+
       const { data, error } = await supabase
         .from("tasks")
         .insert({
           name: taskName,
-          project_id: project.id,
+          project_id: targetProjectId,
           status: "Not Started",
           assigner_id: employee?.id,
           deadline: deadlineIso,
@@ -500,7 +601,7 @@ export const QuickTasksSection = () => {
       queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
     },
     onError: (error) => {
-      toast.error("Failed to create task");
+      toast.error(error?.message || "Failed to create task");
       console.error(error);
     },
   });
@@ -1926,7 +2027,8 @@ export const QuickTasksSection = () => {
     });
   };
 
-  if (!project || !tasks || tasks.length === 0) return null;
+  if (projectScope === "misc" && !project) return null;
+  if (!tasks || tasks.length === 0) return null;
 
   return (
     <>
@@ -1937,7 +2039,7 @@ export const QuickTasksSection = () => {
               <div className="flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-2">
                   {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <h2 className="text-lg font-semibold">Quick Tasks</h2>
+                  <h2 className="text-lg font-semibold">{title}</h2>
                   <div className="flex items-center gap-1.5 ml-4" onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
                       id="show-completed-quick" 
@@ -2068,6 +2170,142 @@ export const QuickTasksSection = () => {
                   </Button>
                 )}
               </div>
+
+              {showProjectFilters && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Select Filters:</span>
+                  </div>
+
+                  <Tabs value={activeFilterTab} onValueChange={(value) => setActiveFilterTab(value as any)}>
+                    <TabsList className="w-full justify-start">
+                      <TabsTrigger value="services">Services</TabsTrigger>
+                      {selectedServices.length > 0 && <TabsTrigger value="clients">Clients</TabsTrigger>}
+                      {selectedClients.length > 0 && <TabsTrigger value="projects">Projects</TabsTrigger>}
+                    </TabsList>
+
+                    <TabsContent value="services" className="mt-3">
+                      {services.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {services.map((service) => (
+                            <Button
+                              key={service.id}
+                              variant={selectedServices.includes(service.name) ? "default" : "outline"}
+                              size="sm"
+                              type="button"
+                              onClick={() => {
+                                setSelectedServices(prev => {
+                                  const newServices = prev.includes(service.name)
+                                    ? prev.filter(name => name !== service.name)
+                                    : [...prev, service.name];
+                                  setSelectedClients([]);
+                                  setSelectedProject("");
+                                  setActiveFilterTab(newServices.length > 0 ? "clients" : "services");
+                                  return newServices;
+                                });
+                              }}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              {selectedServices.includes(service.name) && <Check className="h-3 w-3" />}
+                              {service.name}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No services found</div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="clients" className="mt-3">
+                      {selectedServices.length === 0 ? (
+                        <div className="text-xs text-muted-foreground">Select a service to see clients.</div>
+                      ) : availableClients.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {availableClients.map((client) => (
+                            <Button
+                              key={client.id}
+                              variant={selectedClients.includes(client.id) ? "default" : "outline"}
+                              size="sm"
+                              type="button"
+                              onClick={() => {
+                                setSelectedClients(prev => {
+                                  const newClients = prev.includes(client.id)
+                                    ? prev.filter(id => id !== client.id)
+                                    : [...prev, client.id];
+                                  setSelectedProject("");
+                                  setActiveFilterTab(newClients.length > 0 ? "projects" : "clients");
+                                  return newClients;
+                                });
+                              }}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              {selectedClients.includes(client.id) && <Check className="h-3 w-3" />}
+                              {client.name}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No clients found for selected services</div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="projects" className="mt-3">
+                      {selectedClients.length === 0 ? (
+                        <div className="text-xs text-muted-foreground">Select a client to see projects.</div>
+                      ) : availableProjects.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {availableProjects.map((project) => (
+                            <Button
+                              key={project.id}
+                              variant={selectedProject === project.id ? "default" : "outline"}
+                              size="sm"
+                              type="button"
+                              onClick={() => setSelectedProject(project.id)}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              {selectedProject === project.id && <Check className="h-3 w-3" />}
+                              {project.name}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">No projects found for selected clients</div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+
+                  {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
+                    <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded flex flex-wrap items-center gap-2">
+                      {selectedServices.length > 0 && <span>Services: {selectedServices.join(", ")}</span>}
+                      {selectedClients.length > 0 && (
+                        <span className="ml-2">
+                          | Clients: {selectedClients.map(id => clients.find(c => c.id === id)?.name).filter(Boolean).join(", ")}
+                        </span>
+                      )}
+                      {selectedProject && (
+                        <span className="ml-2">
+                          | Project: {projects.find(p => p.id === selectedProject)?.name}
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          setSelectedServices([]);
+                          setSelectedClients([]);
+                          setSelectedProject("");
+                          setActiveFilterTab("services");
+                        }}
+                        className="h-auto px-2 py-1 text-xs"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Quick add task input */}
               <form onSubmit={handleCreateTask} className="flex gap-2">

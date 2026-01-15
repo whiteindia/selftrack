@@ -491,6 +491,11 @@ const Index = () => {
           <QuickAddSection />
         </div>
 
+        {/* Quick Show Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection title="QuickShowTasks" defaultOpen={false} showProjectFilters projectScope="all" />
+        </div>
+
         {/* Dashboard Workload Calendar - Next 6 Hours */}
         <div className="mb-8">
           <DashboardWorkloadCal />

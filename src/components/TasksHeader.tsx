@@ -33,6 +33,7 @@ interface TasksHeaderProps {
   services: Service[];
   clients: Client[];
   projects: Project[];
+  showTitle?: boolean;
 }
 
 const TasksHeader: React.FC<TasksHeaderProps> = ({
@@ -44,7 +45,8 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
   setSelectedProject,
   services = [],
   clients = [],
-  projects = []
+  projects = [],
+  showTitle = true
 }) => {
   const [activeFilterTab, setActiveFilterTab] = useState<'services' | 'clients' | 'projects'>('services');
 
@@ -109,15 +111,17 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
   };
 
   return (
-    <div className="space-y-3 mb-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Tasks</h1>
-        {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
-          <Button variant="outline" size="sm" onClick={handleClearSelection}>
-            Clear selection
-          </Button>
-        )}
-      </div>
+    <div className="space-y-3">
+      {showTitle && (
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Tasks</h1>
+          {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
+            <Button variant="outline" size="sm" onClick={handleClearSelection}>
+              Clear selection
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3">
         <div className="flex items-center gap-2">
@@ -128,8 +132,8 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
         <Tabs value={activeFilterTab} onValueChange={(value) => setActiveFilterTab(value as any)}>
           <TabsList className="w-full justify-start">
             <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="clients">Clients</TabsTrigger>
-            <TabsTrigger value="projects">Projects</TabsTrigger>
+            {selectedServices.length > 0 && <TabsTrigger value="clients">Clients</TabsTrigger>}
+            {selectedClients.length > 0 && <TabsTrigger value="projects">Projects</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="services" className="mt-3">
@@ -140,6 +144,7 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
                     key={service.id}
                     variant={selectedServices.includes(service.name) ? 'default' : 'outline'}
                     size="sm"
+                    type="button"
                     onClick={() => toggleService(service.name)}
                     className="flex items-center gap-2 text-xs"
                   >
@@ -154,13 +159,16 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
           </TabsContent>
 
           <TabsContent value="clients" className="mt-3">
-            {availableClients.length > 0 ? (
+            {selectedServices.length === 0 ? (
+              <div className="text-xs text-muted-foreground">Select a service to see clients.</div>
+            ) : availableClients.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {availableClients.map((client) => (
                   <Button
                     key={client.id}
                     variant={selectedClients.includes(client.id) ? 'default' : 'outline'}
                     size="sm"
+                    type="button"
                     onClick={() => toggleClient(client.id)}
                     className="flex items-center gap-2 text-xs"
                   >
@@ -170,18 +178,21 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-muted-foreground">No clients found</div>
+              <div className="text-xs text-muted-foreground">No clients found for selected services</div>
             )}
           </TabsContent>
 
           <TabsContent value="projects" className="mt-3">
-            {availableProjects.length > 0 ? (
+            {selectedClients.length === 0 ? (
+              <div className="text-xs text-muted-foreground">Select a client to see projects.</div>
+            ) : availableProjects.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {availableProjects.map((project) => (
                   <Button
                     key={project.id}
                     variant={selectedProject === project.id ? 'default' : 'outline'}
                     size="sm"
+                    type="button"
                     onClick={() => setSelectedProject(project.id)}
                     className="flex items-center gap-2 text-xs"
                   >
@@ -191,13 +202,13 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="text-xs text-muted-foreground">No projects found</div>
+              <div className="text-xs text-muted-foreground">No projects found for selected clients</div>
             )}
           </TabsContent>
         </Tabs>
 
         {(selectedServices.length > 0 || selectedClients.length > 0 || selectedProject) && (
-          <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+          <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded flex flex-wrap items-center gap-2">
             {selectedServices.length > 0 && <span>Services: {selectedServices.join(', ')}</span>}
             {selectedClients.length > 0 && (
               <span className="ml-2">
@@ -209,6 +220,9 @@ const TasksHeader: React.FC<TasksHeaderProps> = ({
                 | Project: {projects.find(p => p.id === selectedProject)?.name}
               </span>
             )}
+            <Button variant="ghost" size="sm" type="button" onClick={handleClearSelection} className="h-auto px-2 py-1 text-xs">
+              Clear
+            </Button>
           </div>
         )}
       </div>
