@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Play, Eye, Pencil, Trash2, GripVertical, List, Clock, Plus, ChevronDown, ChevronUp, CalendarPlus, ChevronRight, ArrowRight, Square, CheckSquare, FolderOpen, ArrowUpFromLine, ArrowDownToLine, Check, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { logActivity, logTaskCreated, logTaskStatusChanged } from "@/utils/activityLogger";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import { ConvertToSubtaskDialog } from "./ConvertToSubtaskDialog";
 import LiveTimer from "./LiveTimer";
@@ -598,11 +599,21 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       toast.success("Task created successfully");
       setNewTaskName("");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+
+      try {
+        (data || []).forEach((task: any) => {
+          const projectName = projectNameMap.get(task.project_id) || "Unknown Project";
+          logTaskCreated(task.name, task.id, projectName);
+        });
+        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      } catch (error) {
+        console.error("Failed to log task creation activity:", error);
+      }
     },
     onError: (error) => {
       toast.error(error?.message || "Failed to create task");
@@ -612,7 +623,7 @@ export const QuickTasksSection = ({
 
   // Delete task mutation
   const deleteTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
+    mutationFn: async ({ taskId }: { taskId: string }) => {
       const { error } = await supabase
         .from("tasks")
         .delete()
@@ -623,12 +634,24 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success("Task deleted successfully");
       
       // Only invalidate the specific query, not all queries
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
       queryClient.invalidateQueries({ queryKey: ["quick-task-time-entries"] });
+
+      if (variables?.taskId && variables?.taskName) {
+        logActivity({
+          action_type: "deleted",
+          entity_type: "task",
+          entity_id: variables.taskId,
+          entity_name: variables.taskName,
+          description: `Deleted task: ${variables.taskName}`,
+          comment: variables.projectName ? `Project: ${variables.projectName}` : undefined
+        });
+        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      }
     },
     onError: (error) => {
       toast.error("Failed to delete task");
@@ -649,9 +672,20 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success("Task status updated successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+
+      if (variables?.taskId && variables?.taskName && variables?.oldStatus) {
+        logTaskStatusChanged(
+          variables.taskName,
+          variables.taskId,
+          variables.status,
+          variables.oldStatus,
+          variables.projectName
+        );
+        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      }
     },
     onError: (error) => {
       toast.error("Failed to update task status");
@@ -828,13 +862,18 @@ export const QuickTasksSection = ({
       setIsSubtaskDialogOpen(true);
     };
 
-    const handleDeleteSubtask = (subtaskId: string) => {
+    const handleDeleteSubtask = (subtask: any) => {
       if (confirm("Are you sure you want to delete this subtask?")) {
-        deleteSubtaskMutation.mutate(subtaskId);
+        deleteSubtaskMutation.mutate({
+          subtaskId: subtask.id,
+          subtaskName: subtask.name
+        });
       }
     };
 
-    const handleToggleSubtaskStatus = (subtaskId: string, currentStatus: string) => {
+    const handleToggleSubtaskStatus = (subtask: any, parentTaskId: string) => {
+      const subtaskId = subtask.id;
+      const currentStatus = subtask.status;
       let newStatus;
       switch (currentStatus) {
         case "Not Started":
@@ -849,7 +888,12 @@ export const QuickTasksSection = ({
         default:
           newStatus = "Not Started";
       }
-      updateSubtaskMutation.mutate({ subtaskId, status: newStatus, parentTaskId: task.id });
+      updateSubtaskMutation.mutate({
+        subtaskId,
+        status: newStatus,
+        parentTaskId,
+        subtaskName: subtask.name
+      });
       // Persist expansion state
       try {
         const raw = sessionStorage.getItem('quick.expandedSubtasks') || '[]';
@@ -861,7 +905,9 @@ export const QuickTasksSection = ({
       } catch {}
     };
 
-    const handleToggleTaskStatus = (taskId: string, currentStatus: string) => {
+    const handleToggleTaskStatus = (task: any) => {
+      const taskId = task.id;
+      const currentStatus = task.status;
       let newStatus;
       switch (currentStatus) {
         case "Not Started":
@@ -877,7 +923,13 @@ export const QuickTasksSection = ({
           newStatus = "Not Started";
       }
       
-      updateTaskStatusMutation.mutate({ taskId, status: newStatus });
+      updateTaskStatusMutation.mutate({
+        taskId,
+        status: newStatus,
+        taskName: task.name,
+        oldStatus: currentStatus,
+        projectName: projectNameMap.get(task.project_id) || "Unknown Project"
+      });
     };
 
     const openAssignForTask = (task: any) => {
@@ -937,7 +989,7 @@ export const QuickTasksSection = ({
                       task.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
                       'bg-gray-100 text-gray-800'
                     }`}
-                    onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                    onClick={() => handleToggleTaskStatus(task)}
                   >
                     {task.status}
                   </span>
@@ -1117,7 +1169,11 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  deleteTaskMutation.mutate(task.id);
+                  deleteTaskMutation.mutate({
+                    taskId: task.id,
+                    taskName: task.name,
+                    projectName: projectNameMap.get(task.project_id) || "Unknown Project"
+                  });
                 }}
                 className="h-8 px-3 text-destructive hover:text-destructive"
                 type="button"
@@ -1244,7 +1300,7 @@ export const QuickTasksSection = ({
                                     subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
                                     'bg-gray-100 text-gray-800'
                                   }`}
-                                  onClick={() => handleToggleSubtaskStatus(subtask.id, subtask.status)}
+                                  onClick={() => handleToggleSubtaskStatus(subtask, task.id)}
                                 >
                                   {subtask.status}
                                 </span>
@@ -1335,7 +1391,7 @@ export const QuickTasksSection = ({
                                   variant="ghost"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteSubtask(subtask.id);
+                                    handleDeleteSubtask(subtask);
                                   }}
                                   className="h-6 w-6 text-destructive hover:text-destructive"
                                   title="Delete"
@@ -1480,9 +1536,25 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success("Subtask created successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+
+      try {
+        (data || []).forEach((subtask: any) => {
+          logActivity({
+            action_type: "created",
+            entity_type: "subtask",
+            entity_id: subtask.id,
+            entity_name: subtask.name,
+            description: `Created subtask: ${subtask.name}`,
+            comment: variables?.taskId ? `Task ID: ${variables.taskId}` : undefined
+          });
+        });
+        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      } catch (error) {
+        console.error("Failed to log subtask creation activity:", error);
+      }
     },
     onError: (error) => {
       toast.error("Failed to create subtask");
@@ -1510,6 +1582,18 @@ export const QuickTasksSection = ({
     onSuccess: (_data, variables) => {
       toast.success("Subtask updated successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+
+      if (variables?.subtaskId && variables?.subtaskName) {
+        logActivity({
+          action_type: "updated",
+          entity_type: "subtask",
+          entity_id: variables.subtaskId,
+          entity_name: variables.subtaskName,
+          description: `Updated subtask: ${variables.subtaskName}`,
+          comment: variables?.status ? `Status: ${variables.status}` : undefined
+        });
+        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      }
     },
     onError: (error) => {
       toast.error("Failed to update subtask");
@@ -1540,7 +1624,7 @@ export const QuickTasksSection = ({
 
   // Subtask delete mutation
   const deleteSubtaskMutation = useMutation({
-    mutationFn: async (subtaskId: string) => {
+    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
       const { error } = await supabase
         .from("subtasks")
         .delete()
@@ -1551,9 +1635,20 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success("Subtask deleted successfully");
       queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+
+      if (variables?.subtaskId && variables?.subtaskName) {
+        logActivity({
+          action_type: "deleted",
+          entity_type: "subtask",
+          entity_id: variables.subtaskId,
+          entity_name: variables.subtaskName,
+          description: `Deleted subtask: ${variables.subtaskName}`
+        });
+        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+      }
     },
     onError: (error) => {
       toast.error("Failed to delete subtask");
@@ -2002,7 +2097,11 @@ export const QuickTasksSection = ({
                               e.preventDefault();
                               e.stopPropagation();
                               if (confirm('Are you sure you want to delete this task?')) {
-                                deleteTaskMutation.mutate(task.id);
+                                deleteTaskMutation.mutate({
+                                  taskId: task.id,
+                                  taskName: task.name,
+                                  projectName: projectNameMap.get(task.project_id) || "Unknown Project"
+                                });
                               }
                             }}
                             className="h-7 px-2 text-destructive hover:text-destructive"

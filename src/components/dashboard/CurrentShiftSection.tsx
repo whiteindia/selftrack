@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { logActivity, logTaskCreated, logTaskStatusChanged } from '@/utils/activityLogger';
 import TaskEditDialog from '@/components/TaskEditDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -593,6 +594,7 @@ export const CurrentShiftSection = () => {
         .single();
 
       let parentTaskId = existingTask?.id;
+      let createdParent = false;
 
       // If parent task doesn't exist, create it
       if (!parentTaskId) {
@@ -613,26 +615,52 @@ export const CurrentShiftSection = () => {
 
         if (taskError) throw taskError;
         parentTaskId = newTask.id;
+        createdParent = true;
       }
 
       // Create subtask under the parent task
-      const { error: subtaskError } = await supabase.from('subtasks').insert({
+      const { data: subtaskData, error: subtaskError } = await supabase.from('subtasks').insert({
         name,
         task_id: parentTaskId,
         status: 'Not Started',
         date: dateStr,
         scheduled_time: shiftStart,
         deadline: endOfDay(selectedDate).toISOString(),
-      });
+      }).select('id, name');
 
       if (subtaskError) throw subtaskError;
+      return {
+        parentTaskId,
+        parentTaskName,
+        createdParent,
+        subtask: subtaskData?.[0]
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Subtask added to shift');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
+
+      try {
+        if (data?.createdParent && data.parentTaskId && data.parentTaskName) {
+          logTaskCreated(data.parentTaskName, data.parentTaskId, 'Miscellanious-Quick-Temp-Orglater');
+        }
+        if (data?.subtask?.id && data?.subtask?.name) {
+          logActivity({
+            action_type: 'created',
+            entity_type: 'subtask',
+            entity_id: data.subtask.id,
+            entity_name: data.subtask.name,
+            description: `Created subtask: ${data.subtask.name}`,
+            comment: data.parentTaskName ? `Parent task: ${data.parentTaskName}` : undefined
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      } catch (error) {
+        console.error('Failed to log shift subtask activity:', error);
+      }
     },
     onError: (err) => {
       console.error(err);
@@ -650,7 +678,7 @@ export const CurrentShiftSection = () => {
       const slotEndDateTime = new Date(slotStartDateTime);
       slotEndDateTime.setHours(slotStartDateTime.getHours() + 1);
 
-      const { error } = await supabase.from('tasks').insert({
+      const { data, error } = await supabase.from('tasks').insert({
         name,
         project_id: projectId,
         status: 'Not Started',
@@ -659,15 +687,22 @@ export const CurrentShiftSection = () => {
         deadline: deadlineValue,
         slot_start_datetime: slotStartDateTime.toISOString(),
         slot_end_datetime: slotEndDateTime.toISOString(),
-      });
+      }).select('id, name, project_id');
 
       if (error) throw error;
+      return data?.[0];
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Task added to shift');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
       queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+
+      if (data?.id && data?.name) {
+        const projectName = projectChoices.find((p: any) => p.id === data.project_id)?.name || 'Project';
+        logTaskCreated(data.name, data.id, projectName);
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      }
     },
     onError: (err) => {
       console.error(err);
@@ -706,9 +741,20 @@ export const CurrentShiftSection = () => {
         if (error) throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('Item deleted');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+
+      if (variables?.id && variables?.name) {
+        logActivity({
+          action_type: 'deleted',
+          entity_type: variables.type,
+          entity_id: variables.id,
+          entity_name: variables.name,
+          description: `Deleted ${variables.type}: ${variables.name}`
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      }
     },
     onError: () => {
       toast.error('Failed to delete item');
@@ -784,11 +830,11 @@ export const CurrentShiftSection = () => {
     if (current === 'Not Started') next = 'In Progress';
     else if (current === 'In Progress') next = 'Completed';
     else next = 'Not Started';
-    updateSubtaskStatusMutation.mutate({ subtaskId: subtask.id, status: next });
+    updateSubtaskStatusMutation.mutate({ subtaskId: subtask.id, status: next, subtaskName: subtask.name });
   };
 
-  const handleDeleteSubtask = (subtaskId: string) => {
-    deleteSubtaskMutation.mutate({ subtaskId });
+  const handleDeleteSubtask = (subtask: any) => {
+    deleteSubtaskMutation.mutate({ subtaskId: subtask.id, subtaskName: subtask.name });
   };
 
   const updateTaskStatusMutation = useMutation({
@@ -796,19 +842,38 @@ export const CurrentShiftSection = () => {
       const { error } = await supabase.from('tasks').update({ status }).eq('id', taskId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+
+      if (variables?.taskId && variables?.taskName && variables?.oldStatus) {
+        logTaskStatusChanged(
+          variables.taskName,
+          variables.taskId,
+          variables.status,
+          variables.oldStatus,
+          variables.projectName
+        );
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      }
     },
     onError: () => toast.error('Failed to update task status'),
   });
 
-  const handleToggleTaskStatus = (taskId: string, currentStatus: string) => {
+  const handleToggleTaskStatus = (task: any) => {
+    const taskId = task.id;
+    const currentStatus = task.status;
     let next: Database['public']['Enums']['task_status'] = 'Not Started';
     if (currentStatus === 'Not Started') next = 'In Progress';
     else if (currentStatus === 'In Progress') next = 'Completed';
     else if (currentStatus === 'Completed') next = 'Not Started';
-    updateTaskStatusMutation.mutate({ taskId, status: next });
+    updateTaskStatusMutation.mutate({
+      taskId,
+      status: next,
+      taskName: task.name,
+      oldStatus: currentStatus,
+      projectName: task.project?.name
+    });
   };
 
   const { data: dialogSubtasks = [], isLoading: isDialogSubtasksLoading } = useQuery({
@@ -830,18 +895,30 @@ export const CurrentShiftSection = () => {
 
   const createSubtaskMutation = useMutation({
     mutationFn: async ({ taskId, name, parentDeadline }: { taskId: string; name: string; parentDeadline?: string | null }) => {
-      const { error } = await supabase.from('subtasks').insert({
+      const { data, error } = await supabase.from('subtasks').insert({
         name,
         task_id: taskId,
         status: 'Not Started',
         deadline: parentDeadline || null,
-      });
+      }).select('id, name');
       if (error) throw error;
+      return data?.[0];
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       toast.success('Subtask added');
       queryClient.invalidateQueries({ queryKey: ['task-subtasks', variables.taskId] });
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+
+      if (data?.id && data?.name) {
+        logActivity({
+          action_type: 'created',
+          entity_type: 'subtask',
+          entity_id: data.id,
+          entity_name: data.name,
+          description: `Created subtask: ${data.name}`
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      }
     },
     onError: () => toast.error('Failed to add subtask'),
   });
@@ -851,9 +928,21 @@ export const CurrentShiftSection = () => {
       const { error } = await supabase.from('subtasks').update({ status }).eq('id', subtaskId);
       if (error) throw error;
     },
-    onSuccess: (_data, variables, context) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+
+      if (variables?.subtaskId && variables?.subtaskName) {
+        logActivity({
+          action_type: 'updated',
+          entity_type: 'subtask',
+          entity_id: variables.subtaskId,
+          entity_name: variables.subtaskName,
+          description: `Updated subtask status: ${variables.subtaskName}`,
+          comment: variables?.status ? `Status: ${variables.status}` : undefined
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      }
     },
     onError: () => toast.error('Failed to update subtask'),
   });
@@ -867,6 +956,17 @@ export const CurrentShiftSection = () => {
       toast.success('Subtask deleted');
       queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+
+      if (variables?.subtaskId && variables?.subtaskName) {
+        logActivity({
+          action_type: 'deleted',
+          entity_type: 'subtask',
+          entity_id: variables.subtaskId,
+          entity_name: variables.subtaskName,
+          description: `Deleted subtask: ${variables.subtaskName}`
+        });
+        queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      }
     },
     onError: () => toast.error('Failed to delete subtask'),
   });
@@ -1289,7 +1389,11 @@ export const CurrentShiftSection = () => {
                                         variant="ghost"
                                         onClick={(e) => { 
                                           e.stopPropagation(); 
-                                          deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                          deleteItemMutation.mutate({ 
+                                            id: item.subtask?.id || item.id, 
+                                            type: 'subtask',
+                                            name: item.subtask?.name || 'Subtask'
+                                          }); 
                                         }}
                                         className="h-6 px-1 text-destructive hover:text-destructive"
                                         title="Delete subtask"
@@ -1340,7 +1444,12 @@ export const CurrentShiftSection = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (item.type === 'task' || item.type === 'slot-task') {
-                                      handleToggleTaskStatus(item.task?.id || item.id, getItemStatus(item));
+                                      handleToggleTaskStatus({
+                                        id: item.task?.id || item.id,
+                                        status: getItemStatus(item),
+                                        name: item.task?.name || getItemTitle(item),
+                                        project: item.task?.project
+                                      });
                                     }
                                   }}
                                 >
@@ -1470,7 +1579,11 @@ export const CurrentShiftSection = () => {
                                       variant="ghost"
                                       onClick={(e) => { 
                                         e.stopPropagation(); 
-                                        deleteItemMutation.mutate({ id: realTaskId || item.id, type: 'task' }); 
+                                        deleteItemMutation.mutate({ 
+                                          id: realTaskId || item.id, 
+                                          type: 'task',
+                                          name: item.task?.name || 'Task'
+                                        }); 
                                       }}
                                       className="h-7 px-2 text-destructive hover:text-destructive"
                                       title="Delete"
@@ -1485,7 +1598,12 @@ export const CurrentShiftSection = () => {
                                     className="h-7 px-2 text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleToggleTaskStatus(realTaskId || item.id, item.task?.status || 'Not Started');
+                                      handleToggleTaskStatus({
+                                        id: realTaskId || item.id,
+                                        status: item.task?.status || 'Not Started',
+                                        name: item.task?.name || getItemTitle(item),
+                                        project: item.task?.project
+                                      });
                                     }}
                                   >
                                     {item.task?.status || 'Not Started'}
@@ -1654,7 +1772,11 @@ export const CurrentShiftSection = () => {
                                                   variant="ghost"
                                                   onClick={(e) => { 
                                                     e.stopPropagation(); 
-                                                    deleteItemMutation.mutate({ id: item.subtask?.id || item.id, type: 'subtask' }); 
+                                                    deleteItemMutation.mutate({ 
+                                                      id: item.subtask?.id || item.id, 
+                                                      type: 'subtask',
+                                                      name: item.subtask?.name || 'Subtask'
+                                                    });
                                                   }}
                                                   className="h-5 px-1 text-destructive hover:text-destructive"
                                                   title="Delete"
@@ -1907,7 +2029,7 @@ export const CurrentShiftSection = () => {
                       size="sm"
                       variant="ghost"
                       className="h-7 px-2 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteSubtask(st.id)}
+                      onClick={() => handleDeleteSubtask(st)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

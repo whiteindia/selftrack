@@ -73,7 +73,8 @@ export const useActivityFeed = () => {
 
       console.log('Activity feed data:', activities);
       return activities || [];
-    }
+    },
+    refetchInterval: 5000,
   });
 
   return { activityFeedQuery };
