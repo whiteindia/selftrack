@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Filter, Check, ChevronDown, ChevronRight, Zap, ListTodo, Play, CalendarPlus } from 'lucide-react';
+import { Plus, Filter, Check, ChevronDown, ChevronRight, Zap, ListTodo, Play, CalendarPlus, Trash2, ArrowDownToLine } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { ConvertToSubtaskDialog } from './ConvertToSubtaskDialog';
 
 const QuickAddSection: React.FC = () => {
   const queryClient = useQueryClient();
@@ -19,6 +20,7 @@ const QuickAddSection: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isTaskListOpen, setIsTaskListOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
+  const [convertToSubtaskTask, setConvertToSubtaskTask] = useState<{ id: string; name: string } | null>(null);
   
   // Selected filters
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -228,6 +230,28 @@ const QuickAddSection: React.FC = () => {
     onError: (error) => {
       console.error('Error adding to workload:', error);
       toast.error('Failed to add to workload');
+    }
+  });
+
+  // Delete task mutation
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Task deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error) => {
+      console.error('Error deleting task:', error);
+      toast.error('Failed to delete task');
     }
   });
 
@@ -444,7 +468,10 @@ const QuickAddSection: React.FC = () => {
                     {projectTasks.map((task) => (
                       <div key={task.id} className="p-2 flex items-center justify-between gap-2 hover:bg-muted/50">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{task.name}</p>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0">Task</Badge>
+                            <p className="text-sm font-medium truncate">{task.name}</p>
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             {task.deadline && (
                               <span>Due: {format(new Date(task.deadline), 'MMM d')}</span>
@@ -464,24 +491,47 @@ const QuickAddSection: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="outline"
                             onClick={() => startTaskMutation.mutate({ taskId: task.id, taskName: task.name })}
                             disabled={task.status === 'Completed' || task.status === 'In Progress' || startTaskMutation.isPending}
-                            className="h-7 px-2"
+                            className="h-7 w-7"
+                            title="Start"
                           >
-                            <Play className="h-3 w-3 mr-1" />
-                            Start
+                            <Play className="h-3 w-3" />
                           </Button>
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="ghost"
                             onClick={() => addToWorkloadMutation.mutate(task)}
                             disabled={addToWorkloadMutation.isPending}
                             title="Add to Workload"
-                            className="h-7 px-2"
+                            className="h-7 w-7"
                           >
                             <CalendarPlus className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setConvertToSubtaskTask({ id: task.id, name: task.name })}
+                            title="Make it Subtask"
+                            className="h-7 w-7"
+                          >
+                            <ArrowDownToLine className="h-4 w-4 text-purple-600" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              if (confirm(`Delete "${task.name}"?`)) {
+                                deleteTaskMutation.mutate(task.id);
+                              }
+                            }}
+                            disabled={deleteTaskMutation.isPending}
+                            title="Delete"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -490,6 +540,16 @@ const QuickAddSection: React.FC = () => {
                 </CollapsibleContent>
               </Collapsible>
             )}
+
+            {/* Convert to Subtask Dialog */}
+            <ConvertToSubtaskDialog
+              open={!!convertToSubtaskTask}
+              onOpenChange={(open) => !open && setConvertToSubtaskTask(null)}
+              sourceTask={convertToSubtaskTask}
+              onSuccess={() => {
+                queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+              }}
+            />
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
