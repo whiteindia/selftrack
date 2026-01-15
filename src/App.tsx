@@ -24,6 +24,7 @@ import Invitations from "./pages/Invitations";
 import Roles from "./pages/Roles";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Navigation from "./components/Navigation";
 import GanttView from "./pages/GanttView";
 import AgendaCal from "./pages/AgendaCal";
 import LogCal from "./pages/LogCal";
@@ -163,7 +164,11 @@ function App() {
                 <Route path="/custom-menu" element={<ProtectedRoute><CustomMenu /></ProtectedRoute>} />
                 <Route path="/settings/telegram-notifications" element={
                   <ProtectedRoute>
-                    <TelegramNotificationSettings />
+                    <Navigation>
+                      <div className="p-4 sm:p-6 lg:p-8">
+                        <TelegramNotificationSettings />
+                      </div>
+                    </Navigation>
                   </ProtectedRoute>
                 } />
                 <Route path="/settings/telegram-bot-admin" element={

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -40,12 +40,6 @@ const TelegramNotificationSettings = () => {
   const [chatId, setChatId] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Fetch user's Telegram connection - DISABLED: table doesn't exist
-  const telegramNotification = null;
-  const telegramLoading = false;
-  
-  // TODO: Create telegram_notifications table or implement alternative connection method
-  /*
   const { data: telegramNotification, isLoading: telegramLoading } = useQuery({
     queryKey: ['telegram-notification', user?.id],
     queryFn: async () => {
@@ -63,14 +57,7 @@ const TelegramNotificationSettings = () => {
     },
     enabled: !!user,
   });
-  */
 
-  // Fetch user's Telegram settings - DISABLED: table schema mismatch
-  const telegramSettings = null;
-  const settingsLoading = false;
-  
-  // TODO: Fix TelegramSettings interface to match actual table schema
-  /*
   const { data: telegramSettings, isLoading: settingsLoading } = useQuery({
     queryKey: ['telegram-settings', user?.id],
     queryFn: async () => {
@@ -88,31 +75,126 @@ const TelegramNotificationSettings = () => {
     },
     enabled: !!user,
   });
-  */
-
-  // DISABLED: All mutations until telegram tables are properly set up
-  const connectMutation = { mutate: () => {}, isPending: false };
-  const disconnectMutation = { mutate: () => {}, isPending: false };
-  const updateSettingsMutation = { mutate: () => {}, isPending: false };
-  const toggleConnectionMutation = { mutate: () => {}, isPending: false };
 
   const handleConnect = () => {
-    toast.error('Telegram integration is currently disabled - database schema mismatch');
+    if (!chatId.trim()) return;
+    connectMutation.mutate();
   };
 
   const handleDisconnect = () => {
-    toast.error('Telegram integration is currently disabled - database schema mismatch');
+    disconnectMutation.mutate();
   };
 
   const handleToggleConnection = (enabled: boolean) => {
-    toast.error('Telegram integration is currently disabled - database schema mismatch');
+    toggleConnectionMutation.mutate(enabled);
   };
 
   type SettingsValue = string | boolean;
 
   const handleSettingChange = (key: keyof TelegramSettings, value: SettingsValue) => {
-    toast.error('Telegram settings are currently disabled - database schema mismatch');
+    updateSettingsMutation.mutate({ key, value });
   };
+
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      const parsedChatId = Number(chatId);
+      if (!Number.isFinite(parsedChatId)) {
+        throw new Error('Chat ID must be a number');
+      }
+      const { error } = await supabase
+        .from('telegram_notifications')
+        .upsert({
+          user_id: user.id,
+          chat_id: parsedChatId,
+          is_active: true,
+        }, { onConflict: 'user_id' });
+      if (error) throw error;
+
+      const { error: settingsError } = await supabase
+        .from('telegram_notification_settings')
+        .upsert({
+          user_id: user.id,
+          task_reminders: true,
+          sprint_deadlines: true,
+          task_slots: true,
+          overdue_notifications: true,
+          quiet_hours_start: '22:00:00',
+          quiet_hours_end: '08:00:00',
+          timezone: 'Asia/Kolkata',
+        }, { onConflict: 'user_id' });
+      if (settingsError) throw settingsError;
+    },
+    onSuccess: () => {
+      toast.success('Telegram connected');
+      setChatId('');
+      setIsConnectDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['telegram-notification', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['telegram-settings', user?.id] });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Failed to connect Telegram');
+    }
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('telegram_notifications')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Telegram disconnected');
+      queryClient.invalidateQueries({ queryKey: ['telegram-notification', user?.id] });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Failed to disconnect Telegram');
+    }
+  });
+
+  const toggleConnectionMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('telegram_notifications')
+        .update({ is_active: enabled })
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Telegram status updated');
+      queryClient.invalidateQueries({ queryKey: ['telegram-notification', user?.id] });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Failed to update Telegram status');
+    }
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: keyof TelegramSettings; value: SettingsValue }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { error } = await supabase
+        .from('telegram_notification_settings')
+        .upsert({
+          user_id: user.id,
+          [key]: value,
+        }, { onConflict: 'user_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['telegram-settings', user?.id] });
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error('Failed to update Telegram settings');
+    }
+  });
 
   const timezoneOptions = [
     { value: 'Asia/Kolkata', label: 'India (IST)' },
