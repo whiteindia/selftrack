@@ -1027,6 +1027,12 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <div className="px-3 py-2 border-b bg-gray-50">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+                        <Link
+                          to="/notifications"
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          View all
+                        </Link>
                         <div className="flex items-center gap-2">
                           <Badge variant="destructive" className="text-xs">
                             {totalNotificationCount}
@@ -1435,7 +1441,13 @@ const Navigation = ({ children }: { children?: React.ReactNode }) => {
                     <>
                       <div className="px-3 py-2 border-b bg-gray-50">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+                      <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+                      <Link
+                        to="/notifications"
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        View all
+                      </Link>
                           <div className="flex items-center gap-2">
                             <Badge variant="destructive" className="text-xs">
                               {totalNotificationCount}

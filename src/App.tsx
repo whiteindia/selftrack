@@ -25,6 +25,7 @@ import Roles from "./pages/Roles";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Navigation from "./components/Navigation";
+import Notifications from "./pages/Notifications";
 import GanttView from "./pages/GanttView";
 import AgendaCal from "./pages/AgendaCal";
 import LogCal from "./pages/LogCal";
@@ -174,6 +175,11 @@ function App() {
                 <Route path="/settings/telegram-bot-admin" element={
                   <ProtectedRoute requireAdmin>
                     <TelegramBotAdmin />
+                  </ProtectedRoute>
+                } />
+                <Route path="/notifications" element={
+                  <ProtectedRoute>
+                    <Notifications />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<NotFound />} />
