@@ -732,7 +732,7 @@ export const CurrentShiftSection = () => {
   };
 
   const deleteItemMutation = useMutation({
-    mutationFn: async ({ id, type }: { id: string; type: 'task' | 'subtask' }) => {
+    mutationFn: async ({ id, type }: { id: string; type: 'task' | 'subtask'; name?: string }) => {
       if (type === 'task') {
         const { error } = await supabase.from('tasks').delete().eq('id', id);
         if (error) throw error;
@@ -838,7 +838,7 @@ export const CurrentShiftSection = () => {
   };
 
   const updateTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, status }: { taskId: string; status: Database['public']['Enums']['task_status'] }) => {
+    mutationFn: async ({ taskId, status }: { taskId: string; status: Database['public']['Enums']['task_status']; taskName?: string; oldStatus?: string; projectName?: string }) => {
       const { error } = await supabase.from('tasks').update({ status }).eq('id', taskId);
       if (error) throw error;
     },
@@ -924,7 +924,7 @@ export const CurrentShiftSection = () => {
   });
 
   const updateSubtaskStatusMutation = useMutation({
-    mutationFn: async ({ subtaskId, status }: { subtaskId: string; status: string }) => {
+    mutationFn: async ({ subtaskId, status }: { subtaskId: string; status: string; subtaskName?: string }) => {
       const { error } = await supabase.from('subtasks').update({ status }).eq('id', subtaskId);
       if (error) throw error;
     },
@@ -948,7 +948,7 @@ export const CurrentShiftSection = () => {
   });
 
   const deleteSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+    mutationFn: async ({ subtaskId }: { subtaskId: string; subtaskName?: string }) => {
       const { error } = await supabase.from('subtasks').delete().eq('id', subtaskId);
       if (error) throw error;
     },

@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, TrendingUp, FileText, Target } from 'lucide-react';
+import { Calendar, Clock, TrendingUp, FileText, Target, CheckSquare } from 'lucide-react';
 
 interface UpcomingDeadlinesProps {
   upcomingDeadlines: any[];
@@ -11,6 +11,7 @@ interface UpcomingDeadlinesProps {
   onBRDClick: (brdUrl: string) => void;
   onViewAllProjects: () => void;
   onViewAllSprints: () => void;
+  onViewAllTasks?: () => void;
   getTimeUntilDeadline: (deadline: string) => string;
 }
 
@@ -20,6 +21,7 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
   onBRDClick,
   onViewAllProjects,
   onViewAllSprints,
+  onViewAllTasks,
   getTimeUntilDeadline
 }) => {
   return (
@@ -35,7 +37,7 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
           <div className="text-center py-8 text-gray-500">
             <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <p>No upcoming deadlines</p>
-            <p className="text-sm">Projects and sprints with deadlines will appear here</p>
+            <p className="text-sm">Tasks, projects and sprints with deadlines will appear here</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -47,7 +49,12 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">{item.name || item.title}</h4>
                   <div className="flex items-center space-x-2">
-                    {item.type === 'project' ? (
+                    {item.type === 'task' ? (
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        <CheckSquare className="h-3 w-3 mr-1" />
+                        Task
+                      </Badge>
+                    ) : item.type === 'project' ? (
                       <Badge variant="outline">{item.service}</Badge>
                     ) : (
                       <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
@@ -58,6 +65,12 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
                   </div>
                 </div>
                 
+                {item.type === 'task' && item.projects && (
+                  <p className="text-sm text-gray-600 mb-3">
+                    {item.projects.clients?.name} • {item.projects.name}
+                  </p>
+                )}
+                
                 {item.type === 'project' && (
                   <p className="text-sm text-gray-600 mb-3">{item.clients?.name}</p>
                 )}
@@ -67,7 +80,12 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
                 )}
                 
                 <div className="flex items-center justify-between">
-                  {item.type === 'project' && item.brd_file_url ? (
+                  {item.type === 'task' ? (
+                    <div className="flex items-center space-x-1">
+                      <CheckSquare className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium">{item.status}</span>
+                    </div>
+                  ) : item.type === 'project' && item.brd_file_url ? (
                     <div 
                       className="flex items-center space-x-2 cursor-pointer text-blue-600 hover:text-blue-800"
                       onClick={() => onBRDClick(item.brd_file_url)}
@@ -93,7 +111,16 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
                 </div>
               </div>
             ))}
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
+              {onViewAllTasks && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={onViewAllTasks}
+                >
+                  View All Tasks
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="flex-1"
