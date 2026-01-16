@@ -655,17 +655,21 @@ const AllTasks = () => {
     <Navigation>
       <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6">
         <TasksHeader
-          globalServiceFilter={globalServiceFilter}
-          setGlobalServiceFilter={setGlobalServiceFilter}
-          globalClientFilter={globalClientFilter}
-          setGlobalClientFilter={setGlobalClientFilter}
-          projectFilter={projectFilter}
-          setProjectFilter={setProjectFilter}
+          selectedServices={globalServiceFilter === 'all' ? [] : [globalServiceFilter]}
+          setSelectedServices={(services: string[] | React.SetStateAction<string[]>) => {
+            const newServices = typeof services === 'function' ? services([]) : services;
+            setGlobalServiceFilter(newServices.length > 0 ? newServices[0] : 'all');
+          }}
+          selectedClients={globalClientFilter === 'all' ? [] : [globalClientFilter]}
+          setSelectedClients={(clients: string[] | React.SetStateAction<string[]>) => {
+            const newClients = typeof clients === 'function' ? clients([]) : clients;
+            setGlobalClientFilter(newClients.length > 0 ? newClients[0] : 'all');
+          }}
+          selectedProject={projectFilter === 'all' ? '' : projectFilter}
+          setSelectedProject={(value: string) => setProjectFilter(value || 'all')}
           services={services}
           clients={clients}
           projects={projects}
-          canCreate={hasOperationAccess('tasks', 'create')}
-          onCreateTask={() => setIsCreateDialogOpen(true)}
         />
 
         {/* View Toggle */}

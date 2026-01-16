@@ -14,7 +14,9 @@ import { formatToIST } from '@/utils/timezoneUtils';
 interface TodayReminderTask {
   id: string;
   name: string;
-  reminder_datetime: string;
+  reminder_datetime: string | null;
+  slot_start_datetime: string | null;
+  scheduled_time: string | null;
   status: string;
   project: {
     id: string;
@@ -24,6 +26,7 @@ interface TodayReminderTask {
       name: string;
     };
   };
+  type: 'reminder' | 'slot';
 }
 
 const TodaysReminders = () => {
@@ -36,13 +39,17 @@ const TodaysReminders = () => {
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const todayStr = today.toISOString().split('T')[0];
 
-      const { data, error } = await supabase
+      // Fetch tasks with reminders for today
+      const { data: reminderTasks, error: reminderError } = await supabase
         .from('tasks')
         .select(`
           id,
           name,
           reminder_datetime,
+          slot_start_datetime,
+          scheduled_time,
           status,
           project:projects(
             id,
@@ -58,12 +65,60 @@ const TodaysReminders = () => {
         .lt('reminder_datetime', endOfDay.toISOString())
         .order('reminder_datetime', { ascending: true });
 
-      if (error) throw error;
+      if (reminderError) throw reminderError;
 
-      // Filter to only include reminders that are actually today
-      return (data as TodayReminderTask[]).filter(task => 
-        isToday(parseISO(task.reminder_datetime))
-      );
+      // Fetch tasks with slots for today (slot_start_datetime or scheduled_time)
+      const { data: slotTasks, error: slotError } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          name,
+          reminder_datetime,
+          slot_start_datetime,
+          scheduled_time,
+          status,
+          project:projects(
+            id,
+            name,
+            client:clients(
+              id,
+              name
+            )
+          )
+        `)
+        .or(`slot_start_datetime.gte.${startOfDay.toISOString()},scheduled_time.not.is.null`)
+        .order('slot_start_datetime', { ascending: true });
+
+      if (slotError) throw slotError;
+
+      // Process reminder tasks
+      const reminders = (reminderTasks || [])
+        .filter(task => task.reminder_datetime && isToday(parseISO(task.reminder_datetime)))
+        .map(task => ({ ...task, type: 'reminder' as const }));
+
+      // Process slot tasks - filter for today
+      const slots = (slotTasks || [])
+        .filter(task => {
+          // Check slot_start_datetime
+          if (task.slot_start_datetime && isToday(parseISO(task.slot_start_datetime))) {
+            return true;
+          }
+          // Check scheduled_time (it's just time, needs date context from task date)
+          return false;
+        })
+        .filter(task => !reminders.some(r => r.id === task.id)) // Avoid duplicates
+        .map(task => ({ ...task, type: 'slot' as const }));
+
+      // Combine and sort by time
+      const combined = [...reminders, ...slots].sort((a, b) => {
+        const timeA = a.type === 'reminder' ? a.reminder_datetime : a.slot_start_datetime;
+        const timeB = b.type === 'reminder' ? b.reminder_datetime : b.slot_start_datetime;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+        return new Date(timeA).getTime() - new Date(timeB).getTime();
+      });
+
+      return combined as TodayReminderTask[];
     },
     enabled: !!user,
     refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
@@ -181,8 +236,15 @@ const TodaysReminders = () => {
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-orange-500" />
                         <span className="font-medium text-orange-700">
-                          {formatToIST(task.reminder_datetime, 'h:mm a')} IST
+                          {task.type === 'reminder' && task.reminder_datetime 
+                            ? formatToIST(task.reminder_datetime, 'h:mm a') 
+                            : task.slot_start_datetime 
+                              ? formatToIST(task.slot_start_datetime, 'h:mm a')
+                              : 'N/A'} IST
                         </span>
+                        <Badge variant="outline" className="text-xs ml-1">
+                          {task.type === 'reminder' ? 'Reminder' : 'Slot'}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-1">
                         <Building className="h-3 w-3" />
@@ -235,8 +297,15 @@ const TodaysReminders = () => {
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3 text-orange-500" />
                       <span className="font-medium text-orange-700">
-                        {formatToIST(task.reminder_datetime, 'h:mm a')} IST
+                        {task.type === 'reminder' && task.reminder_datetime 
+                          ? formatToIST(task.reminder_datetime, 'h:mm a') 
+                          : task.slot_start_datetime 
+                            ? formatToIST(task.slot_start_datetime, 'h:mm a')
+                            : 'N/A'} IST
                       </span>
+                      <Badge variant="outline" className="text-xs">
+                        {task.type === 'reminder' ? 'Reminder' : 'Slot'}
+                      </Badge>
                     </div>
                     <div className="flex items-center gap-1">
                       <Building className="h-3 w-3" />

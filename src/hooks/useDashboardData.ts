@@ -207,7 +207,7 @@ export const useDashboardData = () => {
     }
   });
 
-  // Get projects and sprints with upcoming deadlines (this week and next week)
+  // Get tasks, projects and sprints with upcoming deadlines (this week and next week)
   const upcomingDeadlinesQuery = useQuery({
     queryKey: ['upcoming-deadlines'],
     queryFn: async () => {
@@ -215,6 +215,27 @@ export const useDashboardData = () => {
       const today = new Date();
       const nextWeek = new Date(today);
       nextWeek.setDate(today.getDate() + 7); // Next 7 days
+
+      // Fetch upcoming tasks with deadlines
+      const { data: tasks, error: taskError } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          name,
+          status,
+          deadline,
+          projects (
+            id,
+            name,
+            clients (name)
+          )
+        `)
+        .not('status', 'eq', 'Completed')
+        .not('deadline', 'is', null)
+        .gte('deadline', today.toISOString().split('T')[0])
+        .lte('deadline', nextWeek.toISOString().split('T')[0])
+        .order('deadline', { ascending: true })
+        .limit(10);
 
       // Fetch upcoming projects
       const { data: projects, error: projectError } = await supabase
@@ -252,6 +273,11 @@ export const useDashboardData = () => {
         .lte('deadline', nextWeek.toISOString().split('T')[0])
         .order('deadline', { ascending: true });
       
+      if (taskError) {
+        console.error('Upcoming tasks error:', taskError);
+        throw taskError;
+      }
+
       if (projectError) {
         console.error('Upcoming projects error:', projectError);
         throw projectError;
@@ -264,10 +290,11 @@ export const useDashboardData = () => {
 
       // Combine and sort by deadline
       const combinedDeadlines = [
+        ...(tasks || []).map(task => ({ ...task, type: 'task' })),
         ...(projects || []).map(project => ({ ...project, type: 'project' })),
         ...(sprints || []).map(sprint => ({ ...sprint, type: 'sprint' }))
       ].sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
-       .slice(0, 5); // Limit to 5 items
+       .slice(0, 10); // Limit to 10 items
 
       console.log('Combined upcoming deadlines data:', combinedDeadlines);
       return combinedDeadlines;

@@ -581,7 +581,7 @@ export const QuickTasksSection = ({
       const rows = taskNames.map(taskName => ({
         name: taskName,
         project_id: targetProjectId,
-        status: "Not Started",
+        status: "Not Started" as const,
         assigner_id: employee?.id,
         deadline: deadlineIso,
         date: deadlineDateStr,
@@ -623,7 +623,7 @@ export const QuickTasksSection = ({
 
   // Delete task mutation
   const deleteTaskMutation = useMutation({
-    mutationFn: async ({ taskId }: { taskId: string }) => {
+    mutationFn: async ({ taskId }: { taskId: string; taskName?: string; projectName?: string }) => {
       const { error } = await supabase
         .from("tasks")
         .delete()
@@ -661,7 +661,7 @@ export const QuickTasksSection = ({
 
   // Update task status mutation
   const updateTaskStatusMutation = useMutation({
-    mutationFn: async ({ taskId, status }: { taskId: string; status: Database["public"]["Enums"]["task_status"] }) => {
+    mutationFn: async ({ taskId, status }: { taskId: string; status: Database["public"]["Enums"]["task_status"]; taskName?: string; oldStatus?: string; projectName?: string }) => {
       const { error } = await supabase
         .from("tasks")
         .update({ status })
@@ -1564,7 +1564,7 @@ export const QuickTasksSection = ({
 
   // Subtask update mutation
   const updateSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId, name, status, parentTaskId }: { subtaskId: string; name?: string; status?: string; parentTaskId?: string }) => {
+    mutationFn: async ({ subtaskId, name, status, parentTaskId }: { subtaskId: string; name?: string; status?: string; parentTaskId?: string; subtaskName?: string }) => {
       const updates: any = {};
       if (name) updates.name = name;
       if (status) updates.status = status;
@@ -1624,7 +1624,7 @@ export const QuickTasksSection = ({
 
   // Subtask delete mutation
   const deleteSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId }: { subtaskId: string }) => {
+    mutationFn: async ({ subtaskId }: { subtaskId: string; subtaskName?: string }) => {
       const { error } = await supabase
         .from("subtasks")
         .delete()
