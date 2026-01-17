@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight, Pin } from 'lucide-react';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+import { useUserPins } from '@/hooks/useUserPins';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -31,24 +30,9 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
-  const [pinnedTaskIds, setPinnedTaskIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('pinnedActiveTimerTasks');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Save pinned tasks to localStorage when they change
-  useEffect(() => {
-    localStorage.setItem('pinnedActiveTimerTasks', JSON.stringify(pinnedTaskIds));
-  }, [pinnedTaskIds]);
-
-  const togglePin = (taskId: string) => {
-    setPinnedTaskIds(prev => {
-      if (prev.includes(taskId)) {
-        return prev.filter(id => id !== taskId);
-      }
-      return [...prev, taskId];
-    });
-  };
+  
+  // Use database-backed pins instead of localStorage
+  const { pinnedIds: pinnedTaskIds, togglePin, isToggling } = useUserPins('active_task');
 
   // Get unique services from running/paused tasks
   const availableServices = useMemo(() => {
