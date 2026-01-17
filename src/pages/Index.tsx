@@ -474,11 +474,6 @@ const Index = () => {
           <PinnedUntilGoalsSection />
         </div>
 
-        {/* Quick Tasks Section */}
-        <div className="mb-8">
-          <QuickTasksSection />
-        </div>
-
         {/* Active Time Tracking Section */}
         <div className="mb-8">
           <ActiveTimeTracking
@@ -486,6 +481,11 @@ const Index = () => {
             isError={!!runningTasksQuery.error}
             onRunningTaskClick={() => { /* stay on dashboard after timer actions */ }}
           />
+        </div>
+
+        {/* Quick Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection />
         </div>
 
         {/* Quick Show Tasks Section */}
