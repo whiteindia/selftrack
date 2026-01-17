@@ -578,7 +578,7 @@ export const DashboardWorkloadCal = () => {
               <CardTitle className="flex items-center gap-2 text-lg">
                 {isSectionOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
                 <Clock className="h-5 w-5" />
-                Next-6hrs-Combined-Roles
+                Nxt6hrs-All-Roles
                 <Badge variant="secondary" className="ml-2">{totalItems}</Badge>
               </CardTitle>
               <Button 
@@ -591,7 +591,7 @@ export const DashboardWorkloadCal = () => {
                 className="text-xs"
               >
                 <Eye className="h-4 w-4 mr-1" />
-                FullCal
+                Cal
               </Button>
             </div>
           </CollapsibleTrigger>
