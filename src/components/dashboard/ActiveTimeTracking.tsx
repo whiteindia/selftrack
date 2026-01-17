@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight, Pin } from 'lucide-react';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -22,6 +23,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   isError,
   onRunningTaskClick
 }) => {
+  const queryClient = useQueryClient();
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
@@ -29,6 +31,24 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
+  const [pinnedTaskIds, setPinnedTaskIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('pinnedActiveTimerTasks');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save pinned tasks to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('pinnedActiveTimerTasks', JSON.stringify(pinnedTaskIds));
+  }, [pinnedTaskIds]);
+
+  const togglePin = (taskId: string) => {
+    setPinnedTaskIds(prev => {
+      if (prev.includes(taskId)) {
+        return prev.filter(id => id !== taskId);
+      }
+      return [...prev, taskId];
+    });
+  };
 
   // Get unique services from running/paused tasks
   const availableServices = useMemo(() => {
@@ -132,19 +152,28 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
           selectedProjects.includes(entry.tasks.projects?.id)
         );
     
-    // Sort tasks: Running timers first, then paused timers
+    // Sort tasks: Pinned first, then running timers, then paused timers
     return tasks.sort((a: any, b: any) => {
+      const aTaskId = a.tasks?.id;
+      const bTaskId = b.tasks?.id;
+      const aPinned = pinnedTaskIds.includes(aTaskId);
+      const bPinned = pinnedTaskIds.includes(bTaskId);
+      
+      // Pinned tasks come first
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      
       const aPaused = parsePauseInfo(a.timer_metadata).isPaused;
       const bPaused = parsePauseInfo(b.timer_metadata).isPaused;
       
-      // Running (not paused) tasks come first
+      // Running (not paused) tasks come before paused
       if (!aPaused && bPaused) return -1;
       if (aPaused && !bPaused) return 1;
       
-      // If both have same pause status, maintain original order
+      // If both have same pin and pause status, maintain original order
       return 0;
     });
-  }, [tasksForSelectedClients, selectedProjects]);
+  }, [tasksForSelectedClients, selectedProjects, pinnedTaskIds]);
 
   const toggleService = (serviceName: string) => {
     setSelectedServices(prev => {
@@ -205,15 +234,15 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="px-6 py-4">
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between cursor-pointer">
-              <div className="flex items-center gap-2">
-                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                <CardTitle className="flex items-center">
-                  <Play className="h-5 w-5 mr-2 text-green-600" />
-                  Active Time Tracking
-                </CardTitle>
+              <div className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2">
+                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <CardTitle className="flex items-center text-base font-semibold">
+                    <Play className="h-4 w-4 mr-2 text-green-600" />
+                    Active Time Tracking
+                  </CardTitle>
+                </div>
               </div>
-            </div>
           </CollapsibleTrigger>
         </CardHeader>
 
@@ -367,6 +396,19 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                           className="h-6 px-2 text-xs"
                         >
                           <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            togglePin(entry.tasks.id);
+                          }}
+                          className={`h-6 px-2 text-xs ${pinnedTaskIds.includes(entry.tasks.id) ? 'text-amber-600' : 'text-muted-foreground'}`}
+                          title={pinnedTaskIds.includes(entry.tasks.id) ? 'Unpin' : 'Pin to top'}
+                        >
+                          <Pin className={`h-3 w-3 ${pinnedTaskIds.includes(entry.tasks.id) ? 'fill-amber-600' : ''}`} />
                         </Button>
                       </div>
                     </div>
