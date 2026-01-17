@@ -15,6 +15,7 @@ import { DashboardWorkloadCal } from '@/components/dashboard/DashboardWorkloadCa
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
 import { HotProjSection } from '@/components/dashboard/HotProjSection';
 import TodaysReminders from '@/components/dashboard/TodaysReminders';
+import { FocusOnSection } from '@/components/dashboard/FocusOnSection';
 import TaskCreateDialog from '@/components/TaskCreateDialog';
 import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Button } from '@/components/ui/button';
@@ -314,10 +315,8 @@ const Index = () => {
   return (
     <Navigation>
       <div className="max-w-7xl mx-auto px-1 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome back!</p>
-        </div>
+        {/* Focus ON Section - Time Until Goals */}
+        <FocusOnSection />
 
         {/* Quick Actions Section */}
         <div className="mb-8 space-y-4">
