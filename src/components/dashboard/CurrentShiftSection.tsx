@@ -937,7 +937,7 @@ export const CurrentShiftSection = () => {
   });
 
   const updateSubtaskStatusMutation = useMutation({
-    mutationFn: async ({ subtaskId, status }: { subtaskId: string; status: string; subtaskName?: string }) => {
+    mutationFn: async ({ subtaskId, status }: { subtaskId: string; status: string; subtaskName?: string; parentTaskName?: string }) => {
       const { error } = await supabase.from('subtasks').update({ status }).eq('id', subtaskId);
       if (error) throw error;
     },
@@ -950,13 +950,17 @@ export const CurrentShiftSection = () => {
       ]);
 
       if (variables?.subtaskId && variables?.subtaskName) {
+        const commentParts: string[] = [];
+        if (variables?.status) commentParts.push(`Status: ${variables.status}`);
+        if (variables?.parentTaskName) commentParts.push(`Parent task: ${variables.parentTaskName}`);
+        
         logActivity({
           action_type: 'updated',
           entity_type: 'subtask',
           entity_id: variables.subtaskId,
           entity_name: variables.subtaskName,
           description: `Updated subtask status: ${variables.subtaskName}`,
-          comment: variables?.status ? `Status: ${variables.status}` : undefined
+          comment: commentParts.length > 0 ? commentParts.join(' | ') : undefined
         });
         queryClient.refetchQueries({ queryKey: ['activity-feed'] });
       }
@@ -965,7 +969,7 @@ export const CurrentShiftSection = () => {
   });
 
   const deleteSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId }: { subtaskId: string; subtaskName?: string }) => {
+    mutationFn: async ({ subtaskId }: { subtaskId: string; subtaskName?: string; parentTaskName?: string }) => {
       const { error } = await supabase.from('subtasks').delete().eq('id', subtaskId);
       if (error) throw error;
     },
@@ -985,7 +989,8 @@ export const CurrentShiftSection = () => {
           entity_type: 'subtask',
           entity_id: variables.subtaskId,
           entity_name: variables.subtaskName,
-          description: `Deleted subtask: ${variables.subtaskName}`
+          description: `Deleted subtask: ${variables.subtaskName}`,
+          comment: variables?.parentTaskName ? `Parent task: ${variables.parentTaskName}` : undefined
         });
         queryClient.refetchQueries({ queryKey: ['activity-feed'] });
       }
