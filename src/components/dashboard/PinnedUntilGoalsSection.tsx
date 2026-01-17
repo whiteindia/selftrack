@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,11 +17,9 @@ import SubtaskDialog from "@/components/SubtaskDialog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
 import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
 import type { Database } from "@/integrations/supabase/types";
+import { useUserPins } from "@/hooks/useUserPins";
 
 type TaskStatus = Database["public"]["Enums"]["task_status"];
-
-const PINNED_PROJECTS_KEY = 'pinnedUntilGoalsProjects';
-const PINNED_TASKS_KEY = 'pinnedUntilGoalsTasks';
 
 export const PinnedUntilGoalsSection = () => {
   const navigate = useNavigate();
@@ -41,29 +39,9 @@ export const PinnedUntilGoalsSection = () => {
   const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
   const [editingSubtaskForDialog, setEditingSubtaskForDialog] = useState<any>(null);
 
-  // Load pinned items from localStorage
-  const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(PINNED_PROJECTS_KEY) || '[]');
-    } catch { return []; }
-  });
-
-  const [pinnedTaskIds, setPinnedTaskIds] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(PINNED_TASKS_KEY) || '[]');
-    } catch { return []; }
-  });
-
-  // Save to localStorage when pinned items change
-  const savePinnedProjects = useCallback((ids: string[]) => {
-    localStorage.setItem(PINNED_PROJECTS_KEY, JSON.stringify(ids));
-    setPinnedProjectIds(ids);
-  }, []);
-
-  const savePinnedTasks = useCallback((ids: string[]) => {
-    localStorage.setItem(PINNED_TASKS_KEY, JSON.stringify(ids));
-    setPinnedTaskIds(ids);
-  }, []);
+  // Use database-backed pins instead of localStorage
+  const { pinnedIds: pinnedProjectIds, togglePin: togglePinProject, isToggling: isTogglingProject } = useUserPins('project');
+  const { pinnedIds: pinnedTaskIds, togglePin: togglePinTask, removePin: unpinTask, isToggling: isTogglingTask } = useUserPins('task');
 
   // Fetch all projects for search
   const { data: projects = [] } = useQuery({
@@ -211,21 +189,7 @@ export const PinnedUntilGoalsSection = () => {
     return pinnedTasks.filter(t => t.project_id === selectedProjectFilter);
   }, [pinnedTasks, selectedProjectFilter]);
 
-  // Toggle pin functions
-  const togglePinProject = (projectId: string) => {
-    const newPinned = pinnedProjectIds.includes(projectId)
-      ? pinnedProjectIds.filter(id => id !== projectId)
-      : [...pinnedProjectIds, projectId];
-    savePinnedProjects(newPinned);
-  };
-
-  const togglePinTask = (taskId: string) => {
-    const newPinned = pinnedTaskIds.includes(taskId)
-      ? pinnedTaskIds.filter(id => id !== taskId)
-      : [...pinnedTaskIds, taskId];
-    savePinnedTasks(newPinned);
-    queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
-  };
+  // Note: togglePinProject and togglePinTask are now provided by useUserPins hook
 
   // Task mutations
   const updateTaskStatusMutation = useMutation({
@@ -258,12 +222,12 @@ export const PinnedUntilGoalsSection = () => {
     mutationFn: async (taskId: string) => {
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
+      return taskId;
     },
-    onSuccess: (_, taskId) => {
+    onSuccess: (taskId) => {
       toast.success("Task deleted");
-      // Remove from pinned
-      const newPinned = pinnedTaskIds.filter(id => id !== taskId);
-      savePinnedTasks(newPinned);
+      // Remove from pinned via database
+      unpinTask(taskId);
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
     }
   });
