@@ -2,7 +2,11 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Activity } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Activity, Trash2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface ActivityFeedProps {
   activityFeed: any[];
@@ -21,6 +25,27 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
   formatActivityTime,
   getActivityIcon
 }) => {
+  const queryClient = useQueryClient();
+
+  const deleteActivityMutation = useMutation({
+    mutationFn: async (activityId: string) => {
+      const { error } = await supabase
+        .from('activity_feed')
+        .delete()
+        .eq('id', activityId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Activity deleted');
+      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    },
+    onError: (error) => {
+      console.error('Error deleting activity:', error);
+      toast.error('Failed to delete activity');
+    }
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -68,9 +93,20 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                         </p>
                       )}
                     </div>
-                    <span className="text-xs text-gray-400 ml-2">
-                      {formatActivityTime(activity.created_at)}
-                    </span>
+                    <div className="flex items-center gap-2 ml-2">
+                      <span className="text-xs text-gray-400">
+                        {formatActivityTime(activity.created_at)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => deleteActivityMutation.mutate(activity.id)}
+                        disabled={deleteActivityMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}

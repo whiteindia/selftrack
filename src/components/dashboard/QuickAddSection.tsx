@@ -292,6 +292,9 @@ const QuickAddSection: React.FC = () => {
     onSuccess: () => {
       toast.success('Subtask deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error) => {
       console.error('Error deleting subtask:', error);
@@ -337,6 +340,9 @@ const QuickAddSection: React.FC = () => {
     onSuccess: () => {
       toast.success('Subtask converted to task');
       queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error) => {
       console.error('Error converting subtask:', error);
