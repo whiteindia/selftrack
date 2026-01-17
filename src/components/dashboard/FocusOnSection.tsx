@@ -8,7 +8,7 @@ import { differenceInDays, parseISO, isAfter, startOfDay } from "date-fns";
 export const FocusOnSection = () => {
   const navigate = useNavigate();
 
-  // Fetch time events (goals from Time-Until page)
+  // Fetch all time events (goals from Time-Until page)
   const { data: timeEvents = [] } = useQuery({
     queryKey: ["focus-on-time-events"],
     queryFn: async () => {
@@ -19,8 +19,7 @@ export const FocusOnSection = () => {
         .from("time_events")
         .select("id, title, deadline")
         .eq("user_id", user.id)
-        .order("deadline", { ascending: true })
-        .limit(5);
+        .order("deadline", { ascending: true });
 
       if (error) throw error;
       return data || [];
@@ -38,6 +37,42 @@ export const FocusOnSection = () => {
     const deadlineDate = startOfDay(parseISO(deadline));
     return isAfter(today, deadlineDate);
   };
+
+  const GoalItem = ({ event }: { event: { id: string; title: string; deadline: string } }) => {
+    const daysRemaining = getDaysRemaining(event.deadline);
+    const overdue = isOverdue(event.deadline);
+
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border hover:bg-muted/80 transition-colors cursor-pointer whitespace-nowrap flex-shrink-0"
+        onClick={() => navigate("/time-until")}
+      >
+        <span className="font-medium text-sm text-foreground truncate max-w-[180px]">
+          {event.title}
+        </span>
+        <span
+          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            overdue
+              ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          }`}
+        >
+          {overdue
+            ? `${Math.abs(daysRemaining)}d overdue`
+            : daysRemaining === 0
+            ? "Today"
+            : daysRemaining === 1
+            ? "1 day"
+            : `${daysRemaining} days`}
+        </span>
+      </div>
+    );
+  };
+
+  // Split events into two rows
+  const halfLength = Math.ceil(timeEvents.length / 2);
+  const row1 = timeEvents.slice(0, halfLength);
+  const row2 = timeEvents.slice(halfLength);
 
   return (
     <div className="mb-8">
@@ -62,38 +97,34 @@ export const FocusOnSection = () => {
           No goals set. Add goals in the Time-Until page to track them here.
         </p>
       ) : (
-        <div className="flex flex-wrap gap-3">
-          {timeEvents.map((event) => {
-            const daysRemaining = getDaysRemaining(event.deadline);
-            const overdue = isOverdue(event.deadline);
-
-            return (
-              <div
-                key={event.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border hover:bg-muted/80 transition-colors cursor-pointer"
-                onClick={() => navigate("/time-until")}
-              >
-                <span className="font-medium text-sm text-foreground truncate max-w-[180px]">
-                  {event.title}
-                </span>
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    overdue
-                      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                  }`}
-                >
-                  {overdue
-                    ? `${Math.abs(daysRemaining)}d overdue`
-                    : daysRemaining === 0
-                    ? "Today"
-                    : daysRemaining === 1
-                    ? "1 day"
-                    : `${daysRemaining} days`}
-                </span>
+        <div className="space-y-2 overflow-hidden">
+          {/* Row 1 - Scrolling marquee */}
+          <div className="relative overflow-hidden">
+            <div className="flex gap-3 animate-marquee">
+              {row1.map((event) => (
+                <GoalItem key={event.id} event={event} />
+              ))}
+              {/* Duplicate for seamless loop */}
+              {row1.map((event) => (
+                <GoalItem key={`dup1-${event.id}`} event={event} />
+              ))}
+            </div>
+          </div>
+          
+          {/* Row 2 - Scrolling marquee (slightly different speed) */}
+          {row2.length > 0 && (
+            <div className="relative overflow-hidden">
+              <div className="flex gap-3 animate-marquee-slow">
+                {row2.map((event) => (
+                  <GoalItem key={event.id} event={event} />
+                ))}
+                {/* Duplicate for seamless loop */}
+                {row2.map((event) => (
+                  <GoalItem key={`dup2-${event.id}`} event={event} />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
     </div>
