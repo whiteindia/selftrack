@@ -1086,15 +1086,10 @@ export const CurrentShiftSection = () => {
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="px-6 py-4">
           <CollapsibleTrigger asChild>
-            <div className="flex items-center justify-between cursor-pointer">
+            <div className="flex flex-col gap-2 cursor-pointer">
               <div className="flex items-center gap-2">
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                <h2 className="text-lg font-semibold">Current Focus Goals Shift</h2>
-                {isToday && (
-                  <Badge variant="outline" className="text-xs">
-                    Next 6 Hours
-                  </Badge>
-                )}
+                <h2 className="text-base sm:text-lg font-semibold whitespace-nowrap">Current Focus Goals Shift</h2>
               </div>
               <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <Button
