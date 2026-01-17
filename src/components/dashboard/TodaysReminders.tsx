@@ -170,28 +170,23 @@ const TodaysReminders = () => {
     );
   }
 
+  if (todaysReminders.length === 0) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-orange-500" />
           Today's Reminders
-          {todaysReminders.length > 0 && (
-            <Badge variant="secondary" className="ml-2">
-              {todaysReminders.length}
-            </Badge>
-          )}
+          <Badge variant="secondary" className="ml-2">
+            {todaysReminders.length}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {todaysReminders.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-            <p className="text-lg font-medium mb-1">No reminders for today!</p>
-            <p className="text-sm">You're all caught up.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
+        <div className="space-y-3">
             {todaysReminders.map((task) => (
               <div
                 key={task.id}
@@ -320,7 +315,6 @@ const TodaysReminders = () => {
               </div>
             ))}
           </div>
-        )}
       </CardContent>
     </Card>
   );

@@ -24,6 +24,10 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
   onViewAllTasks,
   getTimeUntilDeadline
 }) => {
+  if (upcomingDeadlines.length === 0) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -33,14 +37,7 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {upcomingDeadlines.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p>No upcoming deadlines</p>
-            <p className="text-sm">Tasks, projects and sprints with deadlines will appear here</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
+        <div className="space-y-4">
             {upcomingDeadlines.map((item: any) => (
               <div
                 key={`${item.type}-${item.id}`}
@@ -137,7 +134,6 @@ const UpcomingDeadlines: React.FC<UpcomingDeadlinesProps> = ({
               </Button>
             </div>
           </div>
-        )}
         {isError && <p className="text-xs text-red-500 mt-1">Error loading upcoming deadlines</p>}
       </CardContent>
     </Card>
