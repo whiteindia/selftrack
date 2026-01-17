@@ -68,7 +68,7 @@ interface QuickTasksSectionProps {
 }
 
 export const QuickTasksSection = ({
-  title = "Quick Tasks",
+  title = "Qk Tasks",
   defaultOpen = true,
   showProjectFilters = false,
   projectScope = "misc"
@@ -2243,7 +2243,7 @@ export const QuickTasksSection = ({
                       className="h-3.5 w-3.5"
                     />
                     <Label htmlFor="show-completed-quick" className="text-xs text-muted-foreground cursor-pointer">
-                      Show completed
+                      Show
                     </Label>
                   </div>
                 </div>
