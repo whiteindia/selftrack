@@ -412,9 +412,9 @@ const Tasks = () => {
 
   return (
     <Navigation>
-      <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6">
+      <div className="space-y-4 p-2 sm:space-y-6 sm:p-4 lg:p-6 overflow-x-hidden max-w-full">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Tasks</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Tasks</h1>
         </div>
 
         {/* Results Summary */}
@@ -737,13 +737,13 @@ const TaskWithSubtasks: React.FC<{
 
   return (
     <>
-      <div className="space-y-2">
-        <Card className={`hover:shadow-md transition-shadow border-l-4 ${
+      <div className="space-y-2 overflow-hidden">
+        <Card className={`hover:shadow-md transition-shadow border-l-4 overflow-hidden ${
           isOverdue 
             ? 'border-l-red-500 bg-red-50 ring-2 ring-red-200' 
             : 'border-l-blue-500'
         }`}>
-          <CardContent className="p-3 space-y-2">
+          <CardContent className="p-3 space-y-2 overflow-hidden">
             {/* Task Name */}
             <h4 className={`font-medium text-sm mb-2 break-words line-clamp-2 ${
               isOverdue ? 'text-red-900' : ''

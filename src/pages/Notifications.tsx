@@ -3,10 +3,11 @@ import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Clock, CalendarClock, ListChecks, Trash2 } from 'lucide-react';
+import { AlertTriangle, Clock, CalendarClock, ListChecks, Trash2, CheckCheck } from 'lucide-react';
 import { useReminderNotifications } from '@/hooks/useReminderNotifications';
 import { formatToIST } from '@/utils/timezoneUtils';
 import { useNavigate } from 'react-router-dom';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -25,34 +26,49 @@ const Notifications = () => {
 
   return (
     <Navigation>
-      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ListChecks className="h-5 w-5" />
-            <h1 className="text-2xl font-semibold">Notifications</h1>
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <ListChecks className="h-5 w-5 flex-shrink-0" />
+            <h1 className="text-xl sm:text-2xl font-semibold truncate">Notifications</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                await markAllAsRead();
-              }}
-              disabled={totalNotificationCount === 0}
-            >
-              Mark all read
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                await deleteAllNotifications();
-              }}
-              disabled={totalNotificationCount === 0}
-            >
-              <Trash2 className="h-3 w-3 mr-1" />
-              Delete all
-            </Button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={async () => {
+                      await markAllAsRead();
+                    }}
+                    disabled={totalNotificationCount === 0}
+                  >
+                    <CheckCheck className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Mark all read</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={async () => {
+                      await deleteAllNotifications();
+                    }}
+                    disabled={totalNotificationCount === 0}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete all</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
