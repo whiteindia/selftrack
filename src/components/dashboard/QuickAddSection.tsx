@@ -267,11 +267,16 @@ const QuickAddSection: React.FC = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Task deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
-      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project-tasks-quick-add', selectedProject] }),
+        queryClient.refetchQueries({ queryKey: ['quick-tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['current-shift-workload'] }),
+        queryClient.refetchQueries({ queryKey: ['activity-feed'] }),
+      ]);
     },
     onError: (error) => {
       console.error('Error deleting task:', error);
@@ -289,12 +294,17 @@ const QuickAddSection: React.FC = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Subtask deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
-      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
-      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project-tasks-quick-add', selectedProject] }),
+        queryClient.refetchQueries({ queryKey: ['subtasks'] }),
+        queryClient.refetchQueries({ queryKey: ['quick-tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['current-shift-workload'] }),
+        queryClient.refetchQueries({ queryKey: ['activity-feed'] }),
+      ]);
     },
     onError: (error) => {
       console.error('Error deleting subtask:', error);
@@ -337,12 +347,17 @@ const QuickAddSection: React.FC = () => {
 
       if (deleteError) throw deleteError;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Subtask converted to task');
-      queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add', selectedProject] });
-      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
-      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project-tasks-quick-add', selectedProject] }),
+        queryClient.refetchQueries({ queryKey: ['subtasks'] }),
+        queryClient.refetchQueries({ queryKey: ['quick-tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['current-shift-workload'] }),
+        queryClient.refetchQueries({ queryKey: ['activity-feed'] }),
+      ]);
     },
     onError: (error) => {
       console.error('Error converting subtask:', error);

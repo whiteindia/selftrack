@@ -37,9 +37,9 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Activity deleted');
-      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      await queryClient.refetchQueries({ queryKey: ['activity-feed'] });
     },
     onError: (error) => {
       console.error('Error deleting activity:', error);
@@ -56,9 +56,9 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('All activities deleted');
-      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+      await queryClient.refetchQueries({ queryKey: ['activity-feed'] });
     },
     onError: (error) => {
       console.error('Error deleting all activities:', error);
