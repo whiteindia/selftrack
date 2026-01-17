@@ -38,6 +38,7 @@ export const PinnedUntilGoalsSection = () => {
   const [showSubtasksFor, setShowSubtasksFor] = useState<Set<string>>(new Set());
   const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
   const [editingSubtaskForDialog, setEditingSubtaskForDialog] = useState<any>(null);
+  const [quickAddTaskName, setQuickAddTaskName] = useState("");
 
   // Use database-backed pins instead of localStorage
   const { pinnedIds: pinnedProjectIds, togglePin: togglePinProject, isToggling: isTogglingProject } = useUserPins('project');
@@ -172,10 +173,15 @@ export const PinnedUntilGoalsSection = () => {
   const filteredSearchTasks = useMemo(() => {
     if (!taskSearch.trim()) return [];
     const search = taskSearch.toLowerCase();
-    return allTasks
-      .filter(t => t.name.toLowerCase().includes(search))
-      .slice(0, 10);
-  }, [allTasks, taskSearch]);
+    let tasks = allTasks.filter(t => t.name.toLowerCase().includes(search));
+    
+    // If a project is selected in the filter, only show tasks from that project
+    if (selectedProjectFilter) {
+      tasks = tasks.filter(t => t.project_id === selectedProjectFilter);
+    }
+    
+    return tasks.slice(0, 10);
+  }, [allTasks, taskSearch, selectedProjectFilter]);
 
   // Get unique pinned projects from pinned tasks
   const pinnedProjectsFromTasks = useMemo(() => {
@@ -258,7 +264,30 @@ export const PinnedUntilGoalsSection = () => {
     }
   });
 
-  // Start task timer
+  // Quick add task mutation
+  const quickAddTaskMutation = useMutation({
+    mutationFn: async ({ name, projectId }: { name: string; projectId: string }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          name,
+          project_id: projectId,
+          status: "Not Started",
+          date: new Date().toISOString().split("T")[0]
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Task added");
+      togglePinTask(data.id); // Auto-pin the new task
+      setQuickAddTaskName("");
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-all-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+    }
+  });
   const handleStartTask = async (taskId: string) => {
     try {
       const { data: employee } = await supabase
@@ -293,7 +322,54 @@ export const PinnedUntilGoalsSection = () => {
     }
   };
 
-  // Removed duplicate handleToggleSubtaskStatus - now only one exists above
+  // Start subtask timer
+  const handleStartSubtask = async (subtaskId: string, taskId: string) => {
+    try {
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("email", (await supabase.auth.getUser()).data.user?.email)
+        .single();
+
+      if (!employee) {
+        toast.error("Employee not found");
+        return;
+      }
+
+      const { error } = await supabase.from("time_entries").insert({
+        task_id: subtaskId,
+        employee_id: employee.id,
+        start_time: new Date().toISOString(),
+        entry_type: "subtask"
+      });
+
+      if (error) throw error;
+
+      await supabase.from("subtasks").update({ status: "In Progress" }).eq("id", subtaskId);
+
+      toast.success("Subtask timer started");
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+    } catch (error) {
+      toast.error("Failed to start subtask timer");
+      console.error(error);
+    }
+  };
+
+  // Open assign for subtask
+  const openAssignForSubtask = (subtask: any, taskId: string) => {
+    setSelectedItemsForWorkload([{
+      id: subtask.id,
+      originalId: subtask.id,
+      type: 'subtask',
+      itemType: 'subtask',
+      title: subtask.name,
+      date: new Date().toISOString().slice(0, 10),
+      taskId: taskId,
+    }]);
+    setIsAssignDialogOpen(true);
+  };
 
   const handleToggleSubtaskStatus = (subtask: any) => {
     const statusMap: Record<string, string> = {
@@ -378,7 +454,10 @@ export const PinnedUntilGoalsSection = () => {
                         >
                           <Checkbox
                             checked={pinnedProjectIds.includes(project.id)}
-                            onCheckedChange={() => togglePinProject(project.id)}
+                            onCheckedChange={(e) => {
+                              // Checkbox handles its own toggle via parent onClick
+                            }}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{project.name}</p>
@@ -422,7 +501,10 @@ export const PinnedUntilGoalsSection = () => {
                           >
                             <Checkbox
                               checked={pinnedTaskIds.includes(task.id)}
-                              onCheckedChange={() => togglePinTask(task.id)}
+                              onCheckedChange={(e) => {
+                                // Checkbox handles its own toggle via parent onClick
+                              }}
+                              onClick={(e) => e.stopPropagation()}
                             />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{task.name}</p>
@@ -478,6 +560,34 @@ export const PinnedUntilGoalsSection = () => {
                     );
                   })}
                 </div>
+                
+                {/* Quick Add Task Input - shows when a project is selected */}
+                {selectedProjectFilter && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <Input
+                      placeholder="Quick add task to selected project..."
+                      value={quickAddTaskName}
+                      onChange={(e) => setQuickAddTaskName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && quickAddTaskName.trim() && selectedProjectFilter) {
+                          quickAddTaskMutation.mutate({ name: quickAddTaskName.trim(), projectId: selectedProjectFilter });
+                        }
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (quickAddTaskName.trim() && selectedProjectFilter) {
+                          quickAddTaskMutation.mutate({ name: quickAddTaskName.trim(), projectId: selectedProjectFilter });
+                        }
+                      }}
+                      disabled={!quickAddTaskName.trim() || quickAddTaskMutation.isPending}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -623,49 +733,98 @@ export const PinnedUntilGoalsSection = () => {
                         {/* Subtasks */}
                         {isShowingSubtasks && task.subtasks && task.subtasks.length > 0 && (
                           <div className="ml-8 mt-2 space-y-1">
-                            {task.subtasks.map((subtask: any) => (
-                              <div key={subtask.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded text-sm">
-                                <span
-                                  className={`w-2 h-2 rounded-full cursor-pointer ${
-                                    subtask.status === 'Completed' ? 'bg-green-500' :
-                                    subtask.status === 'In Progress' ? 'bg-yellow-500' : 'bg-gray-400'
-                                  }`}
-                                  onClick={() => handleToggleSubtaskStatus(subtask)}
-                                />
-                                <span className="flex-1 truncate">{subtask.name}</span>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setEditingSubtaskForDialog({
-                                      id: subtask.id,
-                                      name: subtask.name,
-                                      status: subtask.status,
-                                      deadline: subtask.deadline,
-                                      estimated_duration: subtask.estimated_duration,
-                                      assignee_id: subtask.assignee_id,
-                                      task_id: task.id
-                                    });
-                                    setIsSubtaskDialogOpen(true);
-                                  }}
-                                  className="h-6 px-2"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    if (confirm("Delete this subtask?")) {
-                                      deleteSubtaskMutation.mutate(subtask.id);
-                                    }
-                                  }}
-                                  className="h-6 px-2 text-destructive"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
+                            {task.subtasks.map((subtask: any) => {
+                              const subtaskActiveEntry = timeEntries.find(e => e.task_id === subtask.id && e.entry_type === 'subtask');
+                              const subtaskIsPaused = subtaskActiveEntry ? parsePauseInfo(subtaskActiveEntry.timer_metadata).isPaused : false;
+                              
+                              return (
+                                <div key={subtask.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded text-sm">
+                                  <span
+                                    className={`w-2 h-2 rounded-full cursor-pointer shrink-0 ${
+                                      subtask.status === 'Completed' ? 'bg-green-500' :
+                                      subtask.status === 'In Progress' ? 'bg-yellow-500' : 'bg-gray-400'
+                                    }`}
+                                    onClick={() => handleToggleSubtaskStatus(subtask)}
+                                  />
+                                  <span className="flex-1 truncate">{subtask.name}</span>
+                                  
+                                  {/* Subtask Action Buttons */}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {subtaskActiveEntry ? (
+                                      <>
+                                        <LiveTimer
+                                          startTime={subtaskActiveEntry.start_time}
+                                          isPaused={subtaskIsPaused}
+                                          timerMetadata={subtaskActiveEntry.timer_metadata}
+                                        />
+                                        <CompactTimerControls
+                                          taskId={subtask.id}
+                                          taskName={subtask.name}
+                                          entryId={subtaskActiveEntry.id}
+                                          timerMetadata={subtaskActiveEntry.timer_metadata}
+                                          onTimerUpdate={() => {
+                                            queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
+                                          }}
+                                          isSubtask={true}
+                                        />
+                                      </>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleStartSubtask(subtask.id, task.id)}
+                                        className="h-6 px-2"
+                                        title="Start Timer"
+                                      >
+                                        <Play className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => openAssignForSubtask(subtask, task.id)}
+                                      className="h-6 px-2"
+                                      title="Add to Workload"
+                                    >
+                                      <CalendarPlus className="h-3 w-3 text-blue-600" />
+                                    </Button>
+                                    
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingSubtaskForDialog({
+                                          id: subtask.id,
+                                          name: subtask.name,
+                                          status: subtask.status,
+                                          deadline: subtask.deadline,
+                                          estimated_duration: subtask.estimated_duration,
+                                          assignee_id: subtask.assignee_id,
+                                          task_id: task.id
+                                        });
+                                        setIsSubtaskDialogOpen(true);
+                                      }}
+                                      className="h-6 px-2"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        if (confirm("Delete this subtask?")) {
+                                          deleteSubtaskMutation.mutate(subtask.id);
+                                        }
+                                      }}
+                                      className="h-6 px-2 text-destructive"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
