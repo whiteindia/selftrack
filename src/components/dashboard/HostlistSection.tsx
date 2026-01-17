@@ -963,6 +963,9 @@ export const HostlistSection = () => {
                                     <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); const item = { id: subtask.id, originalId: task.id, type: 'subtask', itemType: 'subtask', title: subtask.name, date: new Date().toISOString().slice(0, 10), }; setSelectedItemsForWorkload([item]); setIsAssignDialogOpen(true); }} className="h-6 w-6" title="Add to Workload">
                                       <CalendarPlus className="h-3 w-3 text-blue-600" />
                                     </Button>
+                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedSubtasks([{ id: subtask.id, name: subtask.name, task_id: task.id }]); setIsMoveDialogOpen(true); }} className="h-6 w-6" title="Move to Task">
+                                      <ArrowRight className="h-3 w-3" />
+                                    </Button>
                                     <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSubtask(subtask.id, subtask.name); }} className="h-6 w-6" title="Edit">
                                       <Pencil className="h-3 w-3" />
                                     </Button>

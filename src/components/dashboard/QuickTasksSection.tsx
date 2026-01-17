@@ -1367,6 +1367,19 @@ export const QuickTasksSection = ({
                                   variant="ghost"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setSelectedSubtasks([{ id: subtask.id, name: subtask.name, task_id: task.id }]);
+                                    setIsMoveDialogOpen(true);
+                                  }}
+                                  className="h-6 w-6"
+                                  title="Move to Task"
+                                >
+                                  <ArrowRight className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     openSubtaskEditDialog(subtask);
                                   }}
                                   className="h-6 w-6"
