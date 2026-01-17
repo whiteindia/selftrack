@@ -7,6 +7,7 @@ import { Activity, Trash2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ActivityFeedProps {
   activityFeed: any[];
@@ -46,14 +47,53 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
     }
   });
 
+  const deleteAllActivitiesMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('activity_feed')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('All activities deleted');
+      queryClient.invalidateQueries({ queryKey: ['activity-feed'] });
+    },
+    onError: (error) => {
+      console.error('Error deleting all activities:', error);
+      toast.error('Failed to delete activities');
+    }
+  });
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center">
-          <Activity className="h-5 w-5 mr-2 text-purple-600" />
-          Recent Activity
-          {isLoading && <span className="ml-2 text-sm text-gray-500">(Loading...)</span>}
-          {isError && <span className="ml-2 text-sm text-red-500">(Error)</span>}
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center">
+            <Activity className="h-5 w-5 mr-2 text-purple-600" />
+            Recent Activity
+            {isLoading && <span className="ml-2 text-sm text-gray-500">(Loading...)</span>}
+            {isError && <span className="ml-2 text-sm text-red-500">(Error)</span>}
+          </div>
+          {activityFeed.length > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteAllActivitiesMutation.mutate()}
+                    disabled={deleteAllActivitiesMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete all activities</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -74,27 +114,27 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
               {activityFeed.map((activity: any) => (
                 <div key={activity.id} className="p-3 border rounded-lg bg-gray-50">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2 mb-1">
                         <span className="text-lg">{getActivityIcon(activity.action_type)}</span>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 truncate">
                           {activity.profiles?.full_name || 'Unknown User'}
                         </p>
                       </div>
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-gray-700 break-words">
                         {activity.description}
                       </p>
-                      <p className="text-xs text-gray-600 mt-1">
+                      <p className="text-xs text-gray-600 mt-1 truncate">
                         {activity.entity_type} • {activity.entity_name}
                       </p>
                       {activity.comment && (
-                        <p className="text-xs text-gray-500 mt-2 italic">
+                        <p className="text-xs text-gray-500 mt-2 italic break-words">
                           "{activity.comment}"
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 ml-2">
-                      <span className="text-xs text-gray-400">
+                    <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                      <span className="text-xs text-gray-400 whitespace-nowrap">
                         {formatActivityTime(activity.created_at)}
                       </span>
                       <Button

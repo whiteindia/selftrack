@@ -637,9 +637,14 @@ export const QuickTasksSection = ({
     onSuccess: (_data, variables) => {
       toast.success("Task deleted successfully");
       
-      // Only invalidate the specific query, not all queries
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      // Invalidate all relevant dashboard queries for instant refresh
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["quick-task-time-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
 
       if (variables?.taskId && variables?.taskName) {
         logActivity({
@@ -674,7 +679,12 @@ export const QuickTasksSection = ({
     },
     onSuccess: (_data, variables) => {
       toast.success("Task status updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      // Invalidate all relevant dashboard queries for instant refresh
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
 
       if (variables?.taskId && variables?.taskName && variables?.oldStatus) {
         logTaskStatusChanged(
@@ -1611,8 +1621,12 @@ export const QuickTasksSection = ({
     },
     onSuccess: () => {
       toast.success("Subtask updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      // Invalidate all relevant dashboard queries for instant refresh
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["subtasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
       setIsSubtaskDialogOpen(false);
       setEditingSubtaskForDialog(null);
     },
@@ -1637,7 +1651,13 @@ export const QuickTasksSection = ({
     },
     onSuccess: (_data, variables) => {
       toast.success("Subtask deleted successfully");
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      // Invalidate all relevant dashboard queries for instant refresh
+      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
 
       if (variables?.subtaskId && variables?.subtaskName) {
         logActivity({

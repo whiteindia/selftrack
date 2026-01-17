@@ -743,7 +743,13 @@ export const CurrentShiftSection = () => {
     },
     onSuccess: (_data, variables) => {
       toast.success('Item deleted');
+      // Invalidate all relevant dashboard queries for instant refresh
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
 
       if (variables?.id && variables?.name) {
         logActivity({
