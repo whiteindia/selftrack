@@ -42,6 +42,7 @@ export const PinnedUntilGoalsSection = () => {
   const [quickAddTaskName, setQuickAddTaskName] = useState("");
   const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [showAllProjectTasks, setShowAllProjectTasks] = useState(false);
 
   // Use database-backed pins instead of localStorage
   const { pinnedIds: pinnedProjectIds, togglePin: togglePinProject, isToggling: isTogglingProject } = useUserPins('project');
@@ -192,11 +193,81 @@ export const PinnedUntilGoalsSection = () => {
     return projects.filter(p => projectIds.has(p.id) || pinnedProjectIds.includes(p.id));
   }, [pinnedTasks, projects, pinnedProjectIds]);
 
+  // Fetch all tasks for the selected project (when showAllProjectTasks is true)
+  const { data: allProjectTasks = [] } = useQuery({
+    queryKey: ["pinned-goals-project-tasks", selectedProjectFilter],
+    queryFn: async () => {
+      if (!selectedProjectFilter) return [];
+      
+      const { data, error } = await supabase
+        .from("tasks")
+        .select(`
+          id,
+          name,
+          deadline,
+          status,
+          project_id,
+          reminder_datetime,
+          slot_start_time,
+          slot_start_datetime,
+          scheduled_time
+        `)
+        .eq("project_id", selectedProjectFilter)
+        .neq("status", "Completed")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Enhance tasks with subtasks and project info
+      const enhancedTasks = await Promise.all(
+        (data || []).map(async (task) => {
+          const { data: subtasks } = await supabase
+            .from('subtasks')
+            .select('id, name, status, deadline, estimated_duration, assignee_id')
+            .eq('task_id', task.id)
+            .neq('status', 'Completed')
+            .order('created_at', { ascending: true });
+
+          const { data: projectData } = await supabase
+            .from('projects')
+            .select('id, name, service, client_id, clients(name)')
+            .eq('id', task.project_id)
+            .single();
+
+          // Fetch logged time
+          const { data: timeEntries } = await supabase
+            .from('time_entries')
+            .select('duration_minutes')
+            .eq('task_id', task.id)
+            .not('end_time', 'is', null);
+
+          const totalLoggedMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
+
+          return {
+            ...task,
+            subtasks: subtasks || [],
+            project: projectData,
+            total_logged_hours: Math.round((totalLoggedMinutes / 60) * 100) / 100,
+            subtask_count: (subtasks || []).length
+          };
+        })
+      );
+
+      return enhancedTasks;
+    },
+    enabled: !!selectedProjectFilter && showAllProjectTasks
+  });
+
   // Filter displayed tasks by selected project
   const displayedTasks = useMemo(() => {
+    // If showing all tasks for a selected project
+    if (showAllProjectTasks && selectedProjectFilter && allProjectTasks.length > 0) {
+      return allProjectTasks;
+    }
+    // Default: show only pinned tasks
     if (!selectedProjectFilter) return pinnedTasks;
     return pinnedTasks.filter(t => t.project_id === selectedProjectFilter);
-  }, [pinnedTasks, selectedProjectFilter]);
+  }, [pinnedTasks, selectedProjectFilter, showAllProjectTasks, allProjectTasks]);
 
   // Note: togglePinProject and togglePinTask are now provided by useUserPins hook
 
@@ -535,7 +606,10 @@ export const PinnedUntilGoalsSection = () => {
                   <Button
                     size="sm"
                     variant={selectedProjectFilter === null ? "default" : "outline"}
-                    onClick={() => setSelectedProjectFilter(null)}
+                    onClick={() => {
+                      setSelectedProjectFilter(null);
+                      setShowAllProjectTasks(false);
+                    }}
                     className="text-xs"
                   >
                     All ({pinnedTasks.length})
@@ -547,7 +621,10 @@ export const PinnedUntilGoalsSection = () => {
                         key={project.id}
                         size="sm"
                         variant={selectedProjectFilter === project.id ? "default" : "outline"}
-                        onClick={() => setSelectedProjectFilter(project.id)}
+                        onClick={() => {
+                          setSelectedProjectFilter(project.id);
+                          setShowAllProjectTasks(false);
+                        }}
                         className="flex items-center gap-2 text-xs"
                       >
                         {selectedProjectFilter === project.id && <Check className="h-3 w-3" />}
@@ -564,9 +641,26 @@ export const PinnedUntilGoalsSection = () => {
                   })}
                 </div>
                 
-                {/* Quick Add Task Input - shows when a project is selected */}
+                {/* Show All Tasks Checkbox - shows when a project is selected */}
                 {selectedProjectFilter && (
                   <div className="flex items-center gap-2 mt-3">
+                    <Checkbox
+                      id="show-all-project-tasks"
+                      checked={showAllProjectTasks}
+                      onCheckedChange={(checked) => setShowAllProjectTasks(checked === true)}
+                    />
+                    <label 
+                      htmlFor="show-all-project-tasks" 
+                      className="text-sm text-muted-foreground cursor-pointer"
+                    >
+                      Show all tasks (to pin)
+                    </label>
+                  </div>
+                )}
+                
+                {/* Quick Add Task Input - shows when a project is selected */}
+                {selectedProjectFilter && (
+                  <div className="flex items-center gap-2 mt-2">
                     <Input
                       placeholder="Quick add task to selected project..."
                       value={quickAddTaskName}
