@@ -634,17 +634,19 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast.success("Task deleted successfully");
       
-      // Invalidate all relevant dashboard queries for instant refresh
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["quick-task-time-entries"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
-      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["quick-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["quick-task-time-entries"] }),
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["subtasks"] }),
+        queryClient.refetchQueries({ queryKey: ["current-shift-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["runningTasks"] }),
+      ]);
 
       if (variables?.taskId && variables?.taskName) {
         logActivity({
@@ -655,7 +657,7 @@ export const QuickTasksSection = ({
           description: `Deleted task: ${variables.taskName}`,
           comment: variables.projectName ? `Project: ${variables.projectName}` : undefined
         });
-        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+        queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       }
     },
     onError: (error) => {
@@ -677,14 +679,16 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast.success("Task status updated successfully");
-      // Invalidate all relevant dashboard queries for instant refresh
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["quick-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["current-shift-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["runningTasks"] }),
+      ]);
 
       if (variables?.taskId && variables?.taskName && variables?.oldStatus) {
         logTaskStatusChanged(
@@ -694,7 +698,7 @@ export const QuickTasksSection = ({
           variables.oldStatus,
           variables.projectName
         );
-        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+        queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       }
     },
     onError: (error) => {
@@ -1546,9 +1550,14 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       toast.success("Subtask created successfully");
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["quick-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["subtasks"] }),
+        queryClient.refetchQueries({ queryKey: ["current-shift-workload"] }),
+      ]);
 
       try {
         (data || []).forEach((subtask: any) => {
@@ -1561,7 +1570,7 @@ export const QuickTasksSection = ({
             comment: variables?.taskId ? `Task ID: ${variables.taskId}` : undefined
           });
         });
-        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+        queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       } catch (error) {
         console.error("Failed to log subtask creation activity:", error);
       }
@@ -1589,9 +1598,14 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast.success("Subtask updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks", project?.id] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["quick-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["subtasks"] }),
+        queryClient.refetchQueries({ queryKey: ["current-shift-workload"] }),
+      ]);
 
       if (variables?.subtaskId && variables?.subtaskName) {
         logActivity({
@@ -1602,7 +1616,7 @@ export const QuickTasksSection = ({
           description: `Updated subtask: ${variables.subtaskName}`,
           comment: variables?.status ? `Status: ${variables.status}` : undefined
         });
-        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+        queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       }
     },
     onError: (error) => {
@@ -1619,14 +1633,16 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Subtask updated successfully");
-      // Invalidate all relevant dashboard queries for instant refresh
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["quick-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["subtasks"] }),
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["current-shift-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-workload"] }),
+      ]);
       setIsSubtaskDialogOpen(false);
       setEditingSubtaskForDialog(null);
     },
@@ -1649,15 +1665,17 @@ export const QuickTasksSection = ({
     onMutate: () => {
       captureScrollPosition();
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast.success("Subtask deleted successfully");
-      // Invalidate all relevant dashboard queries for instant refresh
-      queryClient.invalidateQueries({ queryKey: ["quick-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["subtasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
-      queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      // Use refetchQueries for immediate UI update (works better on mobile)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["quick-tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["subtasks"] }),
+        queryClient.refetchQueries({ queryKey: ["tasks"] }),
+        queryClient.refetchQueries({ queryKey: ["current-shift-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["dashboard-workload"] }),
+        queryClient.refetchQueries({ queryKey: ["runningTasks"] }),
+      ]);
 
       if (variables?.subtaskId && variables?.subtaskName) {
         logActivity({
@@ -1667,7 +1685,7 @@ export const QuickTasksSection = ({
           entity_name: variables.subtaskName,
           description: `Deleted subtask: ${variables.subtaskName}`
         });
-        queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+        queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       }
     },
     onError: (error) => {
