@@ -574,12 +574,12 @@ export const DashboardWorkloadCal = () => {
       <CardHeader className="pb-2">
         <Collapsible open={isSectionOpen} onOpenChange={setIsSectionOpen}>
           <CollapsibleTrigger className="w-full">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                {isSectionOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
-                <Clock className="h-5 w-5" />
-                Nxt6hrs-All-Roles
-                <Badge variant="secondary" className="ml-2">{totalItems}</Badge>
+            <div className="flex items-center justify-between gap-2 flex-nowrap">
+              <CardTitle className="flex items-center gap-1 text-base sm:text-lg whitespace-nowrap flex-shrink-0">
+                {isSectionOpen ? <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" /> : <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="text-sm sm:text-lg">Nxt6hrs-All-Roles</span>
+                <Badge variant="secondary" className="ml-1">{totalItems}</Badge>
               </CardTitle>
               <Button 
                 variant="ghost" 
@@ -588,7 +588,7 @@ export const DashboardWorkloadCal = () => {
                   e.stopPropagation();
                   navigate('/workload-cal');
                 }}
-                className="text-xs"
+                className="text-xs flex-shrink-0 px-2"
               >
                 <Eye className="h-4 w-4 mr-1" />
                 Cal
