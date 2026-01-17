@@ -69,10 +69,9 @@ export const FocusOnSection = () => {
     );
   };
 
-  // Split events into two rows
-  const halfLength = Math.ceil(timeEvents.length / 2);
-  const row1 = timeEvents.slice(0, halfLength);
-  const row2 = timeEvents.slice(halfLength);
+  // Separate overdue and due goals
+  const overdueGoals = timeEvents.filter(event => isOverdue(event.deadline));
+  const dueGoals = timeEvents.filter(event => !isOverdue(event.deadline));
 
   return (
     <div className="mb-8">
@@ -98,28 +97,30 @@ export const FocusOnSection = () => {
         </p>
       ) : (
         <div className="space-y-2 overflow-hidden">
-          {/* Row 1 - Scrolling marquee */}
-          <div className="relative overflow-hidden">
-            <div className="flex gap-3 animate-marquee">
-              {row1.map((event) => (
-                <GoalItem key={event.id} event={event} />
-              ))}
-              {/* Duplicate for seamless loop */}
-              {row1.map((event) => (
-                <GoalItem key={`dup1-${event.id}`} event={event} />
-              ))}
-            </div>
-          </div>
-          
-          {/* Row 2 - Scrolling marquee (slightly different speed) */}
-          {row2.length > 0 && (
+          {/* Row 1 - Overdue goals (Red) */}
+          {overdueGoals.length > 0 && (
             <div className="relative overflow-hidden">
-              <div className="flex gap-3 animate-marquee-slow">
-                {row2.map((event) => (
+              <div className="flex gap-3 animate-marquee">
+                {overdueGoals.map((event) => (
                   <GoalItem key={event.id} event={event} />
                 ))}
                 {/* Duplicate for seamless loop */}
-                {row2.map((event) => (
+                {overdueGoals.map((event) => (
+                  <GoalItem key={`dup1-${event.id}`} event={event} />
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Row 2 - Due goals (Green) */}
+          {dueGoals.length > 0 && (
+            <div className="relative overflow-hidden">
+              <div className="flex gap-3 animate-marquee-slow">
+                {dueGoals.map((event) => (
+                  <GoalItem key={event.id} event={event} />
+                ))}
+                {/* Duplicate for seamless loop */}
+                {dueGoals.map((event) => (
                   <GoalItem key={`dup2-${event.id}`} event={event} />
                 ))}
               </div>
