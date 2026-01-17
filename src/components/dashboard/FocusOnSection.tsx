@@ -78,7 +78,7 @@ export const FocusOnSection = () => {
   const dueDuration = Math.max(4, dueGoals.length * 2);
 
   return (
-    <div className="mb-8">
+    <div className="mb-8 overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-primary" />
@@ -100,14 +100,15 @@ export const FocusOnSection = () => {
           No goals set. Add goals in the Time-Until page to track them here.
         </p>
       ) : (
-        <div className="space-y-2 overflow-hidden">
+        <div className="space-y-2 w-full overflow-hidden">
           {/* Row 1 - Overdue goals (Red) */}
           {overdueGoals.length > 0 && (
-            <div className="relative overflow-hidden">
+            <div className="relative w-full overflow-hidden">
               <div 
-                className="flex gap-3"
+                className="flex gap-3 animate-marquee"
                 style={{
-                  animation: `marquee ${overdueDuration}s linear infinite`,
+                  ['--marquee-duration' as string]: `${overdueDuration}s`,
+                  animationDuration: `${overdueDuration}s`,
                 }}
               >
                 {overdueGoals.map((event) => (
@@ -123,11 +124,12 @@ export const FocusOnSection = () => {
           
           {/* Row 2 - Due goals (Green) */}
           {dueGoals.length > 0 && (
-            <div className="relative overflow-hidden">
+            <div className="relative w-full overflow-hidden">
               <div 
-                className="flex gap-3"
+                className="flex gap-3 animate-marquee"
                 style={{
-                  animation: `marquee ${dueDuration}s linear infinite`,
+                  ['--marquee-duration' as string]: `${dueDuration}s`,
+                  animationDuration: `${dueDuration}s`,
                 }}
               >
                 {dueGoals.map((event) => (
@@ -140,17 +142,17 @@ export const FocusOnSection = () => {
               </div>
             </div>
           )}
-
-          {/* Mobile speed boost */}
-          <style>{`
-            @media (max-width: 768px) {
-              .flex[style*="marquee"] {
-                animation-duration: calc(var(--duration) * 0.5) !important;
-              }
-            }
-          `}</style>
         </div>
       )}
+
+      {/* Scoped styles for mobile speed boost */}
+      <style>{`
+        @media (max-width: 768px) {
+          .animate-marquee {
+            animation-duration: calc(var(--marquee-duration) * 0.5) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
