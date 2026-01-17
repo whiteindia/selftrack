@@ -1187,15 +1187,21 @@ export const CurrentShiftSection = () => {
                 </Button>
               </div>
             )}
-            {itemsByShift.map(shift => (
+            {itemsByShift.map(shift => {
+              const isCurrentShift = isToday && now >= shift.start && now < shift.end;
+              return (
               <div 
                 key={shift.id} 
                 className={cn(
-                  "space-y-2 p-3 rounded-lg",
+                  "space-y-2 p-3 rounded-lg transition-all",
                   shift.id === 'A' && 'bg-blue-50 dark:bg-blue-900/20',
                   shift.id === 'B' && 'bg-green-50 dark:bg-green-900/20',
                   shift.id === 'C' && 'bg-amber-50 dark:bg-amber-900/20',
-                  shift.id === 'D' && 'bg-purple-50 dark:bg-purple-900/20'
+                  shift.id === 'D' && 'bg-purple-50 dark:bg-purple-900/20',
+                  isCurrentShift && shift.id === 'A' && 'ring-4 ring-blue-500 dark:ring-blue-400',
+                  isCurrentShift && shift.id === 'B' && 'ring-4 ring-green-500 dark:ring-green-400',
+                  isCurrentShift && shift.id === 'C' && 'ring-4 ring-amber-500 dark:ring-amber-400',
+                  isCurrentShift && shift.id === 'D' && 'ring-4 ring-purple-500 dark:ring-purple-400'
                 )}
               >
               {(() => {
@@ -1894,7 +1900,7 @@ export const CurrentShiftSection = () => {
                   </div>
                 )}
               </div>
-            ))}
+            );})}
           </div>
           </CardContent>
         </CollapsibleContent>
