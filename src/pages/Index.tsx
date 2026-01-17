@@ -474,11 +474,6 @@ const Index = () => {
           <QuickTasksSection />
         </div>
 
-        {/* Quick Show Tasks Section */}
-        <div className="mb-8">
-          <QuickTasksSection title="QuickShowTasks" defaultOpen={false} showProjectFilters projectScope="all" />
-        </div>
-
         {/* Active Time Tracking Section */}
         <div className="mb-8">
           <ActiveTimeTracking
@@ -486,6 +481,11 @@ const Index = () => {
             isError={!!runningTasksQuery.error}
             onRunningTaskClick={() => { /* stay on dashboard after timer actions */ }}
           />
+        </div>
+
+        {/* Quick Show Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection title="QuickShowTasks" defaultOpen={false} showProjectFilters projectScope="all" />
         </div>
 
         {/* Hostlist Section */}
