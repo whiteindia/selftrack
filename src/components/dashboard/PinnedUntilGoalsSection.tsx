@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Pin, Search, ChevronDown, ChevronRight, Play, Eye, Pencil, Trash2, Clock, List, CalendarPlus, FolderOpen, X, Check, Filter } from "lucide-react";
+import { Pin, Search, ChevronDown, ChevronRight, Play, Eye, Pencil, Trash2, Clock, List, CalendarPlus, FolderOpen, X, Check, Filter, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import TaskEditDialog from "@/components/TaskEditDialog";
 import SubtaskDialog from "@/components/SubtaskDialog";
 import AssignToSlotDialog from "@/components/AssignToSlotDialog";
 import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
+import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import type { Database } from "@/integrations/supabase/types";
 import { useUserPins } from "@/hooks/useUserPins";
 
@@ -39,6 +40,8 @@ export const PinnedUntilGoalsSection = () => {
   const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
   const [editingSubtaskForDialog, setEditingSubtaskForDialog] = useState<any>(null);
   const [quickAddTaskName, setQuickAddTaskName] = useState("");
+  const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
 
   // Use database-backed pins instead of localStorage
   const { pinnedIds: pinnedProjectIds, togglePin: togglePinProject, isToggling: isTogglingProject } = useUserPins('project');
@@ -794,6 +797,19 @@ export const PinnedUntilGoalsSection = () => {
                                       size="sm"
                                       variant="ghost"
                                       onClick={() => {
+                                        setSelectedSubtasks([{ id: subtask.id, name: subtask.name, task_id: task.id }]);
+                                        setIsMoveDialogOpen(true);
+                                      }}
+                                      className="h-6 px-2"
+                                      title="Move to Task"
+                                    >
+                                      <ArrowRight className="h-3 w-3" />
+                                    </Button>
+                                    
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
                                         setEditingSubtaskForDialog({
                                           id: subtask.id,
                                           name: subtask.name,
@@ -867,6 +883,16 @@ export const PinnedUntilGoalsSection = () => {
           }}
         />
       )}
+
+      <MoveSubtasksDialog
+        open={isMoveDialogOpen}
+        onOpenChange={setIsMoveDialogOpen}
+        selectedSubtasks={selectedSubtasks}
+        onSuccess={() => {
+          setSelectedSubtasks([]);
+          queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+        }}
+      />
 
       <AssignToSlotDialog
         open={isAssignDialogOpen}

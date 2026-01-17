@@ -782,6 +782,9 @@ export const HotProjSection = () => {
                                   <div className="flex items-center gap-0.5 ml-1">
                                     <TimeTrackerWithComment task={{ id: subtask.id, name: subtask.name }} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hotproj-tasks"] })} isSubtask={true} iconOnly={true} />
                                     <ManualTimeLog taskId={subtask.id} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["hotproj-tasks"] })} isSubtask={true} iconOnly={true} />
+                                    <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedSubtasks([{ id: subtask.id, name: subtask.name, task_id: task.id }]); setIsMoveDialogOpen(true); }} className="h-6 w-6" title="Move to Task" type="button">
+                                      <ArrowRight className="h-3 w-3" />
+                                    </Button>
                                     <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEditSubtask(subtask.id, subtask.name); }} className="h-6 w-6" title="Edit" type="button">
                                       <Pencil className="h-3 w-3" />
                                     </Button>
