@@ -578,7 +578,7 @@ export const DashboardWorkloadCal = () => {
               <CardTitle className="flex items-center gap-2 text-lg">
                 {isSectionOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRightIcon className="h-5 w-5" />}
                 <Clock className="h-5 w-5" />
-                Nxt6hrs
+                Next-6hrs-Combined-Roles
                 <Badge variant="secondary" className="ml-2">{totalItems}</Badge>
               </CardTitle>
               <Button 
@@ -777,23 +777,21 @@ export const DashboardWorkloadCal = () => {
                                     )}
                                   >
                                     <div className="flex flex-col gap-1">
-                                      <div className="flex items-start gap-1.5">
-                                        <Badge variant="outline" className="text-xs capitalize shrink-0 mt-0.5">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <Badge variant="outline" className="text-xs capitalize shrink-0">
                                           {item.type}
                                         </Badge>
-                                        <h3 className="font-medium text-sm break-words line-clamp-3 flex-1">
+                                        <h3 className="font-medium text-sm break-words flex-1">
                                           {renderTaskName(getItemTitle(item) || '')}
                                         </h3>
+                                        <Badge className={cn("text-xs", getStatusColor(getItemStatus(item) || ''))}>
+                                          {getItemStatus(item)}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                          {getItemProject(item)}
+                                        </span>
                                       </div>
-                                      <div className="flex items-center justify-between gap-2 mt-1">
-                                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                                          <Badge className={cn("text-xs", getStatusColor(getItemStatus(item) || ''))}>
-                                            {getItemStatus(item)}
-                                          </Badge>
-                                          <span className="break-words text-xs">
-                                            {getItemProject(item)}
-                                          </span>
-                                        </div>
+                                      <div className="flex items-center justify-end gap-2">
                                         {(item.type === 'task' || item.type === 'subtask') && itemId && (
                                           <div className="shrink-0">
                                             {runningTimer ? (

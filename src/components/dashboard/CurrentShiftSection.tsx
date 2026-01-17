@@ -1089,7 +1089,7 @@ export const CurrentShiftSection = () => {
             <div className="flex items-center justify-between cursor-pointer">
               <div className="flex items-center gap-2">
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                <h2 className="text-lg font-semibold">Current Shift</h2>
+                <h2 className="text-lg font-semibold">Current Focus Goals Shift</h2>
                 {isToday && (
                   <Badge variant="outline" className="text-xs">
                     Next 6 Hours
