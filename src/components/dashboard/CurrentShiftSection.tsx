@@ -1198,13 +1198,27 @@ export const CurrentShiftSection = () => {
                   shift.id === 'D' && 'bg-purple-50 dark:bg-purple-900/20'
                 )}
               >
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-medium text-sm">{shift.label}</h3>
-                  <Badge variant="secondary" className="text-xs">
-                    {shift.items.length} items
-                  </Badge>
-                </div>
+              {(() => {
+                  const isCurrentShift = isToday && now >= shift.start && now < shift.end;
+                  const clockColorClass = isCurrentShift 
+                    ? cn(
+                        'animate-blink-shift',
+                        shift.id === 'A' && 'text-blue-600 dark:text-blue-400',
+                        shift.id === 'B' && 'text-green-600 dark:text-green-400',
+                        shift.id === 'C' && 'text-amber-600 dark:text-amber-400',
+                        shift.id === 'D' && 'text-purple-600 dark:text-purple-400'
+                      )
+                    : 'text-muted-foreground';
+                  return (
+                    <div className="flex items-center gap-2">
+                      <Clock className={cn("h-4 w-4", clockColorClass)} />
+                      <h3 className="font-medium text-sm">{shift.label}</h3>
+                      <Badge variant="secondary" className="text-xs">
+                        {shift.items.length} items
+                      </Badge>
+                    </div>
+                  );
+                })()}
 
                 <div className="pl-6">
                   <div
