@@ -73,12 +73,8 @@ export const FocusOnSection = () => {
   const overdueGoals = timeEvents.filter(event => isOverdue(event.deadline));
   const dueGoals = timeEvents.filter(event => !isOverdue(event.deadline));
 
-  // Calculate animation duration based on number of items (2s per item, min 4s)
-  const overdueDuration = Math.max(4, overdueGoals.length * 2);
-  const dueDuration = Math.max(4, dueGoals.length * 2);
-
   return (
-    <div className="mb-8 overflow-hidden">
+    <div className="mb-8 max-w-full overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-primary" />
@@ -100,23 +96,13 @@ export const FocusOnSection = () => {
           No goals set. Add goals in the Time-Until page to track them here.
         </p>
       ) : (
-        <div className="space-y-2 w-full overflow-hidden">
+        <div className="space-y-2 w-full">
           {/* Row 1 - Overdue goals (Red) */}
           {overdueGoals.length > 0 && (
-            <div className="relative w-full overflow-hidden">
-              <div 
-                className="flex gap-3 animate-marquee"
-                style={{
-                  ['--marquee-duration' as string]: `${overdueDuration}s`,
-                  animationDuration: `${overdueDuration}s`,
-                }}
-              >
+            <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="flex gap-3 w-max">
                 {overdueGoals.map((event) => (
                   <GoalItem key={event.id} event={event} />
-                ))}
-                {/* Duplicate for seamless loop */}
-                {overdueGoals.map((event) => (
-                  <GoalItem key={`dup1-${event.id}`} event={event} />
                 ))}
               </div>
             </div>
@@ -124,35 +110,16 @@ export const FocusOnSection = () => {
           
           {/* Row 2 - Due goals (Green) */}
           {dueGoals.length > 0 && (
-            <div className="relative w-full overflow-hidden">
-              <div 
-                className="flex gap-3 animate-marquee"
-                style={{
-                  ['--marquee-duration' as string]: `${dueDuration}s`,
-                  animationDuration: `${dueDuration}s`,
-                }}
-              >
+            <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="flex gap-3 w-max">
                 {dueGoals.map((event) => (
                   <GoalItem key={event.id} event={event} />
-                ))}
-                {/* Duplicate for seamless loop */}
-                {dueGoals.map((event) => (
-                  <GoalItem key={`dup2-${event.id}`} event={event} />
                 ))}
               </div>
             </div>
           )}
         </div>
       )}
-
-      {/* Scoped styles for mobile speed boost */}
-      <style>{`
-        @media (max-width: 768px) {
-          .animate-marquee {
-            animation-duration: calc(var(--marquee-duration) * 0.5) !important;
-          }
-        }
-      `}</style>
     </div>
   );
 };
