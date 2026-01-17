@@ -9,6 +9,7 @@ import UpcomingDeadlines from '@/components/dashboard/UpcomingDeadlines';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ActiveTimeTracking from '@/components/dashboard/ActiveTimeTracking';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
+import { PinnedUntilGoalsSection } from '@/components/dashboard/PinnedUntilGoalsSection';
 import { CurrentShiftSection } from '@/components/dashboard/CurrentShiftSection';
 import { DashboardWorkloadCal } from '@/components/dashboard/DashboardWorkloadCal';
 import { HostlistSection } from '@/components/dashboard/HostlistSection';
@@ -472,6 +473,11 @@ const Index = () => {
         {/* Quick Tasks Section */}
         <div className="mb-8">
           <QuickTasksSection />
+        </div>
+
+        {/* Pinned for Next UntilGoals Section */}
+        <div className="mb-8">
+          <PinnedUntilGoalsSection />
         </div>
 
         {/* Active Time Tracking Section */}
