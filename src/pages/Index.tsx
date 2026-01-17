@@ -21,7 +21,7 @@ import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users, CalendarPlus } from 'lucide-react';
+import { Search, Play, Calendar, RotateCw, Clock, Target, CalendarCheck, AlarmClock, Bell, FileText, Users, CalendarPlus, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -446,6 +446,18 @@ const Index = () => {
                                 <CalendarPlus className="h-4 w-4 text-blue-600" />
                               </Button>
                             )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                // Delete functionality - can be extended
+                                toast.info(`Delete ${item.item_type}: ${item.name}`);
+                              }}
+                              title="Delete"
+                              className="ml-1 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         ))}
                       </div>
