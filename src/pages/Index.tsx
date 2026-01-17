@@ -469,14 +469,14 @@ const Index = () => {
           <CurrentShiftSection />
         </div>
 
-        {/* Quick Tasks Section */}
-        <div className="mb-8">
-          <QuickTasksSection />
-        </div>
-
         {/* Pinned for Next UntilGoals Section */}
         <div className="mb-8">
           <PinnedUntilGoalsSection />
+        </div>
+
+        {/* Quick Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection />
         </div>
 
         {/* Active Time Tracking Section */}
