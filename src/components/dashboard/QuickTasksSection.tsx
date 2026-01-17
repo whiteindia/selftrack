@@ -1560,6 +1560,17 @@ export const QuickTasksSection = ({
       ]);
 
       try {
+        // Fetch task name for activity log
+        let taskName = "";
+        if (variables?.taskId) {
+          const { data: taskData } = await supabase
+            .from("tasks")
+            .select("name")
+            .eq("id", variables.taskId)
+            .single();
+          taskName = taskData?.name || "";
+        }
+        
         (data || []).forEach((subtask: any) => {
           logActivity({
             action_type: "created",
@@ -1567,7 +1578,7 @@ export const QuickTasksSection = ({
             entity_id: subtask.id,
             entity_name: subtask.name,
             description: `Created subtask: ${subtask.name}`,
-            comment: variables?.taskId ? `Task ID: ${variables.taskId}` : undefined
+            comment: taskName ? `Parent task: ${taskName}` : undefined
           });
         });
         queryClient.refetchQueries({ queryKey: ["activity-feed"] });
@@ -1583,7 +1594,7 @@ export const QuickTasksSection = ({
 
   // Subtask update mutation
   const updateSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId, name, status, parentTaskId }: { subtaskId: string; name?: string; status?: string; parentTaskId?: string; subtaskName?: string }) => {
+    mutationFn: async ({ subtaskId, name, status, parentTaskId }: { subtaskId: string; name?: string; status?: string; parentTaskId?: string; subtaskName?: string; parentTaskName?: string }) => {
       const updates: any = {};
       if (name) updates.name = name;
       if (status) updates.status = status;
@@ -1608,13 +1619,17 @@ export const QuickTasksSection = ({
       ]);
 
       if (variables?.subtaskId && variables?.subtaskName) {
+        const commentParts: string[] = [];
+        if (variables?.status) commentParts.push(`Status: ${variables.status}`);
+        if (variables?.parentTaskName) commentParts.push(`Parent task: ${variables.parentTaskName}`);
+        
         logActivity({
           action_type: "updated",
           entity_type: "subtask",
           entity_id: variables.subtaskId,
           entity_name: variables.subtaskName,
           description: `Updated subtask: ${variables.subtaskName}`,
-          comment: variables?.status ? `Status: ${variables.status}` : undefined
+          comment: commentParts.length > 0 ? commentParts.join(' | ') : undefined
         });
         queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       }
@@ -1654,7 +1669,7 @@ export const QuickTasksSection = ({
 
   // Subtask delete mutation
   const deleteSubtaskMutation = useMutation({
-    mutationFn: async ({ subtaskId }: { subtaskId: string; subtaskName?: string }) => {
+    mutationFn: async ({ subtaskId }: { subtaskId: string; subtaskName?: string; parentTaskName?: string }) => {
       const { error } = await supabase
         .from("subtasks")
         .delete()
@@ -1683,7 +1698,8 @@ export const QuickTasksSection = ({
           entity_type: "subtask",
           entity_id: variables.subtaskId,
           entity_name: variables.subtaskName,
-          description: `Deleted subtask: ${variables.subtaskName}`
+          description: `Deleted subtask: ${variables.subtaskName}`,
+          comment: variables?.parentTaskName ? `Parent task: ${variables.parentTaskName}` : undefined
         });
         queryClient.refetchQueries({ queryKey: ["activity-feed"] });
       }

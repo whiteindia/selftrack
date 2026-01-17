@@ -30,12 +30,16 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
   const deleteActivityMutation = useMutation({
     mutationFn: async (activityId: string) => {
-      const { error } = await supabase
+      console.log('Deleting activity:', activityId);
+      const { error, data } = await supabase
         .from('activity_feed')
         .delete()
-        .eq('id', activityId);
+        .eq('id', activityId)
+        .select();
 
+      console.log('Delete result:', { error, data });
       if (error) throw error;
+      return data;
     },
     onSuccess: async () => {
       toast.success('Activity deleted');
@@ -49,12 +53,28 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
 
   const deleteAllActivitiesMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
+      console.log('Deleting all activities');
+      // Get all activity IDs first
+      const { data: activities, error: fetchError } = await supabase
+        .from('activity_feed')
+        .select('id');
+      
+      if (fetchError) throw fetchError;
+      
+      if (!activities || activities.length === 0) {
+        return [];
+      }
+
+      // Delete each one
+      const { error, data } = await supabase
         .from('activity_feed')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+        .in('id', activities.map(a => a.id))
+        .select();
 
+      console.log('Delete all result:', { error, data });
       if (error) throw error;
+      return data;
     },
     onSuccess: async () => {
       toast.success('All activities deleted');
@@ -65,6 +85,18 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
       toast.error('Failed to delete activities');
     }
   });
+
+  // Helper to format entity display - show task title for subtasks
+  const formatEntityDisplay = (activity: any) => {
+    if (activity.entity_type === 'subtask' && activity.comment) {
+      // Extract task name from comment if it contains "Task ID:" or "Parent task:"
+      if (activity.comment.includes('Parent task:')) {
+        const taskName = activity.comment.replace('Parent task:', '').trim();
+        return `${activity.entity_type} • ${activity.entity_name} (${taskName})`;
+      }
+    }
+    return `${activity.entity_type} • ${activity.entity_name}`;
+  };
 
   return (
     <Card>
@@ -125,9 +157,9 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                         {activity.description}
                       </p>
                       <p className="text-xs text-gray-600 mt-1 truncate">
-                        {activity.entity_type} • {activity.entity_name}
+                        {formatEntityDisplay(activity)}
                       </p>
-                      {activity.comment && (
+                      {activity.comment && !activity.comment.includes('Parent task:') && !activity.comment.includes('Task ID:') && (
                         <p className="text-xs text-gray-500 mt-2 italic break-words">
                           "{activity.comment}"
                         </p>
