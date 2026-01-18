@@ -495,15 +495,6 @@ const Index = () => {
           />
         </div>
 
-        {/* Quick Tasks Section */}
-        <div className="mb-8">
-          <QuickTasksSection />
-        </div>
-
-        {/* Quick Show Tasks Section */}
-        <div className="mb-8">
-          <QuickTasksSection title="QuickShowTasks" defaultOpen={false} showProjectFilters projectScope="all" />
-        </div>
 
         {/* Hostlist Section */}
         <div className="mb-8">
