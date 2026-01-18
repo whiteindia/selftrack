@@ -110,13 +110,14 @@ export const PinnedUntilGoalsSection = () => {
     }
   });
 
-  // Fetch pinned tasks with full details
+  // Fetch pinned tasks with full details - optimized batch fetching
   const { data: pinnedTasks = [] } = useQuery({
-    queryKey: ["pinned-goals-tasks", pinnedTaskIds],
+    queryKey: ["pinned-goals-tasks", pinnedTaskIds, showCompleted],
     queryFn: async () => {
       if (pinnedTaskIds.length === 0) return [];
       
-      const { data, error } = await supabase
+      // Fetch all tasks in a single query with project info
+      const { data: tasksData, error } = await supabase
         .from("tasks")
         .select(`
           id,
@@ -127,53 +128,61 @@ export const PinnedUntilGoalsSection = () => {
           reminder_datetime,
           slot_start_time,
           slot_start_datetime,
-          scheduled_time
+          scheduled_time,
+          project:projects!tasks_project_id_fkey(id, name, service, client_id, clients(name))
         `)
         .in("id", pinnedTaskIds);
 
       if (error) throw error;
+      if (!tasksData || tasksData.length === 0) return [];
 
-      // Enhance tasks with subtasks and project info
-      const enhancedTasks = await Promise.all(
-        (data || []).map(async (task) => {
-          let subtasksQuery = supabase
-            .from('subtasks')
-            .select('id, name, status, deadline, estimated_duration, assignee_id')
-            .eq('task_id', task.id)
-            .order('created_at', { ascending: true });
-          
-          if (!showCompleted) {
-            subtasksQuery = subtasksQuery.neq('status', 'Completed');
-          }
-          
-          const { data: subtasks } = await subtasksQuery;
+      const taskIds = tasksData.map(t => t.id);
 
-          const { data: projectData } = await supabase
-            .from('projects')
-            .select('id, name, service, client_id, clients(name)')
-            .eq('id', task.project_id)
-            .single();
+      // Batch fetch all subtasks for all tasks at once
+      let subtasksQuery = supabase
+        .from('subtasks')
+        .select('id, name, status, deadline, estimated_duration, assignee_id, task_id')
+        .in('task_id', taskIds)
+        .order('created_at', { ascending: true });
+      
+      if (!showCompleted) {
+        subtasksQuery = subtasksQuery.neq('status', 'Completed');
+      }
+      
+      const { data: allSubtasks } = await subtasksQuery;
 
-          // Fetch logged time
-          const { data: timeEntries } = await supabase
-            .from('time_entries')
-            .select('duration_minutes')
-            .eq('task_id', task.id)
-            .not('end_time', 'is', null);
+      // Batch fetch all time entries for all tasks at once
+      const { data: allTimeEntries } = await supabase
+        .from('time_entries')
+        .select('duration_minutes, task_id')
+        .in('task_id', taskIds)
+        .not('end_time', 'is', null);
 
-          const totalLoggedMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
+      // Group subtasks and time entries by task_id
+      const subtasksByTask: Record<string, typeof allSubtasks> = {};
+      const timeEntriesByTask: Record<string, number> = {};
 
-          return {
-            ...task,
-            subtasks: subtasks || [],
-            project: projectData,
-            total_logged_hours: Math.round((totalLoggedMinutes / 60) * 100) / 100,
-            subtask_count: (subtasks || []).length
-          };
-        })
-      );
+      (allSubtasks || []).forEach(subtask => {
+        if (!subtasksByTask[subtask.task_id]) subtasksByTask[subtask.task_id] = [];
+        subtasksByTask[subtask.task_id]!.push(subtask);
+      });
 
-      return enhancedTasks;
+      (allTimeEntries || []).forEach(entry => {
+        if (!timeEntriesByTask[entry.task_id]) timeEntriesByTask[entry.task_id] = 0;
+        timeEntriesByTask[entry.task_id] += entry.duration_minutes || 0;
+      });
+
+      // Combine data
+      return tasksData.map(task => {
+        const subtasks = subtasksByTask[task.id] || [];
+        const totalLoggedMinutes = timeEntriesByTask[task.id] || 0;
+        return {
+          ...task,
+          subtasks,
+          total_logged_hours: Math.round((totalLoggedMinutes / 60) * 100) / 100,
+          subtask_count: subtasks.length
+        };
+      });
     },
     enabled: pinnedTaskIds.length > 0
   });
@@ -241,6 +250,7 @@ export const PinnedUntilGoalsSection = () => {
     queryFn: async () => {
       if (!selectedProjectFilter) return [];
       
+      // Fetch tasks with project info in single query
       let query = supabase
         .from("tasks")
         .select(`
@@ -254,7 +264,8 @@ export const PinnedUntilGoalsSection = () => {
           slot_start_datetime,
           slot_end_datetime,
           scheduled_time,
-          created_at
+          created_at,
+          project:projects!tasks_project_id_fkey(id, name, service, client_id, clients(name))
         `)
         .eq("project_id", selectedProjectFilter)
         .order("created_at", { ascending: false });
@@ -263,51 +274,51 @@ export const PinnedUntilGoalsSection = () => {
         query = query.neq("status", "Completed");
       }
 
-      const { data, error } = await query;
-
+      const { data: tasksData, error } = await query;
       if (error) throw error;
+      if (!tasksData || tasksData.length === 0) return [];
 
-      // Enhance tasks with subtasks and project info
-      const enhancedTasks = await Promise.all(
-        (data || []).map(async (task) => {
-          let subtasksQuery = supabase
-            .from('subtasks')
-            .select('id, name, status, deadline, estimated_duration, assignee_id')
-            .eq('task_id', task.id)
-            .order('created_at', { ascending: true });
-          
-          if (!showCompleted) {
-            subtasksQuery = subtasksQuery.neq('status', 'Completed');
-          }
-          
-          const { data: subtasks } = await subtasksQuery;
+      const taskIds = tasksData.map(t => t.id);
 
-          const { data: projectData } = await supabase
-            .from('projects')
-            .select('id, name, service, client_id, clients(name)')
-            .eq('id', task.project_id)
-            .single();
+      // Batch fetch subtasks and time entries
+      let subtasksQuery = supabase
+        .from('subtasks')
+        .select('id, name, status, deadline, estimated_duration, assignee_id, task_id')
+        .in('task_id', taskIds)
+        .order('created_at', { ascending: true });
+      
+      if (!showCompleted) {
+        subtasksQuery = subtasksQuery.neq('status', 'Completed');
+      }
+      
+      const [{ data: allSubtasks }, { data: allTimeEntries }] = await Promise.all([
+        subtasksQuery,
+        supabase.from('time_entries').select('duration_minutes, task_id').in('task_id', taskIds).not('end_time', 'is', null)
+      ]);
 
-          // Fetch logged time
-          const { data: timeEntriesData } = await supabase
-            .from('time_entries')
-            .select('duration_minutes')
-            .eq('task_id', task.id)
-            .not('end_time', 'is', null);
+      const subtasksByTask: Record<string, typeof allSubtasks> = {};
+      const timeEntriesByTask: Record<string, number> = {};
 
-          const totalLoggedMinutes = timeEntriesData?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
+      (allSubtasks || []).forEach(subtask => {
+        if (!subtasksByTask[subtask.task_id]) subtasksByTask[subtask.task_id] = [];
+        subtasksByTask[subtask.task_id]!.push(subtask);
+      });
 
-          return {
-            ...task,
-            subtasks: subtasks || [],
-            project: projectData,
-            total_logged_hours: Math.round((totalLoggedMinutes / 60) * 100) / 100,
-            subtask_count: (subtasks || []).length
-          };
-        })
-      );
+      (allTimeEntries || []).forEach(entry => {
+        if (!timeEntriesByTask[entry.task_id]) timeEntriesByTask[entry.task_id] = 0;
+        timeEntriesByTask[entry.task_id] += entry.duration_minutes || 0;
+      });
 
-      return enhancedTasks;
+      return tasksData.map(task => {
+        const subtasks = subtasksByTask[task.id] || [];
+        const totalLoggedMinutes = timeEntriesByTask[task.id] || 0;
+        return {
+          ...task,
+          subtasks,
+          total_logged_hours: Math.round((totalLoggedMinutes / 60) * 100) / 100,
+          subtask_count: subtasks.length
+        };
+      });
     },
     enabled: !!selectedProjectFilter && showAllProjectTasks
   });
