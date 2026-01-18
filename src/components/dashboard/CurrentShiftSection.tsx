@@ -1641,6 +1641,17 @@ export const CurrentShiftSection = () => {
                                   {item.type === 'subtask' && (
                                     <Button
                                       size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                      className="h-7 px-2"
+                                      title="Add to Workload"
+                                    >
+                                      <CalendarPlus className="h-4 w-4 text-yellow-500" />
+                                    </Button>
+                                  )}
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
                                       variant="outline"
                                       className="h-7 px-2 text-xs"
                                       onClick={(e) => {
