@@ -89,6 +89,15 @@ export const CurrentShiftSection = () => {
   const [shiftInputsFocused, setShiftInputsFocused] = useState<Record<string, boolean>>({});
   const shiftInputContainers = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // Helper function to collapse an item after action
+  const collapseItem = (itemId: string) => {
+    setCollapsedItems(prev => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+  };
+
   const { data: miscProject } = useQuery({
     queryKey: ['misc-project'],
     queryFn: async () => {
@@ -1492,7 +1501,7 @@ export const CurrentShiftSection = () => {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={(e) => { e.stopPropagation(); handleStartTask(realTaskId || item.id, item.type === 'subtask'); }}
+                                      onClick={(e) => { e.stopPropagation(); handleStartTask(realTaskId || item.id, item.type === 'subtask'); collapseItem(item.id); }}
                                       className="h-7 px-2"
                                       title="Start Timer"
                                     >
@@ -1510,6 +1519,7 @@ export const CurrentShiftSection = () => {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         clearSubtaskFromSlotMutation.mutate({ subtaskId: item.subtask?.id || item.id });
+                                        collapseItem(item.id);
                                       }}
                                       disabled={clearSubtaskFromSlotMutation.isPending}
                                     >
@@ -1525,6 +1535,7 @@ export const CurrentShiftSection = () => {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         clearFromSlotMutation.mutate({ taskId: realTaskId || item.id });
+                                        collapseItem(item.id);
                                       }}
                                       disabled={clearFromSlotMutation.isPending}
                                     >
@@ -1537,7 +1548,7 @@ export const CurrentShiftSection = () => {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                      onClick={(e) => { e.stopPropagation(); openAssignForItem(item); collapseItem(item.id); }}
                                       className="h-7 px-2"
                                       title="Add to Workload"
                                     >
@@ -1559,6 +1570,7 @@ export const CurrentShiftSection = () => {
                                           slot_start_datetime: item.task?.slot_start_datetime,
                                           slot_end_datetime: item.task?.slot_end_datetime,
                                         }); 
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2"
                                       title="Edit"
@@ -1577,6 +1589,7 @@ export const CurrentShiftSection = () => {
                                           name: item.task?.name || getItemTitle(item),
                                           project_id: item.task?.project_id || null,
                                         });
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2"
                                       title="Move to Project"
@@ -1594,6 +1607,7 @@ export const CurrentShiftSection = () => {
                                         setSubtaskDialogTaskName(item.task?.name || getItemTitle(item));
                                         setSubtaskDialogParentDeadline(item.task?.deadline);
                                         setSubtaskDialogOpen(true);
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2"
                                       title="Subtasks"
@@ -1611,6 +1625,7 @@ export const CurrentShiftSection = () => {
                                           id: realTaskId || item.id,
                                           name: item.task?.name || getItemTitle(item),
                                         });
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2"
                                       title="Convert to Subtask"
@@ -1629,6 +1644,7 @@ export const CurrentShiftSection = () => {
                                           type: 'task',
                                           name: item.task?.name || 'Task'
                                         }); 
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2 text-destructive hover:text-destructive"
                                       title="Delete"
@@ -1642,7 +1658,7 @@ export const CurrentShiftSection = () => {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                      onClick={(e) => { e.stopPropagation(); openAssignForItem(item); collapseItem(item.id); }}
                                       className="h-7 px-2"
                                       title="Add to Workload"
                                     >
@@ -1657,6 +1673,7 @@ export const CurrentShiftSection = () => {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleToggleSubtaskStatus(item.subtask);
+                                        collapseItem(item.id);
                                       }}
                                     >
                                       {item.subtask?.status || 'Not Started'}
@@ -1674,6 +1691,7 @@ export const CurrentShiftSection = () => {
                                             subtaskName: item.subtask?.name || '' 
                                           });
                                         }
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2"
                                       title="Convert to Task"
@@ -1692,6 +1710,7 @@ export const CurrentShiftSection = () => {
                                           type: 'subtask',
                                           name: item.subtask?.name || 'Subtask'
                                         }); 
+                                        collapseItem(item.id);
                                       }}
                                       className="h-7 px-2 text-destructive hover:text-destructive"
                                       title="Delete subtask"
