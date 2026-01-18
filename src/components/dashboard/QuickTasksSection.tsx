@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { convertISTToUTC } from "@/utils/timezoneUtils";
 import type { Database } from "@/integrations/supabase/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { assignToCurrentSlot } from "@/utils/assignToCurrentSlot";
 import {
   DndContext,
   closestCenter,
@@ -1509,6 +1510,9 @@ export const QuickTasksSection = ({
 
     if (!employee) return;
 
+    // Assign task to current slot
+    await assignToCurrentSlot(taskId, 'task');
+
     await supabase.from("time_entries").insert({
       task_id: taskId,
       employee_id: employee.id,
@@ -1516,7 +1520,12 @@ export const QuickTasksSection = ({
       start_time: new Date().toISOString(),
     });
 
+    await supabase.from("tasks").update({ status: "In Progress" }).eq("id", taskId);
+
     refetch();
+    queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+    queryClient.invalidateQueries({ queryKey: ["workload-tasks"] });
   };
 
   // Task expansion handlers

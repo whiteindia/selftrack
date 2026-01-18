@@ -19,6 +19,7 @@ import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import type { Database } from "@/integrations/supabase/types";
 import { useUserPins } from "@/hooks/useUserPins";
+import { assignToCurrentSlot } from "@/utils/assignToCurrentSlot";
 
 type TaskStatus = Database["public"]["Enums"]["task_status"];
 
@@ -375,6 +376,9 @@ export const PinnedUntilGoalsSection = () => {
         return;
       }
 
+      // Assign task to current slot
+      await assignToCurrentSlot(taskId, 'task');
+
       const { error } = await supabase.from("time_entries").insert({
         task_id: taskId,
         employee_id: employee.id,
@@ -390,6 +394,9 @@ export const PinnedUntilGoalsSection = () => {
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["workload-tasks"] });
     } catch (error) {
       toast.error("Failed to start timer");
       console.error(error);
@@ -410,6 +417,9 @@ export const PinnedUntilGoalsSection = () => {
         return;
       }
 
+      // Assign subtask to current slot
+      await assignToCurrentSlot(subtaskId, 'subtask');
+
       const { error } = await supabase.from("time_entries").insert({
         task_id: subtaskId,
         employee_id: employee.id,
@@ -425,6 +435,9 @@ export const PinnedUntilGoalsSection = () => {
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+      queryClient.invalidateQueries({ queryKey: ["workload-tasks"] });
     } catch (error) {
       toast.error("Failed to start subtask timer");
       console.error(error);
