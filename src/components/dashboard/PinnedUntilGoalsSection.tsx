@@ -1506,8 +1506,8 @@ export const PinnedUntilGoalsSection = () => {
             setIsAssignDialogOpen(open);
             if (!open) setSelectedItemsForWorkload([]);
           }}
-          items={selectedItemsForWorkload}
-          onAssign={() => {
+          selectedItems={selectedItemsForWorkload}
+          onAssigned={() => {
             queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
             queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
           }}
@@ -1522,7 +1522,7 @@ export const PinnedUntilGoalsSection = () => {
             if (!open) setSelectedSubtasks([]);
           }}
           selectedSubtasks={selectedSubtasks}
-          onMoved={() => {
+          onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
             queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
             setSelectedSubtasks([]);
@@ -1532,14 +1532,19 @@ export const PinnedUntilGoalsSection = () => {
 
       {isSubtaskDialogOpen && editingSubtaskForDialog && (
         <SubtaskDialog
-          open={isSubtaskDialogOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setIsSubtaskDialogOpen(false);
-              setEditingSubtaskForDialog(null);
-              queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
-              queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
-            }
+          isOpen={isSubtaskDialogOpen}
+          onClose={() => {
+            setIsSubtaskDialogOpen(false);
+            setEditingSubtaskForDialog(null);
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
+          }}
+          onSave={(data) => {
+            // Handle save if needed
+            setIsSubtaskDialogOpen(false);
+            setEditingSubtaskForDialog(null);
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
           }}
           editingSubtask={editingSubtaskForDialog}
           taskId={editingSubtaskForDialog.task_id}
