@@ -104,7 +104,7 @@ export const CurrentShiftSection = () => {
       const { data, error } = await supabase
         .from('projects')
         .select('id')
-        .eq('name', 'Miscellanious-Quick-Temp-Orglater')
+        .eq('name', 'QuickProj')
         .single();
       if (error) throw error;
       return data;
@@ -671,7 +671,7 @@ export const CurrentShiftSection = () => {
 
       try {
         if (data?.createdParent && data.parentTaskId && data.parentTaskName) {
-          logTaskCreated(data.parentTaskName, data.parentTaskId, 'Miscellanious-Quick-Temp-Orglater');
+          logTaskCreated(data.parentTaskName, data.parentTaskId, 'QuickProj');
         }
         if (data?.subtask?.id && data?.subtask?.name) {
           logActivity({

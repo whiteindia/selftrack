@@ -566,7 +566,7 @@ const Index = () => {
           setIsQuickTaskDialogOpen(false);
           navigate('/workload-cal');
         }}
-        defaultProjectName="Miscellanious-Quick-Temp-Orglater"
+        defaultProjectName="QuickProj"
       />
 
       {/* Assign to Workload Dialog */}
