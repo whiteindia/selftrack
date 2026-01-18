@@ -126,14 +126,13 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
           
           console.log('Creating assignment with scheduled time:', scheduledTimeStr, 'for item type:', item.itemType || item.type);
           
-          // If item represents a task, update the task's scheduled_time/date and status to "Assigned"
+          // If item represents a task, update the task's scheduled_time/date (overwrite existing slot)
           if (item.itemType === 'task' || item.type === 'task' || item.type === 'reminder' || item.type === 'task-deadline') {
             const { data: taskData, error: taskError } = await supabase
               .from('tasks')
               .update({
                 date: dateStr,
-                scheduled_time: scheduledTimeStr,
-                status: 'Assigned'
+                scheduled_time: scheduledTimeStr
               })
               .eq('id', item.originalId)
               .select()
