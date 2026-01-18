@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import CompactTimerControls from './CompactTimerControls';
+import { assignToCurrentSlot } from '@/utils/assignToCurrentSlot';
 
 interface WorkloadItem {
   id: string;
@@ -154,6 +155,9 @@ export const DashboardWorkloadCal = () => {
 
       if (!employee) throw new Error('Employee not found');
 
+      // Assign task/subtask to current slot so it appears in current shift and workload views
+      await assignToCurrentSlot(taskId, isSubtask ? 'subtask' : 'task');
+
       const { error } = await supabase
         .from('time_entries')
         .insert({
@@ -173,6 +177,10 @@ export const DashboardWorkloadCal = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
       queryClient.invalidateQueries({ queryKey: ['running-timers'] });
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+      queryClient.invalidateQueries({ queryKey: ['pinned-goals-time-entries'] });
       toast.success('Timer started!');
     },
     onError: () => toast.error('Failed to start timer'),
