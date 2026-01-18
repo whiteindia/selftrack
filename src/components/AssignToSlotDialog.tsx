@@ -120,20 +120,19 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
 
       const promises = items.map(async (item) => {
         try {
-          // Create the scheduled time in the format expected by workload calendar
-          const scheduledDateTime = new Date(date);
-          const [hour] = slot.split(':');
-          scheduledDateTime.setHours(parseInt(hour), 0, 0, 0);
+          // Create the scheduled time in the format expected by workload calendar: "YYYY-MM-DD HH:MM:SS"
+          const dateStr = format(date, 'yyyy-MM-dd');
+          const scheduledTimeStr = `${dateStr} ${slot}:00`;
           
-          console.log('Creating subtask with scheduled time:', scheduledDateTime.toISOString());
+          console.log('Creating assignment with scheduled time:', scheduledTimeStr, 'for item type:', item.itemType || item.type);
           
           // If item represents a task, update the task's scheduled_time/date and status to "Assigned"
           if (item.itemType === 'task' || item.type === 'task' || item.type === 'reminder' || item.type === 'task-deadline') {
             const { data: taskData, error: taskError } = await supabase
               .from('tasks')
               .update({
-                date: format(date, 'yyyy-MM-dd'),
-                scheduled_time: `${format(date, 'yyyy-MM-dd')} ${slot}:00`,
+                date: dateStr,
+                scheduled_time: scheduledTimeStr,
                 status: 'Assigned'
               })
               .eq('id', item.originalId)
@@ -142,10 +141,10 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
 
             if (taskError) {
               console.error('Task update error:', taskError);
-            } else {
-              console.log('Successfully updated task:', taskData);
-              return taskData;
+              throw taskError;
             }
+            console.log('Successfully updated task:', taskData);
+            return taskData;
           }
 
           // If item represents a subtask, update the subtask's scheduled_time/date
@@ -153,8 +152,8 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
             const { data: subtaskUpdate, error: subtaskUpdateError } = await supabase
               .from('subtasks')
               .update({
-                date: format(date, 'yyyy-MM-dd'),
-                scheduled_time: scheduledDateTime.toISOString()
+                date: dateStr,
+                scheduled_time: scheduledTimeStr
               })
               .eq('id', item.id)
               .select()
@@ -162,23 +161,23 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
 
             if (subtaskUpdateError) {
               console.error('Subtask update error:', subtaskUpdateError);
-            } else {
-              console.log('Successfully updated subtask:', subtaskUpdate);
-              return subtaskUpdate;
+              throw subtaskUpdateError;
             }
+            console.log('Successfully updated subtask:', subtaskUpdate);
+            return subtaskUpdate;
           }
 
-          // Insert into subtasks table with proper datetime format
+          // Fallback: Insert into subtasks table with proper datetime format
           const { data, error } = await supabase
             .from('subtasks')
             .insert({
               name: item.title,
               task_id: item.originalId,
-              scheduled_time: scheduledDateTime.toISOString(),
+              scheduled_time: scheduledTimeStr,
               assignee_id: item.assigneeId || employee.id,
               assigner_id: employee.id,
               status: 'Not Started',
-              date: format(date, 'yyyy-MM-dd'),
+              date: dateStr,
               hours: 1 // Default to 1 hour duration
             })
             .select()
@@ -231,12 +230,15 @@ const AssignToSlotDialog: React.FC<AssignToSlotDialogProps> = ({
       
       // Invalidate all relevant queries to refresh the workload calendar
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['workload-calendar'] });
       queryClient.invalidateQueries({ queryKey: ['workload-data'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-assignments'] }); // WorkloadCal page query
       queryClient.invalidateQueries({ queryKey: ['scheduled-items'] });
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['hostlist-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] }); // Dashboard Nxt6hrs section
       
       onAssigned();
       onOpenChange(false);
