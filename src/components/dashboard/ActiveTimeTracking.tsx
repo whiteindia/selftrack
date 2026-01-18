@@ -1,15 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight, Pin } from 'lucide-react';
+import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight, Pin, CalendarPlus } from 'lucide-react';
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserPins } from '@/hooks/useUserPins';
+import { assignToCurrentSlot } from '@/utils/assignToCurrentSlot';
+import { toast } from 'sonner';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -213,6 +215,23 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     setSelectedTaskId(null);
   };
 
+  // Mutation to assign task to current workload slot
+  const assignToWorkloadMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      await assignToCurrentSlot(taskId, 'task');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+      toast.success('Added to workload calendar');
+    },
+    onError: () => {
+      toast.error('Failed to add to workload calendar');
+    }
+  });
+
   return (
     <Card className="w-full">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -380,6 +399,20 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                           className="h-6 px-2 text-xs"
                         >
                           <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            assignToWorkloadMutation.mutate(entry.tasks.id);
+                          }}
+                          className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                          title="Assign to workload calendar"
+                          disabled={assignToWorkloadMutation.isPending}
+                        >
+                          <CalendarPlus className="h-3 w-3" />
                         </Button>
                         <Button
                           size="sm"
