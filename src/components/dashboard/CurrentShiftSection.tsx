@@ -1500,31 +1500,6 @@ export const CurrentShiftSection = () => {
                                 )}
                               </div>
                               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className={cn(
-                                    "h-5 px-1.5 text-[10px]",
-                                    getItemStatus(item) === 'Completed' && 'bg-green-100 text-green-800 border-green-200',
-                                    getItemStatus(item) === 'In Progress' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                    getItemStatus(item) === 'Assigned' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                    getItemStatus(item) === 'On-Head' && 'bg-blue-100 text-blue-800 border-blue-200',
-                                    !['Completed', 'In Progress', 'Assigned', 'On-Head'].includes(getItemStatus(item)) && 'bg-gray-100 text-gray-800 border-gray-200'
-                                  )}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (item.type === 'task' || item.type === 'slot-task') {
-                                      handleToggleTaskStatus({
-                                        id: item.task?.id || item.id,
-                                        status: getItemStatus(item),
-                                        name: item.task?.name || getItemTitle(item),
-                                        project: item.task?.project
-                                      });
-                                    }
-                                  }}
-                                >
-                                  {getItemStatus(item)}
-                                </Button>
                                 {(() => {
                                   const deadline = item.task?.deadline;
                                   if (deadline) {
@@ -1558,8 +1533,61 @@ export const CurrentShiftSection = () => {
                                 })()}
                               </div>
                               {/* Only show action buttons row when item is clicked (expanded) */}
-                              {collapsedItems.has(item.id) && item.type !== 'subtask' && (
+                              {collapsedItems.has(item.id) && (
                                 <div className="flex flex-wrap gap-2 mt-2">
+                                  {/* Timer controls */}
+                                  {activeEntry ? (
+                                    <CompactTimerControls
+                                      taskId={realTaskId || item.id}
+                                      taskName={getItemTitle(item)}
+                                      entryId={activeEntry.id}
+                                      timerMetadata={activeEntry.timer_metadata}
+                                      onTimerUpdate={() => {}}
+                                    />
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { e.stopPropagation(); handleStartTask(realTaskId || item.id, item.type === 'subtask'); }}
+                                      className="h-7 px-2"
+                                      title="Start Timer"
+                                    >
+                                      <Play className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                  )}
+                                  
+                                  {/* Clear from slot */}
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2"
+                                      title="Clear from slot"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearSubtaskFromSlotMutation.mutate({ subtaskId: item.subtask?.id || item.id });
+                                      }}
+                                      disabled={clearSubtaskFromSlotMutation.isPending}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 px-2"
+                                      title="Clear from slot"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearFromSlotMutation.mutate({ taskId: realTaskId || item.id });
+                                      }}
+                                      disabled={clearFromSlotMutation.isPending}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -1665,67 +1693,16 @@ export const CurrentShiftSection = () => {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                              {activeEntry ? (
-                                <>
-                                  <LiveTimer
-                                    startTime={activeEntry.start_time}
-                                    isPaused={isPaused}
-                                    timerMetadata={activeEntry.timer_metadata}
-                                  />
-                                  <CompactTimerControls
-                                    taskId={realTaskId || item.id}
-                                    taskName={getItemTitle(item)}
-                                    entryId={activeEntry.id}
-                                    timerMetadata={activeEntry.timer_metadata}
-                                    onTimerUpdate={() => {}}
-                                  />
-                                </>
-                              ) : (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleStartTask(realTaskId || item.id, item.type === 'subtask')}
-                                    className="h-7 px-2"
-                                    title="Start"
-                                  >
-                                    <Play className="h-3 w-3" />
-                                  </Button>
-
-                                  {item.type === 'subtask' && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2"
-                                      title="Clear from slot"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        clearSubtaskFromSlotMutation.mutate({ subtaskId: item.subtask?.id || item.id });
-                                      }}
-                                      disabled={clearSubtaskFromSlotMutation.isPending}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  )}
-
-                                  {(item.type === 'task' || item.type === 'slot-task') && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2"
-                                      title="Clear from slot"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        clearFromSlotMutation.mutate({ taskId: realTaskId || item.id });
-                                      }}
-                                      disabled={clearFromSlotMutation.isPending}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                            </div>
+                            {/* Timer display only (no controls beside title) */}
+                            {activeEntry && (
+                              <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <LiveTimer
+                                  startTime={activeEntry.start_time}
+                                  isPaused={isPaused}
+                                  timerMetadata={activeEntry.timer_metadata}
+                                />
+                              </div>
+                            )}
                           </div>
                         );
                       };
