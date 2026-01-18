@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Pin, Search, ChevronDown, ChevronRight, Play, Eye, Pencil, Trash2, Clock, List, CalendarPlus, FolderOpen, X, Check, Filter, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -20,13 +21,15 @@ import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import type { Database } from "@/integrations/supabase/types";
 import { useUserPins } from "@/hooks/useUserPins";
 import { assignToCurrentSlot } from "@/utils/assignToCurrentSlot";
+import { startOfDay, endOfDay, addDays, startOfWeek, endOfWeek, format } from "date-fns";
 
 type TaskStatus = Database["public"]["Enums"]["task_status"];
+type TimeFilter = "all" | "yesterday" | "today" | "tomorrow" | "laterThisWeek" | "nextWeek";
 
 export const PinnedUntilGoalsSection = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [projectSearch, setProjectSearch] = useState("");
   const [taskSearch, setTaskSearch] = useState("");
   const [showProjectResults, setShowProjectResults] = useState(false);
@@ -45,10 +48,40 @@ export const PinnedUntilGoalsSection = () => {
   const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [showAllProjectTasks, setShowAllProjectTasks] = useState(false);
+  
+  // New state for QuickTasks-like features
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("today");
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [newTaskName, setNewTaskName] = useState("");
 
   // Use database-backed pins instead of localStorage
   const { pinnedIds: pinnedProjectIds, togglePin: togglePinProject, isToggling: isTogglingProject } = useUserPins('project');
   const { pinnedIds: pinnedTaskIds, togglePin: togglePinTask, removePin: unpinTask, isToggling: isTogglingTask } = useUserPins('task');
+
+  // Fetch the miscellaneous project as default
+  const { data: miscProject } = useQuery({
+    queryKey: ["miscellaneous-project"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("name", "Miscellanious-Quick-Temp-Orglater")
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Set default project filter to misc project on mount
+  useEffect(() => {
+    if (miscProject?.id && selectedProjectFilter === null) {
+      setSelectedProjectFilter(miscProject.id);
+      setShowAllProjectTasks(true);
+    }
+  }, [miscProject?.id, selectedProjectFilter]);
 
   // Fetch all projects for search
   const { data: projects = [] } = useQuery({
@@ -103,12 +136,17 @@ export const PinnedUntilGoalsSection = () => {
       // Enhance tasks with subtasks and project info
       const enhancedTasks = await Promise.all(
         (data || []).map(async (task) => {
-          const { data: subtasks } = await supabase
+          let subtasksQuery = supabase
             .from('subtasks')
             .select('id, name, status, deadline, estimated_duration, assignee_id')
             .eq('task_id', task.id)
-            .neq('status', 'Completed')
             .order('created_at', { ascending: true });
+          
+          if (!showCompleted) {
+            subtasksQuery = subtasksQuery.neq('status', 'Completed');
+          }
+          
+          const { data: subtasks } = await subtasksQuery;
 
           const { data: projectData } = await supabase
             .from('projects')
@@ -192,16 +230,18 @@ export const PinnedUntilGoalsSection = () => {
   // Get unique pinned projects from pinned tasks
   const pinnedProjectsFromTasks = useMemo(() => {
     const projectIds = new Set(pinnedTasks.map(t => t.project_id));
+    // Also include misc project
+    if (miscProject?.id) projectIds.add(miscProject.id);
     return projects.filter(p => projectIds.has(p.id) || pinnedProjectIds.includes(p.id));
-  }, [pinnedTasks, projects, pinnedProjectIds]);
+  }, [pinnedTasks, projects, pinnedProjectIds, miscProject?.id]);
 
   // Fetch all tasks for the selected project (when showAllProjectTasks is true)
   const { data: allProjectTasks = [] } = useQuery({
-    queryKey: ["pinned-goals-project-tasks", selectedProjectFilter],
+    queryKey: ["pinned-goals-project-tasks", selectedProjectFilter, showCompleted],
     queryFn: async () => {
       if (!selectedProjectFilter) return [];
       
-      const { data, error } = await supabase
+      let query = supabase
         .from("tasks")
         .select(`
           id,
@@ -212,23 +252,35 @@ export const PinnedUntilGoalsSection = () => {
           reminder_datetime,
           slot_start_time,
           slot_start_datetime,
-          scheduled_time
+          slot_end_datetime,
+          scheduled_time,
+          created_at
         `)
         .eq("project_id", selectedProjectFilter)
-        .neq("status", "Completed")
         .order("created_at", { ascending: false });
+
+      if (!showCompleted) {
+        query = query.neq("status", "Completed");
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
       // Enhance tasks with subtasks and project info
       const enhancedTasks = await Promise.all(
         (data || []).map(async (task) => {
-          const { data: subtasks } = await supabase
+          let subtasksQuery = supabase
             .from('subtasks')
             .select('id, name, status, deadline, estimated_duration, assignee_id')
             .eq('task_id', task.id)
-            .neq('status', 'Completed')
             .order('created_at', { ascending: true });
+          
+          if (!showCompleted) {
+            subtasksQuery = subtasksQuery.neq('status', 'Completed');
+          }
+          
+          const { data: subtasks } = await subtasksQuery;
 
           const { data: projectData } = await supabase
             .from('projects')
@@ -237,13 +289,13 @@ export const PinnedUntilGoalsSection = () => {
             .single();
 
           // Fetch logged time
-          const { data: timeEntries } = await supabase
+          const { data: timeEntriesData } = await supabase
             .from('time_entries')
             .select('duration_minutes')
             .eq('task_id', task.id)
             .not('end_time', 'is', null);
 
-          const totalLoggedMinutes = timeEntries?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
+          const totalLoggedMinutes = timeEntriesData?.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0) || 0;
 
           return {
             ...task,
@@ -260,18 +312,101 @@ export const PinnedUntilGoalsSection = () => {
     enabled: !!selectedProjectFilter && showAllProjectTasks
   });
 
-  // Filter displayed tasks by selected project
+  // Filter displayed tasks by selected project and time filter
   const displayedTasks = useMemo(() => {
+    let tasksToFilter: any[];
+    
     // If showing all tasks for a selected project
     if (showAllProjectTasks && selectedProjectFilter && allProjectTasks.length > 0) {
-      return allProjectTasks;
+      tasksToFilter = allProjectTasks;
+    } else if (!selectedProjectFilter) {
+      tasksToFilter = pinnedTasks;
+    } else {
+      tasksToFilter = pinnedTasks.filter(t => t.project_id === selectedProjectFilter);
     }
-    // Default: show only pinned tasks
-    if (!selectedProjectFilter) return pinnedTasks;
-    return pinnedTasks.filter(t => t.project_id === selectedProjectFilter);
-  }, [pinnedTasks, selectedProjectFilter, showAllProjectTasks, allProjectTasks]);
 
-  // Note: togglePinProject and togglePinTask are now provided by useUserPins hook
+    // Apply time filter
+    if (timeFilter !== "all") {
+      const now = new Date();
+      const todayStart = startOfDay(now);
+      const todayEnd = endOfDay(now);
+      const yesterdayStart = startOfDay(addDays(now, -1));
+      const yesterdayEnd = endOfDay(addDays(now, -1));
+      const tomorrowStart = startOfDay(addDays(now, 1));
+      const tomorrowEnd = endOfDay(addDays(now, 1));
+      const thisWeekEnd = endOfWeek(now);
+      const nextWeekStart = startOfWeek(addDays(now, 7));
+      const nextWeekEnd = endOfWeek(addDays(now, 7));
+
+      tasksToFilter = tasksToFilter.filter((task) => {
+        if (!task.deadline) return false;
+        const deadline = new Date(task.deadline);
+
+        switch (timeFilter) {
+          case "yesterday":
+            return deadline >= yesterdayStart && deadline <= yesterdayEnd;
+          case "today":
+            return deadline >= todayStart && deadline <= todayEnd;
+          case "tomorrow":
+            return deadline >= tomorrowStart && deadline <= tomorrowEnd;
+          case "laterThisWeek":
+            return deadline > tomorrowEnd && deadline <= thisWeekEnd;
+          case "nextWeek":
+            return deadline >= nextWeekStart && deadline <= nextWeekEnd;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      tasksToFilter = tasksToFilter.filter(task =>
+        task.name.toLowerCase().includes(searchLower) ||
+        (task.subtasks || []).some((subtask: any) => subtask.name.toLowerCase().includes(searchLower))
+      );
+    }
+
+    return tasksToFilter;
+  }, [pinnedTasks, selectedProjectFilter, showAllProjectTasks, allProjectTasks, timeFilter, searchTerm]);
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    let baseTasks: any[];
+    if (showAllProjectTasks && selectedProjectFilter && allProjectTasks.length > 0) {
+      baseTasks = allProjectTasks;
+    } else if (!selectedProjectFilter) {
+      baseTasks = pinnedTasks;
+    } else {
+      baseTasks = pinnedTasks.filter(t => t.project_id === selectedProjectFilter);
+    }
+
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const yesterdayStart = startOfDay(addDays(now, -1));
+    const yesterdayEnd = endOfDay(addDays(now, -1));
+    const tomorrowStart = startOfDay(addDays(now, 1));
+    const tomorrowEnd = endOfDay(addDays(now, 1));
+    const thisWeekEnd = endOfWeek(now);
+    const nextWeekStart = startOfWeek(addDays(now, 7));
+    const nextWeekEnd = endOfWeek(addDays(now, 7));
+
+    const withDeadline = baseTasks.filter(t => !!t.deadline);
+    const inRange = (d: Date, start: Date, end: Date) => d >= start && d <= end;
+    const all = baseTasks.length;
+    const yesterday = withDeadline.filter(t => inRange(new Date(t.deadline), yesterdayStart, yesterdayEnd)).length;
+    const today = withDeadline.filter(t => inRange(new Date(t.deadline), todayStart, todayEnd)).length;
+    const tomorrow = withDeadline.filter(t => inRange(new Date(t.deadline), tomorrowStart, tomorrowEnd)).length;
+    const laterThisWeek = withDeadline.filter(t => {
+      const d = new Date(t.deadline);
+      return d > tomorrowEnd && d <= thisWeekEnd;
+    }).length;
+    const nextWeek = withDeadline.filter(t => inRange(new Date(t.deadline), nextWeekStart, nextWeekEnd)).length;
+
+    return { all, yesterday, today, tomorrow, laterThisWeek, nextWeek };
+  }, [pinnedTasks, selectedProjectFilter, showAllProjectTasks, allProjectTasks]);
 
   // Task mutations
   const updateTaskStatusMutation = useMutation({
@@ -285,6 +420,7 @@ export const PinnedUntilGoalsSection = () => {
     onSuccess: () => {
       toast.success("Task status updated");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
     }
   });
 
@@ -311,6 +447,7 @@ export const PinnedUntilGoalsSection = () => {
       // Remove from pinned via database
       unpinTask(taskId);
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
     }
   });
 
@@ -326,6 +463,7 @@ export const PinnedUntilGoalsSection = () => {
     onSuccess: () => {
       toast.success("Subtask status updated");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
     }
   });
 
@@ -337,17 +475,46 @@ export const PinnedUntilGoalsSection = () => {
     onSuccess: () => {
       toast.success("Subtask deleted");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
     }
   });
 
   // Quick add task mutation (supports comma-separated names)
   const quickAddTaskMutation = useMutation({
     mutationFn: async ({ names, projectId }: { names: string[]; projectId: string }) => {
+      // Calculate deadline based on time filter
+      let deadlineDate: Date = new Date();
+      const now = new Date();
+      
+      switch (timeFilter) {
+        case "yesterday":
+          deadlineDate = endOfDay(addDays(now, -1));
+          break;
+        case "today":
+          deadlineDate = endOfDay(now);
+          break;
+        case "tomorrow":
+          deadlineDate = endOfDay(addDays(now, 1));
+          break;
+        case "laterThisWeek":
+          deadlineDate = endOfWeek(now);
+          break;
+        case "nextWeek":
+          deadlineDate = endOfWeek(addDays(now, 7));
+          break;
+        default:
+          deadlineDate = endOfDay(now);
+      }
+
+      const deadlineIso = deadlineDate.toISOString();
+      const deadlineDateStr = format(deadlineDate, "yyyy-MM-dd");
+
       const rows = names.map(name => ({
         name,
         project_id: projectId,
         status: "Not Started" as const,
-        date: new Date().toISOString().split("T")[0]
+        date: deadlineDateStr,
+        deadline: deadlineIso,
       }));
       const { data, error } = await supabase
         .from("tasks")
@@ -360,6 +527,7 @@ export const PinnedUntilGoalsSection = () => {
       toast.success(data.length > 1 ? `${data.length} tasks added` : "Task added");
       data.forEach((task: any) => togglePinTask(task.id)); // Auto-pin the new tasks
       setQuickAddTaskName("");
+      setNewTaskName("");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-all-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
@@ -394,6 +562,7 @@ export const PinnedUntilGoalsSection = () => {
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
     }
   });
+
   const handleStartTask = async (taskId: string) => {
     try {
       const { data: employee } = await supabase
@@ -424,6 +593,7 @@ export const PinnedUntilGoalsSection = () => {
       toast.success("Timer started");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
       queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
@@ -465,6 +635,7 @@ export const PinnedUntilGoalsSection = () => {
       toast.success("Subtask timer started");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
       queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
@@ -521,6 +692,109 @@ export const PinnedUntilGoalsSection = () => {
     return { isPaused: pauseMatches.length > resumeMatches.length };
   };
 
+  // Helper function to format date for timeline view
+  const formatDateDDMMYYYY = (date: Date): string => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper function to format time for display (HH:MM AM/PM)
+  const formatTimeDisplay = (date: Date): string => {
+    return date.toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  // Timeline view component
+  const TimelineView = () => {
+    const tasksWithSlots = displayedTasks.filter(task => task.slot_start_datetime || task.slot_start_time);
+    const hasSlotTasks = tasksWithSlots.length > 0;
+    const tasksToDisplay = hasSlotTasks ? tasksWithSlots : displayedTasks;
+
+    // Group tasks by date and time
+    const tasksByDateTime = tasksToDisplay.reduce((acc, task) => {
+      let dateTimeKey: string;
+      let sortableTime: number;
+
+      if (task.slot_start_datetime) {
+        const timeValue = new Date(task.slot_start_datetime);
+        const date = formatDateDDMMYYYY(timeValue);
+        const time = formatTimeDisplay(timeValue);
+        dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
+      } else if (task.slot_start_time) {
+        const timeValue = new Date(task.slot_start_time);
+        const date = formatDateDDMMYYYY(timeValue);
+        const time = formatTimeDisplay(timeValue);
+        dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
+      } else if (task.deadline) {
+        const timeValue = new Date(task.deadline);
+        const date = formatDateDDMMYYYY(timeValue);
+        const time = formatTimeDisplay(timeValue);
+        dateTimeKey = `${date} ${time}`;
+        sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
+      } else {
+        dateTimeKey = "No Time Set";
+        sortableTime = 24 * 60;
+      }
+
+      if (!acc[dateTimeKey]) {
+        acc[dateTimeKey] = { tasks: [], sortableTime };
+      }
+      acc[dateTimeKey].tasks.push(task);
+      return acc;
+    }, {} as Record<string, { tasks: any[]; sortableTime: number }>);
+
+    const sortedSlots = Object.keys(tasksByDateTime).sort((a, b) => {
+      if (a === "No Time Set") return 1;
+      if (b === "No Time Set") return -1;
+      return tasksByDateTime[a].sortableTime - tasksByDateTime[b].sortableTime;
+    });
+
+    return (
+      <div className="space-y-4">
+        {sortedSlots.map((slot) => (
+          <div key={slot} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{slot}</span>
+              <Badge variant="secondary">{tasksByDateTime[slot].tasks.length}</Badge>
+            </div>
+            <div className="space-y-2 ml-6">
+              {tasksByDateTime[slot].tasks.map((task: any) => (
+                <Card key={task.id} className="p-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm flex-1">{task.name}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      task.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                      task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {task.status}
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => handleStartTask(task.id)} className="h-6 px-2">
+                      <Play className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))}
+        {sortedSlots.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No tasks for this period</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Card className="w-full">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -531,11 +805,38 @@ export const PinnedUntilGoalsSection = () => {
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 <CardTitle className="flex items-center text-base font-semibold">
                   <Pin className="h-4 w-4 mr-2 text-amber-600" />
-                  Pinned for Next UntilGoals
+                  Pinned Tasks
                 </CardTitle>
-                {pinnedTaskIds.length > 0 && (
-                  <Badge variant="secondary" className="ml-2">{pinnedTaskIds.length}</Badge>
+                {displayedTasks.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{displayedTasks.length}</Badge>
                 )}
+                <div className="flex items-center gap-1.5 ml-4" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox 
+                    id="show-completed-pinned" 
+                    checked={showCompleted} 
+                    onCheckedChange={(checked) => setShowCompleted(checked === true)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <Label htmlFor="show-completed-pinned" className="text-xs text-muted-foreground cursor-pointer">
+                    Show
+                  </Label>
+                </div>
+              </div>
+              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant={viewMode === "list" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "timeline" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("timeline")}
+                >
+                  <Clock className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CollapsibleTrigger>
@@ -572,9 +873,7 @@ export const PinnedUntilGoalsSection = () => {
                         >
                           <Checkbox
                             checked={pinnedProjectIds.includes(project.id)}
-                            onCheckedChange={(e) => {
-                              // Checkbox handles its own toggle via parent onClick
-                            }}
+                            onCheckedChange={(e) => {}}
                             onClick={(e) => e.stopPropagation()}
                           />
                           <div className="flex-1 min-w-0">
@@ -619,9 +918,7 @@ export const PinnedUntilGoalsSection = () => {
                           >
                             <Checkbox
                               checked={pinnedTaskIds.includes(task.id)}
-                              onCheckedChange={(e) => {
-                                // Checkbox handles its own toggle via parent onClick
-                              }}
+                              onCheckedChange={(e) => {}}
                               onClick={(e) => e.stopPropagation()}
                             />
                             <div className="flex-1 min-w-0">
@@ -637,6 +934,83 @@ export const PinnedUntilGoalsSection = () => {
                   </Card>
                 )}
               </div>
+            </div>
+
+            {/* Time Filters */}
+            <div className="flex gap-1 sm:gap-2 flex-wrap">
+              <Button
+                variant={timeFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("all")}
+              >
+                <span className="hidden sm:inline">All</span>
+                <span className="sm:hidden">All</span>
+                <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.all}</Badge>
+              </Button>
+              <Button
+                variant={timeFilter === "yesterday" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("yesterday")}
+              >
+                <span className="hidden sm:inline">Yesterday</span>
+                <span className="sm:hidden">Yest</span>
+                <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.yesterday}</Badge>
+              </Button>
+              <Button
+                variant={timeFilter === "today" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("today")}
+              >
+                <span className="hidden sm:inline">Today</span>
+                <span className="sm:hidden">Tod</span>
+                <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.today}</Badge>
+              </Button>
+              <Button
+                variant={timeFilter === "tomorrow" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("tomorrow")}
+              >
+                <span className="hidden sm:inline">Tomorrow</span>
+                <span className="sm:hidden">Tom</span>
+                <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.tomorrow}</Badge>
+              </Button>
+              <Button
+                variant={timeFilter === "laterThisWeek" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("laterThisWeek")}
+              >
+                <span className="hidden sm:inline">Later This Week</span>
+                <span className="sm:hidden">LTW</span>
+                <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.laterThisWeek}</Badge>
+              </Button>
+              <Button
+                variant={timeFilter === "nextWeek" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTimeFilter("nextWeek")}
+              >
+                <span className="hidden sm:inline">Next Week</span>
+                <span className="sm:hidden">NW</span>
+                <Badge variant="secondary" className="ml-1 sm:ml-2">{filterCounts.nextWeek}</Badge>
+              </Button>
+            </div>
+
+            {/* Search filter */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Filter tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              {searchTerm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchTerm("")}
+                >
+                  Clear
+                </Button>
+              )}
             </div>
 
             {/* Pinned Project Filters */}
@@ -660,6 +1034,7 @@ export const PinnedUntilGoalsSection = () => {
                   </Button>
                   {pinnedProjectsFromTasks.map((project: any) => {
                     const count = pinnedTasks.filter(t => t.project_id === project.id).length;
+                    const isMisc = project.id === miscProject?.id;
                     return (
                       <Button
                         key={project.id}
@@ -667,12 +1042,12 @@ export const PinnedUntilGoalsSection = () => {
                         variant={selectedProjectFilter === project.id ? "default" : "outline"}
                         onClick={() => {
                           setSelectedProjectFilter(project.id);
-                          setShowAllProjectTasks(false);
+                          setShowAllProjectTasks(isMisc);
                         }}
                         className="flex items-center gap-2 text-xs"
                       >
                         {selectedProjectFilter === project.id && <Check className="h-3 w-3" />}
-                        {project.name} ({count})
+                        {project.name} {isMisc && "(Default)"}
                         <X
                           className="h-3 w-3 ml-1 hover:text-destructive"
                           onClick={(e) => {
@@ -746,12 +1121,14 @@ export const PinnedUntilGoalsSection = () => {
               </div>
             )}
 
-            {/* Pinned Tasks List */}
-            {displayedTasks.length === 0 ? (
+            {/* Tasks Display */}
+            {viewMode === "timeline" ? (
+              <TimelineView />
+            ) : displayedTasks.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Pin className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                <p>No pinned tasks yet</p>
-                <p className="text-sm">Search and pin projects or tasks above</p>
+                <p>No tasks for this period</p>
+                <p className="text-sm">Search and pin projects or tasks above, or add new ones</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -769,9 +1146,9 @@ export const PinnedUntilGoalsSection = () => {
                             variant="ghost"
                             onClick={() => togglePinTask(task.id)}
                             className="h-6 px-2 text-amber-600"
-                            title="Unpin"
+                            title={pinnedTaskIds.includes(task.id) ? "Unpin" : "Pin"}
                           >
-                            <Pin className="h-3 w-3 fill-amber-600" />
+                            <Pin className={`h-3 w-3 ${pinnedTaskIds.includes(task.id) ? 'fill-amber-600' : ''}`} />
                           </Button>
                           <div
                             className="flex-1 cursor-pointer"
@@ -1095,6 +1472,7 @@ export const PinnedUntilGoalsSection = () => {
           onClose={() => {
             setEditingTask(null);
             queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
           }}
           task={editingTask}
         />
@@ -1107,6 +1485,7 @@ export const PinnedUntilGoalsSection = () => {
             if (!open) {
               setMoveToProjectTask(null);
               queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+              queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
             }
           }}
           taskId={moveToProjectTask.id}
@@ -1115,68 +1494,58 @@ export const PinnedUntilGoalsSection = () => {
           onMoved={() => {
             setMoveToProjectTask(null);
             queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
           }}
         />
       )}
 
-      <MoveSubtasksDialog
-        open={isMoveDialogOpen}
-        onOpenChange={setIsMoveDialogOpen}
-        selectedSubtasks={selectedSubtasks}
-        onSuccess={() => {
-          setSelectedSubtasks([]);
-          queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
-        }}
-      />
+      {isAssignDialogOpen && (
+        <AssignToSlotDialog
+          open={isAssignDialogOpen}
+          onOpenChange={(open) => {
+            setIsAssignDialogOpen(open);
+            if (!open) setSelectedItemsForWorkload([]);
+          }}
+          items={selectedItemsForWorkload}
+          onAssign={() => {
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
+          }}
+        />
+      )}
 
-      <AssignToSlotDialog
-        open={isAssignDialogOpen}
-        onOpenChange={setIsAssignDialogOpen}
-        selectedItems={selectedItemsForWorkload}
-        onAssigned={() => {
-          setIsAssignDialogOpen(false);
-          setSelectedItemsForWorkload([]);
-          queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
-        }}
-      />
+      {isMoveDialogOpen && (
+        <MoveSubtasksDialog
+          open={isMoveDialogOpen}
+          onOpenChange={(open) => {
+            setIsMoveDialogOpen(open);
+            if (!open) setSelectedSubtasks([]);
+          }}
+          selectedSubtasks={selectedSubtasks}
+          onMoved={() => {
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
+            setSelectedSubtasks([]);
+          }}
+        />
+      )}
 
       {isSubtaskDialogOpen && editingSubtaskForDialog && (
         <SubtaskDialog
-          isOpen={isSubtaskDialogOpen}
-          onClose={() => {
-            setIsSubtaskDialogOpen(false);
-            setEditingSubtaskForDialog(null);
-          }}
-          taskId={editingSubtaskForDialog.task_id}
-          editingSubtask={editingSubtaskForDialog}
-          employees={employees}
-          onSave={async (data) => {
-            // Update subtask via supabase
-            const { error } = await supabase
-              .from("subtasks")
-              .update({
-                name: data.name,
-                status: data.status,
-                deadline: data.deadline || null,
-                estimated_duration: data.estimated_duration ? parseInt(data.estimated_duration) : null,
-                assignee_id: data.assignee_id || null
-              })
-              .eq("id", editingSubtaskForDialog.id);
-            
-            if (error) {
-              toast.error("Failed to update subtask");
-              return;
+          open={isSubtaskDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setIsSubtaskDialogOpen(false);
+              setEditingSubtaskForDialog(null);
+              queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+              queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
             }
-            
-            toast.success("Subtask updated");
-            setIsSubtaskDialogOpen(false);
-            setEditingSubtaskForDialog(null);
-            queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
           }}
+          editingSubtask={editingSubtaskForDialog}
+          taskId={editingSubtaskForDialog.task_id}
+          employees={employees}
         />
       )}
     </Card>
   );
 };
-
-export default PinnedUntilGoalsSection;
