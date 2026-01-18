@@ -14,15 +14,19 @@ export const assignToCurrentSlot = async (
   const startHour = currentHour.toString().padStart(2, '0') + ':00';
   const endHour = ((currentHour + 1) % 24).toString().padStart(2, '0') + ':00';
 
+  // Create full datetime strings for slot_start_datetime and slot_end_datetime
   const slotStartDatetime = `${dateStr}T${startHour}:00`;
   const slotEndDatetime = `${dateStr}T${endHour}:00`;
+  
+  // Create scheduled_time as a full ISO datetime string
+  const scheduledTimeIso = new Date(now.getFullYear(), now.getMonth(), now.getDate(), currentHour, 0, 0).toISOString();
 
   if (itemType === 'task') {
     const { error } = await supabase
       .from('tasks')
       .update({
         date: dateStr,
-        scheduled_time: startHour,
+        scheduled_time: scheduledTimeIso,
         slot_start_datetime: slotStartDatetime,
         slot_end_datetime: slotEndDatetime
       })
@@ -32,12 +36,12 @@ export const assignToCurrentSlot = async (
       console.error('Failed to assign task to current slot:', error);
     }
   } else if (itemType === 'subtask') {
-    // For subtasks, update the subtask's date and scheduled_time
+    // For subtasks, update the subtask's date and scheduled_time with full ISO datetime
     const { error } = await supabase
       .from('subtasks')
       .update({
         date: dateStr,
-        scheduled_time: slotStartDatetime
+        scheduled_time: scheduledTimeIso
       })
       .eq('id', itemId);
 
