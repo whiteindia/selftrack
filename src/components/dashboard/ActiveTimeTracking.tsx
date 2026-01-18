@@ -373,13 +373,14 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                     key={entry.id}
                     className="px-3 py-2 hover:bg-green-100/50"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2">
+                      {/* Content section - full width */}
+                      <div className="w-full">
                         <p className="text-sm font-medium text-green-900 leading-tight break-words" title={entry.tasks.name}>
                           {entry.tasks.name}
                         </p>
-                        <div className="mt-1 flex items-center gap-2 text-xs text-green-700 truncate" title={`${entry.tasks.projects.name} • ${entry.tasks.projects.clients.name}`}>
-                          <span className="truncate">{entry.tasks.projects.name} • {entry.tasks.projects.clients.name}</span>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-green-700">
+                          <span className="break-words">{entry.tasks.projects.name} • {entry.tasks.projects.clients.name}</span>
                           <Badge variant="default" className={`text-[10px] px-1.5 py-0.5 ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
                             {isPaused(entry) ? 'Paused' : 'Running'}
                           </Badge>
@@ -389,7 +390,8 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                           />
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* Actions section - at the end */}
+                      <div className="flex items-center gap-1 flex-wrap">
                         <CompactTimerControls
                           taskId={entry.tasks.id}
                           taskName={entry.tasks.name}
