@@ -5,13 +5,12 @@ import { Play, Clock, Eye, Filter, Check, ChevronDown, ChevronRight, Pin, Calend
 import LiveTimer from './LiveTimer';
 import CompactTimerControls from './CompactTimerControls';
 import { Button } from '@/components/ui/button';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserPins } from '@/hooks/useUserPins';
-import { assignToCurrentSlot } from '@/utils/assignToCurrentSlot';
-import { toast } from 'sonner';
+import AssignToSlotDialog from '@/components/AssignToSlotDialog';
 
 interface ActiveTimeTrackingProps {
   runningTasks: any[];
@@ -35,6 +34,10 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   
   // Use database-backed pins instead of localStorage
   const { pinnedIds: pinnedTaskIds, togglePin, isToggling } = useUserPins('active_task');
+  
+  // State for AssignToSlotDialog
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedItemForWorkload, setSelectedItemForWorkload] = useState<any>(null);
 
   // Get unique services from running/paused tasks
   const availableServices = useMemo(() => {
@@ -215,22 +218,28 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     setSelectedTaskId(null);
   };
 
-  // Mutation to assign task to current workload slot
-  const assignToWorkloadMutation = useMutation({
-    mutationFn: async (taskId: string) => {
-      await assignToCurrentSlot(taskId, 'task');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
-      queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
-      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
-      toast.success('Added to workload calendar');
-    },
-    onError: () => {
-      toast.error('Failed to add to workload calendar');
-    }
-  });
+  // Open assign to slot dialog for a task
+  const handleOpenAssignDialog = (entry: any) => {
+    const task = entry.tasks;
+    setSelectedItemForWorkload({
+      id: task.id,
+      originalId: task.id,
+      type: 'task',
+      title: task.name,
+      date: task.date || new Date().toISOString().split('T')[0],
+      client: task.projects?.clients?.name || 'Unknown',
+      project: task.projects?.name || 'Unknown',
+      assigneeId: task.assignee_id,
+      projectId: task.project_id,
+      itemType: 'task'
+    });
+    setIsAssignDialogOpen(true);
+  };
+
+  const handleAssignDialogClose = () => {
+    setIsAssignDialogOpen(false);
+    setSelectedItemForWorkload(null);
+  };
 
   return (
     <Card className="w-full">
@@ -406,11 +415,10 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            assignToWorkloadMutation.mutate(entry.tasks.id);
+                            handleOpenAssignDialog(entry);
                           }}
                           className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
                           title="Assign to workload calendar"
-                          disabled={assignToWorkloadMutation.isPending}
                         >
                           <CalendarPlus className="h-3 w-3" />
                         </Button>
@@ -444,6 +452,24 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
         taskId={selectedTaskId}
         onTimeUpdate={onRunningTaskClick}
       />
+      
+      {/* Assign to Workload Dialog */}
+      {isAssignDialogOpen && selectedItemForWorkload && (
+        <AssignToSlotDialog
+          open={isAssignDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) handleAssignDialogClose();
+          }}
+          selectedItems={[selectedItemForWorkload]}
+          onAssigned={() => {
+            queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+            queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+            queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
+            queryClient.invalidateQueries({ queryKey: ['runningTasks'] });
+            handleAssignDialogClose();
+          }}
+        />
+      )}
       </Collapsible>
     </Card>
   );
