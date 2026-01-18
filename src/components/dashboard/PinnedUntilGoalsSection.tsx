@@ -67,7 +67,7 @@ export const PinnedUntilGoalsSection = () => {
       const { data, error } = await supabase
         .from("projects")
         .select("id")
-        .eq("name", "Miscellanious-Quick-Temp-Orglater")
+        .eq("name", "QuickProj")
         .single();
       
       if (error) throw error;
