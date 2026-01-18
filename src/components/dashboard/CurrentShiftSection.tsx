@@ -1488,7 +1488,7 @@ export const CurrentShiftSection = () => {
                                     {renderTaskName(getItemTitle(item) || '')}
                                   </span>
                                 )}
-                                {item.type === 'subtask' && item.subtask?.parent_task_name && (
+                                {item.type === 'subtask' && item.subtask?.parent_task_name && item.subtask.parent_task_name !== item.subtask?.name && (
                                   <span className="text-xs text-muted-foreground">
                                     Parent: {item.subtask.parent_task_name}
                                   </span>
@@ -1661,24 +1661,6 @@ export const CurrentShiftSection = () => {
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   )}
-                                {(item.type === 'task' || item.type === 'slot-task') && item.task && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleTaskStatus({
-                                        id: realTaskId || item.id,
-                                        status: item.task?.status || 'Not Started',
-                                        name: item.task?.name || getItemTitle(item),
-                                        project: item.task?.project
-                                      });
-                                    }}
-                                  >
-                                    {item.task?.status || 'Not Started'}
-                                  </Button>
-                                )}
                                 </div>
                               )}
                             </div>
