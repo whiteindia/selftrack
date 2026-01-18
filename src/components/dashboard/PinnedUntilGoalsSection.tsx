@@ -41,6 +41,7 @@ export const PinnedUntilGoalsSection = () => {
   const [isSubtaskDialogOpen, setIsSubtaskDialogOpen] = useState(false);
   const [editingSubtaskForDialog, setEditingSubtaskForDialog] = useState<any>(null);
   const [quickAddTaskName, setQuickAddTaskName] = useState("");
+  const [quickAddSubtaskNames, setQuickAddSubtaskNames] = useState<Record<string, string>>({});
   const [selectedSubtasks, setSelectedSubtasks] = useState<{ id: string; name: string; task_id: string }[]>([]);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [showAllProjectTasks, setShowAllProjectTasks] = useState(false);
@@ -339,28 +340,58 @@ export const PinnedUntilGoalsSection = () => {
     }
   });
 
-  // Quick add task mutation
+  // Quick add task mutation (supports comma-separated names)
   const quickAddTaskMutation = useMutation({
-    mutationFn: async ({ name, projectId }: { name: string; projectId: string }) => {
+    mutationFn: async ({ names, projectId }: { names: string[]; projectId: string }) => {
+      const rows = names.map(name => ({
+        name,
+        project_id: projectId,
+        status: "Not Started" as const,
+        date: new Date().toISOString().split("T")[0]
+      }));
       const { data, error } = await supabase
         .from("tasks")
-        .insert({
-          name,
-          project_id: projectId,
-          status: "Not Started",
-          date: new Date().toISOString().split("T")[0]
-        })
-        .select()
-        .single();
+        .insert(rows)
+        .select();
       if (error) throw error;
-      return data;
+      return data || [];
     },
     onSuccess: (data) => {
-      toast.success("Task added");
-      togglePinTask(data.id); // Auto-pin the new task
+      toast.success(data.length > 1 ? `${data.length} tasks added` : "Task added");
+      data.forEach((task: any) => togglePinTask(task.id)); // Auto-pin the new tasks
       setQuickAddTaskName("");
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-all-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
+    }
+  });
+
+  // Quick add subtask mutation (supports comma-separated names)
+  const quickAddSubtaskMutation = useMutation({
+    mutationFn: async ({ names, taskId }: { names: string[]; taskId: string }) => {
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("email", (await supabase.auth.getUser()).data.user?.email)
+        .single();
+
+      const rows = names.map(name => ({
+        name,
+        task_id: taskId,
+        status: "Not Started",
+        assigner_id: employee?.id || null
+      }));
+      const { data, error } = await supabase
+        .from("subtasks")
+        .insert(rows)
+        .select();
+      if (error) throw error;
+      return data || [];
+    },
+    onSuccess: (data) => {
+      toast.success(data.length > 1 ? `${data.length} subtasks added` : "Subtask added");
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
     }
   });
   const handleStartTask = async (taskId: string) => {
@@ -671,16 +702,23 @@ export const PinnedUntilGoalsSection = () => {
                   </div>
                 )}
                 
-                {/* Quick Add Task Input - shows when a project is selected */}
+                {/* Quick Add Task Input - shows when a project is selected (comma-separated) */}
                 {selectedProjectFilter && (
                   <div className="flex items-center gap-2 mt-2">
                     <Input
-                      placeholder="Quick add task to selected project..."
+                      placeholder="Add tasks (comma-separated)..."
                       value={quickAddTaskName}
                       onChange={(e) => setQuickAddTaskName(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && quickAddTaskName.trim() && selectedProjectFilter) {
-                          quickAddTaskMutation.mutate({ name: quickAddTaskName.trim(), projectId: selectedProjectFilter });
+                          const names = quickAddTaskName
+                            .split(/\r?\n/)
+                            .flatMap(part => part.split(","))
+                            .map(name => name.trim())
+                            .filter(Boolean);
+                          if (names.length > 0) {
+                            quickAddTaskMutation.mutate({ names, projectId: selectedProjectFilter });
+                          }
                         }
                       }}
                       className="flex-1"
@@ -689,7 +727,14 @@ export const PinnedUntilGoalsSection = () => {
                       size="sm"
                       onClick={() => {
                         if (quickAddTaskName.trim() && selectedProjectFilter) {
-                          quickAddTaskMutation.mutate({ name: quickAddTaskName.trim(), projectId: selectedProjectFilter });
+                          const names = quickAddTaskName
+                            .split(/\r?\n/)
+                            .flatMap(part => part.split(","))
+                            .map(name => name.trim())
+                            .filter(Boolean);
+                          if (names.length > 0) {
+                            quickAddTaskMutation.mutate({ names, projectId: selectedProjectFilter });
+                          }
                         }
                       }}
                       disabled={!quickAddTaskName.trim() || quickAddTaskMutation.isPending}
@@ -841,9 +886,52 @@ export const PinnedUntilGoalsSection = () => {
                         )}
 
                         {/* Subtasks */}
-                        {isShowingSubtasks && task.subtasks && task.subtasks.length > 0 && (
+                        {isShowingSubtasks && (
                           <div className="ml-4 mt-3 space-y-2">
-                            {task.subtasks.map((subtask: any) => {
+                            {/* Quick Add Subtask Input (comma-separated) */}
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Add subtasks (comma-separated)..."
+                                value={quickAddSubtaskNames[task.id] || ""}
+                                onChange={(e) => setQuickAddSubtaskNames(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const inputValue = quickAddSubtaskNames[task.id] || "";
+                                    const names = inputValue
+                                      .split(/\r?\n/)
+                                      .flatMap(part => part.split(","))
+                                      .map(name => name.trim())
+                                      .filter(Boolean);
+                                    if (names.length > 0) {
+                                      quickAddSubtaskMutation.mutate({ names, taskId: task.id });
+                                      setQuickAddSubtaskNames(prev => ({ ...prev, [task.id]: "" }));
+                                    }
+                                  }
+                                }}
+                                className="flex-1 h-8 text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                className="h-8"
+                                onClick={() => {
+                                  const inputValue = quickAddSubtaskNames[task.id] || "";
+                                  const names = inputValue
+                                    .split(/\r?\n/)
+                                    .flatMap(part => part.split(","))
+                                    .map(name => name.trim())
+                                    .filter(Boolean);
+                                  if (names.length > 0) {
+                                    quickAddSubtaskMutation.mutate({ names, taskId: task.id });
+                                    setQuickAddSubtaskNames(prev => ({ ...prev, [task.id]: "" }));
+                                  }
+                                }}
+                                disabled={!(quickAddSubtaskNames[task.id] || "").trim() || quickAddSubtaskMutation.isPending}
+                              >
+                                Add
+                              </Button>
+                            </div>
+
+                            {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((subtask: any) => {
                               const subtaskActiveEntry = timeEntries.find(e => e.task_id === subtask.id && e.entry_type === 'subtask');
                               const subtaskIsPaused = subtaskActiveEntry ? parsePauseInfo(subtaskActiveEntry.timer_metadata).isPaused : false;
                               
