@@ -1488,6 +1488,7 @@ export const PinnedUntilGoalsSection = () => {
                                 if (isShowingSubtasks) newSet.delete(task.id);
                                 else newSet.add(task.id);
                                 setShowSubtasksFor(newSet);
+                                setShowingActionsFor(null);
                               }}
                               className="h-8 px-3"
                             >
@@ -1516,24 +1517,24 @@ export const PinnedUntilGoalsSection = () => {
                                 />
                               </>
                             ) : (
-                              <Button size="sm" onClick={() => handleStartTask(task.id)} className="h-8 px-3">
+                              <Button size="sm" onClick={() => { handleStartTask(task.id); setShowingActionsFor(null); }} className="h-8 px-3">
                                 <Play className="h-4 w-4" />
                               </Button>
                             )}
 
-                            <Button size="sm" variant="ghost" onClick={() => openAssignForTask(task)} className="h-8 px-3" title="Add to Workload">
+                            <Button size="sm" variant="ghost" onClick={() => { openAssignForTask(task); setShowingActionsFor(null); }} className="h-8 px-3" title="Add to Workload">
                               <CalendarPlus className="h-4 w-4 text-blue-600" />
                             </Button>
 
-                            <Button size="sm" variant="ghost" onClick={() => setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id })} className="h-8 px-3" title="Move to Project">
+                            <Button size="sm" variant="ghost" onClick={() => { setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id }); setShowingActionsFor(null); }} className="h-8 px-3" title="Move to Project">
                               <FolderOpen className="h-4 w-4" />
                             </Button>
 
-                            <Button size="sm" variant="ghost" onClick={() => setEditingTask(task)} className="h-8 px-3">
+                            <Button size="sm" variant="ghost" onClick={() => { setEditingTask(task); setShowingActionsFor(null); }} className="h-8 px-3">
                               <Pencil className="h-4 w-4" />
                             </Button>
 
-                            <Button size="sm" variant="ghost" onClick={() => navigate(`/alltasks?highlight=${task.id}`)} className="h-8 px-3">
+                            <Button size="sm" variant="ghost" onClick={() => { navigate(`/alltasks?highlight=${task.id}`); setShowingActionsFor(null); }} className="h-8 px-3">
                               <Eye className="h-4 w-4" />
                             </Button>
 
@@ -1544,6 +1545,7 @@ export const PinnedUntilGoalsSection = () => {
                                 if (confirm("Delete this task?")) {
                                   deleteTaskMutation.mutate(task.id);
                                 }
+                                setShowingActionsFor(null);
                               }}
                               className="h-8 px-3 text-destructive hover:text-destructive"
                             >

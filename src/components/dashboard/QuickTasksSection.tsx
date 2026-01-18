@@ -1044,6 +1044,7 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowTimeControls(!showTimeControls);
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 type="button"
@@ -1069,6 +1070,7 @@ export const QuickTasksSection = ({
                     }
                     sessionStorage.setItem('quick.expandedSubtasks', JSON.stringify(arr));
                   } catch {}
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 type="button"
@@ -1102,7 +1104,7 @@ export const QuickTasksSection = ({
               ) : (
                 <Button
                   size="sm"
-                  onClick={() => handleStartTask(task.id)}
+                  onClick={() => { handleStartTask(task.id); setShowingActionsFor(null); }}
                   className="h-8 px-3"
                   type="button"
                 >
@@ -1116,6 +1118,7 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   openAssignForTask(task);
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 title="Add to Workload"
@@ -1130,6 +1133,7 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id ?? null });
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 title="Move to Project"
@@ -1144,6 +1148,7 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setEditingTask(task);
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 type="button"
@@ -1157,6 +1162,7 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/alltasks?highlight=${task.id}`);
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 type="button"
@@ -1170,6 +1176,7 @@ export const QuickTasksSection = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   setConvertToSubtaskSourceTask({ id: task.id, name: task.name });
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3"
                 title="Convert to Subtask"
@@ -1189,6 +1196,7 @@ export const QuickTasksSection = ({
                     taskName: task.name,
                     projectName: projectNameMap.get(task.project_id) || "Unknown Project"
                   });
+                  setShowingActionsFor(null);
                 }}
                 className="h-8 px-3 text-destructive hover:text-destructive"
                 type="button"

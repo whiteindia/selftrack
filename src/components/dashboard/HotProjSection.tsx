@@ -610,7 +610,7 @@ export const HotProjSection = () => {
 
             {(showingActionsFor === task.id || activeEntry) && (
               <div className="mt-2 flex flex-wrap gap-2 justify-start task-content-area">
-                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowTimeControls(!showTimeControls); }} className="h-8 px-3" type="button">
+                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setShowTimeControls(!showTimeControls); setShowingActionsFor(null); }} className="h-8 px-3" type="button">
                   <Clock className="h-4 w-4" />
                 </Button>
                 <Button
@@ -633,6 +633,7 @@ export const HotProjSection = () => {
                       } catch {}
                       return next;
                     });
+                    setShowingActionsFor(null);
                   }}
                   className="h-8 px-3"
                   type="button"
@@ -656,27 +657,27 @@ export const HotProjSection = () => {
                     />
                   </>
                 ) : (
-                  <Button size="sm" onClick={() => handleStartTask(task.id)} className="h-8 px-3" type="button">
+                  <Button size="sm" onClick={() => { handleStartTask(task.id); setShowingActionsFor(null); }} className="h-8 px-3" type="button">
                     <Play className="h-4 w-4" />
                   </Button>
                 )}
 
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openAssignForTask(task); }} className="h-8 px-3" title="Add to Workload" type="button">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openAssignForTask(task); setShowingActionsFor(null); }} className="h-8 px-3" title="Add to Workload" type="button">
                   <CalendarPlus className={`h-4 w-4 ${(task.status === "Assigned" || task.slot_start_datetime || task.slot_start_time || task.scheduled_time) ? "text-yellow-500" : "text-blue-600"}`} />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id ?? null }); }} className="h-8 px-3" title="Move to Project" type="button">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id ?? null }); setShowingActionsFor(null); }} className="h-8 px-3" title="Move to Project" type="button">
                   <FolderOpen className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingTask(task); }} className="h-8 px-3" type="button">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditingTask(task); setShowingActionsFor(null); }} className="h-8 px-3" type="button">
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/alltasks?highlight=${task.id}`); }} className="h-8 px-3" type="button">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/alltasks?highlight=${task.id}`); setShowingActionsFor(null); }} className="h-8 px-3" type="button">
                   <Eye className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setConvertToSubtaskSourceTask({ id: task.id, name: task.name }); }} className="h-8 px-3" title="Convert to Subtask" type="button">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setConvertToSubtaskSourceTask({ id: task.id, name: task.name }); setShowingActionsFor(null); }} className="h-8 px-3" title="Convert to Subtask" type="button">
                   <ArrowDownToLine className="h-4 w-4 text-blue-600" />
                 </Button>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); deleteTaskMutation.mutate(task.id); }} className="h-8 px-3 text-destructive hover:text-destructive" type="button">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); deleteTaskMutation.mutate(task.id); setShowingActionsFor(null); }} className="h-8 px-3 text-destructive hover:text-destructive" type="button">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
