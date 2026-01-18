@@ -709,14 +709,108 @@ export const PinnedUntilGoalsSection = () => {
     });
   };
 
-  // Timeline view component
+  // Countdown Timer Component
+  const CountdownTimer: React.FC<{ targetTime: Date; taskName: string }> = ({ targetTime, taskName }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+    const [isStarted, setIsStarted] = useState(false);
+    const [isVerySoon, setIsVerySoon] = useState(false);
+    const [isOverdue, setIsOverdue] = useState(false);
+
+    const updateCountdown = useCallback(() => {
+      const now = new Date();
+      const diff = targetTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        if (diff < -5 * 60 * 1000) {
+          setIsOverdue(true);
+          setIsStarted(false);
+          setIsVerySoon(false);
+
+          const overdueDiff = Math.abs(diff);
+          const hours = Math.floor(overdueDiff / (1000 * 60 * 60));
+          const minutes = Math.floor((overdueDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+          if (hours > 0) {
+            setTimeLeft(`${hours}h ${minutes}m`);
+          } else {
+            setTimeLeft(`${minutes}m`);
+          }
+        } else {
+          setTimeLeft('Started');
+          setIsStarted(true);
+          setIsOverdue(false);
+          setIsVerySoon(false);
+        }
+        return;
+      }
+
+      setIsStarted(false);
+      setIsOverdue(false);
+      setIsVerySoon(diff < 5 * 60 * 1000);
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 0) {
+        setTimeLeft(`${hours}h ${minutes}m`);
+      } else if (minutes > 0) {
+        setTimeLeft(`${minutes}m ${seconds}s`);
+      } else {
+        setTimeLeft(`${seconds}s`);
+      }
+    }, [targetTime]);
+
+    useEffect(() => {
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    }, [updateCountdown]);
+
+    if (isOverdue) {
+      return (
+        <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+          <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span>
+          Overdue by {timeLeft}
+        </span>
+      );
+    }
+
+    if (isStarted) {
+      return (
+        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+          <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+          Started
+        </span>
+      );
+    }
+
+    if (isVerySoon) {
+      return (
+        <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded border border-orange-200 animate-pulse">
+          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
+          Starts in {timeLeft}
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+        <span className="inline-block w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+        Starts in {timeLeft}
+      </span>
+    );
+  };
+
+  // Timeline view component - only shows tasks with slot or reminder set
   const TimelineView = () => {
-    const tasksWithSlots = displayedTasks.filter(task => task.slot_start_datetime || task.slot_start_time);
-    const hasSlotTasks = tasksWithSlots.length > 0;
-    const tasksToDisplay = hasSlotTasks ? tasksWithSlots : displayedTasks;
+    // Only show tasks that have a slot or reminder set
+    const tasksWithSlotsOrReminders = displayedTasks.filter(
+      task => task.slot_start_datetime || task.slot_start_time || task.reminder_datetime
+    );
 
     // Group tasks by date and time
-    const tasksByDateTime = tasksToDisplay.reduce((acc, task) => {
+    const tasksByDateTime = tasksWithSlotsOrReminders.reduce((acc, task) => {
       let dateTimeKey: string;
       let sortableTime: number;
 
@@ -732,11 +826,11 @@ export const PinnedUntilGoalsSection = () => {
         const time = formatTimeDisplay(timeValue);
         dateTimeKey = `${date} ${time}`;
         sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
-      } else if (task.deadline) {
-        const timeValue = new Date(task.deadline);
+      } else if (task.reminder_datetime) {
+        const timeValue = new Date(task.reminder_datetime);
         const date = formatDateDDMMYYYY(timeValue);
         const time = formatTimeDisplay(timeValue);
-        dateTimeKey = `${date} ${time}`;
+        dateTimeKey = `${date} ${time} (Reminder)`;
         sortableTime = timeValue.getHours() * 60 + timeValue.getMinutes();
       } else {
         dateTimeKey = "No Time Set";
@@ -753,44 +847,227 @@ export const PinnedUntilGoalsSection = () => {
     const sortedSlots = Object.keys(tasksByDateTime).sort((a, b) => {
       if (a === "No Time Set") return 1;
       if (b === "No Time Set") return -1;
+      
+      // Extract date from the key "DD/MM/YYYY HH:MM AM/PM" or "DD/MM/YYYY HH:MM AM/PM (Reminder)"
+      const datePartA = a.split(' ').slice(0, 1)[0];
+      const datePartB = b.split(' ').slice(0, 1)[0];
+      
+      const [dayA, monthA, yearA] = datePartA.split('/').map(Number);
+      const [dayB, monthB, yearB] = datePartB.split('/').map(Number);
+      
+      const dateObjA = new Date(yearA, monthA - 1, dayA);
+      const dateObjB = new Date(yearB, monthB - 1, dayB);
+      
+      const dateCompare = dateObjA.getTime() - dateObjB.getTime();
+      if (dateCompare !== 0) return dateCompare;
+      
       return tasksByDateTime[a].sortableTime - tasksByDateTime[b].sortableTime;
     });
 
+    if (tasksWithSlotsOrReminders.length === 0) {
+      return (
+        <div className="text-center py-8 text-muted-foreground">
+          <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+          <p>No tasks with time slots or reminders</p>
+          <p className="text-sm">Edit tasks to add slots or reminders to see them here</p>
+        </div>
+      );
+    }
+
     return (
-      <div className="space-y-4">
-        {sortedSlots.map((slot) => (
-          <div key={slot} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{slot}</span>
-              <Badge variant="secondary">{tasksByDateTime[slot].tasks.length}</Badge>
+      <div className="relative">
+        {/* Timeline mode indicator */}
+        <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4" />
+          <span>Time Slots & Reminders</span>
+          <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+            {tasksWithSlotsOrReminders.length} items
+          </span>
+        </div>
+
+        {/* Vertical timeline thread */}
+        <div className="absolute left-8 top-12 bottom-0 w-0.5 bg-blue-200"></div>
+
+        <div className="space-y-6">
+          {sortedSlots.map((dateTimeSlot) => (
+            <div key={dateTimeSlot} className="relative">
+              {/* Knot on the timeline */}
+              <div className="absolute left-7 w-3 h-3 bg-blue-500 rounded-full border-2 border-white shadow-sm z-10" style={{ top: '4px' }}></div>
+
+              <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+                {/* Time node */}
+                <div className={`relative z-10 flex items-center justify-center w-full sm:w-auto sm:min-w-[160px] h-8 bg-background border border-border rounded-md text-sm font-medium mb-3 sm:mb-0 px-3 ${
+                  dateTimeSlot === "No Time Set" ? "text-muted-foreground" : ""
+                }`}>
+                  {dateTimeSlot}
+                </div>
+
+                {/* Tasks at this time slot */}
+                <div className="flex-1 space-y-2 pl-0 sm:pl-4">
+                  {tasksByDateTime[dateTimeSlot].tasks.map((task: any) => {
+                    const activeEntry = timeEntries.find(e => e.task_id === task.id);
+                    const isPaused = activeEntry ? parsePauseInfo(activeEntry.timer_metadata).isPaused : false;
+                    const slotTime = task.slot_start_datetime || task.slot_start_time;
+
+                    return (
+                      <Card key={task.id} className="p-3 max-w-2xl">
+                        <div
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 cursor-pointer"
+                          onClick={() => setShowingActionsFor(showingActionsFor === task.id ? null : task.id)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-sm break-words">{task.name}</h3>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                task.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {task.status}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                Due: {task.deadline ? new Date(task.deadline).toLocaleDateString('en-GB') : "No deadline"}
+                              </span>
+                              {task.project?.name && (
+                                <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                                  {task.project.name}
+                                </span>
+                              )}
+                            </div>
+                            {slotTime && !activeEntry && (
+                              <div className="mt-2">
+                                <CountdownTimer
+                                  targetTime={new Date(slotTime)}
+                                  taskName={task.name}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {(showingActionsFor === task.id || activeEntry) && (
+                            <div className="flex items-center gap-1 justify-end flex-wrap">
+                              {activeEntry ? (
+                                <>
+                                  <div className="flex flex-col items-end gap-1">
+                                    <LiveTimer
+                                      startTime={activeEntry.start_time}
+                                      isPaused={isPaused}
+                                      timerMetadata={activeEntry.timer_metadata}
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                      {isPaused ? "Paused" : "Running"}
+                                    </span>
+                                  </div>
+                                  <CompactTimerControls
+                                    taskId={task.id}
+                                    taskName={task.name}
+                                    entryId={activeEntry.id}
+                                    timerMetadata={activeEntry.timer_metadata}
+                                    onTimerUpdate={() => {
+                                      queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
+                                    }}
+                                  />
+                                </>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStartTask(task.id);
+                                  }}
+                                  className="h-7 px-2"
+                                >
+                                  <Play className="h-3 w-3" />
+                                </Button>
+                              )}
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openAssignForTask(task);
+                                }}
+                                className="h-7 px-2"
+                                title="Add to Workload"
+                              >
+                                <CalendarPlus className="h-3 w-3 text-blue-600" />
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMoveToProjectTask({ id: task.id, name: task.name, project_id: task.project_id ?? null });
+                                }}
+                                className="h-7 px-2"
+                                title="Move to Project"
+                              >
+                                <FolderOpen className="h-3 w-3" />
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTask(task);
+                                }}
+                                className="h-7 px-2"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/alltasks?highlight=${task.id}`);
+                                }}
+                                className="h-7 px-2"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  togglePinTask(task.id);
+                                }}
+                                className="h-7 px-2"
+                                title={pinnedTaskIds.includes(task.id) ? "Unpin" : "Pin"}
+                              >
+                                <Pin className={`h-3 w-3 ${pinnedTaskIds.includes(task.id) ? 'fill-amber-600 text-amber-600' : ''}`} />
+                              </Button>
+
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm("Delete this task?")) {
+                                    deleteTaskMutation.mutate(task.id);
+                                  }
+                                }}
+                                className="h-7 px-2 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 ml-6">
-              {tasksByDateTime[slot].tasks.map((task: any) => (
-                <Card key={task.id} className="p-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm flex-1">{task.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      task.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                      task.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {task.status}
-                    </span>
-                    <Button size="sm" variant="ghost" onClick={() => handleStartTask(task.id)} className="h-6 px-2">
-                      <Play className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ))}
-        {sortedSlots.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No tasks for this period</p>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     );
   };
@@ -805,7 +1082,7 @@ export const PinnedUntilGoalsSection = () => {
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 <CardTitle className="flex items-center text-base font-semibold">
                   <Pin className="h-4 w-4 mr-2 text-amber-600" />
-                  Pinned Tasks
+                  Pinned
                 </CardTitle>
                 {displayedTasks.length > 0 && (
                   <Badge variant="secondary" className="ml-2">{displayedTasks.length}</Badge>
