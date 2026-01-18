@@ -1488,9 +1488,9 @@ export const CurrentShiftSection = () => {
                                     {renderTaskName(getItemTitle(item) || '')}
                                   </span>
                                 )}
-                                {item.type === 'subtask' && (
+                                {item.type === 'subtask' && item.subtask?.parent_task_name && (
                                   <span className="text-xs text-muted-foreground">
-                                    {item.subtask?.parent_task_name}
+                                    Parent: {item.subtask.parent_task_name}
                                   </span>
                                 )}
                                 {item.type === 'slot-task' && (
