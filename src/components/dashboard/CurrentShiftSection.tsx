@@ -1426,62 +1426,6 @@ export const CurrentShiftSection = () => {
                                       )}
                                     </button>
                                     <span className={getItemTitleClasses(item)}>{renderTaskName(item.subtask?.name || '')}</span>
-                                    {/* Inline icons for subtasks */}
-                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
-                                        className="h-6 px-1"
-                                        title="Add to Workload"
-                                      >
-                                        <CalendarPlus className="h-3 w-3 text-yellow-500" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => { 
-                                          e.stopPropagation();
-                                          if (confirm("Convert this subtask to a task?")) {
-                                            convertSubtaskToTaskMutation.mutate({ 
-                                              subtaskId: item.subtask?.id || item.id, 
-                                              subtaskName: item.subtask?.name || '' 
-                                            });
-                                          }
-                                        }}
-                                        className="h-6 px-1"
-                                        title="Convert to Task"
-                                      >
-                                        <ArrowUpFromLine className="h-3 w-3 text-green-600" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); 
-                                          deleteItemMutation.mutate({ 
-                                            id: item.subtask?.id || item.id, 
-                                            type: 'subtask',
-                                            name: item.subtask?.name || 'Subtask'
-                                          }); 
-                                        }}
-                                        className="h-6 px-1 text-destructive hover:text-destructive"
-                                        title="Delete subtask"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-6 px-1 text-xs"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleToggleSubtaskStatus(item.subtask);
-                                        }}
-                                      >
-                                        {item.subtask?.status || 'Not Started'}
-                                      </Button>
-                                    </div>
                                   </div>
                                 ) : (
                                   <span className={cn(getItemTitleClasses(item), hasSlot && 'text-orange-600 dark:text-orange-400')}>
@@ -1588,15 +1532,18 @@ export const CurrentShiftSection = () => {
                                     </Button>
                                   )}
                                   
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
-                                    className="h-7 px-2"
-                                    title="Add to Workload"
-                                  >
-                                    <CalendarPlus className="h-4 w-4 text-yellow-500" />
-                                  </Button>
+                                  {/* Task-specific buttons */}
+                                  {(item.type === 'task' || item.type === 'slot-task') && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                      className="h-7 px-2"
+                                      title="Add to Workload"
+                                    >
+                                      <CalendarPlus className="h-4 w-4 text-yellow-500" />
+                                    </Button>
+                                  )}
                                   {(item.type === 'task' || item.type === 'slot-task') && (
                                     <Button
                                       size="sm"
@@ -1685,6 +1632,58 @@ export const CurrentShiftSection = () => {
                                       }}
                                       className="h-7 px-2 text-destructive hover:text-destructive"
                                       title="Delete"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                  
+                                  {/* Subtask-specific buttons */}
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleSubtaskStatus(item.subtask);
+                                      }}
+                                    >
+                                      {item.subtask?.status || 'Not Started'}
+                                    </Button>
+                                  )}
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { 
+                                        e.stopPropagation();
+                                        if (confirm("Convert this subtask to a task?")) {
+                                          convertSubtaskToTaskMutation.mutate({ 
+                                            subtaskId: item.subtask?.id || item.id, 
+                                            subtaskName: item.subtask?.name || '' 
+                                          });
+                                        }
+                                      }}
+                                      className="h-7 px-2"
+                                      title="Convert to Task"
+                                    >
+                                      <ArrowUpFromLine className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                  )}
+                                  {item.type === 'subtask' && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        deleteItemMutation.mutate({ 
+                                          id: item.subtask?.id || item.id, 
+                                          type: 'subtask',
+                                          name: item.subtask?.name || 'Subtask'
+                                        }); 
+                                      }}
+                                      className="h-7 px-2 text-destructive hover:text-destructive"
+                                      title="Delete subtask"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
