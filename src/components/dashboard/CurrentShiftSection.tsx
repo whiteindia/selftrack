@@ -792,6 +792,9 @@ export const CurrentShiftSection = () => {
     onSuccess: () => {
       toast.success('Cleared from slot');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Failed to clear from slot');
@@ -817,6 +820,8 @@ export const CurrentShiftSection = () => {
     onSuccess: () => {
       toast.success('Cleared from slot');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
