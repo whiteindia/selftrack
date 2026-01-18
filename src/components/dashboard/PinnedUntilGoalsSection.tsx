@@ -595,6 +595,7 @@ export const PinnedUntilGoalsSection = () => {
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["running-timers"] });
       queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
       queryClient.invalidateQueries({ queryKey: ["workload-tasks"] });
@@ -637,6 +638,7 @@ export const PinnedUntilGoalsSection = () => {
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["pinned-goals-project-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["running-timers"] });
       queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
       queryClient.invalidateQueries({ queryKey: ["workload-tasks"] });
