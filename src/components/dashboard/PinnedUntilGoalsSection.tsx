@@ -829,110 +829,150 @@ export const PinnedUntilGoalsSection = () => {
 
                         {/* Subtasks */}
                         {isShowingSubtasks && task.subtasks && task.subtasks.length > 0 && (
-                          <div className="ml-8 mt-2 space-y-1">
+                          <div className="ml-4 mt-3 space-y-2">
                             {task.subtasks.map((subtask: any) => {
                               const subtaskActiveEntry = timeEntries.find(e => e.task_id === subtask.id && e.entry_type === 'subtask');
                               const subtaskIsPaused = subtaskActiveEntry ? parsePauseInfo(subtaskActiveEntry.timer_metadata).isPaused : false;
                               
                               return (
-                                <div key={subtask.id} className="flex items-center gap-2 p-2 bg-muted/30 rounded text-sm">
-                                  <span
-                                    className={`w-2 h-2 rounded-full cursor-pointer shrink-0 ${
-                                      subtask.status === 'Completed' ? 'bg-green-500' :
-                                      subtask.status === 'In Progress' ? 'bg-yellow-500' : 'bg-gray-400'
-                                    }`}
-                                    onClick={() => handleToggleSubtaskStatus(subtask)}
-                                  />
-                                  <span className="flex-1 truncate">{subtask.name}</span>
-                                  
-                                  {/* Subtask Action Buttons */}
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    {subtaskActiveEntry ? (
-                                      <>
-                                        <LiveTimer
-                                          startTime={subtaskActiveEntry.start_time}
-                                          isPaused={subtaskIsPaused}
-                                          timerMetadata={subtaskActiveEntry.timer_metadata}
-                                        />
-                                        <CompactTimerControls
-                                          taskId={subtask.id}
-                                          taskName={subtask.name}
-                                          entryId={subtaskActiveEntry.id}
-                                          timerMetadata={subtaskActiveEntry.timer_metadata}
-                                          onTimerUpdate={() => {
-                                            queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
-                                          }}
-                                          isSubtask={true}
-                                        />
-                                      </>
-                                    ) : (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleStartSubtask(subtask.id, task.id)}
-                                        className="h-6 px-2"
-                                        title="Start Timer"
+                                <Card key={subtask.id} className="p-3 bg-muted/30">
+                                  <div className="flex flex-col gap-2">
+                                    {/* Subtask Name and Status Row */}
+                                    <div className="flex items-start gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const isSelected = selectedSubtasks.some(s => s.id === subtask.id);
+                                          if (isSelected) {
+                                            setSelectedSubtasks(prev => prev.filter(s => s.id !== subtask.id));
+                                          } else {
+                                            setSelectedSubtasks(prev => [...prev, { id: subtask.id, name: subtask.name, task_id: task.id }]);
+                                          }
+                                        }}
+                                        className="mt-0.5 shrink-0"
                                       >
-                                        <Play className="h-3 w-3" />
+                                        {selectedSubtasks.some(s => s.id === subtask.id) ? (
+                                          <Check className="h-4 w-4 text-primary" />
+                                        ) : (
+                                          <div className="h-4 w-4 border rounded border-muted-foreground hover:border-primary" />
+                                        )}
+                                      </button>
+                                      <p className="text-sm font-medium break-words min-w-0 flex-1">{subtask.name}</p>
+                                    </div>
+                                    
+                                    {/* Status and Info Row */}
+                                    <div className="flex items-center gap-1.5 flex-wrap text-xs pl-6">
+                                      <span 
+                                        className={`px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 ${
+                                          subtask.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                          subtask.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' :
+                                          subtask.status === 'Assigned' ? 'bg-orange-100 text-orange-800' :
+                                          'bg-gray-100 text-gray-800'
+                                        }`}
+                                        onClick={() => handleToggleSubtaskStatus(subtask)}
+                                      >
+                                        {subtask.status}
+                                      </span>
+                                      {subtask.deadline && (
+                                        <span className="text-muted-foreground">Due: {new Date(subtask.deadline).toLocaleDateString()}</span>
+                                      )}
+                                      {subtask.estimated_duration && (
+                                        <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                                          Est: {subtask.estimated_duration}h
+                                        </span>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Action Buttons Row */}
+                                    <div className="flex items-center gap-0.5 flex-wrap pl-6">
+                                      {subtaskActiveEntry ? (
+                                        <>
+                                          <LiveTimer
+                                            startTime={subtaskActiveEntry.start_time}
+                                            isPaused={subtaskIsPaused}
+                                            timerMetadata={subtaskActiveEntry.timer_metadata}
+                                          />
+                                          <CompactTimerControls
+                                            taskId={subtask.id}
+                                            taskName={subtask.name}
+                                            entryId={subtaskActiveEntry.id}
+                                            timerMetadata={subtaskActiveEntry.timer_metadata}
+                                            onTimerUpdate={() => {
+                                              queryClient.invalidateQueries({ queryKey: ["pinned-goals-time-entries"] });
+                                            }}
+                                            isSubtask={true}
+                                          />
+                                        </>
+                                      ) : (
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          onClick={() => handleStartSubtask(subtask.id, task.id)}
+                                          className="h-7 w-7"
+                                          title="Start Timer"
+                                        >
+                                          <Play className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                      
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => openAssignForSubtask(subtask, task.id)}
+                                        className="h-7 w-7"
+                                        title="Add to Workload"
+                                      >
+                                        <CalendarPlus className="h-3.5 w-3.5 text-blue-600" />
                                       </Button>
-                                    )}
-                                    
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => openAssignForSubtask(subtask, task.id)}
-                                      className="h-6 px-2"
-                                      title="Add to Workload"
-                                    >
-                                      <CalendarPlus className="h-3 w-3 text-blue-600" />
-                                    </Button>
-                                    
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setSelectedSubtasks([{ id: subtask.id, name: subtask.name, task_id: task.id }]);
-                                        setIsMoveDialogOpen(true);
-                                      }}
-                                      className="h-6 px-2"
-                                      title="Move to Task"
-                                    >
-                                      <ArrowRight className="h-3 w-3" />
-                                    </Button>
-                                    
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setEditingSubtaskForDialog({
-                                          id: subtask.id,
-                                          name: subtask.name,
-                                          status: subtask.status,
-                                          deadline: subtask.deadline,
-                                          estimated_duration: subtask.estimated_duration,
-                                          assignee_id: subtask.assignee_id,
-                                          task_id: task.id
-                                        });
-                                        setIsSubtaskDialogOpen(true);
-                                      }}
-                                      className="h-6 px-2"
-                                    >
-                                      <Pencil className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => {
-                                        if (confirm("Delete this subtask?")) {
-                                          deleteSubtaskMutation.mutate(subtask.id);
-                                        }
-                                      }}
-                                      className="h-6 px-2 text-destructive"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
+                                      
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setSelectedSubtasks([{ id: subtask.id, name: subtask.name, task_id: task.id }]);
+                                          setIsMoveDialogOpen(true);
+                                        }}
+                                        className="h-7 w-7"
+                                        title="Move to Task"
+                                      >
+                                        <ArrowRight className="h-3.5 w-3.5" />
+                                      </Button>
+                                      
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingSubtaskForDialog({
+                                            id: subtask.id,
+                                            name: subtask.name,
+                                            status: subtask.status,
+                                            deadline: subtask.deadline,
+                                            estimated_duration: subtask.estimated_duration,
+                                            assignee_id: subtask.assignee_id,
+                                            task_id: task.id
+                                          });
+                                          setIsSubtaskDialogOpen(true);
+                                        }}
+                                        className="h-7 w-7"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                      
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          if (confirm("Delete this subtask?")) {
+                                            deleteSubtaskMutation.mutate(subtask.id);
+                                          }
+                                        }}
+                                        className="h-7 w-7 text-destructive"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                </div>
+                                </Card>
                               );
                             })}
                           </div>
