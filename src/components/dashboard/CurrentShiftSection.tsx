@@ -1819,7 +1819,7 @@ export const CurrentShiftSection = () => {
                                                 <Button
                                                   size="sm"
                                                   variant="ghost"
-                                                  onClick={(e) => { e.stopPropagation(); openAssignForItem(item); }}
+                                                  onClick={(e) => { e.stopPropagation(); openAssignForItem(item); collapseItem(item.id); }}
                                                   className="h-5 px-1"
                                                   title="Add to Workload"
                                                 >
@@ -1835,6 +1835,7 @@ export const CurrentShiftSection = () => {
                                                       type: 'subtask',
                                                       name: item.subtask?.name || 'Subtask'
                                                     });
+                                                    collapseItem(item.id);
                                                   }}
                                                   className="h-5 px-1 text-destructive hover:text-destructive"
                                                   title="Delete"
@@ -1848,6 +1849,7 @@ export const CurrentShiftSection = () => {
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleToggleSubtaskStatus(item.subtask);
+                                                    collapseItem(item.id);
                                                   }}
                                                 >
                                                   {item.subtask?.status || 'Not Started'}
@@ -1875,7 +1877,7 @@ export const CurrentShiftSection = () => {
                                               <>
                                                 <Button
                                                   size="sm"
-                                                  onClick={() => handleStartTask(realTaskId, true)}
+                                                  onClick={() => { handleStartTask(realTaskId, true); collapseItem(item.id); }}
                                                   className="h-6 px-1"
                                                   title="Start"
                                                 >
@@ -1889,6 +1891,7 @@ export const CurrentShiftSection = () => {
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     clearSubtaskFromSlotMutation.mutate({ subtaskId: realTaskId });
+                                                    collapseItem(item.id);
                                                   }}
                                                   disabled={clearSubtaskFromSlotMutation.isPending}
                                                 >
