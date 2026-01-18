@@ -307,9 +307,22 @@ const Index = () => {
     }
   };
 
-  const handleAddToWorkload = (task: any) => {
-    // Always add to current slot directly from dashboard search results.
-    addToWorkloadMutation.mutate(task);
+  const handleAddToWorkload = (item: any) => {
+    // Open the AssignToSlotDialog for slot selection
+    const workloadItem = {
+      id: item.id,
+      originalId: item.id,
+      type: item.item_type || 'task',
+      title: item.name,
+      date: item.date || new Date().toISOString().split('T')[0],
+      client: item.client_name || 'Unknown',
+      project: item.project_name || 'Unknown',
+      assigneeId: item.assignee_id,
+      projectId: item.project_id,
+      itemType: item.item_type || 'task'
+    };
+    setSelectedItemsForWorkload([workloadItem]);
+    setIsAssignDialogOpen(true);
   };
 
   return (
@@ -435,17 +448,15 @@ const Index = () => {
                               <Play className="h-3 w-3 mr-1" />
                               Start
                             </Button>
-                            {item.item_type === 'task' && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleAddToWorkload(item)}
-                                title="Add to Workload"
-                                className="ml-1"
-                              >
-                                <CalendarPlus className="h-4 w-4 text-blue-600" />
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleAddToWorkload(item)}
+                              title="Add to Workload"
+                              className="ml-1"
+                            >
+                              <CalendarPlus className="h-4 w-4 text-blue-600" />
+                            </Button>
                             <Button
                               size="sm"
                               variant="ghost"
