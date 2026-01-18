@@ -7,6 +7,7 @@ import { Play, Pause, Square, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { assignToCurrentSlot } from '@/utils/assignToCurrentSlot';
 
 interface TaskTimerProps {
   taskId: string;
@@ -200,6 +201,9 @@ const TaskTimer: React.FC<TaskTimerProps> = ({
       }
 
       const startTime = new Date();
+
+      // Assign task/subtask to current slot
+      await assignToCurrentSlot(taskId, isSubtask ? 'subtask' : 'task');
       
       // Create new time entry with timer metadata
       const { data: timeEntry, error } = await supabase

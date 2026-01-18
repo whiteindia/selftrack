@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { MoveSubtasksDialog } from "./MoveSubtasksDialog";
 import { MoveToProjectDialog } from "@/components/MoveToProjectDialog";
 import { ConvertToSubtaskDialog } from "./ConvertToSubtaskDialog";
+import { assignToCurrentSlot } from "@/utils/assignToCurrentSlot";
 
 interface WorkloadItem {
   id: string;
@@ -524,12 +525,21 @@ export const CurrentShiftSection = () => {
 
     if (!employee) return;
 
+    // Assign to current slot
+    await assignToCurrentSlot(taskId, isSubtask ? 'subtask' : 'task');
+
     await supabase.from("time_entries").insert({
       task_id: taskId,
       employee_id: employee.id,
       entry_type: isSubtask ? "subtask" : "task",
       start_time: new Date().toISOString(),
     });
+
+    // Invalidate queries so UI updates
+    queryClient.invalidateQueries({ queryKey: ["current-shift-workload"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-workload"] });
+    queryClient.invalidateQueries({ queryKey: ["workload-tasks"] });
+    queryClient.invalidateQueries({ queryKey: ["runningTasks"] });
   };
 
   const createShiftSubtaskMutation = useMutation({
@@ -639,6 +649,8 @@ export const CurrentShiftSection = () => {
     onSuccess: (data) => {
       toast.success('Subtask added to shift');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['quick-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['subtasks'] });
       queryClient.invalidateQueries({ queryKey: ['task-subtasks'] });
@@ -695,6 +707,8 @@ export const CurrentShiftSection = () => {
     onSuccess: (data) => {
       toast.success('Task added to shift');
       queryClient.invalidateQueries({ queryKey: ['current-shift-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-workload'] });
+      queryClient.invalidateQueries({ queryKey: ['workload-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['project-tasks-quick-add'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
 
