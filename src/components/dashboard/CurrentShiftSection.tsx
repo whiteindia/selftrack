@@ -38,6 +38,7 @@ interface WorkloadItem {
     project?: { id?: string; name: string; client?: { name: string } };
     slot_start_datetime?: string;
     slot_end_datetime?: string;
+    reminder_datetime?: string | null;
   };
   subtask?: {
     id: string;
@@ -259,6 +260,7 @@ export const CurrentShiftSection = () => {
           slot_start_datetime,
           slot_end_datetime,
           project_id,
+          reminder_datetime,
           assignee:employees!tasks_assignee_id_fkey(name),
           project:projects!tasks_project_id_fkey(
             id,
@@ -284,6 +286,7 @@ export const CurrentShiftSection = () => {
           slot_start_datetime,
           slot_end_datetime,
           project_id,
+          reminder_datetime,
           assignee:employees!tasks_assignee_id_fkey(name),
           project:projects!tasks_project_id_fkey(
             id,
@@ -348,7 +351,8 @@ export const CurrentShiftSection = () => {
                 assignee: task.assignee,
                 project: task.project,
                 slot_start_datetime: task.slot_start_datetime,
-                slot_end_datetime: task.slot_end_datetime
+                slot_end_datetime: task.slot_end_datetime,
+                reminder_datetime: task.reminder_datetime
               }
             });
           }
@@ -384,7 +388,8 @@ export const CurrentShiftSection = () => {
                 assignee: task.assignee,
                 project: task.project,
                 slot_start_datetime: task.slot_start_datetime,
-                slot_end_datetime: task.slot_end_datetime
+                slot_end_datetime: task.slot_end_datetime,
+                reminder_datetime: task.reminder_datetime
               }
             });
           }
@@ -1369,19 +1374,23 @@ export const CurrentShiftSection = () => {
                         );
                         const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
                         const hasSlot = item.task?.slot_start_datetime || item.task?.slot_end_datetime;
+                        // Check if task has a reminder (highlight in red)
+                        const hasReminder = (item.type === 'task' || item.type === 'slot-task') && item.task?.reminder_datetime;
 
                         return (
                           <div 
                             key={item.id} 
                             className={cn(
                               'flex items-start justify-between p-3 rounded-md transition-all',
-                              item.type === 'subtask'
-                                ? 'bg-blue-50 dark:bg-blue-900/30'
-                                : item.type === 'slot-task'
-                                  ? 'bg-purple-50 dark:bg-purple-900/20'
-                                  : 'bg-muted/30',
-                              activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
-                              getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
+                              hasReminder
+                                ? 'bg-red-100 border border-red-400 dark:bg-red-950/40 dark:border-red-700'
+                                : item.type === 'subtask'
+                                  ? 'bg-blue-50 dark:bg-blue-900/30'
+                                  : item.type === 'slot-task'
+                                    ? 'bg-purple-50 dark:bg-purple-900/20'
+                                    : 'bg-muted/30',
+                              activeEntry && !hasReminder && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
+                              getItemStatus(item) === 'In Progress' && !hasReminder && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
                             )}
                             onClick={() => setCollapsedItems(prev => {
                               const next = new Set(prev);

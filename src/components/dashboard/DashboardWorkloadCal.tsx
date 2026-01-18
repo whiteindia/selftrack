@@ -29,6 +29,7 @@ interface WorkloadItem {
     status: string;
     project_name: string;
     client_name: string;
+    reminder_datetime?: string | null;
   };
   subtask?: {
     id: string;
@@ -225,6 +226,7 @@ export const DashboardWorkloadCal = () => {
           project_id,
           slot_start_datetime,
           slot_end_datetime,
+          reminder_datetime,
           project:projects!tasks_project_id_fkey(
             id,
             name,
@@ -348,6 +350,7 @@ export const DashboardWorkloadCal = () => {
             status: task.status,
             project_name: task.project?.name || '',
             client_name: task.project?.client?.name || '',
+            reminder_datetime: task.reminder_datetime,
           }
         };
       });
@@ -773,15 +776,19 @@ export const DashboardWorkloadCal = () => {
                                 
                                 // Check if task has a slot (orange color like CurrentShiftSection)
                                 const hasSlot = item.type === 'task' && item.task;
+                                // Check if task has a reminder (highlight in red)
+                                const hasReminder = item.type === 'task' && item.task?.reminder_datetime;
                                 
                                 return (
                                   <div 
                                     key={item.id} 
                                     className={cn(
                                       "p-2 rounded-md w-full",
-                                      hasSlot 
-                                        ? "bg-orange-100 border border-orange-300 dark:bg-orange-950/30 dark:border-orange-800" 
-                                        : "bg-muted/30"
+                                      hasReminder
+                                        ? "bg-red-100 border border-red-400 dark:bg-red-950/40 dark:border-red-700"
+                                        : hasSlot 
+                                          ? "bg-orange-100 border border-orange-300 dark:bg-orange-950/30 dark:border-orange-800" 
+                                          : "bg-muted/30"
                                     )}
                                   >
                                     <div className="flex flex-col gap-1">
