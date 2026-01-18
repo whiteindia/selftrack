@@ -31,6 +31,7 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
   const [isTaskDetailsOpen, setIsTaskDetailsOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<"services" | "clients" | "projects">("services");
+  const [showingActionsFor, setShowingActionsFor] = useState<string | null>(null);
   
   // Use database-backed pins instead of localStorage
   const { pinnedIds: pinnedTaskIds, togglePin, isToggling } = useUserPins('active_task');
@@ -218,6 +219,15 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
     setSelectedTaskId(null);
   };
 
+  const toggleActionsFor = (entryId: string) => {
+    setShowingActionsFor(prev => (prev === entryId ? null : entryId));
+  };
+
+  const handleTimerUpdate = () => {
+    onRunningTaskClick();
+    setShowingActionsFor(null);
+  };
+
   // Open assign to slot dialog for a task
   const handleOpenAssignDialog = (entry: any) => {
     const task = entry.tasks;
@@ -368,79 +378,100 @@ const ActiveTimeTracking: React.FC<ActiveTimeTrackingProps> = ({
               </div>
             ) : (
               <div className="divide-y rounded-md border bg-green-50 border-green-200">
-                {filteredTasks.map((entry: any) => (
-                  <div
-                    key={entry.id}
-                    className="px-3 py-2 hover:bg-green-100/50"
-                  >
-                    <div className="flex flex-col gap-2">
-                      {/* Content section - full width */}
-                      <div className="w-full">
-                        <p className="text-sm font-medium text-green-900 leading-tight break-words" title={entry.tasks.name}>
-                          {entry.tasks.name}
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-green-700">
-                          <span className="break-words">{entry.tasks.projects.name} • {entry.tasks.projects.clients.name}</span>
-                          <Badge variant="default" className={`text-[10px] px-1.5 py-0.5 ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
-                            {isPaused(entry) ? 'Paused' : 'Running'}
-                          </Badge>
-                          <LiveTimer
-                            startTime={entry.start_time}
-                            timerMetadata={entry.timer_metadata}
-                          />
+                {filteredTasks.map((entry: any) => {
+                  const isActionsOpen = showingActionsFor === entry.id;
+
+                  return (
+                    <div
+                      key={entry.id}
+                      className="px-3 py-2 hover:bg-green-100/50"
+                    >
+                      <div className="flex flex-col gap-2">
+                        {/* Content section - full width */}
+                        <div
+                          className="w-full cursor-pointer"
+                          onClick={() => toggleActionsFor(entry.id)}
+                        >
+                          <div className="flex items-start gap-2">
+                            {isActionsOpen ? (
+                              <ChevronDown className="h-4 w-4 text-green-700 mt-0.5" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-green-700 mt-0.5" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-green-900 leading-tight break-words" title={entry.tasks.name}>
+                                {entry.tasks.name}
+                              </p>
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-green-700">
+                                <span className="break-words">{entry.tasks.projects.name} • {entry.tasks.projects.clients.name}</span>
+                                <Badge variant="default" className={`text-[10px] px-1.5 py-0.5 ${isPaused(entry) ? "bg-yellow-600" : "bg-green-600"}`}>
+                                  {isPaused(entry) ? 'Paused' : 'Running'}
+                                </Badge>
+                                <LiveTimer
+                                  startTime={entry.start_time}
+                                  timerMetadata={entry.timer_metadata}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      {/* Actions section - at the end */}
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <CompactTimerControls
-                          taskId={entry.tasks.id}
-                          taskName={entry.tasks.name}
-                          entryId={entry.id}
-                          timerMetadata={entry.timer_metadata}
-                          onTimerUpdate={onRunningTaskClick}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleViewTask(entry.tasks.id);
-                          }}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleOpenAssignDialog(entry);
-                          }}
-                          className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
-                          title="Assign to workload calendar"
-                        >
-                          <CalendarPlus className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            togglePin(entry.tasks.id);
-                          }}
-                          className={`h-6 px-2 text-xs ${pinnedTaskIds.includes(entry.tasks.id) ? 'text-amber-600' : 'text-muted-foreground'}`}
-                          title={pinnedTaskIds.includes(entry.tasks.id) ? 'Unpin' : 'Pin to top'}
-                        >
-                          <Pin className={`h-3 w-3 ${pinnedTaskIds.includes(entry.tasks.id) ? 'fill-amber-600' : ''}`} />
-                        </Button>
+                        {/* Actions section - at the end */}
+                        {isActionsOpen && (
+                          <div className="flex items-center gap-1 flex-wrap pl-6">
+                            <CompactTimerControls
+                              taskId={entry.tasks.id}
+                              taskName={entry.tasks.name}
+                              entryId={entry.id}
+                              timerMetadata={entry.timer_metadata}
+                              onTimerUpdate={handleTimerUpdate}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleViewTask(entry.tasks.id);
+                                setShowingActionsFor(null);
+                              }}
+                              className="h-6 px-2 text-xs"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleOpenAssignDialog(entry);
+                                setShowingActionsFor(null);
+                              }}
+                              className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                              title="Assign to workload calendar"
+                            >
+                              <CalendarPlus className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                togglePin(entry.tasks.id);
+                                setShowingActionsFor(null);
+                              }}
+                              className={`h-6 px-2 text-xs ${pinnedTaskIds.includes(entry.tasks.id) ? 'text-amber-600' : 'text-muted-foreground'}`}
+                              title={pinnedTaskIds.includes(entry.tasks.id) ? 'Unpin' : 'Pin to top'}
+                            >
+                              <Pin className={`h-3 w-3 ${pinnedTaskIds.includes(entry.tasks.id) ? 'fill-amber-600' : ''}`} />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {isError && <p className="text-xs text-red-500 mt-1">Error loading running tasks</p>}
