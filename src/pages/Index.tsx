@@ -497,6 +497,11 @@ const Index = () => {
           <PinnedUntilGoalsSection />
         </div>
 
+        {/* Quick Tasks Section */}
+        <div className="mb-8">
+          <QuickTasksSection />
+        </div>
+
         {/* Active Time Tracking Section */}
         <div className="mb-8">
           <ActiveTimeTracking
