@@ -497,11 +497,6 @@ const Index = () => {
           <PinnedUntilGoalsSection />
         </div>
 
-        {/* Quick Tasks Section - All Projects with Global Filters */}
-        <div className="mb-8">
-          <QuickTasksSection showProjectFilters={true} projectScope="all" title="Qk Show Tasks" />
-        </div>
-
         {/* Active Time Tracking Section */}
         <div className="mb-8">
           <ActiveTimeTracking
@@ -509,6 +504,11 @@ const Index = () => {
             isError={!!runningTasksQuery.error}
             onRunningTaskClick={() => { /* stay on dashboard after timer actions */ }}
           />
+        </div>
+
+        {/* Quick Tasks Section - All Projects with Global Filters */}
+        <div className="mb-8">
+          <QuickTasksSection showProjectFilters={true} projectScope="all" title="Qk Show Tasks" />
         </div>
 
 
