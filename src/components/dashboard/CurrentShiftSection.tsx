@@ -1777,94 +1777,70 @@ export const CurrentShiftSection = () => {
                                       const isPaused = activeEntry?.timer_metadata?.includes("[PAUSED at");
                                       const parentTaskId = item.subtask?.task?.id || '';
 
+                                      const subtaskItemKey = `subtask-item-${item.id}`;
+                                      const isItemExpanded = collapsedItems.has(subtaskItemKey);
+
                                       return (
                                         <div
                                           key={item.id}
                                           className={cn(
-                                            'flex items-start justify-between p-2 rounded-md transition-all bg-red-100/50 dark:bg-red-900/30',
+                                            'p-2 rounded-md transition-all bg-red-100/50 dark:bg-red-900/30 cursor-pointer',
                                             activeEntry && 'border border-orange-300 bg-orange-50 dark:bg-orange-900/20',
                                             getItemStatus(item) === 'In Progress' && 'border border-orange-300 bg-orange-50/60 dark:bg-orange-900/20'
                                           )}
+                                          onClick={() => setCollapsedItems(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(subtaskItemKey)) next.delete(subtaskItemKey);
+                                            else next.add(subtaskItemKey);
+                                            return next;
+                                          })}
                                         >
-                                          <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (!parentTaskId) return;
-                                                  setSelectedSubtasks(prev => {
-                                                    const exists = prev.some(s => s.id === realTaskId);
-                                                    if (exists) return prev.filter(s => s.id !== realTaskId);
-                                                    return [...prev, { id: realTaskId, name: item.subtask?.name || '', task_id: parentTaskId }];
-                                                  });
-                                                }}
-                                                className="mt-0.5 shrink-0"
-                                                aria-label="Select subtask"
-                                                title="Select"
-                                              >
-                                                {selectedSubtasks.some(s => s.id === realTaskId) ? (
-                                                  <CheckSquare className="h-4 w-4 text-primary" />
-                                                ) : (
-                                                  <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                                                )}
-                                              </button>
-                                              <span className={cn(
-                                                'text-red-800 dark:text-red-200',
-                                                item.subtask?.status === 'Completed' && 'line-through decoration-current/70'
-                                              )}>
-                                                {renderTaskName(item.subtask?.name || '')}
-                                              </span>
-                                              {/* Inline icons for Quick Tasks subtasks */}
-                                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={(e) => { e.stopPropagation(); openAssignForItem(item); collapseItem(item.id); }}
-                                                  className="h-5 px-1"
-                                                  title="Add to Workload"
-                                                >
-                                                  <CalendarPlus className="h-3 w-3 text-yellow-500" />
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={(e) => { 
-                                                    e.stopPropagation(); 
-                                                    deleteItemMutation.mutate({ 
-                                                      id: item.subtask?.id || item.id, 
-                                                      type: 'subtask',
-                                                      name: item.subtask?.name || 'Subtask'
-                                                    });
-                                                    collapseItem(item.id);
-                                                  }}
-                                                  className="h-5 px-1 text-destructive hover:text-destructive"
-                                                  title="Delete"
-                                                >
-                                                  <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="h-5 px-1 text-xs"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleToggleSubtaskStatus(item.subtask);
-                                                    collapseItem(item.id);
-                                                  }}
-                                                >
-                                                  {item.subtask?.status || 'Not Started'}
-                                                </Button>
-                                              </div>
-                                            </div>
+                                          {/* Full width title row */}
+                                          <div className="flex items-center gap-2 w-full">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (!parentTaskId) return;
+                                                setSelectedSubtasks(prev => {
+                                                  const exists = prev.some(s => s.id === realTaskId);
+                                                  if (exists) return prev.filter(s => s.id !== realTaskId);
+                                                  return [...prev, { id: realTaskId, name: item.subtask?.name || '', task_id: parentTaskId }];
+                                                });
+                                              }}
+                                              className="shrink-0"
+                                              aria-label="Select subtask"
+                                              title="Select"
+                                            >
+                                              {selectedSubtasks.some(s => s.id === realTaskId) ? (
+                                                <CheckSquare className="h-4 w-4 text-primary" />
+                                              ) : (
+                                                <Square className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                              )}
+                                            </button>
+                                            <span className={cn(
+                                              'text-red-800 dark:text-red-200 flex-1 text-sm',
+                                              item.subtask?.status === 'Completed' && 'line-through decoration-current/70'
+                                            )}>
+                                              {renderTaskName(item.subtask?.name || '')}
+                                            </span>
+                                            {activeEntry && (
+                                              <LiveTimer
+                                                startTime={activeEntry.start_time}
+                                                isPaused={isPaused}
+                                                timerMetadata={activeEntry.timer_metadata}
+                                              />
+                                            )}
+                                            {isItemExpanded ? (
+                                              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                            ) : (
+                                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                            )}
                                           </div>
-                                          <div className="flex items-center gap-1 ml-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                                            {activeEntry ? (
-                                              <>
-                                                <LiveTimer
-                                                  startTime={activeEntry.start_time}
-                                                  isPaused={isPaused}
-                                                  timerMetadata={activeEntry.timer_metadata}
-                                                />
+                                          
+                                          {/* Collapsible action buttons row */}
+                                          {isItemExpanded && (
+                                            <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-red-200 dark:border-red-800" onClick={(e) => e.stopPropagation()}>
+                                              {activeEntry ? (
                                                 <CompactTimerControls
                                                   taskId={realTaskId}
                                                   taskName={item.subtask?.name || ''}
@@ -1872,34 +1848,68 @@ export const CurrentShiftSection = () => {
                                                   timerMetadata={activeEntry.timer_metadata}
                                                   onTimerUpdate={() => {}}
                                                 />
-                                              </>
-                                            ) : (
-                                              <>
+                                              ) : (
                                                 <Button
                                                   size="sm"
                                                   onClick={() => { handleStartTask(realTaskId, true); collapseItem(item.id); }}
-                                                  className="h-6 px-1"
-                                                  title="Start"
+                                                  className="h-6 px-2"
+                                                  title="Start Timer"
                                                 >
-                                                  <Play className="h-3 w-3" />
+                                                  <Play className="h-3 w-3 mr-1" />
+                                                  Start
                                                 </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="h-6 px-1"
-                                                  title="Clear from slot"
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    clearSubtaskFromSlotMutation.mutate({ subtaskId: realTaskId });
-                                                    collapseItem(item.id);
-                                                  }}
-                                                  disabled={clearSubtaskFromSlotMutation.isPending}
-                                                >
-                                                  <X className="h-3 w-3" />
-                                                </Button>
-                                              </>
-                                            )}
-                                          </div>
+                                              )}
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => { openAssignForItem(item); collapseItem(item.id); }}
+                                                className="h-6 px-2"
+                                                title="Add to Workload"
+                                              >
+                                                <CalendarPlus className="h-3 w-3 text-yellow-500" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 px-2"
+                                                title="Clear from slot"
+                                                onClick={() => {
+                                                  clearSubtaskFromSlotMutation.mutate({ subtaskId: realTaskId });
+                                                  collapseItem(item.id);
+                                                }}
+                                                disabled={clearSubtaskFromSlotMutation.isPending}
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => { 
+                                                  deleteItemMutation.mutate({ 
+                                                    id: item.subtask?.id || item.id, 
+                                                    type: 'subtask',
+                                                    name: item.subtask?.name || 'Subtask'
+                                                  });
+                                                  collapseItem(item.id);
+                                                }}
+                                                className="h-6 px-2 text-destructive hover:text-destructive"
+                                                title="Delete"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 px-2 text-xs"
+                                                onClick={() => {
+                                                  handleToggleSubtaskStatus(item.subtask);
+                                                  collapseItem(item.id);
+                                                }}
+                                              >
+                                                {item.subtask?.status || 'Not Started'}
+                                              </Button>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
