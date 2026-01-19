@@ -508,7 +508,7 @@ const Index = () => {
 
         {/* Quick Tasks Section - All Projects with Global Filters */}
         <div className="mb-8">
-          <QuickTasksSection showProjectFilters={true} projectScope="all" title="Qk Show Tasks" />
+          <QuickTasksSection showProjectFilters={true} projectScope="all" title="Qk Show Tasks" defaultOpen={false} />
         </div>
 
 
