@@ -1035,7 +1035,7 @@ export const QuickTasksSection = ({
               </div>
             </div>
 
-            {(showingActionsFor === task.id || activeEntry) && (
+            {showingActionsFor === task.id && (
             <div className="mt-2 flex flex-wrap gap-2 justify-start task-content-area">
               {/* Time Controls Toggle */}
               <Button
@@ -2092,7 +2092,7 @@ export const QuickTasksSection = ({
                           )}
                         </div>
                         
-                        {(showingActionsFor === task.id || activeEntry) && (
+                        {showingActionsFor === task.id && (
                         <div className="flex items-center gap-1 justify-end">
                           {activeEntry ? (
                             <>
